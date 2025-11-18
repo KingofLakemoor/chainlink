@@ -90,7 +90,19 @@ export async function fetchScheduleData(endpoint: string, league: League) {
   if (league === "MBB" || league === "WBB") {
     const scoreboardData = data as ScoreboardScheduleResponse;
 
+    // Deduplicate games by gameId across all events
+    const seenGameIds = new Set<string>();
+    const uniqueEvents: typeof scoreboardData.events = [];
+
     for (const event of scoreboardData.events || []) {
+      if (seenGameIds.has(event.id)) {
+        continue; // Skip duplicate
+      }
+      seenGameIds.add(event.id);
+      uniqueEvents.push(event);
+    }
+
+    for (const event of uniqueEvents) {
       const date = event.date?.split("T")[0].replace(/-/g, "");
       if (!date) continue;
       scheduleData[date] = {

@@ -1,0 +1,5 @@
+
+> chainlink@0.2.0 dev:server
+> convex dev
+
+✖ Cannot prompt for input in non-interactive terminals.

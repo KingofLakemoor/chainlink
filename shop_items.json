@@ -1253,9 +1253,9 @@
     "type": "MERCH",
     "active": true,
     "forSale": false,
-    "image": "/images/merch/tee-banner.png",
+    "image": "gs://chainlink-2-72590.firebasestorage.app/tee banner.png",
     "featured": true,
-    "preview": "/images/merch/tee-banner.png",
+    "preview": "gs://chainlink-2-72590.firebasestorage.app/tee banner.png",
     "order": 99,
     "collectionId": "",
     "requiresShipping": true
@@ -1513,9 +1513,9 @@
     "requiresShipping": true,
     "active": true,
     "forSale": false,
-    "image": "/images/merch/trucker banner.png",
+    "image": "gs://chainlink-2-72590.firebasestorage.app/trucker banner.png",
     "featured": true,
-    "preview": "/images/merch/trucker banner.png",
+    "preview": "gs://chainlink-2-72590.firebasestorage.app/trucker banner.png",
     "order": 100,
     "collectionId": ""
   },
@@ -1625,9 +1625,9 @@
     "type": "PROFILE_BANNER",
     "active": true,
     "forSale": true,
-    "image": "/images/fourth_of_july_hero.png",
+    "image": "gs://chainlink-2-72590.firebasestorage.app/4th of July hero banner.png",
     "featured": true,
-    "preview": "/images/fourth_of_july_hero.png",
+    "preview": "gs://chainlink-2-72590.firebasestorage.app/4th of July hero banner.png",
     "order": 2,
     "collectionId": ""
   }

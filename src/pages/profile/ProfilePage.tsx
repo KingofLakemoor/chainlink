@@ -36,6 +36,7 @@ import { ZeroZeroAvatarRing } from '../../components/ui/avatar-rings/zero-zero';
 import { NovatrixCodeAvatarRing } from '../../components/ui/avatar-rings/novatrix-code';
 import { NovatrixQuantAvatarRing } from '../../components/ui/avatar-rings/novatrix-quant';
 import { SignalFloorAvatarRing } from '../../components/ui/avatar-rings/signal-floor';
+import { BullBearAvatarRing } from '../../components/ui/avatar-rings/bull-bear';
 import { EdgeLedgerAvatarRing } from '../../components/ui/avatar-rings/edge-ledger';
 import { BadBeatAvatarRing } from '../../components/ui/avatar-rings/bad-beat';
 import { NovatrixCodeBanner } from '../../components/ui/profile-banners/novatrix/NovatrixCodeBanner';
@@ -58,7 +59,8 @@ const AvatarRingMap: Record<string, React.FC<any>> = {
   'ZeroZeroAvatarRing': ZeroZeroAvatarRing,
   'NovatrixCodeAvatarRing': NovatrixCodeAvatarRing,
   'NovatrixQuantAvatarRing': NovatrixQuantAvatarRing,
-  'SignalFloorAvatarRing': SignalFloorAvatarRing
+  'SignalFloorAvatarRing': SignalFloorAvatarRing,
+  'BullBearAvatarRing': BullBearAvatarRing
   ,'EdgeLedgerAvatarRing': EdgeLedgerAvatarRing,
   'BadBeatAvatarRing': BadBeatAvatarRing
 };
@@ -444,7 +446,7 @@ export default function ProfilePage() {
 
       {/* Profile Header */}
       <div className={`bg-[#121212] border border-zinc-800 rounded-2xl p-6 md:p-10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden ${
-        BannerComponent || equippedBannerImage?.startsWith('/') ? '' : (equippedBannerImage || '')
+        BannerComponent || (equippedBannerImage?.startsWith('/') || equippedBannerImage?.startsWith('http') || equippedBannerImage?.startsWith('gs://')) ? '' : (equippedBannerImage || '')
       }`}>
          {/* Render WebGL banner if applicable */}
          {BannerComponent && (
@@ -454,8 +456,8 @@ export default function ProfilePage() {
          )}
 
          {/* Render static image banner if applicable */}
-         {!BannerComponent && equippedBannerImage?.startsWith('/') && (
-            <img src={equippedBannerImage} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
+         {!BannerComponent && (equippedBannerImage?.startsWith('/') || equippedBannerImage?.startsWith('http') || equippedBannerImage?.startsWith('gs://')) && (
+            <FirebaseImage src={equippedBannerImage} fallback={`https://placehold.co/600x200/18181b/ffffff?text=${encodeURIComponent(equippedBannerItem?.name || "Profile Banner")}`} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
          )}
 
          {/* Only show default background if no banner is equipped */}
@@ -465,7 +467,7 @@ export default function ProfilePage() {
 
          <div className="relative">
             {RingComponent && (
-               <div className="absolute inset-0 z-0 transform scale-125 pointer-events-none rounded-full overflow-hidden">
+               <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
                   <RingComponent isStatic={false} />
                </div>
             )}
@@ -568,19 +570,19 @@ export default function ProfilePage() {
            <div className="grid grid-cols-3 gap-4">
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-green-500/20 transition-colors">
                  <CheckCircle2 className="w-6 h-6 text-green-500 mb-2 opacity-80" />
-                 <span className="text-2xl font-bold text-green-400">{stats.wins}</span>
+                 <span className="text-2xl font-bold text-green-400">{isNaN(stats.wins) ? 0 : stats.wins}</span>
                  <span className="text-[10px] uppercase font-bold text-green-500/80 tracking-wider">Wins</span>
               </div>
 
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-red-500/20 transition-colors">
                  <XCircle className="w-6 h-6 text-red-500 mb-2 opacity-80" />
-                 <span className="text-2xl font-bold text-red-400">{stats.losses}</span>
+                 <span className="text-2xl font-bold text-red-400">{isNaN(stats.losses) ? 0 : stats.losses}</span>
                  <span className="text-[10px] uppercase font-bold text-red-500/80 tracking-wider">Losses</span>
               </div>
 
               <div className="bg-zinc-500/10 border border-zinc-500/20 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-zinc-500/20 transition-colors">
                  <MinusCircle className="w-6 h-6 text-zinc-500 mb-2 opacity-80" />
-                 <span className="text-2xl font-bold text-zinc-400">{stats.pushes}</span>
+                 <span className="text-2xl font-bold text-zinc-400">{isNaN(stats.pushes) ? 0 : stats.pushes}</span>
                  <span className="text-[10px] uppercase font-bold text-zinc-500/80 tracking-wider">Pushes</span>
               </div>
            </div>
@@ -588,7 +590,7 @@ export default function ProfilePage() {
            {/* Progress Bar */}
            <div className="mt-6">
               <div className="flex justify-between text-xs text-zinc-500 font-medium mb-2">
-                 <span>Total Decisions: {totalDecisions}</span>
+                 <span>Total Decisions: {isNaN(totalDecisions) ? 0 : totalDecisions}</span>
               </div>
               <div className="h-2 w-full bg-red-500/20 rounded-full overflow-hidden flex">
                  <div className="h-full bg-green-500" style={{ width: `${winRate}%` }}></div>
@@ -624,13 +626,13 @@ export default function ProfilePage() {
                         <div className="flex items-center justify-between text-sm mb-3">
                            <span className="text-zinc-500 font-medium">Record</span>
                            <div className="flex items-center gap-2 font-mono">
-                              <span className="text-green-400 font-bold">{stat.wins}W</span>
+                              <span className="text-green-400 font-bold">{isNaN(stat.wins) ? 0 : stat.wins}W</span>
                               <span className="text-zinc-600">-</span>
-                              <span className="text-red-400 font-bold">{stat.losses}L</span>
+                              <span className="text-red-400 font-bold">{isNaN(stat.losses) ? 0 : stat.losses}L</span>
                               {stat.pushes > 0 && (
                                  <>
                                     <span className="text-zinc-600">-</span>
-                                    <span className="text-zinc-400 font-bold">{stat.pushes}P</span>
+                                    <span className="text-zinc-400 font-bold">{isNaN(stat.pushes) ? 0 : stat.pushes}P</span>
                                  </>
                               )}
                            </div>
@@ -639,11 +641,11 @@ export default function ProfilePage() {
                         <div className="grid grid-cols-2 gap-2 mt-auto">
                            <div className="bg-zinc-800/30 rounded p-2 flex flex-col items-center text-center">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Max Win<br />Chain</span>
-                              <span className="text-green-400 font-bold font-mono">W{stat.longestWinChain}</span>
+                              <span className="text-green-400 font-bold font-mono">W{isNaN(stat.longestWinChain) ? 0 : stat.longestWinChain}</span>
                            </div>
                            <div className="bg-zinc-800/30 rounded p-2 flex flex-col items-center text-center">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Max Loss<br />Chain</span>
-                              <span className="text-red-400 font-bold font-mono">L{stat.longestLossChain}</span>
+                              <span className="text-red-400 font-bold font-mono">L{isNaN(stat.longestLossChain) ? 0 : stat.longestLossChain}</span>
                            </div>
                         </div>
                      </div>

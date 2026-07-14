@@ -303,7 +303,7 @@ export default function PickEmPage() {
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-display font-black text-white mb-2 uppercase tracking-tight flex items-center gap-3">
           {theme.logoUrl ? (
-            <img src={theme.logoUrl} alt={title} className="w-10 h-10 object-contain" loading="lazy" />
+            <FirebaseImage src={theme.logoUrl} alt={title} className="w-10 h-10 object-contain" loading="lazy" />
           ) : (
             <Layers className="w-8 h-8" style={{ color: primaryColor }} />
           )}
@@ -434,7 +434,7 @@ export default function PickEmPage() {
                         style={pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
-                          <img src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                          <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
                           <div className="flex flex-row items-baseline gap-2">
                             <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name}</span>
                             {isSpread && !isSpreadPendingLock && (
@@ -474,7 +474,7 @@ export default function PickEmPage() {
                         style={pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
-                          <img src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                          <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
                           <div className="flex flex-row items-baseline gap-2">
                             <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name}</span>
                             {isSpread && !isSpreadPendingLock && (
@@ -562,10 +562,10 @@ export default function PickEmPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className="font-bold text-lg" style={{ color: primaryColor }}>{participant.points}</span>
+                        <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : participant.points}</span>
                       </td>
                       <td className="px-6 py-4 text-center text-zinc-400 font-mono">
-                        {participant.wins}-{participant.losses}-{participant.pushes}
+                        {isNaN(participant.wins) ? 0 : participant.wins}-{isNaN(participant.losses) ? 0 : participant.losses}-{isNaN(participant.pushes) ? 0 : participant.pushes}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
@@ -589,7 +589,7 @@ export default function PickEmPage() {
 
                             return (
                               <div key={pick.id} className={`w-8 h-8 rounded-full border-2 overflow-hidden bg-zinc-800 flex-shrink-0 ${borderColorClass}`} title={`${altText} - ${pick.status}`}>
-                                <img src={imageUrl} alt={altText} className="w-full h-full object-contain p-0.5" />
+                                <FirebaseImage src={imageUrl} alt={altText} className="w-full h-full object-contain p-0.5" />
                               </div>
                             );
                           })}

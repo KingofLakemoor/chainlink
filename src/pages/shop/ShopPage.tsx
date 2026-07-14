@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { ShoppingCart, Coins, Crown, Zap } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -33,6 +34,7 @@ import { ZeroZeroAvatarRing } from '../../components/ui/avatar-rings/zero-zero';
 import { NovatrixCodeAvatarRing } from '../../components/ui/avatar-rings/novatrix-code';
 import { NovatrixQuantAvatarRing } from '../../components/ui/avatar-rings/novatrix-quant';
 import { SignalFloorAvatarRing } from '../../components/ui/avatar-rings/signal-floor';
+import { BullBearAvatarRing } from '../../components/ui/avatar-rings/bull-bear';
 import { EdgeLedgerAvatarRing } from '../../components/ui/avatar-rings/edge-ledger';
 import { BadBeatAvatarRing } from '../../components/ui/avatar-rings/bad-beat';
 import { NovatrixCodeBanner } from '../../components/ui/profile-banners/novatrix/NovatrixCodeBanner';
@@ -55,7 +57,8 @@ const AvatarRingMap: Record<string, React.FC<any>> = {
   'ZeroZeroAvatarRing': ZeroZeroAvatarRing,
   'NovatrixCodeAvatarRing': NovatrixCodeAvatarRing,
   'NovatrixQuantAvatarRing': NovatrixQuantAvatarRing,
-  'SignalFloorAvatarRing': SignalFloorAvatarRing
+  'SignalFloorAvatarRing': SignalFloorAvatarRing,
+  'BullBearAvatarRing': BullBearAvatarRing
   ,'EdgeLedgerAvatarRing': EdgeLedgerAvatarRing,
   'BadBeatAvatarRing': BadBeatAvatarRing
 };
@@ -89,6 +92,7 @@ const ProfileBannerMap: Record<string, React.FC<any>> = {
 
 
 
+
 export default function ShopPage() {
   const { user, profile } = useAuth();
   const [items, setItems] = useState<any[]>([]);
@@ -118,10 +122,11 @@ export default function ShopPage() {
         if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
           setItems([
             { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, image: 'Hexagons' },
+            { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, image: 'BullBearAvatarRing' },
             { id: 'banner_neon', name: 'Neon Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
 
-            { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: '/images/merch/tee-banner.png' },
-            { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: '/images/merch/trucker banner.png' },
+            { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
+            { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);
           setLoading(false);
           return;
@@ -308,21 +313,25 @@ export default function ShopPage() {
          {/* Preview area */}
          <div className="h-32 bg-zinc-900 flex items-center justify-center relative overflow-hidden border-b border-zinc-800">
             {item.type === 'PROFILE_BANNER' && (
-              ProfileBannerMap[item.image] ? (
+              item.thumbnail ? (
+                  <FirebaseImage src={item.thumbnail} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+              ) : ProfileBannerMap[item.image] ? (
                 <div className="absolute inset-0">
                   {React.createElement(ProfileBannerMap[item.image], { isStatic: false })}
                 </div>
-              ) : item.image?.startsWith('/') ? (
-                  <img loading="lazy" src={item.image} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (item.image?.startsWith('/') || item.image?.startsWith('http') || item.image?.startsWith('gs://')) ? (
+                  <FirebaseImage src={item.image} fallback={`https://placehold.co/600x200/18181b/ffffff?text=${encodeURIComponent(item.name)}`} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   <div className={`absolute inset-0 ${item.image || 'bg-zinc-800'}`}></div>
                 )
             )}
             {item.type === 'AVATAR_RING' && (
               <div className="relative w-16 h-16 flex items-center justify-center z-10">
-                {AvatarRingMap[item.image] ? (
+                {item.thumbnail ? (
+                  <FirebaseImage src={item.thumbnail} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : AvatarRingMap[item.image] ? (
                    <>
-                     <div className="absolute inset-0 rounded-full overflow-hidden transform scale-125">
+                     <div className="absolute inset-0 transform scale-[1.3] pointer-events-none">
                        {React.createElement(AvatarRingMap[item.image], { isStatic: false })}
                      </div>
                      <div className="relative w-full h-full p-1.5">
@@ -336,7 +345,9 @@ export default function ShopPage() {
             )}
             {item.type === 'TITLE' && (
               <div className="z-10">
-                {TitleMap[item.preview || item.image || ''] ? (
+                {item.thumbnail ? (
+                  <FirebaseImage src={item.thumbnail} alt={item.name} className="w-full h-full object-contain max-h-16" />
+                ) : TitleMap[item.preview || item.image || ''] ? (
                   <div className="flex justify-center py-2">
                     {React.createElement(TitleMap[item.preview || item.image || ''], { isStatic: false })}
                   </div>
@@ -629,7 +640,7 @@ export default function ShopPage() {
                 <div key={item.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
                   <div className="h-40 bg-zinc-900 flex items-center justify-center relative overflow-hidden border-b border-zinc-800">
                      {item.image ? (
-                        <img loading="lazy" src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        <FirebaseImage src={item.image} fallback={`https://placehold.co/400x400/18181b/ffffff?text=${encodeURIComponent(item.name)}`} alt={item.name} className="w-full h-full object-cover" />
                      ) : (
                         <>
                            <div className="absolute inset-0 bg-zinc-800"></div>
@@ -664,7 +675,7 @@ export default function ShopPage() {
             {/* 2. Custom Link Card for Club 602 Merch Shop */}
             <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
               <div className="h-40 bg-zinc-900 flex items-center justify-center relative overflow-hidden border-b border-zinc-800">
-                <img loading="lazy" src="/images/merch/602 Merch Banner.jpeg" alt="Club 602 Merch" className="w-full h-full object-cover" />
+                <FirebaseImage src="gs://chainlink-2-72590.firebasestorage.app/602 Merch Banner.jpeg" fallback="https://placehold.co/600x400/18181b/ffffff?text=Club+602+Merch" alt="Club 602 Merch" className="w-full h-full object-cover" />
               </div>
               <div className="p-5 flex flex-col flex-1">
                 <h3 className="text-xl font-bold text-zinc-200 mb-2">Club 602 Merch Shop</h3>
@@ -686,7 +697,7 @@ export default function ShopPage() {
                 <div key={item.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
                   <div className="h-40 bg-zinc-900 flex items-center justify-center relative overflow-hidden border-b border-zinc-800">
                      {item.image ? (
-                        <img loading="lazy" src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        <FirebaseImage src={item.image} fallback={`https://placehold.co/400x400/18181b/ffffff?text=${encodeURIComponent(item.name)}`} alt={item.name} className="w-full h-full object-cover" />
                      ) : (
                         <>
                            <div className="absolute inset-0 bg-zinc-800"></div>
@@ -734,8 +745,7 @@ export default function ShopPage() {
           {selectedMerchItem?.id === 'merch_level_one_tee' && (
              <div className="mb-6">
                 <div className="aspect-square bg-zinc-900 rounded-lg overflow-hidden mb-3 border border-zinc-800 flex items-center justify-center">
-                   <img loading="lazy"
-                    src={activePreviewImage || selectedMerchItem.image}
+                   <FirebaseImage src={activePreviewImage || selectedMerchItem.image} fallback={`https://placehold.co/600x600/18181b/ffffff?text=${encodeURIComponent(selectedMerchItem.name)}`}
                     alt="Product Preview"
                     className="w-full h-full object-cover"
                   />
@@ -762,7 +772,7 @@ export default function ShopPage() {
                       className={`w-16 h-16 rounded-md bg-zinc-800 border-2 shrink-0 overflow-hidden ${(activePreviewImage === img.src || (activePreviewImage === '' && shippingInfo.color === img.color)) ? 'border-emerald-500' : 'border-zinc-700 hover:border-zinc-500'}`}
                     >
                       {/* Using the image directly is fine, but since we don't have them all we'll just show the color block as a fallback, or rely on broken image icons for now */}
-                       <img loading="lazy"  src={img.src} alt={img.color} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerText = img.color; e.currentTarget.parentElement!.className += ' text-xs flex items-center justify-center' }} />
+                       <FirebaseImage src={img.src} alt={img.color} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerText = img.color; e.currentTarget.parentElement!.className += ' text-xs flex items-center justify-center' }} />
                     </button>
                   ))}
                 </div>
@@ -772,8 +782,7 @@ export default function ShopPage() {
           {selectedMerchItem?.id === 'merch_trucker_hat' && (
              <div className="mb-6">
                 <div className="aspect-square bg-zinc-900 rounded-lg overflow-hidden mb-3 border border-zinc-800 flex items-center justify-center">
-                   <img loading="lazy"
-                    src={activePreviewImage || selectedMerchItem.image}
+                   <FirebaseImage src={activePreviewImage || selectedMerchItem.image} fallback={`https://placehold.co/600x600/18181b/ffffff?text=${encodeURIComponent(selectedMerchItem.name)}`}
                     alt="Product Preview"
                     className="w-full h-full object-cover"
                   />
@@ -798,7 +807,7 @@ export default function ShopPage() {
                       }}
                       className={`w-16 h-16 rounded-md bg-zinc-800 border-2 shrink-0 overflow-hidden ${(activePreviewImage === img.src) ? 'border-emerald-500' : 'border-zinc-700 hover:border-zinc-500'}`}
                     >
-                       <img loading="lazy" src={img.src} alt={img.color} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerText = img.color; e.currentTarget.parentElement!.className += ' text-xs text-center flex items-center justify-center p-1' }} />
+                       <FirebaseImage src={img.src} alt={img.color} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerText = img.color; e.currentTarget.parentElement!.className += ' text-xs text-center flex items-center justify-center p-1' }} />
                     </button>
                   ))}
                 </div>

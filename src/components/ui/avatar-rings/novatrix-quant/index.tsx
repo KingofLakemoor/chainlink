@@ -1,14 +1,14 @@
 import React from 'react';
 
-export const NovatrixQuantAvatarRing = ({ className = "" }) => (
-  <>
+export const NovatrixQuantAvatarRing = ({ className = "", isStatic = false }) => (
+  <div className="relative w-full h-full flex items-center justify-center">
     <div className={`absolute inset-0 rounded-full
       bg-[radial-gradient(circle,_rgba(94,234,212,0.4),_transparent_70%)]
-      blur-2xl animate-novatrix-ring-pulse ${className}`} />
-
+      blur-2xl ${isStatic ? '' : 'animate-novatrix-ring-pulse'} ${className}`} />
+      
     <svg
       viewBox="0 0 260 260"
-      className={`absolute inset-0 animate-novatrix-ring-rotate ${className}`}
+      className={`absolute inset-0 w-full h-full ${isStatic ? '' : 'animate-novatrix-ring-rotate'} ${className}`}
     >
       <defs>
         <linearGradient id="novatrixQuantGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -17,7 +17,6 @@ export const NovatrixQuantAvatarRing = ({ className = "" }) => (
           <stop offset="100%" stopColor="#e0e7ff" />
         </linearGradient>
       </defs>
-
       <circle
         cx="130"
         cy="130"
@@ -27,7 +26,6 @@ export const NovatrixQuantAvatarRing = ({ className = "" }) => (
         fill="none"
         className="drop-shadow-[0_0_18px_rgba(94,234,212,0.9)]"
       />
-
       <circle
         cx="130"
         cy="130"
@@ -38,7 +36,6 @@ export const NovatrixQuantAvatarRing = ({ className = "" }) => (
         strokeDasharray="10 14"
         className="opacity-85"
       />
-
       {Array.from({ length: 12 }).map((_, i) => {
         const angle = (i / 12) * Math.PI * 2;
         const x = 130 + Math.cos(angle) * 96;
@@ -57,7 +54,6 @@ export const NovatrixQuantAvatarRing = ({ className = "" }) => (
         );
       })}
     </svg>
-
     <div className="absolute inset-[22%] rounded-full overflow-hidden bg-slate-950/70 backdrop-blur-sm -z-10" />
-  </>
+  </div>
 );

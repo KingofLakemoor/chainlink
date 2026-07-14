@@ -62,11 +62,12 @@ async function startServer() {
     app.get('/sw.js', (req, res) => {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Clear-Site-Data', '"cache"');
-      res.sendFile(path.join(process.cwd(), 'dist/sw.js'));
+      res.sendFile(path.join(process.cwd(), 'public/sw.js'));
     });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    app.get("/sw.js", (req, res) => { res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate"); res.setHeader("Clear-Site-Data", "\"cache\""); res.sendFile(path.join(distPath, "sw.js")); });
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

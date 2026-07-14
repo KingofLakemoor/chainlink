@@ -1,7 +1,8 @@
 import React from 'react';
 import { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db, app } from '../../../lib/firebase';
+import { getStorage } from 'firebase/storage';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -44,7 +45,7 @@ const formSchema = z.object({
   forSale: z.boolean().default(true),
   premiumOnly: z.boolean().default(false),
   featured: z.boolean().default(false),
-  image: z.string().optional(),
+  image: z.string().optional(), thumbnail: z.string().optional(),
   preview: z.string().optional(),
   order: z.coerce.number().optional(),
   collectionId: z.string().optional()
@@ -66,7 +67,7 @@ export default function CreateShopItemPage() {
       forSale: true,
       premiumOnly: false,
       featured: false,
-      image: "",
+      image: "", thumbnail: "",
       preview: "",
       order: 0,
       collectionId: ""
@@ -246,6 +247,9 @@ export default function CreateShopItemPage() {
                 />
               </div>
 
+              
+                  
+
               <FormField
                 control={form.control}
                 name="image"
@@ -254,6 +258,19 @@ export default function CreateShopItemPage() {
                     <FormLabel>Image (Tailwind Class or URL)</FormLabel>
                     <FormControl>
                       <Input type="text" placeholder="e.g. bg-gradient-to-r from-red-700 to-orange-500" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="thumbnail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Thumbnail URL (Overrides Component Render in Shop)</FormLabel>
+                    <FormControl>
+                      <Input type="text" placeholder="e.g. /images/thumbnail.png" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

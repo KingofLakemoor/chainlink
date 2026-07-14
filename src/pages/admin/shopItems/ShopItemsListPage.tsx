@@ -1,10 +1,11 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Edit, Trash2 } from 'lucide-react';
+import shopItemsData from '../../../../shop_items.json';
 
 export default function ShopItemsListPage() {
   const navigate = useNavigate();
@@ -26,6 +27,23 @@ export default function ShopItemsListPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  
+  const seedShopItems = async () => {
+    if (!confirm('Seed default shop items? This will overwrite existing items with the same ID.')) return;
+    setLoading(true);
+    try {
+      for (const item of shopItemsData) {
+        await setDoc(doc(db, 'shopItems', item.id), item);
+      }
+      await fetchData();
+      alert('Seeded successfully!');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to seed items');
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to archive/delete this shop item?")) return;
@@ -56,6 +74,7 @@ export default function ShopItemsListPage() {
         <h3 className="font-bold text-lg capitalize">Shop Items ({shopItems.length})</h3>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={fetchData}>Refresh</Button>
+          <Button variant="outline" size="sm" onClick={seedShopItems}>Seed Defaults</Button>
         </div>
       </div>
 

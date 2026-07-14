@@ -33,6 +33,7 @@ import { ZeroZeroAvatarRing } from '../../components/ui/avatar-rings/zero-zero';
 import { NovatrixCodeAvatarRing } from '../../components/ui/avatar-rings/novatrix-code';
 import { NovatrixQuantAvatarRing } from '../../components/ui/avatar-rings/novatrix-quant';
 import { SignalFloorAvatarRing } from '../../components/ui/avatar-rings/signal-floor';
+import { BullBearAvatarRing } from '../../components/ui/avatar-rings/bull-bear';
 import { EdgeLedgerAvatarRing } from '../../components/ui/avatar-rings/edge-ledger';
 import { BadBeatAvatarRing } from '../../components/ui/avatar-rings/bad-beat';
 import { NovatrixCodeBanner } from '../../components/ui/profile-banners/novatrix/NovatrixCodeBanner';
@@ -56,7 +57,8 @@ const AvatarRingMap: Record<string, React.FC<any>> = {
   'ZeroZeroAvatarRing': ZeroZeroAvatarRing,
   'NovatrixCodeAvatarRing': NovatrixCodeAvatarRing,
   'NovatrixQuantAvatarRing': NovatrixQuantAvatarRing,
-  'SignalFloorAvatarRing': SignalFloorAvatarRing
+  'SignalFloorAvatarRing': SignalFloorAvatarRing,
+  'BullBearAvatarRing': BullBearAvatarRing
   ,'EdgeLedgerAvatarRing': EdgeLedgerAvatarRing,
   'BadBeatAvatarRing': BadBeatAvatarRing
 };
@@ -286,15 +288,15 @@ export default function DashboardPage() {
     <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
       {/* Profile Header */}
       <div className={`bg-[#121212] border border-zinc-800 rounded-2xl p-6 md:p-10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden ${
-        BannerComponent || equippedBannerImage?.startsWith('/') ? '' : (equippedBannerImage || '')
+        BannerComponent || (equippedBannerImage?.startsWith('/') || equippedBannerImage?.startsWith('http') || equippedBannerImage?.startsWith('gs://')) ? '' : (equippedBannerImage || '')
       }`}>
          {BannerComponent && (
             <div className="absolute inset-0 z-0">
                <BannerComponent isStatic={false} />
             </div>
          )}
-         {!BannerComponent && equippedBannerImage?.startsWith('/') && (
-            <img src={equippedBannerImage} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
+         {!BannerComponent && (equippedBannerImage?.startsWith('/') || equippedBannerImage?.startsWith('http') || equippedBannerImage?.startsWith('gs://')) && (
+            <FirebaseImage src={equippedBannerImage} fallback={`https://placehold.co/600x200/18181b/ffffff?text=${encodeURIComponent(equippedBannerItem?.name || "Profile Banner")}`} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
          )}
          {!profile?.equippedCosmetics?.PROFILE_BANNER && (
             <div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_10%,transparent_80%)] opacity-5 pointer-events-none"></div>
@@ -302,7 +304,7 @@ export default function DashboardPage() {
 
          <div className="relative">
             {RingComponent && (
-               <div className="absolute inset-0 z-0 transform scale-125 pointer-events-none rounded-full overflow-hidden">
+               <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
                   <RingComponent isStatic={false} />
                </div>
             )}

@@ -197,7 +197,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                          m.metadata.awayLinescores.map((score: number, i: number) => (
                            <React.Fragment key={i}>
                              {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
-                             <span>{score}</span>
+                             <span>{isNaN(Number(score)) ? 0 : score}</span>
                            </React.Fragment>
                          ))
                        ) : (
@@ -246,7 +246,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                          m.metadata.homeLinescores.map((score: number, i: number) => (
                            <React.Fragment key={i}>
                              {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
-                             <span>{score}</span>
+                             <span>{isNaN(Number(score)) ? 0 : score}</span>
                            </React.Fragment>
                          ))
                        ) : (

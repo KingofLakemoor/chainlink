@@ -70,7 +70,8 @@ function PrimeCircuitRing({ isStatic = false, ...props }) {
         function resize() { if (!ctnDom.current) return;
             renderer.setSize(ctn.offsetWidth, ctn.offsetHeight);
         }
-        window.addEventListener("resize", resize, false);
+        const resizeObserver = new ResizeObserver(() => resize());
+        resizeObserver.observe(ctn);
         resize();
         const geometry = new Triangle(gl);
         const program = new Program(gl, {
@@ -110,7 +111,7 @@ function PrimeCircuitRing({ isStatic = false, ...props }) {
         return () => {
             mounted = false;
             if (animateId) cancelAnimationFrame(animateId);
-            window.removeEventListener("resize", resize);
+            resizeObserver.disconnect();
             if (ctnDom.current && ctnDom.current.contains(gl.canvas)) { ctnDom.current.removeChild(gl.canvas); }
             gl.getExtension("WEBGL_lose_context")?.loseContext();
         };

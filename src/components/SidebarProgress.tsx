@@ -124,7 +124,7 @@ export function SidebarProgress() {
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-zinc-400 flex items-center gap-1"><Users className="w-3 h-3"/> Users</span>
-              <span className="text-zinc-300">{activeUsers} / {prizeData.activeUsersRequirement}</span>
+              <span className="text-zinc-300">{activeUsers} / {isNaN(Number(prizeData.activeUsersRequirement)) ? 0 : prizeData.activeUsersRequirement}</span>
             </div>
             <Progress value={userProgress} className="h-1.5" />
           </div>
@@ -132,7 +132,7 @@ export function SidebarProgress() {
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-zinc-400 flex items-center gap-1"><Target className="w-3 h-3"/> Picks</span>
-              <span className="text-zinc-300">{globalPicks} / {prizeData.picksRequirement}</span>
+              <span className="text-zinc-300">{globalPicks} / {isNaN(Number(prizeData.picksRequirement)) ? 0 : prizeData.picksRequirement}</span>
             </div>
             <Progress value={picksProgress} className="h-1.5" />
           </div>

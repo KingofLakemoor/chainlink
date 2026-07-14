@@ -1,3 +1,4 @@
+import { FirebaseImage } from "../../components/ui/FirebaseImage";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
@@ -168,7 +169,7 @@ export default function MyPicksPage() {
                 </div>
 
                 <div className="w-20 h-20 flex items-center justify-center">
-                  <img src={displayTeamImage} alt={displayTeamName} className="w-full h-full object-contain drop-shadow-md" loading="lazy" />
+                  <FirebaseImage src={displayTeamImage} alt={displayTeamName} className="w-full h-full object-contain drop-shadow-md" loading="lazy" />
                 </div>
 
                 <div className="text-xs text-zinc-400 mt-2">

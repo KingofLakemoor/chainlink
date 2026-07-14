@@ -8,45 +8,29 @@ export interface FirebaseImageProps extends React.ImgHTMLAttributes<HTMLImageEle
 }
 
 export function FirebaseImage({ src, fallback, ...props }: FirebaseImageProps) {
-  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(src || fallback || undefined);
+  // If the src is not a gs:// URL, we can render it immediately.
+  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(
+    (src && !src.startsWith('gs://')) ? src : fallback || undefined
+  );
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    setHasError(false);
 
     async function resolveUrl() {
       if (!src) {
-        if (fallback) setResolvedSrc(fallback);
+        if (fallback && isMounted) setResolvedSrc(fallback);
         return;
       }
 
       if (src.startsWith('gs://')) {
         try {
-          if (src.toLowerCase().includes('scriptless.png')) {
-            if (isMounted) {
-              setResolvedSrc('/images/scriptless.png');
-            }
-            return;
-          }
-
           const storage = getStorage(app);
-          let adjustedSrc = src;
-
-          try {
-            const parsedUrl = new URL(src);
-            let path = decodeURIComponent(parsedUrl.pathname);
-            if (path.startsWith('/')) {
-              path = path.substring(1);
-            }
-            adjustedSrc = path;
-          } catch (e) {
-            // Fallback to basic string replacement if URL parsing fails
-            adjustedSrc = adjustedSrc.replace('gs://chainlink-2-72590.firebasestorage.app/', '').replace('gs://chainlink-2-72590.appspot.com/', '');
-          }
-
-          adjustedSrc = adjustedSrc.replace(/sponsors\/scriptless\.png/i, "Sponsors/scriptless.png");
-          adjustedSrc = adjustedSrc.replace(/^achievements\//i, "Achievements/");
-          const imageRef = ref(storage, adjustedSrc);
+          // Pass the complete gs:// URL so it uses the correct bucket
+          const imageRef = ref(storage, src);
           const url = await getDownloadURL(imageRef);
+          
           if (isMounted) {
             setResolvedSrc(url);
           }
@@ -54,6 +38,8 @@ export function FirebaseImage({ src, fallback, ...props }: FirebaseImageProps) {
           console.error("Error resolving Firebase Storage URL:", src, error);
           if (fallback && isMounted) {
             setResolvedSrc(fallback);
+          } else if (isMounted) {
+            setHasError(true);
           }
         }
       } else {
@@ -70,17 +56,24 @@ export function FirebaseImage({ src, fallback, ...props }: FirebaseImageProps) {
     };
   }, [src, fallback]);
 
+  if (hasError && !fallback) {
+      return null;
+  }
+
   return (
     <img
       src={resolvedSrc || undefined}
       {...props}
+      style={{ ...props.style, display: (hasError && !fallback) ? 'none' : props.style?.display }}
       loading="lazy"
-      crossOrigin="anonymous"
       onError={(e) => {
-        if (fallback && e.currentTarget.src !== fallback) {
-          e.currentTarget.src = fallback;
-        } else {
-          e.currentTarget.style.display = 'none';
+        if (props.onError) {
+           props.onError(e);
+        }
+        if (fallback && e.currentTarget.src !== fallback && !e.currentTarget.src.endsWith(fallback)) {
+          setResolvedSrc(fallback);
+        } else if (!props.onError) {
+          setHasError(true);
         }
       }}
     />

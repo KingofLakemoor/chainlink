@@ -253,7 +253,7 @@ export function AdminEditMatchup() {
                     <input type="text" value={matchup.awayTeam?.name || ''} onChange={(e) => handleChange('awayTeam.name', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
                 </div>
                 <div className="flex gap-4 items-center">
-                    {matchup.awayTeam?.image && <img src={matchup.awayTeam.image} alt="Away" className="w-8 h-8 object-contain bg-white rounded p-0.5" loading="lazy" />}
+                    {matchup.awayTeam?.image && <FirebaseImage src={matchup.awayTeam.image} alt="Away" className="w-8 h-8 object-contain bg-white rounded p-0.5" loading="lazy" />}
                     <div className="flex-1 space-y-2">
                         <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Away Team Image URL</label>
                         <input type="text" value={matchup.awayTeam?.image || ''} onChange={(e) => handleChange('awayTeam.image', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
@@ -272,7 +272,7 @@ export function AdminEditMatchup() {
                     <input type="text" value={matchup.homeTeam?.name || ''} onChange={(e) => handleChange('homeTeam.name', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
                 </div>
                 <div className="flex gap-4 items-center">
-                    {matchup.homeTeam?.image && <img src={matchup.homeTeam.image} alt="Home" className="w-8 h-8 object-contain bg-white rounded p-0.5" loading="lazy" />}
+                    {matchup.homeTeam?.image && <FirebaseImage src={matchup.homeTeam.image} alt="Home" className="w-8 h-8 object-contain bg-white rounded p-0.5" loading="lazy" />}
                     <div className="flex-1 space-y-2">
                         <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Home Team Image URL</label>
                         <input type="text" value={matchup.homeTeam?.image || ''} onChange={(e) => handleChange('homeTeam.image', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
@@ -435,7 +435,7 @@ export function AdminEditMatchup() {
                         </td>
                         <td className="py-4">
                             <div className="flex items-center gap-2">
-                                <img src={p.team?.image} className="w-5 h-5 object-contain" loading="lazy" />
+                                <FirebaseImage src={p.team?.image} className="w-5 h-5 object-contain" loading="lazy" />
                                 <span className="text-zinc-300">{p.team?.name}</span>
                             </div>
                         </td>

@@ -491,7 +491,7 @@ export default function Link4Page() {
         <div>
           <h1 className="text-3xl md:text-4xl font-display font-black text-white mb-2 uppercase tracking-tight flex items-center gap-3">
             {theme.logoUrl ? (
-              <img src={theme.logoUrl} alt="Link4 Logo" className="w-10 h-10 object-contain" loading="lazy" />
+              <FirebaseImage src={theme.logoUrl} alt="Link4 Logo" className="w-10 h-10 object-contain" loading="lazy" />
             ) : (
               <Grid className="w-8 h-8" style={{ color: theme.primaryColor || '#22c55e' }} />
             )}

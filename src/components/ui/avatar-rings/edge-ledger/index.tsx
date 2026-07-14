@@ -1,16 +1,13 @@
 import React from "react";
 
-export const EdgeLedgerAvatarRing = ({ size = 256, className = "" }: { size?: number; className?: string }) => (
-  <div
-    className={`relative flex items-center justify-center ${className}`}
-    style={{ width: size, height: size }}
-  >
+export const EdgeLedgerAvatarRing = ({ className = "", isStatic = false }) => (
+  <div className={`relative w-full h-full flex items-center justify-center ${className}`}>
     {/* Outer glow */}
-    <div className="absolute inset-0 rounded-full
+    <div className={`absolute inset-0 rounded-full
       bg-[radial-gradient(circle,_rgba(234,179,8,0.35),_transparent_70%)]
-      blur-2xl animate-ledger-ring-glow" />
-
-    <svg viewBox="0 0 260 260" className="absolute inset-0">
+      blur-2xl ${isStatic ? '' : 'animate-ledger-ring-glow'}`} />
+    
+    <svg viewBox="0 0 260 260" className="absolute inset-0 w-full h-full">
       <defs>
         <linearGradient id="ledgerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#facc15" />
@@ -18,7 +15,6 @@ export const EdgeLedgerAvatarRing = ({ size = 256, className = "" }: { size?: nu
           <stop offset="100%" stopColor="#a16207" />
         </linearGradient>
       </defs>
-
       {/* Outer gold ring */}
       <circle
         cx="130"
@@ -29,7 +25,6 @@ export const EdgeLedgerAvatarRing = ({ size = 256, className = "" }: { size?: nu
         fill="none"
         className="drop-shadow-[0_0_18px_rgba(234,179,8,0.9)]"
       />
-
       {/* Inner PnL tick ring */}
       <circle
         cx="130"
@@ -41,7 +36,6 @@ export const EdgeLedgerAvatarRing = ({ size = 256, className = "" }: { size?: nu
         strokeDasharray="4 10"
         className="opacity-85"
       />
-
       {/* Ledger tabs */}
       {[
         { angle: -Math.PI / 2, width: 32 },
@@ -65,7 +59,6 @@ export const EdgeLedgerAvatarRing = ({ size = 256, className = "" }: { size?: nu
           />
         );
       })}
-
       {/* Tiny green micro-ticks */}
       {Array.from({ length: 24 }).map((_, i) => {
         const angle = (i / 24) * Math.PI * 2;
@@ -86,9 +79,7 @@ export const EdgeLedgerAvatarRing = ({ size = 256, className = "" }: { size?: nu
         );
       })}
     </svg>
-
     {/* Avatar slot */}
-    <div className="absolute inset-[22%] rounded-full overflow-hidden
-      bg-slate-950/75 backdrop-blur-sm" />
+    <div className="absolute inset-[22%] rounded-full overflow-hidden bg-slate-950/75 backdrop-blur-sm -z-10" />
   </div>
 );

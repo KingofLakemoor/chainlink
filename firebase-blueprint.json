@@ -375,7 +375,7 @@
         "price": { "type": "number" },
         "type": { "type": "string" },
         "active": { "type": "boolean" },
-        "preview": { "type": "string" },
+        "preview": { "type": "string" }, "thumbnail": { "type": "string" },
         "metadata": { "type": "object" },
         "featured": { "type": "boolean" },
         "order": { "type": "number" },

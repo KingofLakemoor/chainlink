@@ -20,6 +20,7 @@ import { ZeroZeroAvatarRing } from '../../components/ui/avatar-rings/zero-zero';
 import { NovatrixCodeAvatarRing } from '../../components/ui/avatar-rings/novatrix-code';
 import { NovatrixQuantAvatarRing } from '../../components/ui/avatar-rings/novatrix-quant';
 import { SignalFloorAvatarRing } from '../../components/ui/avatar-rings/signal-floor';
+import { BullBearAvatarRing } from '../../components/ui/avatar-rings/bull-bear';
 import { EdgeLedgerAvatarRing } from '../../components/ui/avatar-rings/edge-ledger';
 import { BadBeatAvatarRing } from '../../components/ui/avatar-rings/bad-beat';
 import { TitleMap } from '../../components/ui/titles';
@@ -81,7 +82,8 @@ const AvatarRingMap: Record<string, React.FC<any>> = {
   'ZeroZeroAvatarRing': ZeroZeroAvatarRing,
   'NovatrixCodeAvatarRing': NovatrixCodeAvatarRing,
   'NovatrixQuantAvatarRing': NovatrixQuantAvatarRing,
-  'SignalFloorAvatarRing': SignalFloorAvatarRing
+  'SignalFloorAvatarRing': SignalFloorAvatarRing,
+  'BullBearAvatarRing': BullBearAvatarRing
   ,'EdgeLedgerAvatarRing': EdgeLedgerAvatarRing,
   'BadBeatAvatarRing': BadBeatAvatarRing
 };
@@ -106,6 +108,7 @@ class CosmeticsErrorBoundary extends React.Component<{ children: React.ReactNode
     return this.props.children;
   }
 }
+
 
 export default function LeaderboardsPage() {
   const { user } = useAuth();
@@ -423,14 +426,14 @@ export default function LeaderboardsPage() {
 
     return (
       <div className={`bg-[#121212] border border-zinc-800 rounded-xl relative overflow-hidden group min-h-[220px] flex flex-col ${
-        BannerComponent || bannerImage?.startsWith('/') ? '' : (bannerImage || '')
+        BannerComponent || (bannerImage?.startsWith('/') || bannerImage?.startsWith('http') || bannerImage?.startsWith('gs://')) ? '' : (bannerImage || '')
       }`}>
          {BannerComponent ? (
             <div className="absolute inset-0 z-0">
                <CosmeticsErrorBoundary fallback={<div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_10%,transparent_80%)] opacity-5 pointer-events-none"></div>}><BannerComponent isStatic={!animateCosmetics} /></CosmeticsErrorBoundary>
             </div>
-         ) : bannerImage?.startsWith('/') ? (
-            <img src={bannerImage} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
+         ) : (bannerImage?.startsWith('/') || bannerImage?.startsWith('http') || bannerImage?.startsWith('gs://')) ? (
+            <FirebaseImage src={bannerImage} fallback={`https://placehold.co/600x200/18181b/ffffff?text=${encodeURIComponent(bannerItem?.name || "Profile Banner")}`} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
          ) : (
             <div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_10%,transparent_80%)] opacity-5 pointer-events-none"></div>
          )}
@@ -441,7 +444,7 @@ export default function LeaderboardsPage() {
 
             <div className="relative mb-3">
               {RingComponent && (
-                 <div className="absolute inset-0 z-0 transform scale-125 pointer-events-none rounded-full overflow-hidden">
+                 <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
                     <CosmeticsErrorBoundary fallback={null}><RingComponent isStatic={!animateCosmetics} /></CosmeticsErrorBoundary>
                  </div>
               )}
@@ -611,7 +614,7 @@ export default function LeaderboardsPage() {
                             const RingComponent = AvatarRingMap[ringImage || ''];
                             if (!RingComponent) return null;
                             return (
-                              <div className="absolute inset-0 z-0 transform scale-125 pointer-events-none rounded-full overflow-hidden">
+                              <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
                                 <CosmeticsErrorBoundary fallback={null}><RingComponent isStatic={!animateCosmetics} /></CosmeticsErrorBoundary>
                               </div>
                             )

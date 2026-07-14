@@ -27,7 +27,8 @@ function Mandala({ isStatic = false, ...props }) {
             // });
             renderer.setSize(ctn.offsetWidth * scale, ctn.offsetHeight * scale);
         }
-        window.addEventListener("resize", resize, false);
+        const resizeObserver = new ResizeObserver(() => resize());
+        resizeObserver.observe(ctn);
         resize();
         const geometry = new Triangle(gl);
         const program = new Program(gl, {
@@ -60,12 +61,12 @@ function Mandala({ isStatic = false, ...props }) {
         return () => {
             mounted = false;
             if (animateId) cancelAnimationFrame(animateId);
-            window.removeEventListener("resize", resize);
+            resizeObserver.disconnect();
             if (ctnDom.current && ctnDom.current.contains(gl.canvas)) { ctnDom.current.removeChild(gl.canvas); }
             gl.getExtension("WEBGL_lose_context")?.loseContext();
         };
     }, [isStatic]);
-    return (React.createElement("div", { ref: ctnDom, className: styles['gradient-canvas'], style: {
+    return (React.createElement("div", { ref: ctnDom, className: `${styles['gradient-canvas']} rounded-full overflow-hidden`, style: {
             width: "100%",
             height: "100%",
         }, ...props }));

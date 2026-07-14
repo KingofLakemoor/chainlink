@@ -362,7 +362,7 @@ export default function PlayDashboard() {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-[#1a1a1a] border border-[#27272a] flex items-center justify-center p-1 shadow-inner">
                     {queuedPick.pick.image ? (
-                       <img src={queuedPick.pick.image} alt={queuedPick.pick.name} className="w-full h-full object-contain" />
+                       <FirebaseImage src={queuedPick.pick.image} alt={queuedPick.pick.name} className="w-full h-full object-contain" />
                     ) : (
                        <span className="text-xs font-bold text-zinc-500">{queuedPick.pick.name}</span>
                     )}

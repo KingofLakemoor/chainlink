@@ -1,0 +1,18 @@
+--- src/App.tsx
++++ src/App.tsx
+@@ -432,6 +432,9 @@
+       const contentType = res.headers.get("content-type");
+       if (!contentType || !contentType.includes("application/json")) {
++        const text = await res.text();
++        console.error("Invalid response body:", text.substring(0, 100));
+         throw new Error("Server returned an invalid response. The backend API may not be running.");
+       }
+       const data = await res.json();
+@@ -501,6 +504,9 @@
+       const contentType = res.headers.get("content-type");
+       if (!contentType || !contentType.includes("application/json")) {
++        const text = await res.text();
++        console.error("Invalid response body:", text.substring(0, 100));
+         throw new Error("Server returned an invalid response. The backend API may not be running.");
+       }
+       const data = await res.json();

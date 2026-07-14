@@ -1,0 +1,620 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "App user profile, stats, and settings.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "image": { "type": "string" },
+        "coins": { "type": "number" },
+        "achievements": { "type": "array" },
+        "stats": { "type": "object" },
+        "monthlyStats": { "type": "object" },
+        "coinStats": { "type": "object" },
+        "friends": { "type": "array" },
+        "squadId": { "type": "string" },
+        "squads": { "type": "array" },
+        "externalId": { "type": "string" },
+        "role": { "type": "string", "enum": ["USER", "ADMIN"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "metadata": { "type": "object" },
+        "settings": { "type": "object" },
+        "referralCode": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "coinGames": { "type": "object" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["email", "name", "role", "status", "createdAt"]
+    },
+    "Matchup": {
+      "title": "Matchup",
+      "description": "A matchup for users to wager on.",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "startTime": { "type": "number" },
+        "active": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "featuredType": { "type": "string" },
+        "title": { "type": "string" },
+        "league": { "type": "string" },
+        "type": { "type": "string" },
+        "typeDetails": { "type": "string" },
+        "status": { "type": "string" },
+        "gameId": { "type": "string" },
+        "winnerId": { "type": "string" },
+        "homeTeam": { "type": "object" },
+        "awayTeam": { "type": "object" },
+        "cost": { "type": "number" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["startTime", "active", "featured", "title", "league", "type", "status", "gameId", "homeTeam", "awayTeam", "cost", "createdAt"]
+    },
+    "Chain": {
+      "title": "Chain",
+      "description": "A user's chain progression.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "active": { "type": "boolean" },
+        "chain": { "type": "number" },
+        "wins": { "type": "number" },
+        "losses": { "type": "number" },
+        "pushes": { "type": "number" },
+        "best": { "type": "number" },
+        "cost": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "campaignId", "active", "chain", "wins", "losses", "pushes", "best", "cost", "createdAt"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "A global or squad campaign.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "type": { "type": "string" },
+        "ownedBy": { "type": "string" },
+        "winnerId": { "type": "string" },
+        "chainWinnerId": { "type": "string" },
+        "squadWinnerId": { "type": "string" },
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "prizes": { "type": "array" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "description", "active", "featured", "type", "startDate", "endDate", "createdAt"]
+    },
+    "Pick": {
+      "title": "Pick",
+      "description": "A user's prediction on a matchup.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "externalId": { "type": "string" },
+        "matchupId": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "pick": { "type": "object" },
+        "status": { "type": "string" },
+        "coins": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "externalId", "matchupId", "campaignId", "pick", "status", "active", "createdAt", "updatedAt"]
+    },
+    "PickQueue": {
+      "title": "PickQueue",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "maxQueueSize": { "type": "number" },
+        "queue": { "type": "array" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "maxQueueSize", "queue", "updatedAt"]
+    },
+    "Squad": {
+      "title": "Squad",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "imageStorageId": { "type": "string" },
+        "active": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "slug": { "type": "string" },
+        "open": { "type": "boolean" },
+        "ownerId": { "type": "string" },
+        "stats": { "type": "object" },
+        "rank": { "type": "number" },
+        "monthlyStats": { "type": "object" },
+        "score": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "description", "image", "active", "featured", "slug", "open", "ownerId", "stats", "score", "createdAt"]
+    },
+    "SquadMember": {
+      "title": "SquadMember",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["MEMBER", "OWNER"] },
+        "joinedAt": { "type": "number" },
+        "stats": { "type": "object" }
+      },
+      "required": ["userId", "role", "joinedAt", "stats"]
+    },
+    "Achievement": {
+      "title": "Achievement",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "imageStorageId": { "type": "string" },
+        "coins": { "type": "number" },
+        "weight": { "type": "number" },
+        "threshold": { "type": "number" },
+        "type": { "type": "string" }
+      },
+      "required": ["name", "description", "image", "imageStorageId", "coins", "weight", "threshold", "type"]
+    },
+    "CoinTransaction": {
+      "title": "CoinTransaction",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "from": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "amount", "type", "status", "createdAt"]
+    },
+    "GlobalQuiz": {
+      "title": "GlobalQuiz",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "correctAnswerId": { "type": "string" },
+        "status": { "type": "string" },
+        "minWager": { "type": "number" },
+        "maxWager": { "type": "number" },
+        "expiresAt": { "type": "number" },
+        "options": { "type": "array" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "description", "status", "minWager", "maxWager", "expiresAt", "options", "createdAt"]
+    },
+    "QuizResponse": {
+      "title": "QuizResponse",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "quizId": { "type": "string" },
+        "selectedOptionId": { "type": "string" },
+        "wager": { "type": "number" },
+        "timestamp": { "type": "number" },
+        "win": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "quizId", "selectedOptionId", "wager", "timestamp", "createdAt"]
+    },
+    "BracketTournament": {
+      "title": "BracketTournament",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "cost": { "type": "number" },
+        "reward": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "description", "status", "startDate", "endDate", "cost", "reward", "createdAt"]
+    },
+    "Bracket": {
+      "title": "Bracket",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "score": { "type": "number" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["tournamentId", "userId", "score", "name", "createdAt"]
+    },
+    "BracketGame": {
+      "title": "BracketGame",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "round": { "type": "number" },
+        "gamePosition": { "type": "number" },
+        "region": { "type": "string" },
+        "teams": { "type": "array" },
+        "status": { "type": "string" },
+        "scheduledAt": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["tournamentId", "round", "gamePosition", "region", "teams", "status", "scheduledAt", "createdAt"]
+    },
+    "BracketGamePrediction": {
+      "title": "BracketGamePrediction",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "gameId": { "type": "string" },
+        "userId": { "type": "string" },
+        "roundNumber": { "type": "number" },
+        "gamePosition": { "type": "number" },
+        "prediction": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["tournamentId", "gameId", "userId", "roundNumber", "gamePosition", "prediction", "createdAt"]
+    },
+    "SlotMachineSpin": {
+      "title": "SlotMachineSpin",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "spunAt": { "type": "number" },
+        "result": { "type": "array" },
+        "payout": { "type": "number" },
+        "freeSpin": { "type": "boolean" },
+        "betAmount": { "type": "number" },
+        "paylines": { "type": "array" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "spunAt", "result", "payout", "freeSpin", "createdAt"]
+    },
+    "BlackjackGame": {
+      "title": "BlackjackGame",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "playerHand": { "type": "array" },
+        "dealerHand": { "type": "array" },
+        "status": { "type": "string" },
+        "betAmount": { "type": "number" },
+        "payout": { "type": "number" },
+        "deck": { "type": "array" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "playerHand", "dealerHand", "status", "betAmount", "deck", "createdAt", "updatedAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string" },
+        "priority": { "type": "number" },
+        "active": { "type": "boolean" },
+        "expiresAt": { "type": "number" },
+        "link": { "type": "string" },
+        "image": { "type": "string" },
+        "imageStorageId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "content", "type", "priority", "active", "expiresAt", "createdAt"]
+    },
+    "Sponsor": {
+      "title": "Sponsor",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string" },
+        "image": { "type": "string" },
+        "imageStorageId": { "type": "string" },
+        "bannerImage": { "type": "string" },
+        "bannerImageStorageId": { "type": "string" },
+        "color": { "type": "string" },
+        "active": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "order": { "type": "number" },
+        "tier": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "description", "url", "image", "color", "active", "featured", "tier", "createdAt"]
+    },
+    "Reaction": {
+      "title": "Reaction",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "imageStorageId": { "type": "string" },
+        "active": { "type": "boolean" },
+        "premium": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["code", "name", "active", "premium", "createdAt"]
+    },
+    "MatchupReaction": {
+      "title": "MatchupReaction",
+      "type": "object",
+      "properties": {
+        "matchupId": { "type": "string" },
+        "reactionId": { "type": "string" },
+        "team": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["matchupId", "reactionId", "team", "userId", "createdAt"]
+    },
+    "ShopItem": {
+      "title": "ShopItem",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "type": { "type": "string" },
+        "active": { "type": "boolean" },
+        "preview": { "type": "string" },
+        "metadata": { "type": "object" },
+        "featured": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "description", "price", "type", "active", "preview", "featured", "createdAt"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "itemId": { "type": "string" },
+        "purchasedAt": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "itemId", "purchasedAt", "createdAt"]
+    },
+    "PickemMatchup": {
+      "title": "PickemMatchup",
+      "type": "object",
+      "properties": {
+        "campaignId": { "type": "string" },
+        "title": { "type": "string" },
+        "gameId": { "type": "string" },
+        "startTime": { "type": "number" },
+        "status": { "type": "string" },
+        "seasonType": { "type": "string" },
+        "winnerId": { "type": "string" },
+        "week": { "type": "number" },
+        "homeTeam": { "type": "object" },
+        "awayTeam": { "type": "object" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["campaignId", "title", "gameId", "startTime", "status", "homeTeam", "awayTeam", "createdAt"]
+    },
+    "PickemCampaign": {
+      "title": "PickemCampaign",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "league": { "type": "string" },
+        "type: { "type": "string" },
+        "scoringType": { "type": "string" },
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "maxParticipants": { "type": "number" },
+        "currentWeek": { "type": "number" },
+        "currentSeasonType": { "type": "string" },
+        "entryFee": { "type": "number" },
+        "isPrivate": { "type": "boolean" },
+        "privateCode": { "type": "string" },
+        "sponsorInfo": { "type": "object" },
+        "prizes": { "type": "array" },
+        "settings": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "league", "type", "scoringType", "startDate", "endDate", "entryFee", "createdAt"]
+    },
+    "PickemParticipant": {
+      "title": "PickemParticipant",
+      "type": "object",
+      "properties": {
+        "campaignId": { "type": "string" },
+        "userId": { "type": "string" },
+        "joinedAt": { "type": "number" },
+        "weeklyStats": { "type": "object" },
+        "picksMade": { "type": "number" },
+        "survivor": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["campaignId", "userId", "joinedAt", "picksMade", "createdAt"]
+    },
+    "PickemPick": {
+      "title": "PickemPick",
+      "type": "object",
+      "properties": {
+        "campaignId": { "type": "string" },
+        "participantId": { "type": "string" },
+        "matchupId": { "type": "string" },
+        "week": { "type": "number" },
+        "seasonType": { "type": "string" },
+        "pick": { "type": "object" },
+        "confidencePoints": { "type": "number" },
+        "status": { "type": "string" },
+        "pointsEarned": { "type": "number" },
+        "submittedAt": { "type": "number" },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["campaignId", "participantId", "matchupId", "week", "pick", "status", "pointsEarned", "submittedAt", "createdAt", "updatedAt"]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "DECLINED"] },
+        "sentAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["senderId", "receiverId", "status", "sentAt"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "coins": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "referredBy", "coins", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/matchups/{matchupId}": {
+      "schema": { "$ref": "#/entities/Matchup" },
+      "description": "Available matchups"
+    },
+    "/picks/{pickId}": {
+      "schema": { "$ref": "#/entities/Pick" },
+      "description": "User picks"
+    },
+    "/chains/{chainId}": {
+      "schema": { "$ref": "#/entities/Chain" },
+      "description": "User chains"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/Campaign" },
+      "description": "Global or squad campaigns"
+    },
+    "/pickQueue/{queueId}": {
+      "schema": { "$ref": "#/entities/PickQueue" },
+      "description": "User pick queues"
+    },
+    "/squads/{squadId}": {
+      "schema": { "$ref": "#/entities/Squad" },
+      "description": "Squads"
+    },
+    "/squads/{squadId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/SquadMember" },
+      "description": "Squad members"
+    },
+    "/achievements/{achievementId}": {
+      "schema": { "$ref": "#/entities/Achievement" },
+      "description": "Available achievements"
+    },
+    "/coinTransactions/{txId}": {
+      "schema": { "$ref": "#/entities/CoinTransaction" },
+      "description": "Coin transactions ledger"
+    },
+    "/globalQuiz/{quizId}": {
+      "schema": { "$ref": "#/entities/GlobalQuiz" },
+      "description": "Global quizzes"
+    },
+    "/quizResponses/{responseId}": {
+      "schema": { "$ref": "#/entities/QuizResponse" },
+      "description": "User quiz responses"
+    },
+    "/bracketTournaments/{tournamentId}": {
+      "schema": { "$ref": "#/entities/BracketTournament" },
+      "description": "Bracket tournaments"
+    },
+    "/brackets/{bracketId}": {
+      "schema": { "$ref": "#/entities/Bracket" },
+      "description": "User brackets"
+    },
+    "/bracketGames/{gameId}": {
+      "schema": { "$ref": "#/entities/BracketGame" },
+      "description": "Games within a bracket tournament"
+    },
+    "/bracketGamePredictions/{predictionId}": {
+      "schema": { "$ref": "#/entities/BracketGamePrediction" },
+      "description": "User predictions for bracket games"
+    },
+    "/slotMachineSpins/{spinId}": {
+      "schema": { "$ref": "#/entities/SlotMachineSpin" },
+      "description": "Slot machine spins history"
+    },
+    "/blackjackGames/{gameId}": {
+      "schema": { "$ref": "#/entities/BlackjackGame" },
+      "description": "Blackjack games"
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Global announcements"
+    },
+    "/sponsors/{sponsorId}": {
+      "schema": { "$ref": "#/entities/Sponsor" },
+      "description": "Sponsors"
+    },
+    "/reactions/{reactionId}": {
+      "schema": { "$ref": "#/entities/Reaction" },
+      "description": "Available reactions"
+    },
+    "/matchupReactions/{matchupReactionId}": {
+      "schema": { "$ref": "#/entities/MatchupReaction" },
+      "description": "User reactions to matchups"
+    },
+    "/shopItems/{itemId}": {
+      "schema": { "$ref": "#/entities/ShopItem" },
+      "description": "Items available in the shop"
+    },
+    "/purchases/{purchaseId}": {
+      "schema": { "$ref": "#/entities/Purchase" },
+      "description": "User purchases"
+    },
+    "/pickemCampaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/PickemCampaign" },
+      "description": "Pickem campaigns"
+    },
+    "/pickemMatchups/{matchupId}": {
+      "schema": { "$ref": "#/entities/PickemMatchup" },
+      "description": "Matchups within a pickem campaign"
+    },
+    "/pickemParticipants/{participantId}": {
+      "schema": { "$ref": "#/entities/PickemParticipant" },
+      "description": "Participants in a pickem campaign"
+    },
+    "/pickemPicks/{pickId}": {
+      "schema": { "$ref": "#/entities/PickemPick" },
+      "description": "Picks for pickem matchups"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/FriendRequest" },
+      "description": "Friend requests between users"
+    },
+    "/referrals/{referralId}": {
+      "schema": { "$ref": "#/entities/Referral" },
+      "description": "Referral tracking"
+    }
+  }
+}

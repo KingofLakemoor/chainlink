@@ -158,6 +158,7 @@ function OceanBanner({ isStatic = false, ...props }) {
         const ctn = ctnDom.current;
         const renderer = new Renderer({ alpha: true });
         const gl = renderer.gl;
+        if (!gl) return;
         gl.clearColor(1, 1, 1, 1);
 
         const geometry = new Triangle(gl);

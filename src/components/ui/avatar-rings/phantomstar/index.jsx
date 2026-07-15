@@ -21,6 +21,7 @@ function PhantomStar({ isStatic = false, ...props }) {
             depth: false,
         });
         const gl = renderer.gl;
+        if (!gl) return;
         function resize() { if (!ctnDom.current) return;
             renderer.setSize(ctn.offsetWidth, ctn.offsetHeight);
         }

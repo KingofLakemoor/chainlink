@@ -2,6 +2,7 @@ import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import React from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
+import { cn } from '../../lib/utils';
 import { ShoppingCart, Trophy, Link2, Coins, ChevronRight, Mail, Calendar,  } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -80,7 +81,7 @@ export default function DashboardPage() {
             { id: 'banner_neon', name: 'Neon Banner', description: 'Bright profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'bg-gradient-to-r from-fuchsia-500 to-cyan-500' },
           ];
           setInventoryItems(mockItems);
-          setInventoryLoading(false);
+          
           return;
         }
 
@@ -90,7 +91,7 @@ export default function DashboardPage() {
       } catch (e) {
         console.error("Error fetching inventory", e);
       } finally {
-        setInventoryLoading(false);
+        
       }
     };
 

@@ -19,6 +19,7 @@ function Ocean({ isStatic = false, ...props }) {
         const ctn = ctnDom.current;
         const renderer = new Renderer();
         const gl = renderer.gl;
+        if (!gl) return;
         gl.clearColor(1, 1, 1, 1);
         function resize() { if (!ctnDom.current) return;
             const scale = 1;

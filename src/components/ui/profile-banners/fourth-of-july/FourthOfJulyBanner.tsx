@@ -15,6 +15,7 @@ export function FourthOfJulyBanner({
     let mounted = true;
     const renderer = new Renderer({ alpha: true, depth: false, antialias: true });
     const gl = renderer.gl;
+        if (!gl) return;
 
     const geometry = new Triangle(gl);
     const program = new Program(gl, {

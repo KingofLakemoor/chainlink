@@ -11,6 +11,7 @@ export function ZeroZeroShaderBanner({ isStatic = false, ...props }) {
     let mounted = true;
     const renderer = new Renderer({ alpha: true, depth: false });
     const gl = renderer.gl;
+        if (!gl) return;
 
     const geometry = new Triangle(gl);
     const program = new Program(gl, {

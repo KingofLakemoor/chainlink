@@ -21,6 +21,7 @@ function PhantomStarBanner({ isStatic = false, ...props }) {
             depth: false,
         });
         const gl = renderer.gl;
+        if (!gl) return;
         const geometry = new Triangle(gl);
         const program = new Program(gl, {
             vertex: vert,

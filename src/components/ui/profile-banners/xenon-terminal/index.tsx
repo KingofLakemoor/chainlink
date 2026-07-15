@@ -11,6 +11,7 @@ export function XenonTerminalBanner({ isStatic = false, ...props }: { isStatic?:
     let mounted = true;
     const renderer = new Renderer({ alpha: true, depth: false });
     const gl = renderer.gl;
+        if (!gl) return;
 
     const geometry = new Triangle(gl);
     const program = new Program(gl, {

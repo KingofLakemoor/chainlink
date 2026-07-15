@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth-context';
 import { FirebaseImage } from './components/ui/FirebaseImage';
-import { loginWithGoogle, loginWithDiscord, loginWithEmail, signupWithEmail, logout, db } from './lib/firebase';
+import { loginWithGoogle, loginWithDiscord, loginWithEmail, signupWithEmail, logout, db, auth } from './lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { Button } from './components/ui/button';
 import { SidebarProgress } from './components/SidebarProgress';

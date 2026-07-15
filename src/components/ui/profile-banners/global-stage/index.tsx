@@ -156,6 +156,7 @@ function GlobalStageBanner({ isStatic = false, ...props }: { isStatic?: boolean,
         });
 
         const gl = renderer.gl;
+        if (!gl) return;
 
         const geometry = new Triangle(gl);
         const program = new Program(gl, {

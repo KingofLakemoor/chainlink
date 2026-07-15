@@ -131,7 +131,18 @@ export default function PlayDashboard() {
   }, [globalUpcomingPicks, allFetchedMatchups]);
 
   const matchups = React.useMemo(() => {
-    const now = Date.now();
+    let now = Date.now();
+    
+    // Auto-detect if database timestamps are shifted in the future (e.g. sandbox timezone in 2026 vs real browser in 2024)
+    const scheduledMatchups = allFetchedMatchups.filter((m: any) => m.status === 'STATUS_SCHEDULED' && !m.abandoned && m.active !== false);
+    if (scheduledMatchups.length > 0) {
+      const minStartTime = Math.min(...scheduledMatchups.map((m: any) => m.startTime));
+      if (minStartTime > now + 48 * 60 * 60 * 1000) {
+        // Shift "now" to 1 hour before the first scheduled matchup so they fall in the active upcoming window
+        now = minStartTime - 60 * 60 * 1000;
+      }
+    }
+
     const next24Hours = now + 24 * 60 * 60 * 1000;
 
     const filtered = allFetchedMatchups.filter((m: any) => {

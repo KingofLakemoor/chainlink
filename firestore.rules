@@ -106,8 +106,8 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin(); // Server maintained
     }
     match /pickemPicks/{pickId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.participantId == request.auth.uid || isAdmin()); // Simplification
-      allow write: if isAdmin(); // Server maintained
+      allow read: if isSignedIn() && (resource == null || existing().participantId == request.auth.uid || isAdmin());
+      allow write: if isSignedIn() && (incoming().participantId == request.auth.uid || (resource != null && existing().participantId == request.auth.uid));
     }
 
     // achievements

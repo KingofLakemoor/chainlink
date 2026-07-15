@@ -86,7 +86,7 @@ export const BracketMatchupCard = React.memo(function BracketMatchupCard({
              </span>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-             {liveScore !== null && liveScore !== undefined && (
+             {liveScore !== null && liveScore !== undefined && !Number.isNaN(liveScore) && (
                  <span className={cn("text-xs font-mono", isEliminatedHere ? "text-zinc-600" : "text-zinc-300")}>{liveScore}</span>
              )}
              {isPickCorrectHere && <Check className="w-3.5 h-3.5 text-green-500" />}

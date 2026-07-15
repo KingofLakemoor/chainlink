@@ -296,7 +296,7 @@ export function BracketsPage() {
                   <div className="text-zinc-400 font-medium uppercase text-sm tracking-wider">Prize Pot (1st Place)</div>
                   <div className="text-2xl font-black text-white flex items-center gap-2">
                     <Trophy className="w-6 h-6 text-yellow-500" />
-                    {Math.floor((bracket.totalPot ?? (leaderboardData.length * (bracket.cost ?? 10))) * (bracket.prizePotPercent ?? 0.60))} <span className="text-sm font-medium text-zinc-500">Links</span>
+                    {Number.isNaN(Math.floor((bracket.totalPot ?? (leaderboardData.length * (bracket.cost ?? 10))) * (bracket.prizePotPercent ?? 0.60))) ? 0 : Math.floor((bracket.totalPot ?? (leaderboardData.length * (bracket.cost ?? 10))) * (bracket.prizePotPercent ?? 0.60))} <span className="text-sm font-medium text-zinc-500">Links</span>
                   </div>
                 </div>
               )}

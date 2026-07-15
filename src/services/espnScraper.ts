@@ -171,7 +171,13 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
 }
 
 export async function fetchScheduleData(endpoint: string, league: League, isScoreboardOnly: boolean = false) {
-  const response = await fetch(endpoint);
+  const fetchOptions = {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json'
+    }
+  };
+  const response = await fetch(endpoint, fetchOptions);
   const data = await response.json();
   const scheduleData: Record<string, any> = {};
 
@@ -184,7 +190,7 @@ export async function fetchScheduleData(endpoint: string, league: League, isScor
   if (league === "PGA") {
     // For PGA, we merge the scoreboard API data (which contains hole-by-hole stats) into the leaderboard data
     try {
-      const sbResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard');
+      const sbResponse = await fetch('https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard', fetchOptions);
       const sbData = await sbResponse.json();
 
       for (const event of (data.events || [])) {
@@ -389,7 +395,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                       finalStatus = "STATUS_DELAYED";
                   } else if (MATCHUP_FINAL_STATUSES.includes(rawStatus) || (comp.status?.type?.completed === true && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus)) || (descLower.includes('final') && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus))) {
                       finalStatus = "STATUS_FINAL";
-                  } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || compState === 'in' || (rawStatus === 'STATUS_SCHEDULED' && (hasLinescores || (compState !== 'pre' && comp.status?.period && comp.status?.period > 0)))) {
+                  } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || compState === 'in' || (rawStatus === 'STATUS_SCHEDULED' && (hasLinescores || (compState !== 'pre' && comp.status?.period && comp.status?.period > 0))) || (rawStatus === "STATUS_SCHEDULED" && comp.date && Date.now() >= new Date(comp.date).getTime())) {
                       finalStatus = "STATUS_IN_PROGRESS";
                       if (comp.status?.type?.detail && !comp.status.type.detail.toLowerCase().match(/\b(am|pm|edt|est|pdt|pst|cst|cdt)\b/)) {
                           finalStatusDesc = comp.status.type.detail;
@@ -540,7 +546,9 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
           }
 
           let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
+          if (isNaN(homeScore)) homeScore = 0;
           let awayScore = parseFloat(away.score !== undefined && away.score !== null && away.score !== "" ? away.score : "0");
+          if (isNaN(awayScore)) awayScore = 0;
 
           let rawStatus = competition.status?.type?.name || "STATUS_SCHEDULED";
           let finalStatusDesc = competition.status?.type?.shortDetail || "Upcoming";
@@ -567,7 +575,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
               finalStatus = "STATUS_DELAYED";
           } else if (MATCHUP_FINAL_STATUSES.includes(rawStatus) || (competition.status?.type?.completed === true && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus)) || (descLower.includes('final') && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus))) {
               finalStatus = "STATUS_FINAL";
-          } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || competition.status?.type?.state === 'in' || (rawStatus === "STATUS_SCHEDULED" && (homeScore > 0 || awayScore > 0 || hasLinescores || (competition.status?.type?.state !== 'pre' && competition.status?.period && competition.status?.period > 0)))) {
+          } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || competition.status?.type?.state === 'in' || (rawStatus === "STATUS_SCHEDULED" && (homeScore > 0 || awayScore > 0 || hasLinescores || (competition.status?.type?.state !== 'pre' && competition.status?.period && competition.status?.period > 0))) || (rawStatus === "STATUS_SCHEDULED" && gameTime && Date.now() >= gameTime)) {
               finalStatus = "STATUS_IN_PROGRESS";
               if (league === "MLB" || league === "CBASE") {
                   const detailStr = competition.status?.type?.detail || competition.status?.type?.shortDetail;

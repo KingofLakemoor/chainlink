@@ -715,6 +715,9 @@ apiRouter.post("/picks/make-pick", async (req, res) => {
       if (matchup.status !== 'STATUS_SCHEDULED' && matchup.status !== 'STATUS_POSTPONED') {
         throw new Error("Matchup has already started");
       }
+      if (matchup.startTime && Date.now() >= matchup.startTime) {
+        throw new Error("Matchup has already started");
+      }
 
       const profile = userDoc.data()!;
       const matchCost = matchup.cost ?? 0;

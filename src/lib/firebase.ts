@@ -14,7 +14,7 @@ export const initFirebase = async () => {
   
   // Set to true to force the production app to use the AI Studio project's database
   // Set to false to allow Firebase Hosting to inject the config for chainlink-2-72590
-  const FORCE_STATIC_CONFIG = true; 
+  const FORCE_STATIC_CONFIG = false; 
 
   if (!FORCE_STATIC_CONFIG) {
     try {
@@ -39,11 +39,10 @@ export const initFirebase = async () => {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1');
     const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
-    if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
-      // Use current domain as authDomain to bypass third-party cookie restrictions
-      // DO NOT OVERRIDE authDomain for AI Studio managed projects, as the custom domain is not authorized.
-      // finalAuthDomain = hostname; 
-    }
+    // In production, we should just use the default firebaseapp.com authDomain.
+    // Overriding it to the custom domain requires the custom domain to be hosted on Firebase Hosting
+    // with the auth handlers intact. Since it is failing with unauthorized-domain,
+    // reverting to the default authDomain is the standard fix.
   }
 
   const finalConfig = {

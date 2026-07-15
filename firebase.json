@@ -1,1 +1,1 @@
-{"firestore": {"rules": "firestore.rules"}}
+{"hosting": {"site": "chainlink-2-72590", "public": "dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{"source": "**", "destination": "/index.html"}]}, "firestore": {"rules": "firestore.rules"}}

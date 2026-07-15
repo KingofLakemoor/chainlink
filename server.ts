@@ -19,6 +19,72 @@ async function startServer() {
   ];
   app.use(cors({ origin: allowedOrigins }));
 
+  // Proxy /__/auth/* requests to the default Firebase auth domain to support custom and preview domains
+  let defaultAuthDomain = '';
+  try {
+    const fs = await import('fs');
+    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    defaultAuthDomain = config.authDomain || `${config.projectId}.firebaseapp.com`;
+  } catch (e) {
+    console.error('Failed to read default authDomain for proxy:', e);
+  }
+
+  // Use raw body parser for auth proxy to preserve any custom content types / bodies
+  app.use('/__/auth/*', express.raw({ type: '*/*', limit: '10mb' }));
+
+  app.all('/__/auth/*', async (req, res) => {
+    try {
+      const targetDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || defaultAuthDomain || 'gen-lang-client-0142543934.firebaseapp.com';
+      const targetUrl = `https://${targetDomain}${req.originalUrl}`;
+      
+      const headers = { ...req.headers };
+      delete headers.host;
+      delete headers.origin;
+      delete headers.referer;
+      
+      // Remove hop-by-hop and connection headers to avoid undici/fetch errors
+      const hopByHopHeaders = [
+        'connection',
+        'keep-alive',
+        'transfer-encoding',
+        'te',
+        'upgrade',
+        'proxy-authorization',
+        'proxy-connection'
+      ];
+      for (const h of hopByHopHeaders) {
+        delete headers[h];
+      }
+      
+      const options: any = {
+        method: req.method,
+        headers: headers as Record<string, string>,
+      };
+      
+      if (req.method !== 'GET' && req.method !== 'HEAD' && Buffer.isBuffer(req.body) && req.body.length > 0) {
+        options.body = req.body;
+      }
+      
+      const response = await fetch(targetUrl, options);
+      
+      // Set headers from target back to client
+      response.headers.forEach((value, key) => {
+        if (['content-encoding', 'transfer-encoding', 'connection', 'keep-alive'].includes(key.toLowerCase())) return;
+        res.setHeader(key, value);
+      });
+      
+      res.status(response.status);
+      
+      // Send binary or text body
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (err) {
+      console.error('Error proxying Firebase Auth request:', err);
+      res.status(502).send('Bad Gateway');
+    }
+  });
+
   // We need the raw body for the webhook endpoint to verify the Stripe signature
   app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json());

@@ -30,7 +30,9 @@ export const initFirebase = async () => {
   let finalAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || dynamicConfig.authDomain;
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
-    if (hostname && hostname !== 'localhost' && !hostname.endsWith('.run.app') && !hostname.includes('127.0.0.1') && hostname.includes('.')) {
+    const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1');
+    const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
+    if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
       // Use current custom domain or hosting domain as authDomain to bypass third-party cookie restrictions
       finalAuthDomain = hostname;
     }

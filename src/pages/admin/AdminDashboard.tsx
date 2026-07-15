@@ -50,7 +50,7 @@ export default function AdminDashboard() {
   }, [location.pathname]);
 
   if (loading) return null;
-  if (!profile || profile.role !== "ADMIN") return <Navigate to="/play" replace />;
+  if (!profile || profile.role !== "ADMIN") return <Navigate to="/" replace />;
 
   const pathParts = location.pathname.split('/').filter(Boolean);
   const activeSection = pathParts[1] || 'matchups';

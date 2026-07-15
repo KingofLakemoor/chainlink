@@ -1389,6 +1389,20 @@
     "premiumOnly": true
   },
   {
+    "id": "ring_bull_bear",
+    "name": "Bull & Bear",
+    "description": "A market ring showing bullish and bearish forces.",
+    "cost": 3500,
+    "type": "AVATAR_RING",
+    "active": true,
+    "forSale": true,
+    "image": "BullBearAvatarRing",
+    "featured": true,
+    "preview": "BullBearAvatarRing",
+    "order": 16,
+    "collectionId": "signal_floor"
+  },
+  {
     "id": "title_signal_floor",
     "name": "Signal Floor",
     "description": "Show off your title.",

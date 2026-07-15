@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { doc, getDoc, setDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { db } from '../../lib/firebase';
 import { cn } from '../../lib/utils';
 
@@ -70,6 +71,8 @@ export function WorldCupBracket({ bracket, adminView }: WorldCupBracketProps) {
              }
           });
           setLiveMatchups({ ...newLiveMatchups });
+       }, (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'matchups/bracket');
        });
        unsubscribes.push(unsub);
     }

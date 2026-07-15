@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, query, where, documentId, onSnapshot, orderBy } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { DashboardPick, DashboardPickSkeleton } from '../../components/dashboard/dashboard-pick';
 
 import { Hexagons } from '../../components/ui/avatar-rings/hexagons';
@@ -207,6 +208,8 @@ export default function DashboardPage() {
         setAllFetchedMatchups(allMatchups);
       }
       setIsLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'matchups');
     });
 
     return () => {
@@ -221,6 +224,8 @@ export default function DashboardPage() {
       } else {
         setSponsors([]);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'sponsors');
     });
 
     return () => {

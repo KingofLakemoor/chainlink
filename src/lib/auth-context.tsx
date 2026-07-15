@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from './firebase-error';
 import { auth, db, handleAuthRedirect } from './firebase';
 
 interface AuthContextType {
@@ -115,6 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(null);
       }
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
     });
 
     // Listen to current chain
@@ -141,6 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error("Failed to create missing chain document:", err);
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `chains/${user.uid}_current`);
     });
 
     return () => {

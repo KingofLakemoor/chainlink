@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, orderBy, limit, doc, setDoc } from '
 import { db, auth } from '../../lib/firebase';
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { useAuth } from '../../lib/auth-context';
 
 interface Link4SegmentTheme {
@@ -67,10 +68,14 @@ export default function Link4Page() {
     const unsubMatchups = onSnapshot(collection(db, 'matchups'), (snap) => {
       const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllMatchups(matchups);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'matchups');
     });
 
     const unsubSponsors = onSnapshot(collection(db, 'sponsors'), (snap) => {
         setSponsors(snap.docs.map(doc => ({id: doc.id, ...doc.data()})));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'sponsors');
     });
 
     return () => {
@@ -327,6 +332,8 @@ export default function Link4Page() {
         });
         setLeaderboardData(leaderboardEntries);
 
+    }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, `link4Picks/${activeSegmentId}`);
     });
 
     return () => unsubPicks();

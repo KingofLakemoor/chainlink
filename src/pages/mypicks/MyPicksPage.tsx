@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { Link2, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -71,6 +72,8 @@ export default function MyPicksPage() {
              const allMatchups = snap.docs.map(d => ({id: d.id, ...d.data()}));
              setMatchups(allMatchups);
           }
+        }, (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'matchups');
         });
     }
 

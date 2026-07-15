@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { CheckCircle2 } from 'lucide-react';
@@ -36,6 +37,8 @@ export default function PlayDashboard() {
           const allMatchups = snap.docs.map(d => ({id: d.id, ...d.data()}));
           setAllFetchedMatchups(allMatchups);
         }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'matchups');
       });
     };
 
@@ -54,17 +57,22 @@ export default function PlayDashboard() {
             picksInfo[data.matchupId] = data;
           });
           setUserPicks(picksInfo);
+        }, (error) => {
+          handleFirestoreError(error, OperationType.LIST, `picks/user/${user.uid}`);
+        });
+
+        // Fetch all pending picks for global hot rating
+        const globalQ = query(collection(db, 'picks'), where('status', '==', 'PENDING'));
+        unsubGlobalPicks = onSnapshot(globalQ, (globalPickSnap) => {
+          const allUpcomingPicks = globalPickSnap.docs.map(d => d.data());
+          setGlobalUpcomingPicks(allUpcomingPicks);
+        }, (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'picks/pending');
         });
       } else {
         setUserPicks({});
+        setGlobalUpcomingPicks([]);
       }
-
-      // Fetch all pending picks for global hot rating
-      const globalQ = query(collection(db, 'picks'), where('status', '==', 'PENDING'));
-      unsubGlobalPicks = onSnapshot(globalQ, (globalPickSnap) => {
-        const allUpcomingPicks = globalPickSnap.docs.map(d => d.data());
-        setGlobalUpcomingPicks(allUpcomingPicks);
-      });
 
       // Fetch active sponsors
       const sponsorsQ = query(collection(db, 'sponsors'), where('active', '==', true));
@@ -75,6 +83,8 @@ export default function PlayDashboard() {
         } else {
           setSponsors([]);
         }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'sponsors');
       });
     };
 

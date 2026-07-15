@@ -279,12 +279,16 @@ function Landing() {
             variant="outline"
             size="lg"
             className="w-full h-12 border-[#3f3f46] hover:bg-zinc-800/50 flex items-center justify-center gap-2"
-            onClick={() => {
+            onClick={async () => {
               if (referrerId) {
                 // Store in local storage temporarily before redirect
                 localStorage.setItem('chainlink_referrer_id', referrerId);
               }
-              loginWithGoogle();
+              try {
+                await loginWithGoogle();
+              } catch (e: any) {
+                setError(e.message || 'An error occurred during Google sign in.');
+              }
             }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -300,12 +304,16 @@ function Landing() {
             variant="outline"
             size="lg"
             className="w-full h-12 border-[#3f3f46] hover:bg-zinc-800/50 flex items-center justify-center gap-2 mt-3"
-            onClick={() => {
+            onClick={async () => {
               if (referrerId) {
                 // Store in local storage temporarily before redirect
                 localStorage.setItem('chainlink_referrer_id', referrerId);
               }
-              loginWithDiscord();
+              try {
+                await loginWithDiscord();
+              } catch (e: any) {
+                setError(e.message || 'An error occurred during Discord sign in.');
+              }
             }}
           >
             <FaDiscord className="w-5 h-5 text-[#5865F2]" />

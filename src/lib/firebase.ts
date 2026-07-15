@@ -11,17 +11,24 @@ export let storage: FirebaseStorage;
 
 export const initFirebase = async () => {
   let dynamicConfig: any = { ...firebaseConfig };
-  try {
-    const res = await fetch('/__/firebase/init.json');
-    if (res.ok) {
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const initJson = await res.json();
-        dynamicConfig = { ...dynamicConfig, ...initJson };
+  
+  // Set to true to force the production app to use the AI Studio project's database
+  // Set to false to allow Firebase Hosting to inject the config for chainlink-2-72590
+  const FORCE_STATIC_CONFIG = true; 
+
+  if (!FORCE_STATIC_CONFIG) {
+    try {
+      const res = await fetch('/__/firebase/init.json');
+      if (res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const initJson = await res.json();
+          dynamicConfig = { ...dynamicConfig, ...initJson };
+        }
       }
+    } catch (e) {
+      console.warn('Could not fetch dynamic firebase init config, using local environment variables.');
     }
-  } catch (e) {
-    console.warn('Could not fetch dynamic firebase init config, using local environment variables.');
   }
 
   const customProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || dynamicConfig.projectId;
@@ -34,7 +41,8 @@ export const initFirebase = async () => {
     const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
     if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
       // Use current domain as authDomain to bypass third-party cookie restrictions
-      finalAuthDomain = hostname;
+      // DO NOT OVERRIDE authDomain for AI Studio managed projects, as the custom domain is not authorized.
+      // finalAuthDomain = hostname; 
     }
   }
 

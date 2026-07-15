@@ -24,8 +24,10 @@ async function startServer() {
   try {
     const fs = await import('fs');
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    defaultAuthDomain = config.authDomain || `${config.projectId}.firebaseapp.com`;
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      defaultAuthDomain = config.authDomain || `${config.projectId}.firebaseapp.com`;
+    }
   } catch (e) {
     console.error('Failed to read default authDomain for proxy:', e);
   }
@@ -35,7 +37,9 @@ async function startServer() {
 
   app.all('/__/auth/*', async (req, res) => {
     try {
-      const targetDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN || defaultAuthDomain || 'gen-lang-client-0142543934.firebaseapp.com';
+      const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
+      const inferredAuthDomain = projectId ? `${projectId}.firebaseapp.com` : '';
+      const targetDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN || inferredAuthDomain || defaultAuthDomain || 'gen-lang-client-0142543934.firebaseapp.com';
       const targetUrl = `https://${targetDomain}${req.originalUrl}`;
       
       const headers = { ...req.headers };

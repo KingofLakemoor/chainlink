@@ -33,7 +33,7 @@ export const initFirebase = async () => {
     const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1');
     const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
     if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
-      // Use current custom domain as authDomain to bypass third-party cookie restrictions
+      // Use current domain as authDomain to bypass third-party cookie restrictions
       finalAuthDomain = hostname;
     }
   }

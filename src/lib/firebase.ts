@@ -39,10 +39,11 @@ export const initFirebase = async () => {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1');
     const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
-    // In production, we should just use the default firebaseapp.com authDomain.
-    // Overriding it to the custom domain requires the custom domain to be hosted on Firebase Hosting
-    // with the auth handlers intact. Since it is failing with unauthorized-domain,
-    // reverting to the default authDomain is the standard fix.
+    if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
+      // Use current domain as authDomain to bypass third-party cookie restrictions
+      // This is supported when deploying to Firebase App Hosting or Firebase Hosting
+      finalAuthDomain = hostname;
+    }
   }
 
   const finalConfig = {

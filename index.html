@@ -31,7 +31,20 @@
         }
       });
     }
-  </script></head>
+  </script>
+  <script>
+    window.addEventListener('error', function(e) {
+      if (document.getElementById('root') && document.getElementById('root').innerHTML === '') {
+        document.getElementById('root').innerHTML = '<div style="color:white;padding:20px;font-family:sans-serif;"><h3>Application Error</h3><p>' + (e.message || e.error || e) + '</p><pre style="font-size:10px;overflow:auto;">' + (e.error && e.error.stack ? e.error.stack : '') + '</pre></div>';
+      }
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      if (document.getElementById('root') && document.getElementById('root').innerHTML === '') {
+        document.getElementById('root').innerHTML = '<div style="color:white;padding:20px;font-family:sans-serif;"><h3>Unhandled Promise Rejection</h3><p>' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p></div>';
+      }
+    });
+  </script>
+</head>
   <body>
     <div id="root"></div>
     

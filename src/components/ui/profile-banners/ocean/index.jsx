@@ -156,8 +156,11 @@ function OceanBanner({ isStatic = false, ...props }) {
         const actuallyStatic = isStatic || prefersReducedMotion;
 
         const ctn = ctnDom.current;
-        const renderer = new Renderer({ alpha: true });
-        const gl = renderer.gl;
+        let renderer, gl;
+        try {
+          renderer = new Renderer({ alpha: true });
+        gl = renderer.gl;
+        } catch(e) { console.error("WebGL Error", e); return; }
         if (!gl) return;
         gl.clearColor(1, 1, 1, 1);
 

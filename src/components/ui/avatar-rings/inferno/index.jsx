@@ -17,8 +17,12 @@ function Inferno({ isStatic = false, ...props }) {
             return;
         }
         const ctn = ctnDom.current;
-        const renderer = new Renderer();
-        const gl = renderer.gl;
+        let renderer, gl;
+        try {
+          renderer = new Renderer();
+          gl = renderer.gl;
+        } catch(e) { console.error("WebGL Error", e); return; }
+        if (!gl) return;
         if (!gl) return;
         gl.clearColor(1, 1, 1, 1);
         function resize() { if (!ctnDom.current) return;

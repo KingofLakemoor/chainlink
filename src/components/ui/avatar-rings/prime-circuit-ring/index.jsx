@@ -62,11 +62,14 @@ function PrimeCircuitRing({ isStatic = false, ...props }) {
         if (!ctnDom.current)
             return;
         const ctn = ctnDom.current;
-        const renderer = new Renderer({
+        let renderer, gl;
+        try {
+          renderer = new Renderer({
             alpha: true,
             depth: false,
         });
-        const gl = renderer.gl;
+        gl = renderer.gl;
+        } catch(e) { console.error("WebGL Error", e); return; }
         if (!gl) return;
         function resize() { if (!ctnDom.current) return;
             renderer.setSize(ctn.offsetWidth, ctn.offsetHeight);

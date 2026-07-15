@@ -9,8 +9,11 @@ export function ZeroZeroShaderBanner({ isStatic = false, ...props }) {
     if (!container.current) return;
 
     let mounted = true;
-    const renderer = new Renderer({ alpha: true, depth: false });
-    const gl = renderer.gl;
+    let renderer, gl;
+        try {
+          renderer = new Renderer({ alpha: true, depth: false });
+    gl = renderer.gl;
+        } catch(e) { console.error("WebGL Error", e); return; }
         if (!gl) return;
 
     const geometry = new Triangle(gl);

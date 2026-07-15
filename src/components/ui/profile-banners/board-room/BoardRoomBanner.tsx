@@ -13,8 +13,11 @@ export function BoardRoomBanner({
     if (!container.current) return;
 
     let mounted = true;
-    const renderer = new Renderer({ alpha: true, depth: false, antialias: true });
-    const gl = renderer.gl;
+    let renderer, gl;
+        try {
+          renderer = new Renderer({ alpha: true, depth: false, antialias: true });
+    gl = renderer.gl;
+        } catch(e) { console.error("WebGL Error", e); return; }
         if (!gl) return;
 
     const geometry = new Triangle(gl);

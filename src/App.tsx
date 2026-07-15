@@ -156,6 +156,25 @@ function Landing() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first to reset your password.');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, email);
+      setError('Password reset email sent! Please check your inbox.');
+    } catch (err: any) {
+      console.error('Password reset failed', err);
+      setError(err.message || 'Failed to send password reset email.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isIframe = window.self !== window.top;
 
   return (
@@ -219,7 +238,18 @@ function Landing() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1.5">Password</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-sm font-medium text-zinc-400">Password</label>
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs text-[#22c55e] hover:underline font-medium focus:outline-none"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 value={password}

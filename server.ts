@@ -35,7 +35,7 @@ async function startServer() {
 
   app.all('/__/auth/*', async (req, res) => {
     try {
-      const targetDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || defaultAuthDomain || 'gen-lang-client-0142543934.firebaseapp.com';
+      const targetDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN || defaultAuthDomain || 'gen-lang-client-0142543934.firebaseapp.com';
       const targetUrl = `https://${targetDomain}${req.originalUrl}`;
       
       const headers = { ...req.headers };
@@ -105,26 +105,26 @@ async function startServer() {
       const configStr = fs.readFileSync(configPath, 'utf-8');
       const config = JSON.parse(configStr);
       res.json({
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID || config.projectId,
-        appId: process.env.VITE_FIREBASE_APP_ID || config.appId,
-        apiKey: (process.env.VITE_FIREBASE_API_KEY || config.apiKey || '').trim(),
-        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || config.authDomain,
-        firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || config.firestoreDatabaseId,
-        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || config.storageBucket,
-        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || config.messagingSenderId,
-        measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || config.measurementId || ''
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || config.projectId,
+        appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || config.appId,
+        apiKey: (process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || config.apiKey || '').trim(),
+        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN || config.authDomain,
+        firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || process.env.FIREBASE_FIRESTORE_DATABASE_ID || config.firestoreDatabaseId,
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || config.storageBucket,
+        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID || config.messagingSenderId,
+        measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || process.env.FIREBASE_MEASUREMENT_ID || config.measurementId || ''
       });
     } catch (e) {
       console.error('Error serving init.json:', e);
       res.json({
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID || '',
-        appId: process.env.VITE_FIREBASE_APP_ID || '',
-        apiKey: (process.env.VITE_FIREBASE_API_KEY || '').trim(),
-        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-        firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || '',
-        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-        measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || ''
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '',
+        appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || '',
+        apiKey: (process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || '').trim(),
+        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN || '',
+        firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || process.env.FIREBASE_FIRESTORE_DATABASE_ID || '',
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || '',
+        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID || '',
+        measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || process.env.FIREBASE_MEASUREMENT_ID || ''
       });
     }
   });

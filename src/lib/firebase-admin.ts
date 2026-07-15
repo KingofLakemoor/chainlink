@@ -6,18 +6,20 @@ import firebaseConfig from '../../firebase-applet-config.json' with { type: 'jso
 // In Cloud Run, applicationDefault() will pick up the compute identity.
 // For local deployments or VPS, we support passing the service account JSON
 // via the FIREBASE_SERVICE_ACCOUNT_KEY environment variable.
+const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || firebaseConfig.projectId;
+
 if (!getApps().length) {
   try {
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
       initializeApp({
         credential: cert(serviceAccount),
-        projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+        projectId: projectId,
       });
     } else {
       initializeApp({
         credential: applicationDefault(),
-        projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+        projectId: projectId,
       });
     }
   } catch (e) {
@@ -26,7 +28,7 @@ if (!getApps().length) {
   }
 }
 
-const isCustomAdminProject = (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PROJECT_ID !== firebaseConfig.projectId);
-const adminDatabaseId = process.env.FIREBASE_FIRESTORE_DATABASE_ID || (isCustomAdminProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
+const isCustomAdminProject = (projectId && projectId !== firebaseConfig.projectId);
+const adminDatabaseId = process.env.FIREBASE_FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomAdminProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
 export const adminDb = getApps().length ? getFirestore(undefined, adminDatabaseId) : null;
 export const adminAuth = getApps().length ? getAuth() : null;

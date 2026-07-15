@@ -140,11 +140,23 @@ function Landing() {
         await loginWithEmail(email, password);
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      let msg = err.message || 'Authentication failed';
+      if (msg.includes('auth/invalid-credential')) {
+        msg = isSignUp 
+          ? 'An account with this email may already exist, or the credentials are invalid.' 
+          : 'Incorrect password, or this email is not registered yet. If you are new, click "Sign up" below to create an account!';
+      } else if (msg.includes('auth/email-already-in-use')) {
+        msg = 'This email address is already in use. Try logging in instead!';
+      } else if (msg.includes('auth/weak-password')) {
+        msg = 'The password must be at least 6 characters long.';
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const isIframe = window.self !== window.top;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
@@ -154,13 +166,23 @@ function Landing() {
       </div>
 
       <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#22c55e]/10 mb-6 border border-[#22c55e]/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
             <Link2 className="w-8 h-8 text-[#22c55e]" />
           </div>
           <h1 className="text-4xl font-bold text-zinc-100 mb-3 font-display">ChainLink</h1>
-          <p className="text-zinc-400 text-lg">Build your chain. Earn Links. Climb the ranks.</p>
+          <p className="text-zinc-400 text-base">Build your chain. Earn Links. Climb the ranks.</p>
         </div>
+
+        {isIframe && (
+          <div className="mb-6 p-4 text-xs bg-cyan-950/40 border border-cyan-800/40 rounded-xl text-cyan-300 flex items-start gap-2.5 shadow-[0_0_15px_rgba(6,182,212,0.05)]">
+            <span className="text-sm">💡</span>
+            <div>
+              <p className="font-bold uppercase tracking-wide text-cyan-200 mb-0.5">Iframe Sandbox Alert</p>
+              <p className="leading-relaxed">Google Sign-In popups and redirect authentication are restricted inside the preview frame by browser security policies. Please <strong>open this app in a new tab</strong> (click the "Open in new tab" icon in the top right of the preview) to use Google/Discord sign-in, or use Email SignUp below!</p>
+            </div>
+          </div>
+        )}
 
         <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-8 shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-4 mb-6">

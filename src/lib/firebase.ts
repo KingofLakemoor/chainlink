@@ -26,10 +26,20 @@ export const initFirebase = async () => {
 
   const customProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || dynamicConfig.projectId;
   const isCustomProject = customProjectId && customProjectId !== firebaseConfig.projectId;
+  
+  let finalAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || dynamicConfig.authDomain;
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    if (hostname && hostname !== 'localhost' && !hostname.endsWith('.run.app') && !hostname.includes('127.0.0.1') && hostname.includes('.')) {
+      // Use current custom domain or hosting domain as authDomain to bypass third-party cookie restrictions
+      finalAuthDomain = hostname;
+    }
+  }
+
   const finalConfig = {
     ...dynamicConfig,
     apiKey: (import.meta.env.VITE_FIREBASE_API_KEY || dynamicConfig.apiKey || '').trim(),
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || dynamicConfig.authDomain,
+    authDomain: finalAuthDomain,
     projectId: customProjectId,
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || dynamicConfig.storageBucket,
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || dynamicConfig.messagingSenderId,

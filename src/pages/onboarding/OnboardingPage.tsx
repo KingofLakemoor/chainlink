@@ -63,7 +63,7 @@ export default function OnboardingPage() {
         throw new Error("Failed to check username availability.");
       }
       const checkData = await res.json();
-      if (!checkData.available) {
+      if (checkData.exists) {
         throw new Error("Username is already taken.");
       }
 

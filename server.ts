@@ -13,7 +13,9 @@ async function startServer() {
     'http://localhost:3000',
     'https://chainlink-2-72590.firebaseapp.com',
     'https://chainlink.club602.com',
-    'https://ChainLink.club602.com'
+    'https://ChainLink.club602.com',
+    'https://www.chainlink.club602.com',
+    'https://www.ChainLink.club602.com'
   ];
   app.use(cors({ origin: allowedOrigins }));
 
@@ -37,12 +39,27 @@ async function startServer() {
       const configStr = fs.readFileSync(configPath, 'utf-8');
       const config = JSON.parse(configStr);
       res.json({
-        ...config,
-        apiKey: process.env.VITE_FIREBASE_API_KEY || config.apiKey || ''
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || config.projectId,
+        appId: process.env.VITE_FIREBASE_APP_ID || config.appId,
+        apiKey: (process.env.VITE_FIREBASE_API_KEY || config.apiKey || '').trim(),
+        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || config.authDomain,
+        firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || config.firestoreDatabaseId,
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || config.storageBucket,
+        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || config.messagingSenderId,
+        measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || config.measurementId || ''
       });
     } catch (e) {
       console.error('Error serving init.json:', e);
-      res.json({ apiKey: process.env.VITE_FIREBASE_API_KEY || '' });
+      res.json({
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || '',
+        appId: process.env.VITE_FIREBASE_APP_ID || '',
+        apiKey: (process.env.VITE_FIREBASE_API_KEY || '').trim(),
+        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+        firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || '',
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+        measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || ''
+      });
     }
   });
 
@@ -53,7 +70,11 @@ async function startServer() {
     res.status(404).json({ success: false, error: 'Not Found' });
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || 
+                       process.env.NODE_ENV === "prod" ||
+                       (process.argv[1] && (process.argv[1].endsWith('server.cjs') || process.argv[1].includes('dist')));
+
+  if (!isProduction) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },

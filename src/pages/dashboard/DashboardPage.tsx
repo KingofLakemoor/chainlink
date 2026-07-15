@@ -225,7 +225,8 @@ export default function DashboardPage() {
         setSponsors([]);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'sponsors');
+      console.warn("Sponsors list is currently unavailable:", error);
+      setSponsors([]);
     });
 
     return () => {

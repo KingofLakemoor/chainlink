@@ -917,10 +917,11 @@ apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) =
           
           for (let i = 0; i < targetTokens.length; i += 500) {
             const tokenChunk = targetTokens.slice(i, i + 500);
-            await adminMessaging.sendEachForMulticast({
+            const response = await adminMessaging.sendEachForMulticast({
               ...messagePayload,
               tokens: tokenChunk
             });
+            console.log('FCM Multicast response:', JSON.stringify(response, null, 2));
           }
         }
 

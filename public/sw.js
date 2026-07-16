@@ -5399,10 +5399,39 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`;
     const app = initializeApp(firebaseConfig);
     const messaging = getMessagingInSw(app);
     onBackgroundMessage(messaging, (payload) => {
+      var _a, _b, _c;
+      console.log("[sw.ts] Received background message ", payload);
+      const notificationTitle = ((_a = payload.notification) == null ? void 0 : _a.title) || "ChainLink Update";
+      const notificationOptions = {
+        body: (_b = payload.notification) == null ? void 0 : _b.body,
+        icon: "/icons/icon-192x192.png",
+        data: {
+          url: ((_c = payload.data) == null ? void 0 : _c.url) || "/"
+        }
+      };
+      self.registration.showNotification(notificationTitle, notificationOptions);
     });
   } catch (error) {
     console.error("Failed to initialize Firebase Messaging in Service Worker", error);
   }
+  self.addEventListener("notificationclick", function(event) {
+    var _a;
+    event.notification.close();
+    const urlToOpen = ((_a = event.notification.data) == null ? void 0 : _a.url) || "/";
+    event.waitUntil(
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+        for (let i = 0; i < windowClients.length; i++) {
+          const client = windowClients[i];
+          if (client.url.includes(urlToOpen) && "focus" in client) {
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(urlToOpen);
+        }
+      })
+    );
+  });
 })();
 /*! Bundled license information:
 

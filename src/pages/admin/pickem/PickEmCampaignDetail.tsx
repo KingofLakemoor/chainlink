@@ -148,8 +148,11 @@ export default function PickEmCampaignDetail() {
         }
 
         for (const m of res.data) {
-          // Skip games that start before the campaign starts
+          // Skip games that start before the campaign starts or after it ends
           if (campaign.startDate && m.startTime < campaign.startDate) {
+            continue;
+          }
+          if (campaign.endDate && m.startTime > campaign.endDate) {
             continue;
           }
 

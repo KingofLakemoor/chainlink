@@ -66,7 +66,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
         }
       } else if (league === 'PGA') {
         // PGA scraped data doesn't have gameIds, so we need to fetch all active PGA matchups recently scheduled
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
         const pgaSnap = await adminDb.collection('matchups')
           .where('league', '==', 'PGA')
           .where('active', '==', true)
@@ -74,7 +74,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
         pgaSnap.docs.forEach(d => {
           const data = d.data();
-          if (data.startTime && data.startTime > sevenDaysAgo && !data.abandoned) {
+          if ((data.status === 'STATUS_IN_PROGRESS' || (data.startTime && data.startTime > fourteenDaysAgo)) && !data.abandoned) {
              existingMap.set(data.gameId, d);
           }
         });
@@ -225,6 +225,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                  awayFrozenScore = awayScore;
               }
 
+              console.log('Update check for', existingGameId, 'homeFinal:', homeFinal, 'awayFinal:', awayFinal);
               let newStatus = data.status;
               let newActive = data.active;
               let newAbandoned = data.abandoned;

@@ -54,9 +54,8 @@ export function NotificationPrompt() {
   const handleEnable = async () => {
     if (!user || !profile) return;
 
-    const granted = await requestNotificationPermission(user.uid, profile);
-
-    if (granted) {
+    const result = await requestNotificationPermission(user.uid, profile);
+      if (result.granted) {
       // Ensure it is turned on in their profile as well
       await updateDoc(doc(db, 'users', user.uid), {
         notificationsEnabled: true

@@ -6,25 +6,29 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export async function requestNotificationPermission(userUid: string, profile: any) {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return false;
+    console.error('Push notifications not supported by browser');
+    return { granted: false, reason: 'unsupported' };
   }
-
   try {
     const messaging = getMessaging(app);
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      return false;
+      console.error('Permission not granted:', permission);
+      return { granted: false, reason: 'denied' };
     }
-
     const configParam = encodeURIComponent(JSON.stringify(app.options));
     const swUrl = `/sw.js?config=${configParam}`;
     const registration = await navigator.serviceWorker.register(swUrl);
+    
+    if (!import.meta.env.VITE_FIREBASE_VAPID_KEY) {
+      console.error('Missing VITE_FIREBASE_VAPID_KEY environment variable. Push notifications require this key.');
+      return { granted: false, reason: 'missing_vapid' };
+    }
 
     const currentToken = await getToken(messaging, {
       vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
       serviceWorkerRegistration: registration
     });
-
     if (currentToken) {
       const hasToken = profile?.fcmTokens?.includes(currentToken);
       if (!hasToken) {
@@ -33,13 +37,14 @@ export async function requestNotificationPermission(userUid: string, profile: an
           fcmTokens: arrayUnion(currentToken)
         });
       }
-      return true;
+      return { granted: true };
     } else {
-      return false;
+      console.error('Failed to get FCM token');
+      return { granted: false, reason: 'no_token' };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error setting up notifications:', error);
-    return false;
+    return { granted: false, reason: error.message || 'error' };
   }
 }
 
@@ -88,13 +93,15 @@ export function useNotifications() {
 
           const unsubscribe = onMessage(messaging, (payload) => {
             if (payload.notification) {
-              const notification = new Notification(payload.notification.title || 'Notification', {
-                body: payload.notification.body
+              navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(payload.notification.title || 'Notification', {
+                  body: payload.notification.body,
+                  icon: '/icons/icon-192x192.png',
+                  data: {
+                     url: payload.data?.url || '/'
+                  }
+                });
               });
-              notification.onclick = function() {
-                window.focus();
-                this.close();
-              };
             }
           });
 

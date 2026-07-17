@@ -1,6 +1,7 @@
+import { getMessaging, getToken, deleteToken } from 'firebase/messaging';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider, linkWithCredential, AuthCredential, signInWithRedirect, signInWithPopup, getRedirectResult, signOut, Auth, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, fetchSignInMethodsForEmail, sendPasswordResetEmail } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, Firestore } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, Firestore, arrayRemove } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -329,10 +330,28 @@ export const handleAuthRedirect = async () => {
   }
 };
 
-export const logout = () => {
+export const logout = async () => {
   if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
     window.dispatchEvent(new Event('mock-logout'));
     return;
   }
+  
+  if (auth.currentUser) {
+    try {
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const messaging = getMessaging(app);
+        const currentToken = await getToken(messaging, { vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY }).catch(() => null);
+        if (currentToken) {
+           await deleteToken(messaging).catch(() => null);
+           await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+              fcmTokens: arrayRemove(currentToken)
+           }).catch(() => null);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not clean up FCM token on logout", e);
+    }
+  }
+
   return signOut(auth);
 };

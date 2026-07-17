@@ -460,7 +460,7 @@ export default function PickEmPage() {
                         })()}
                       </button>
 
-                      <div className="text-center text-xs text-zinc-600 font-bold uppercase">@</div>
+                      {m.type === 'PROP' ? <div className="text-center text-xs text-zinc-600 font-bold uppercase">VS</div> : <div className="text-center text-xs text-zinc-600 font-bold uppercase">@</div>}
 
                       <button
                         onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)}

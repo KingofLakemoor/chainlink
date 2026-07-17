@@ -90,6 +90,7 @@ export default function AdminDashboard() {
                 <Route path="matchups/create" element={<CreateMatchupPage />} />
 <Route path="matchups/:id" element={<AdminEditMatchup />} />
                 <Route path="pga-builder" element={<PGABuilderPage />} />
+                <Route path="prop-builder" element={<PlayerPropBuilderPage />} />
 
                 {/* Announcements */}
                 <Route path="announcements/*" element={<AnnouncementsAdminPage />} />

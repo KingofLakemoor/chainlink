@@ -1,3 +1,4 @@
+import { processPendingNotifications } from './services/notificationProcessor.js';
 import { gradeBrackets } from './services/bracketGrader.js';
 import express from 'express';
 import { adminAuth, adminDb, adminMessaging } from './lib/firebase-admin.js';
@@ -5,6 +6,7 @@ import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleP
 import { gradeMatchups } from './services/grader.js';
 import { gradeLink4Matchups, payoutLink4Segment } from './services/link4Grader.js';
 import { gradePickemMatchups } from './services/pickemGrader.js';
+import { updateAllProps } from './services/propGrader.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -864,109 +866,30 @@ apiRouter.post("/admin/link4/payout", validateAdmin, async (req, res) => {
 
 
 apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) => {
-  try {
-    if (!adminDb || !adminMessaging) {
-      return res.status(500).json({ success: false, error: 'Firebase Admin not fully initialized' });
-    }
-
-    const pendingNotifsSnap = await adminDb.collection('notifications')
-      .where('status', '==', 'PENDING')
-      .limit(50)
-      .get();
-
-    if (pendingNotifsSnap.empty) {
-      return res.json({ success: true, processed: 0 });
-    }
-
-    let processedCount = 0;
-    const batch = adminDb.batch();
-
-    for (const doc of pendingNotifsSnap.docs) {
-      const notifData = doc.data();
-      const audience = notifData.audience || 'USER';
-      const targetUserId = notifData.targetUserId || notifData.userId;
-      let targetTokens = [];
-
-      try {
-        if (audience === 'USER' && targetUserId) {
-          const userDoc = await adminDb.collection('users').doc(targetUserId).get();
-          if (userDoc.exists && userDoc.data()?.fcmTokens && Array.isArray(userDoc.data().fcmTokens)) {
-            targetTokens = userDoc.data().fcmTokens;
-          }
-        } else if (audience === 'GLOBAL') {
-          // Send to everyone with fcmTokens
-          const usersSnap = await adminDb.collection('users').where('fcmTokens', '!=', []).get();
-          usersSnap.forEach(u => {
-            const tokens = u.data().fcmTokens;
-            if (Array.isArray(tokens)) {
-              targetTokens.push(...tokens);
-            }
-          });
-        }
-        
-        targetTokens = [...new Set(targetTokens)]; // deduplicate
-
-        if (targetTokens.length > 0) {
-          const messagePayload = {
-            notification: {
-              title: notifData.title,
-              body: notifData.body
-            },
-            tokens: targetTokens
-          };
-          
-          for (let i = 0; i < targetTokens.length; i += 500) {
-            const tokenChunk = targetTokens.slice(i, i + 500);
-            const response = await adminMessaging.sendEachForMulticast({
-              ...messagePayload,
-              tokens: tokenChunk
-            });
-            console.log('FCM Multicast response:', JSON.stringify(response, null, 2));
-          }
-        }
-
-        batch.update(doc.ref, {
-          status: 'SENT',
-          sentAt: Date.now(),
-          sentCount: targetTokens.length
-        });
-        processedCount++;
-
-      } catch (err: any) {
-        console.error('Error processing notification', doc.id, err);
-        batch.update(doc.ref, {
-          status: 'FAILED',
-          error: err.message,
-          failedAt: Date.now()
-        });
-      }
-    }
-
-    await batch.commit();
-
-    res.json({ success: true, processed: processedCount });
-  } catch (e: any) {
-    console.error('Process notifications error:', e);
-    res.status(500).json({ success: false, error: e.message });
+  const result = await processPendingNotifications();
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
   }
 });
 
 apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
   try {
     const { league } = req.body;
-    const result = await syncLeagueSchedules(league);
+    let result = {};
+    if (league === 'PROP') {
+      await updateAllProps();
+      result = { success: true, message: 'Prop updates complete' };
+    } else {
+      result = await syncLeagueSchedules(league);
+    }
 
     // Call process-notifications internally to avoid requiring a separate cron job
     try {
-      const port = process.env.PORT || 3000;
-      await fetch(`http://localhost:${port}/api/admin/process-notifications`, {
-        method: 'POST',
-        headers: {
-          'Authorization': req.headers.authorization || ''
-        }
-      });
+      await processPendingNotifications();
     } catch (notifErr) {
-      console.error('Failed to trigger process-notifications from sync-schedules:', notifErr);
+      console.error('Failed to process notifications from sync-schedules:', notifErr);
     }
     res.json({ success: true, result });
   } catch (e: any) {
@@ -1306,13 +1229,13 @@ apiRouter.post("/admin/matchups/external", validateAdmin, async (req, res) => {
       homeTeam: {
         id: homeTeam.id,
         name: homeTeam.name,
-        image: homeTeam.image || "/icons/icon-256x256.png",
+        image: homeTeam.image || "/logo.png",
         score: homeTeam.score || 0
       },
       awayTeam: {
         id: awayTeam.id,
         name: awayTeam.name,
-        image: awayTeam.image || "/icons/icon-256x256.png",
+        image: awayTeam.image || "/logo.png",
         score: awayTeam.score || 0
       },
       status: status || 'STATUS_SCHEDULED',

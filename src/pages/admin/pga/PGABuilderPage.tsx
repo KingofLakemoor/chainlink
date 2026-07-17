@@ -28,7 +28,7 @@ export default function PGABuilderPage() {
             id: String(c.id),
             name: golfer.displayName || golfer.name || 'Unknown',
             score: c.score?.displayValue ?? (typeof c.score === 'string' || typeof c.score === 'number' ? c.score : c.displayValue) ?? 'E',
-            image: golfer.flag?.href || '/icons/icon-256x256.png',
+            image: golfer.flag?.href || '/logo.png',
             raw: c
           };
         }).sort((a: any, b: any) => a.name.localeCompare(b.name));

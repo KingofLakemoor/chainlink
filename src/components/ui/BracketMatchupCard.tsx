@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Check, X } from 'lucide-react';
+import { Trophy, Check, X, Link2 } from 'lucide-react';
 import { cn, formatUpcomingTime } from '../../lib/utils';
 import { FirebaseImage } from './FirebaseImage';
 
@@ -75,7 +75,7 @@ export const BracketMatchupCard = React.memo(function BracketMatchupCard({
         <div className="flex justify-between items-center w-full gap-2">
           <div className="flex items-center gap-2 overflow-hidden">
              {teamLogo && (
-               <FirebaseImage src={teamLogo} fallback="/icons/icon-256x256.png" className="w-4 h-4 object-contain rounded-sm flex-shrink-0" />
+               <FirebaseImage src={teamLogo} fallback={liveMatchup?.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={liveMatchup?.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-4 h-4 text-zinc-600" />} className="w-4 h-4 object-contain rounded-sm flex-shrink-0 flex items-center justify-center" />
              )}
              <span className={cn(
                "truncate block text-sm",

@@ -5,9 +5,10 @@ import { app } from '../../lib/firebase';
 export interface FirebaseImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   fallback?: string;
+  fallbackIcon?: React.ReactNode;
 }
 
-export function FirebaseImage({ src, fallback, ...props }: FirebaseImageProps) {
+export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: FirebaseImageProps) {
   // If the src is not a gs:// URL, we can render it immediately.
   const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(
     (src && !src.startsWith('gs://')) ? src : fallback || undefined
@@ -21,6 +22,7 @@ export function FirebaseImage({ src, fallback, ...props }: FirebaseImageProps) {
     async function resolveUrl() {
       if (!src) {
         if (fallback && isMounted) setResolvedSrc(fallback);
+        else if (isMounted) setHasError(true);
         return;
       }
 
@@ -56,15 +58,19 @@ export function FirebaseImage({ src, fallback, ...props }: FirebaseImageProps) {
     };
   }, [src, fallback]);
 
-  if (hasError && !fallback) {
+  if (hasError && !fallback && !fallbackIcon) {
       return null;
+  }
+  
+  if (hasError && fallbackIcon) {
+      return <>{fallbackIcon}</>;
   }
 
   return (
     <img
       src={resolvedSrc || undefined}
       {...props}
-      style={{ ...props.style, display: (hasError && !fallback) ? 'none' : props.style?.display }}
+      style={{ ...props.style, display: (hasError && !fallbackIcon) ? 'none' : props.style?.display }}
       loading="lazy"
       onError={(e) => {
         if (props.onError) {

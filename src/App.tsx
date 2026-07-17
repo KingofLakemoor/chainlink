@@ -1,3 +1,5 @@
+import { useNotifications } from './hooks/useNotifications';
+import { ToastProvider } from './components/ui/Toast';
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth-context';
@@ -7,7 +9,6 @@ import { collection, getDocs, doc, setDoc, deleteDoc, query, where, onSnapshot }
 import { Button } from './components/ui/button';
 import { SidebarProgress } from './components/SidebarProgress';
 import { cn } from './lib/utils';
-import { useNotifications } from './hooks/useNotifications';
 import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { NotificationPrompt } from './components/ui/NotificationPrompt';
 import {
@@ -383,7 +384,6 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   if (profile?.needsOnboarding && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" />;
   }
-  useNotifications();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -468,11 +468,18 @@ const SponsorPage = React.lazy(() => import('./pages/SponsorPage'));
 const HelpPage = React.lazy(() => import('./pages/help/HelpPage'));
 const OnboardingPage = React.lazy(() => import('./pages/onboarding/OnboardingPage'));
 
+function GlobalEffects() {
+  useNotifications();
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <ErrorBoundaryWrapper>
       <BrowserRouter>
+        <GlobalEffects />
         <React.Suspense fallback={<div className="flex items-center justify-center h-screen text-zinc-500">Loading...</div>}>
         <Routes>
           <Route path="/login" element={<Landing />} />
@@ -498,6 +505,7 @@ export default function App() {
         </React.Suspense>
       </BrowserRouter>
       </ErrorBoundaryWrapper>
+          </ToastProvider>
     </AuthProvider>
   );
 }

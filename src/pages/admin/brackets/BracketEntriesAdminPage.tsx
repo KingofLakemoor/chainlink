@@ -30,7 +30,7 @@ export default function BracketEntriesAdminPage() {
           const data = d.data();
           const uid = data.userId || d.id.split('_')[1];
           let userName = 'Unknown';
-          let userAvatar = '/icons/icon-256x256.png';
+          let userAvatar = '/logo.png';
           try {
              const uDoc = await getDoc(doc(db, 'users', uid));
              if (uDoc.exists()) {

@@ -437,13 +437,13 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                      homeTeam: {
                        id: String(homeCompetitor.id),
                        name: homeName,
-                       image: (league as any === "CRICKET" ? MLC_LOGOS[String(homeCompetitor.id)] : undefined) || homeCompetitor?.athlete?.flag?.href || homeCompetitor?.team?.logo || "/icons/icon-256x256.png",
+                       image: (league as any === "CRICKET" ? MLC_LOGOS[String(homeCompetitor.id)] : undefined) || homeCompetitor?.athlete?.flag?.href || homeCompetitor?.team?.logo || "/logo.png",
                        score: homeScore
                      },
                      awayTeam: {
                        id: String(awayCompetitor.id),
                        name: awayName,
-                       image: (league as any === "CRICKET" ? MLC_LOGOS[String(awayCompetitor.id)] : undefined) || awayCompetitor?.athlete?.flag?.href || awayCompetitor?.team?.logo || "/icons/icon-256x256.png",
+                       image: (league as any === "CRICKET" ? MLC_LOGOS[String(awayCompetitor.id)] : undefined) || awayCompetitor?.athlete?.flag?.href || awayCompetitor?.team?.logo || "/logo.png",
                        score: awayScore
                      },
                      cost: 0,
@@ -619,13 +619,13 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
              homeTeam: {
                id: String(home.id),
                name: home.team.name || "Home Team",
-               image: (league as any === "CRICKET" ? MLC_LOGOS[String(home.id)] : undefined) || home.team.logo || "/icons/icon-256x256.png",
+               image: (league as any === "CRICKET" ? MLC_LOGOS[String(home.id)] : undefined) || home.team.logo || "/logo.png",
                score: homeScore
              },
              awayTeam: {
                id: String(away.id),
                name: away.team.name || "Away Team",
-               image: (league as any === "CRICKET" ? MLC_LOGOS[String(away.id)] : undefined) || away.team.logo || "/icons/icon-256x256.png",
+               image: (league as any === "CRICKET" ? MLC_LOGOS[String(away.id)] : undefined) || away.team.logo || "/logo.png",
                score: awayScore
              },
              cost: 0,

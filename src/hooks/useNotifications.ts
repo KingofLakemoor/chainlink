@@ -1,3 +1,4 @@
+import { useToast } from '../components/ui/Toast';
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../lib/auth-context';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
@@ -49,6 +50,7 @@ export async function requestNotificationPermission(userUid: string, profile: an
 }
 
 export function useNotifications() {
+  const { addToast } = useToast();
   const { user, profile } = useAuth();
   const setupDone = useRef(false);
 
@@ -93,15 +95,11 @@ export function useNotifications() {
 
           const unsubscribe = onMessage(messaging, (payload) => {
             if (payload.notification) {
-              navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(payload.notification.title || 'Notification', {
-                  body: payload.notification.body,
-                  icon: '/icons/icon-192x192.png',
-                  data: {
-                     url: payload.data?.url || '/'
-                  }
-                });
-              });
+               addToast({
+                 title: payload.notification.title || 'Notification',
+                 body: payload.notification.body || '',
+                 url: payload.data?.url || '/'
+               });
             }
           });
 

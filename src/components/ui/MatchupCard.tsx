@@ -155,7 +155,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                )}
                {isLink4 && m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
-                   {isNaN(m.metadata.mlAway) ? 0 : (m.metadata.mlAway > 0 ? `+${m.metadata.mlAway}` : m.metadata.mlAway)}
+                   {isNaN(m.metadata.mlAway) ? 0 : (m.metadata.mlAway > 0 ? `+${m.metadata.mlAway}` : String(m.metadata.mlAway))}
                  </div>
                )}
                {m.type === 'SOCCER_SCORE' && !isLink4 && (() => {
@@ -197,11 +197,11 @@ export const MatchupCard = React.memo(function MatchupCard({
                          m.metadata.awayLinescores.map((score: number, i: number) => (
                            <React.Fragment key={i}>
                              {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
-                             <span>{isNaN(Number(score)) ? 0 : score}</span>
+                             <span>{isNaN(Number(score)) ? 0 : String(score)}</span>
                            </React.Fragment>
                          ))
                        ) : (
-                         (typeof m.awayTeam.score === "number" && !isNaN(m.awayTeam.score) ? m.awayTeam.score : 0)
+                         (typeof m.awayTeam.score === "number" && !isNaN(m.awayTeam.score) ? String(m.awayTeam.score) : 0)
                        )}
                     </div>
 
@@ -246,11 +246,11 @@ export const MatchupCard = React.memo(function MatchupCard({
                          m.metadata.homeLinescores.map((score: number, i: number) => (
                            <React.Fragment key={i}>
                              {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
-                             <span>{isNaN(Number(score)) ? 0 : score}</span>
+                             <span>{isNaN(Number(score)) ? 0 : String(score)}</span>
                            </React.Fragment>
                          ))
                        ) : (
-                         (typeof m.homeTeam.score === "number" && !isNaN(m.homeTeam.score) ? m.homeTeam.score : 0)
+                         (typeof m.homeTeam.score === "number" && !isNaN(m.homeTeam.score) ? String(m.homeTeam.score) : 0)
                        )}
                     </div>
 
@@ -299,7 +299,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                )}
                {isLink4 && m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
-                   {isNaN(m.metadata.mlHome) ? 0 : (m.metadata.mlHome > 0 ? `+${m.metadata.mlHome}` : m.metadata.mlHome)}
+                   {isNaN(m.metadata.mlHome) ? 0 : (m.metadata.mlHome > 0 ? `+${m.metadata.mlHome}` : String(m.metadata.mlHome))}
                  </div>
                )}
                {m.type === 'SOCCER_SCORE' && !isLink4 && (() => {
@@ -331,11 +331,11 @@ export const MatchupCard = React.memo(function MatchupCard({
            <div className="flex flex-col items-center">
              {m.cost > 0 && (
                <span className="text-xs text-zinc-400 flex items-center gap-1 font-medium">
-                 Wager: <Link2 className="w-3.5 h-3.5 text-cyan-400 ml-0.5" /> <span className="text-cyan-400 font-mono tracking-wide">{m.cost}</span>
+                 Wager: <Link2 className="w-3.5 h-3.5 text-cyan-400 ml-0.5" /> <span className="text-cyan-400 font-mono tracking-wide">{Number.isNaN(Number(m.cost)) ? 0 : m.cost}</span>
                </span>
              )}
              <span className="text-xs text-zinc-400 flex items-center gap-1 font-medium">
-               Reward: <Link2 className="w-3.5 h-3.5 text-cyan-400 ml-0.5" /> <span className="text-cyan-400 font-mono tracking-wide">{m.reward ?? 10}</span>
+               Reward: <Link2 className="w-3.5 h-3.5 text-cyan-400 ml-0.5" /> <span className="text-cyan-400 font-mono tracking-wide">{Number.isNaN(Number(m.reward)) ? 10 : m.reward ?? 10}</span>
              </span>
            </div>
 

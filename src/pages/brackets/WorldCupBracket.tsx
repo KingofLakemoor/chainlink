@@ -281,11 +281,11 @@ export function WorldCupBracket({ bracket, adminView }: WorldCupBracketProps) {
         <div className="bg-[#1a1a1a] border border-[#27272a] rounded-xl p-4 mb-6 w-full max-w-2xl flex justify-around">
            <div className="text-center">
              <div className="text-zinc-400 text-xs font-bold uppercase mb-1">Current Points</div>
-             <div className="text-2xl font-black text-white">{isNaN(currentPoints) ? 0 : currentPoints}</div>
+             <div className="text-2xl font-black text-white">{isNaN(currentPoints) ? 0 : String(currentPoints)}</div>
            </div>
            <div className="text-center">
              <div className="text-zinc-400 text-xs font-bold uppercase mb-1">Potential Points</div>
-             <div className="text-2xl font-black text-white">{isNaN(potentialPoints) ? 0 : potentialPoints}</div>
+             <div className="text-2xl font-black text-white">{isNaN(potentialPoints) ? 0 : String(potentialPoints)}</div>
            </div>
         </div>
       )}

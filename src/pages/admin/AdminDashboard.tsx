@@ -12,6 +12,7 @@ import { AdminLeagues } from './leagues/AdminLeagues';
 
 const Link4AdminPage = React.lazy(() => import('./link4/Link4AdminPage'));
 const CreateMatchupPage = React.lazy(() => import('./matchups/CreateMatchupPage'));
+const PlayerPropBuilderPage = React.lazy(() => import('./matchups/PlayerPropBuilderPage'));
 const PGABuilderPage = React.lazy(() => import('./pga/PGABuilderPage'));
 const CreateAchievementPage = React.lazy(() => import('./achievements/CreateAchievementPage'));
 const AwardAchievementPage = React.lazy(() => import('./achievements/AwardAchievementPage'));

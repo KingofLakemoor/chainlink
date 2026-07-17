@@ -877,8 +877,8 @@ export default function Link4Page() {
 
                 {/* Score Column */}
                 <div className="flex flex-col items-end sm:items-center justify-center min-w-[80px] w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-zinc-800 pt-3 sm:pt-0 sm:pl-4">
-                  <div className="text-2xl font-black text-green-500">{isNaN(entry.score) ? 0 : entry.score}</div>
-                  <div className="text-xs text-zinc-500 font-medium">Pot. {isNaN(entry.potentialScore) ? 0 : entry.potentialScore}</div>
+                  <div className="text-2xl font-black text-green-500">{isNaN(entry.score) ? 0 : String(entry.score)}</div>
+                  <div className="text-xs text-zinc-500 font-medium">Pot. {isNaN(entry.potentialScore) ? 0 : String(entry.potentialScore)}</div>
                 </div>
 
               </div>

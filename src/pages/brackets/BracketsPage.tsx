@@ -394,7 +394,7 @@ export function BracketsPage() {
                             )}
                           </td>
                           <td className="px-6 py-4 text-center font-bold text-white">
-                            {isNaN(participant.points) ? 0 : participant.points}
+                            {isNaN(participant.points) ? 0 : String(participant.points)}
                           </td>
                           <td className="px-6 py-4 text-center font-bold text-zinc-400">
                             {isNaN(participant.potentialPoints) ? 0 : participant.potentialPoints}

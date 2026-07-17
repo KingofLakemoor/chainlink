@@ -562,10 +562,10 @@ export default function PickEmPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : participant.points}</span>
+                        <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
                       </td>
                       <td className="px-6 py-4 text-center text-zinc-400 font-mono">
-                        {isNaN(participant.wins) ? 0 : participant.wins}-{isNaN(participant.losses) ? 0 : participant.losses}-{isNaN(participant.pushes) ? 0 : participant.pushes}
+                        {isNaN(participant.wins) ? 0 : String(participant.wins)}-{isNaN(participant.losses) ? 0 : String(participant.losses)}-{isNaN(participant.pushes) ? 0 : String(participant.pushes)}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">

@@ -20,6 +20,7 @@ const ADMIN_MENU_SECTIONS = [
           { id: 'matchups-picks', label: 'Picks', path: '/admin/picks' },
           { id: 'matchups-create', label: 'Create Matchup', path: '/admin/matchups/create' },
           { id: 'matchups-pga', label: 'PGA Builder', path: '/admin/pga-builder' },
+          { id: 'matchups-prop', label: 'Prop Builder', path: '/admin/prop-builder' },
           { id: 'matchups-scraper', label: 'Scraper Settings', path: '/admin/settings/scraper' }
         ]
       },

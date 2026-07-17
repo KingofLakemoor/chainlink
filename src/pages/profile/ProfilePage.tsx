@@ -480,19 +480,19 @@ export default function ProfilePage() {
            <div className="grid grid-cols-3 gap-4">
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-green-500/20 transition-colors">
                  <CheckCircle2 className="w-6 h-6 text-green-500 mb-2 opacity-80" />
-                 <span className="text-2xl font-bold text-green-400">{isNaN(stats.wins) ? 0 : stats.wins}</span>
+                 <span className="text-2xl font-bold text-green-400">{isNaN(stats.wins) ? 0 : String(stats.wins)}</span>
                  <span className="text-[10px] uppercase font-bold text-green-500/80 tracking-wider">Wins</span>
               </div>
 
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-red-500/20 transition-colors">
                  <XCircle className="w-6 h-6 text-red-500 mb-2 opacity-80" />
-                 <span className="text-2xl font-bold text-red-400">{isNaN(stats.losses) ? 0 : stats.losses}</span>
+                 <span className="text-2xl font-bold text-red-400">{isNaN(stats.losses) ? 0 : String(stats.losses)}</span>
                  <span className="text-[10px] uppercase font-bold text-red-500/80 tracking-wider">Losses</span>
               </div>
 
               <div className="bg-zinc-500/10 border border-zinc-500/20 rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-zinc-500/20 transition-colors">
                  <MinusCircle className="w-6 h-6 text-zinc-500 mb-2 opacity-80" />
-                 <span className="text-2xl font-bold text-zinc-400">{isNaN(stats.pushes) ? 0 : stats.pushes}</span>
+                 <span className="text-2xl font-bold text-zinc-400">{isNaN(stats.pushes) ? 0 : String(stats.pushes)}</span>
                  <span className="text-[10px] uppercase font-bold text-zinc-500/80 tracking-wider">Pushes</span>
               </div>
            </div>
@@ -500,7 +500,7 @@ export default function ProfilePage() {
            {/* Progress Bar */}
            <div className="mt-6">
               <div className="flex justify-between text-xs text-zinc-500 font-medium mb-2">
-                 <span>Total Decisions: {isNaN(totalDecisions) ? 0 : totalDecisions}</span>
+                 <span>Total Decisions: {isNaN(totalDecisions) ? 0 : String(totalDecisions)}</span>
               </div>
               <div className="h-2 w-full bg-red-500/20 rounded-full overflow-hidden flex">
                  <div className="h-full bg-green-500" style={{ width: `${winRate}%` }}></div>
@@ -536,13 +536,13 @@ export default function ProfilePage() {
                         <div className="flex items-center justify-between text-sm mb-3">
                            <span className="text-zinc-500 font-medium">Record</span>
                            <div className="flex items-center gap-2 font-mono">
-                              <span className="text-green-400 font-bold">{isNaN(stat.wins) ? 0 : stat.wins}W</span>
+                              <span className="text-green-400 font-bold">{isNaN(stat.wins) ? 0 : String(stat.wins)}W</span>
                               <span className="text-zinc-600">-</span>
-                              <span className="text-red-400 font-bold">{isNaN(stat.losses) ? 0 : stat.losses}L</span>
+                              <span className="text-red-400 font-bold">{isNaN(stat.losses) ? 0 : String(stat.losses)}L</span>
                               {stat.pushes > 0 && (
                                  <>
                                     <span className="text-zinc-600">-</span>
-                                    <span className="text-zinc-400 font-bold">{isNaN(stat.pushes) ? 0 : stat.pushes}P</span>
+                                    <span className="text-zinc-400 font-bold">{isNaN(stat.pushes) ? 0 : String(stat.pushes)}P</span>
                                  </>
                               )}
                            </div>
@@ -551,11 +551,11 @@ export default function ProfilePage() {
                         <div className="grid grid-cols-2 gap-2 mt-auto">
                            <div className="bg-zinc-800/30 rounded p-2 flex flex-col items-center text-center">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Max Win<br />Chain</span>
-                              <span className="text-green-400 font-bold font-mono">W{isNaN(stat.longestWinChain) ? 0 : stat.longestWinChain}</span>
+                              <span className="text-green-400 font-bold font-mono">W{isNaN(stat.longestWinChain) ? 0 : String(stat.longestWinChain)}</span>
                            </div>
                            <div className="bg-zinc-800/30 rounded p-2 flex flex-col items-center text-center">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Max Loss<br />Chain</span>
-                              <span className="text-red-400 font-bold font-mono">L{isNaN(stat.longestLossChain) ? 0 : stat.longestLossChain}</span>
+                              <span className="text-red-400 font-bold font-mono">L{isNaN(stat.longestLossChain) ? 0 : String(stat.longestLossChain)}</span>
                            </div>
                         </div>
                      </div>

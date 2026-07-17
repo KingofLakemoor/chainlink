@@ -259,7 +259,7 @@ export default function PGABuilderPage() {
             >
               <option value="">Select Golfer...</option>
               {golfers.map(g => (
-                <option key={g.id} value={g.id}>{g.name} ({isNaN(g.score) ? 0 : g.score})</option>
+                <option key={g.id} value={g.id}>{g.name} ({isNaN(g.score) ? 0 : String(g.score)})</option>
               ))}
             </select>
           </div>
@@ -273,7 +273,7 @@ export default function PGABuilderPage() {
             >
               <option value="">Select Golfer...</option>
               {golfers.map(g => (
-                <option key={g.id} value={g.id}>{g.name} ({isNaN(g.score) ? 0 : g.score})</option>
+                <option key={g.id} value={g.id}>{g.name} ({isNaN(g.score) ? 0 : String(g.score)})</option>
               ))}
             </select>
           </div>

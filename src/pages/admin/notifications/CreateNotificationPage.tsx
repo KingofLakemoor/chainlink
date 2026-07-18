@@ -4,9 +4,11 @@ import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
+import { useAuth } from '../../../lib/auth-context';
 
 export default function CreateNotificationPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     body: '',
@@ -58,6 +60,22 @@ export default function CreateNotificationPage() {
         status: 'PENDING',
         createdAt: Date.now()
       });
+      
+      try {
+        const token = await user?.getIdToken();
+        const res = await fetch('/api/admin/process-notifications', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const resultData = await res.json();
+        console.log('process-notifications result:', resultData);
+      } catch (err) {
+        console.error('Error triggering notification processor:', err);
+      }
+
       alert('Notification created successfully!');
       navigate('/admin/notifications');
     } catch (e) {

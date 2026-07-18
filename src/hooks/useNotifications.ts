@@ -17,8 +17,8 @@ export async function requestNotificationPermission(userUid: string, profile: an
       console.error('Permission not granted:', permission);
       return { granted: false, reason: 'denied' };
     }
-    const configParam = encodeURIComponent(JSON.stringify(app.options));
-    const swUrl = `/sw.js?config=${configParam}`;
+    
+    const swUrl = `/sw.js`;
     const registration = await navigator.serviceWorker.register(swUrl);
     
     if (!import.meta.env.VITE_FIREBASE_VAPID_KEY) {
@@ -56,8 +56,8 @@ export function useNotifications() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      const configParam = encodeURIComponent(JSON.stringify(app.options));
-      navigator.serviceWorker.register(`/sw.js?config=${configParam}`).catch((error) => {
+      
+      navigator.serviceWorker.register(`/sw.js`).catch((error) => {
         console.error('Service Worker registration failed:', error);
       });
     }
@@ -96,7 +96,7 @@ export function useNotifications() {
           const unsubscribe = onMessage(messaging, (payload) => {
             if (payload.notification) {
                addToast({
-                 title: payload.notification.title || 'Notification',
+                 title: payload.notification.title || payload.data?.title || "Social Pick 'Em Update",
                  body: payload.notification.body || '',
                  url: payload.data?.url || '/'
                });

@@ -23,7 +23,7 @@ export function HelpPage() {
           </div>
           <div className="space-y-4 text-zinc-300 relative z-10">
             <p>
-              <strong>ChainLink</strong> is a continuous sports prediction game where the goal is to build the longest winning streak (your "Chain") by making consecutive correct picks.
+              <strong>ChainLink</strong> is a continuous sports prediction game where the goal is to build the longest winning chain by making consecutive correct picks.
             </p>
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Make a Pick:</strong> Browse available matchups on the Dashboard and pick a team to win.</li>
@@ -132,7 +132,7 @@ export function HelpPage() {
             </div>
              <div className="space-y-2 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
               <strong className="text-emerald-400">Chain</strong>
-              <p className="text-sm">Your current active streak of consecutive correct picks. Resets to 0 upon a single loss.</p>
+              <p className="text-sm">Your current active chain of consecutive correct picks. Resets to 0 upon a single loss.</p>
             </div>
           </div>
         </section>
@@ -148,7 +148,7 @@ export function HelpPage() {
           <div className="space-y-6 text-zinc-300 relative z-10">
             <div className="space-y-2">
               <h3 className="font-bold text-white text-lg">What happens if a game is canceled or postponed?</h3>
-              <p>If a game is canceled or officially postponed, any picks made on that game will be marked as a 'Push' (or canceled). Your chain will remain unaffected, and you will not lose your streak.</p>
+              <p>If a game is canceled or officially postponed, any picks made on that game will be marked as a 'Push' (or canceled). Your chain will remain unaffected, and you will not lose your chain.</p>
             </div>
             <div className="space-y-2">
               <h3 className="font-bold text-white text-lg">How often are new matchups added?</h3>

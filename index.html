@@ -3,46 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ChainLink | Social Pick 'Em & Sports Streaks</title>
-    <meta name="description" content="Build the ultimate sports prediction streak on ChainLink. Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard." />
+    <title>Social Pick 'Em</title>
+    <meta name="description" content="Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard." />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://chainlink.club602.com/" />
-    <meta property="og:title" content="ChainLink | Social Pick 'Em & Sports Streaks" />
-    <meta property="og:description" content="Build the ultimate sports prediction streak on ChainLink. Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard." />
+    <meta property="og:title" content="Social Pick 'Em" />
+    <meta property="og:description" content="Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard." />
     <meta property="og:image" content="/images/og-image.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://chainlink.club602.com/" />
-    <meta property="twitter:title" content="ChainLink | Social Pick 'Em & Sports Streaks" />
-    <meta property="twitter:description" content="Build the ultimate sports prediction streak on ChainLink. Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard." />
+    <meta property="twitter:title" content="Social Pick 'Em" />
+    <meta property="twitter:description" content="Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard." />
     <meta property="twitter:image" content="/images/og-image.png" />
 
     <!-- Favicon / Theme -->
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="theme-color" content="#18181b" />
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
-          registration.unregister();
-        }
-      });
-    }
-  </script>
+    <link rel="manifest" href="/manifest.json" />
+
   <script>
     window.addEventListener('error', function(e) {
-      if (document.getElementById('root') && document.getElementById('root').innerHTML === '') {
-        document.getElementById('root').innerHTML = '<div style="color:white;padding:20px;font-family:sans-serif;"><h3>Application Error</h3><p>' + (e.message || e.error || e) + '</p><pre style="font-size:10px;overflow:auto;">' + (e.error && e.error.stack ? e.error.stack : '') + '</pre></div>';
+      if (e.target && (e.target.nodeName === 'SCRIPT' || e.target.nodeName === 'LINK')) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (var i = 0; i < registrations.length; i++) {
+              registrations[i].unregister();
+            }
+            window.location.reload();
+          }).catch(function() {
+            window.location.reload();
+          });
+        } else {
+          window.location.reload();
+        }
+        return;
       }
-    });
+      if (document.getElementById('root') && document.getElementById('root').innerHTML === '') {
+        document.getElementById('root').innerHTML = '<div style="background:#18181b;color:white;padding:20px;font-family:sans-serif;"><h3>Application Error</h3><p>' + (e.message || e.error || e) + '</p><pre style="font-size:10px;overflow:auto;">' + (e.error && e.error.stack ? e.error.stack : '') + '</pre></div>';
+      }
+    }, true);
     window.addEventListener('unhandledrejection', function(e) {
       if (document.getElementById('root') && document.getElementById('root').innerHTML === '') {
-        document.getElementById('root').innerHTML = '<div style="color:white;padding:20px;font-family:sans-serif;"><h3>Unhandled Promise Rejection</h3><p>' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p></div>';
+        document.getElementById('root').innerHTML = '<div style="background:#18181b;color:white;padding:20px;font-family:sans-serif;"><h3>Unhandled Promise Rejection</h3><p>' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p></div>';
       }
     });
+  </script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        window.location.reload();
+      });
+    }
   </script>
 </head>
   <body>
@@ -51,4 +66,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

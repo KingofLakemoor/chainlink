@@ -30,7 +30,19 @@ export class ErrorBoundary extends Component<Props, State> {
       (error.message && error.message.includes('Loading chunk')) ||
       (error.message && error.message.includes('dynamically imported module'))
     ) {
-      window.location.reload();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+          window.location.reload();
+        }).catch(() => {
+          window.location.reload();
+        });
+      } else {
+        window.location.reload();
+      }
+      return;
     }
   }
 

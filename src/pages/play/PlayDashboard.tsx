@@ -181,7 +181,7 @@ export default function PlayDashboard() {
   const handleForfeitPick = async (matchup: any) => {
     if (!user || !profile) return;
 
-    if (window.confirm("Are you sure you want to forfeit this pick? You will receive a loss and lose your streak.")) {
+    if (window.confirm("Are you sure you want to forfeit this pick? You will receive a loss and lose your chain.")) {
       try {
         const idToken = await user.getIdToken();
         const response = await fetch('/api/picks/forfeit-pick', {

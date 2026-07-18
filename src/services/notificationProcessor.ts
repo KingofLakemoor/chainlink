@@ -51,12 +51,18 @@ export async function processPendingNotifications() {
       targetTokens = [...new Set(targetTokens)];
 
       if (targetTokens.length > 0) {
+        const rawData = notifData.data || {};
+        const safeData: Record<string, string> = {};
+        for (const key of Object.keys(rawData)) {
+            safeData[key] = String(rawData[key]);
+        }
+
         const messagePayload = {
-          notification: {
-            title: notifData.title,
-            body: notifData.body
-          },
-          data: notifData.data || {}
+          data: {
+            ...safeData,
+            title: String(notifData.title || ''),
+            body: String(notifData.body || '')
+          }
         };
         
         for (let i = 0; i < targetTokens.length; i += 500) {

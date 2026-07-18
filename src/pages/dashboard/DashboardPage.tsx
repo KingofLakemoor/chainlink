@@ -156,13 +156,13 @@ export default function DashboardPage() {
   }, []);
 
   const currentMonthStats = React.useMemo(() => {
-    if (!picks || picks.length === 0) return { wins: 0, losses: 0, pushes: 0, longestWinChain: 0, longestLossChain: 0, streak: 0 };
+    if (!picks || picks.length === 0) return { wins: 0, losses: 0, pushes: 0, longestWinChain: 0, longestLossChain: 0, currentChain: 0 };
 
     const sortedPicks = [...picks].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    let stats = { wins: 0, losses: 0, pushes: 0, longestWinChain: 0, longestLossChain: 0, streak: 0 };
+    let stats = { wins: 0, losses: 0, pushes: 0, longestWinChain: 0, longestLossChain: 0, currentChain: 0 };
     let currentChain = 0;
 
     sortedPicks.forEach(pick => {
@@ -183,7 +183,7 @@ export default function DashboardPage() {
         } else if (pick.status === 'PUSH') {
           stats.pushes += 1;
         }
-        stats.streak = currentChain;
+        stats.currentChain = currentChain;
       }
     });
 
@@ -313,8 +313,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Chain</span>
-                          <span className={cn("text-2xl font-bold", currentMonthStats.streak > 0 ? "text-green-500" : currentMonthStats.streak < 0 ? "text-red-500" : "text-zinc-500")}>
-                             {currentMonthStats.streak > 0 ? `W${currentMonthStats.streak}` : currentMonthStats.streak < 0 ? `L${Math.abs(currentMonthStats.streak)}` : '-'}
+                          <span className={cn("text-2xl font-bold", currentMonthStats.currentChain > 0 ? "text-green-500" : currentMonthStats.currentChain < 0 ? "text-red-500" : "text-zinc-500")}>
+                             {currentMonthStats.currentChain > 0 ? `W${currentMonthStats.currentChain}` : currentMonthStats.currentChain < 0 ? `L${Math.abs(currentMonthStats.currentChain)}` : '-'}
                           </span>
                       </div>
                   </div>

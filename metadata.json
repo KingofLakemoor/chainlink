@@ -1,6 +1,6 @@
 {
-  "name": "ChainLink 2.0",
-  "description": "A game where you try to build the highest chain of correct guesses to sports matchups and challenges, updated with Google Firebase.",
+  "name": "Social Pick 'Em",
+  "description": "A Social Pick 'Em application.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

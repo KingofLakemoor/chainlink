@@ -367,11 +367,13 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
         if (existingDoc) {
           const existingData = existingDoc.data();
 
-          if (existingData.abandoned && scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET') {
-            if (existingData.status !== 'STATUS_SCHEDULED') {
-              continue;
-            }
-          }
+          // Removed continue check for abandoned games so that their scores still update.
+          // This is necessary because they might be part of a Pick'em or Link4 campaign.
+          // if (existingData.abandoned && scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET') {
+          //   if (existingData.status !== 'STATUS_SCHEDULED') {
+          //     continue;
+          //   }
+          // }
 
           const newTitle = existingData.hasCustomTitle ? existingData.title : scrapedMatchup.title;
 
@@ -663,8 +665,9 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             }
             updateCount++;
 
-            if (!updateData.abandoned &&
-               ((newStatus === 'STATUS_FINAL' && existingData.status !== 'STATUS_FINAL') ||
+            // Allow grading for abandoned games just in case they are included in Link4 or Pickem campaigns.
+            // Grader handles empty picks gracefully.
+            if (((newStatus === 'STATUS_FINAL' && existingData.status !== 'STATUS_FINAL') ||
                 (newStatus === 'STATUS_POSTPONED' && existingData.status !== 'STATUS_POSTPONED'))) {
               matchupsToGrade.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
             }

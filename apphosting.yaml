@@ -1,25 +1,29 @@
 # apphosting.yaml
 # This tells Firebase App Hosting which secrets to pull from Google Cloud Secret Manager.
 # Make sure you have created these secrets in the Google Cloud Console.
-
 env:
   # The VAPID key is required for Push Notifications to work.
   # We need it at BUILD time so Vite can inject it into the frontend bundle.
   - variable: VITE_FIREBASE_VAPID_KEY
+    secret: VITE_FIREBASE_VAPID_KEY
     availability:
       - BUILD
       - RUNTIME
-  
+    
   # Backend Secrets
   - variable: STRIPE_SECRET_KEY
+    secret: STRIPE_SECRET_KEY
     availability:
       - RUNTIME
   - variable: STRIPE_WEBHOOK_SECRET
+    secret: STRIPE_WEBHOOK_SECRET
     availability:
       - RUNTIME
   - variable: SCRIPTLESS_API_KEY
+    secret: SCRIPTLESS_API_KEY
     availability:
       - RUNTIME
   - variable: FIREBASE_SERVICE_ACCOUNT_KEY
+    secret: FIREBASE_SERVICE_ACCOUNT_KEY
     availability:
       - RUNTIME

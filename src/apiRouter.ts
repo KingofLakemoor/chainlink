@@ -123,7 +123,11 @@ apiRouter.post("/referral/increment", validateAuth, async (req, res) => {
 
       const referrerRef = adminDb.collection('users').doc(referrerId);
 
-      transaction.update(userRef, { referralGranted: true });
+            const currentMonthStr = new Date().toISOString().slice(0, 7);
+      const monthlyStatsRef = adminDb.collection('settings').doc(`monthlyStats_${currentMonthStr}`);
+      
+      transaction.update(userRef, { referralGranted: true, referralGrantedAt: Date.now(), referredBy: referrerId });
+      transaction.set(monthlyStatsRef, { referrals: FieldValue.increment(1) }, { merge: true });
       transaction.update(referrerRef, { referralsCount: FieldValue.increment(1) });
     });
 
@@ -876,9 +880,46 @@ apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) =
 
 apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
   try {
-    const { league } = req.body;
+    let { league } = req.body;
     let result = {};
-    if (league === 'PROP') {
+    
+    // Handle potential aliases from external crons
+    if (league === 'MEX' || league === 'Liga MX') {
+      league = 'LMX';
+    }
+
+    if (!league || league === 'All' || league === 'ALL') {
+      // If no specific league is provided, sync all active leagues
+      if (!adminDb) throw new Error('adminDb not initialized');
+      const activeLeaguesSnap = await adminDb.collection('leagueSettings').where('active', '==', true).get();
+      const activeLeagues = activeLeaguesSnap.docs.map(doc => doc.id);
+      
+      let totalUpdated = 0;
+      let totalCreated = 0;
+      const errors = [];
+      
+      for (const activeLeague of activeLeagues) {
+        if (activeLeague === 'PROP') {
+           await updateAllProps();
+        } else {
+           try {
+             const res = await syncLeagueSchedules(activeLeague);
+             totalUpdated += res.matchupsUpdated || 0;
+             totalCreated += res.scoreMatchupsCreated || 0;
+           } catch (e) {
+             errors.push(`${activeLeague}: ${e.message}`);
+           }
+        }
+      }
+      
+      result = { 
+        success: true, 
+        message: 'Synced all active leagues', 
+        matchupsUpdated: totalUpdated, 
+        scoreMatchupsCreated: totalCreated,
+        errors: errors.length > 0 ? errors : undefined
+      };
+    } else if (league === 'PROP') {
       await updateAllProps();
       result = { success: true, message: 'Prop updates complete' };
     } else {

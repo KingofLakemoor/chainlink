@@ -366,7 +366,7 @@ const TopStats = React.memo(function TopStats() {
            {(chain?.chain || 0) < 0 ? `L${Math.abs(chain?.chain || 0)}` : `W${chain?.chain || 0}`}
          </span>
          <span className="text-zinc-400 font-mono text-xs tracking-wider">
-           {profile?.stats?.wins ?? 0} - {profile?.stats?.losses ?? 0} - {profile?.stats?.pushes ?? 0}
+           {profile?.stats?.wins || 0} - {profile?.stats?.losses || 0} - {profile?.stats?.pushes || 0}
          </span>
       </div>
       <div className="w-px h-4 bg-zinc-700"></div>

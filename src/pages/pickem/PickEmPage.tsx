@@ -219,7 +219,7 @@ export default function PickEmPage() {
 
   const handleClearPick = async (matchup: any) => {
     if (!user || !selectedCampaign) return;
-    if (matchup.status !== 'STATUS_SCHEDULED') return;
+    if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
 
     try {
       const pickId = `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
@@ -238,7 +238,7 @@ export default function PickEmPage() {
 
   const handlePick = async (matchup: any, teamId: string) => {
     if (!user || !selectedCampaign) return;
-    if (matchup.status !== 'STATUS_SCHEDULED') return;
+    if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
 
     try {
       const pickId = `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
@@ -392,7 +392,7 @@ export default function PickEmPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {matchups.map(m => {
                 const pick = userPicks[m.id];
-                const isLocked = m.status !== 'STATUS_SCHEDULED';
+                const isLocked = m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime);
 
                 const isSpread = m.type === 'SPREAD' && m.metadata?.spread !== undefined;
                 const spread = m.metadata?.spread || 0;

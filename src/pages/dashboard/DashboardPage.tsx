@@ -301,15 +301,15 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-4">
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Wins</span>
-                          <span className="text-2xl font-bold text-green-500">{currentMonthStats.wins}</span>
+                          <span className="text-2xl font-bold text-green-500">{isNaN(currentMonthStats.wins) ? 0 : currentMonthStats.wins}</span>
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Losses</span>
-                          <span className="text-2xl font-bold text-red-500">{currentMonthStats.losses}</span>
+                          <span className="text-2xl font-bold text-red-500">{isNaN(currentMonthStats.losses) ? 0 : currentMonthStats.losses}</span>
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Pushes</span>
-                          <span className="text-2xl font-bold text-zinc-300">{currentMonthStats.pushes}</span>
+                          <span className="text-2xl font-bold text-zinc-300">{isNaN(currentMonthStats.pushes) ? 0 : currentMonthStats.pushes}</span>
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Chain</span>

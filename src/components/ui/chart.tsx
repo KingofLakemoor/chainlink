@@ -169,7 +169,7 @@ function ChartTooltipContent({
       return null
     }
 
-    return <div className={cn("font-medium", labelClassName)}>{value}</div>
+    return <div className={cn("font-medium", labelClassName)}>{String(value)}</div>
   }, [
     label,
     labelFormatter,

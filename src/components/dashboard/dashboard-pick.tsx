@@ -126,7 +126,7 @@ export const DashboardPick = React.memo(function DashboardPick({ activePick, act
           </div>
           <div className="bg-[#111111] px-5 py-3 border-t border-[#27272a] flex justify-between items-center text-sm">
             <span className="text-zinc-400 font-medium">{activeMatchup.status === 'STATUS_SCHEDULED' ? 'Upcoming' : 'In Progress'}</span>
-            <span className="text-zinc-300 flex items-center gap-1 font-medium">Reward: <Link2 className="w-4 h-4 text-cyan-400" /> <span className="text-cyan-400 font-bold">{activeMatchup.reward ?? 10}</span></span>
+            <span className="text-zinc-300 flex items-center gap-1 font-medium">Reward: <Link2 className="w-4 h-4 text-cyan-400" /> <span className="text-cyan-400 font-bold">{Number.isNaN(Number(activeMatchup.reward)) ? 10 : (activeMatchup.reward ?? 10)}</span></span>
           </div>
           {activeMatchup.featured && activeMatchup.featuredType !== 'ChainBuilder' && currentSponsor && (
              <div className="px-5 py-4 border-t border-[#27272a] bg-[#0f0f11] flex items-center justify-center">

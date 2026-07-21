@@ -107,7 +107,7 @@ export default function AchievementsListPage() {
                     <td className="px-4 py-3 font-medium text-zinc-200">{ach.name}</td>
                     <td className="px-4 py-3 text-zinc-400">{ach.type}</td>
                     <td className="px-4 py-3 text-zinc-400">{ach.links || 0}</td>
-                    <td className="px-4 py-3 text-zinc-400">{stats.count}</td>
+                    <td className="px-4 py-3 text-zinc-400">{String(stats.count)}</td>
                     <td className="px-4 py-3 text-zinc-400">{stats.percentage}%</td>
                   </tr>
                 );

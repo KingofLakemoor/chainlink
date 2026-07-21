@@ -4,13 +4,14 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
-import { Trophy, Copy, Check, Users, Target } from 'lucide-react';
+import { Trophy, Copy, Check, Users, Target, UserPlus } from 'lucide-react';
 
 export function SidebarProgress() {
   const { profile, user } = useAuth();
   const [prizeData, setPrizeData] = useState({
     activeUsersRequirement: 25,
     picksRequirement: 375,
+    referralsRequirement: 10,
     prizeDescription: '$5 Club 602 gift card',
     sponsorName: 'Club 602',
     targetMonth: '',
@@ -19,6 +20,7 @@ export function SidebarProgress() {
 
   const [activeUsers, setActiveUsers] = useState(0);
   const [globalPicks, setGlobalPicks] = useState(0);
+  const [globalReferrals, setGlobalReferrals] = useState(0);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -80,6 +82,16 @@ export function SidebarProgress() {
 
         setActiveUsers(uniqueUsers.size);
         setGlobalPicks(totalPicks);
+        
+        // 3. Fetch referrals for the target month
+        const targetMonthStr = currentPrizeData.targetMonth || new Date().toISOString().slice(0, 7);
+        const monthlyStatsRef = doc(db, 'settings', `monthlyStats_${targetMonthStr}`);
+        const statsSnap = await getDoc(monthlyStatsRef);
+        if (statsSnap.exists()) {
+          setGlobalReferrals(statsSnap.data().referrals || 0);
+        } else {
+          setGlobalReferrals(0);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -102,6 +114,7 @@ export function SidebarProgress() {
 
   const userProgress = Math.min(100, (activeUsers / (prizeData.activeUsersRequirement || 1)) * 100);
   const picksProgress = Math.min(100, (globalPicks / (prizeData.picksRequirement || 1)) * 100);
+  const referralsProgress = prizeData.referralsRequirement > 0 ? Math.min(100, (globalReferrals / prizeData.referralsRequirement) * 100) : 0;
 
   return (
     <div className="mt-4 mb-4 px-3 space-y-4">
@@ -121,21 +134,27 @@ export function SidebarProgress() {
         </div>
 
         <div className="space-y-3">
-          <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-zinc-400 flex items-center gap-1"><Users className="w-3 h-3"/> Users</span>
-              <span className="text-zinc-300">{activeUsers} / {isNaN(Number(prizeData.activeUsersRequirement)) ? 0 : String(prizeData.activeUsersRequirement)}</span>
+          {(prizeData.activeUsersRequirement || 0) > 0 && (
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-zinc-400 flex items-center gap-1"><Users className="w-3 h-3"/> Users</span>
+                <span className="text-zinc-300">{String(activeUsers)} / {String(prizeData.activeUsersRequirement)}</span>
+              </div>
+              <Progress value={userProgress} className="h-1.5" />
             </div>
-            <Progress value={userProgress} className="h-1.5" />
-          </div>
+          )}
 
-          <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-zinc-400 flex items-center gap-1"><Target className="w-3 h-3"/> Picks</span>
-              <span className="text-zinc-300">{globalPicks} / {isNaN(Number(prizeData.picksRequirement)) ? 0 : String(prizeData.picksRequirement)}</span>
+          {(prizeData.picksRequirement || 0) > 0 && (
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-zinc-400 flex items-center gap-1"><Target className="w-3 h-3"/> Picks</span>
+                <span className="text-zinc-300">{String(globalPicks)} / {String(prizeData.picksRequirement)}</span>
+              </div>
+              <Progress value={picksProgress} className="h-1.5" />
             </div>
-            <Progress value={picksProgress} className="h-1.5" />
-          </div>
+          )}
+          
+
         </div>
       </div>
 

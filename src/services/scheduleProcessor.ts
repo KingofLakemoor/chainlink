@@ -526,6 +526,13 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               updatedAt: Date.now()
             };
 
+            if (updateData.metadata.homeLinescores === undefined) {
+                updateData.metadata.homeLinescores = null;
+            }
+            if (updateData.metadata.awayLinescores === undefined) {
+                updateData.metadata.awayLinescores = null;
+            }
+
             // Flatten update properties specifically for batch.update when NOT migrating
             const flattenedUpdate: any = {
               abandoned: updateData.abandoned,
@@ -547,11 +554,21 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               'metadata.mlHome': updateData.metadata.mlHome,
               'metadata.mlAway': updateData.metadata.mlAway,
               'metadata.spread': updateData.metadata.spread,
-              'metadata.homeLinescores': updateData.metadata.homeLinescores,
-              'metadata.awayLinescores': updateData.metadata.awayLinescores,
               'metadata.network': updateData.metadata.network,
               updatedAt: updateData.updatedAt
             };
+
+            if (updateData.metadata.homeLinescores !== undefined) {
+                flattenedUpdate['metadata.homeLinescores'] = updateData.metadata.homeLinescores;
+            } else {
+                flattenedUpdate['metadata.homeLinescores'] = null;
+            }
+
+            if (updateData.metadata.awayLinescores !== undefined) {
+                flattenedUpdate['metadata.awayLinescores'] = updateData.metadata.awayLinescores;
+            } else {
+                flattenedUpdate['metadata.awayLinescores'] = null;
+            }
 
             if (scrapedMatchup.league === 'FIFA') {
                const oldHomeName = existingData.homeTeam?.name;

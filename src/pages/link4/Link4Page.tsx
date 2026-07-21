@@ -532,22 +532,22 @@ export default function Link4Page() {
             {timeLeft ? (
               <div className="flex gap-3 text-center">
                 <div className="flex flex-col">
-                  <span className="text-xl font-black text-white">{timeLeft.days}</span>
+                  <span className="text-xl font-black text-white">{isNaN(timeLeft.days) ? 0 : timeLeft.days}</span>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase">Days</span>
                 </div>
                 <span className="text-zinc-600 font-bold text-xl">:</span>
                 <div className="flex flex-col">
-                  <span className="text-xl font-black text-white">{timeLeft.hours.toString().padStart(2, '0')}</span>
+                  <span className="text-xl font-black text-white">{(isNaN(timeLeft.hours) ? 0 : timeLeft.hours).toString().padStart(2, '0')}</span>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase">Hrs</span>
                 </div>
                 <span className="text-zinc-600 font-bold text-xl">:</span>
                 <div className="flex flex-col">
-                  <span className="text-xl font-black text-white">{timeLeft.minutes.toString().padStart(2, '0')}</span>
+                  <span className="text-xl font-black text-white">{(isNaN(timeLeft.minutes) ? 0 : timeLeft.minutes).toString().padStart(2, '0')}</span>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase">Min</span>
                 </div>
                 <span className="text-zinc-600 font-bold text-xl">:</span>
                 <div className="flex flex-col">
-                  <span className="text-xl font-black text-white">{timeLeft.seconds.toString().padStart(2, '0')}</span>
+                  <span className="text-xl font-black text-white">{(isNaN(timeLeft.seconds) ? 0 : timeLeft.seconds).toString().padStart(2, '0')}</span>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase">Sec</span>
                 </div>
               </div>

@@ -472,7 +472,7 @@ export default function ProfilePage() {
                 <Trophy className="w-5 h-5 text-yellow-500" /> Career Stats
               </h2>
               <div className="text-right">
-                <span className="text-2xl font-bold text-zinc-100">{winRate.toFixed(1)}%</span>
+                <span className="text-2xl font-bold text-zinc-100">{isNaN(winRate) ? 0 : winRate.toFixed(1)}%</span>
                 <span className="text-xs text-zinc-500 block uppercase tracking-wider font-bold">Win Rate</span>
               </div>
            </div>
@@ -576,7 +576,7 @@ export default function ProfilePage() {
          {profile?.referralsCount !== undefined && (
             <div className="mb-4 pb-4 border-b border-zinc-800 flex items-center justify-between">
                <span className="text-zinc-400 text-sm">Total Referrals</span>
-               <span className="font-bold text-lg text-purple-400">{profile.referralsCount}</span>
+               <span className="font-bold text-lg text-purple-400">{Number.isNaN(Number(profile.referralsCount)) ? 0 : profile.referralsCount}</span>
             </div>
          )}
          <div className="flex items-center gap-3 bg-zinc-800/50 p-3 rounded-lg border border-zinc-700">

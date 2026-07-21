@@ -467,7 +467,7 @@ export default function LeaderboardsPage() {
         {renderTopPerformerCard(
           "Best Win %",
           topWinRate,
-          `${topWinRate?.winRate?.toFixed(1) || 0}%`,
+          `${isNaN(topWinRate?.winRate) ? 0 : topWinRate?.winRate?.toFixed(1)}%`,
           "text-cyan-500",
           Percent,
           "bg-cyan-500/10 text-cyan-500",
@@ -588,9 +588,9 @@ export default function LeaderboardsPage() {
                         {player.nextPickText || 'NO PICK'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-green-400 font-mono font-bold">{player.stats?.wins || 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-red-400 font-mono font-bold">{player.stats?.losses || 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-zinc-300 font-mono">{player.winRate?.toFixed(1) || 0}%</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-green-400 font-mono font-bold">{isNaN(player.stats?.wins) ? 0 : player.stats?.wins}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-red-400 font-mono font-bold">{isNaN(player.stats?.losses) ? 0 : player.stats?.losses}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-zinc-300 font-mono">{isNaN(player.winRate) ? 0 : player.winRate?.toFixed(1)}%</td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className={cn("inline-flex items-center justify-center w-8 h-8 rounded-full font-mono font-bold border", (player.currentChain || 0) < 0 ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20")}>
                         {(player.currentChain || 0) < 0 ? `L${Math.abs(player.currentChain || 0)}` : `W${player.currentChain || 0}`}

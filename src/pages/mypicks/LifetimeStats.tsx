@@ -183,7 +183,7 @@ export default function LifetimeStats({ userStats }: LifetimeStatsProps) {
               <div key={league} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 flex flex-col items-center justify-center hover:bg-zinc-800/50 transition-colors">
                 <div className="text-4xl mb-4 opacity-90">{icon}</div>
                 <div className="text-lg font-bold text-zinc-100 tracking-wide mb-1">
-                  {stats.wins || 0} - {stats.losses || 0} - {stats.pushes || 0}
+                  {isNaN(stats.wins) ? 0 : stats.wins} - {isNaN(stats.losses) ? 0 : stats.losses} - {isNaN(stats.pushes) ? 0 : stats.pushes}
                 </div>
                 <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">
                   {league}

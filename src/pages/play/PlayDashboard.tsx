@@ -159,7 +159,7 @@ export default function PlayDashboard() {
 
       if (!((isLive || isUpcoming) && !isFinal)) return false;
 
-      if (filterType === 'available' && m.status !== 'STATUS_SCHEDULED') return false;
+      if (filterType === 'available' && (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime))) return false;
       if (filterType === 'chain' && !m.featured) return false;
 
       if (selectedSport === 'FOOTBALL' && !['NFL', 'CFB', 'CFL'].includes(m.league)) return false;
@@ -209,7 +209,7 @@ export default function PlayDashboard() {
 
     const isCancelablePGA = matchup.league === 'PGA' && matchup.status === 'STATUS_IN_PROGRESS' && (matchup.statusDesc === 'In Progress' || matchup.statusDesc === 'Delayed');
 
-    if (matchup.status !== 'STATUS_SCHEDULED' && !isCancelablePGA) {
+    if ((matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) && !isCancelablePGA) {
       alert("This game has already started and cannot be cancelled.");
       return;
     }
@@ -239,7 +239,7 @@ export default function PlayDashboard() {
     }
     if (!profile || !chain) return;
 
-    if (matchup.status !== 'STATUS_SCHEDULED') {
+    if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) {
         alert("This game has already started.");
         return;
     }

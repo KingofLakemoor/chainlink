@@ -121,7 +121,14 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     switch (league) {
       case "NFL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`);
       case "NBA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${date}`);
-      case "NBASL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer/scoreboard?dates=${date}`);
+      case "NBASL": return dates.flatMap(date => [
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${date}`,
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-sacramento/scoreboard?dates=${date}`,
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-california/scoreboard?dates=${date}`,
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-utah/scoreboard?dates=${date}`,
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-orlando/scoreboard?dates=${date}`,
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-golden-state/scoreboard?dates=${date}`
+      ]);
       case "NHL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`);
       case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
       case "MLS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`);
@@ -149,7 +156,14 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
   switch (league) {
     case "NFL": return [`https://cdn.espn.com/core/nfl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "NBA": return [`https://cdn.espn.com/core/nba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
-    case "NBASL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer/scoreboard?dates=${date}`);
+    case "NBASL": return dates.flatMap(date => [
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${date}`,
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-sacramento/scoreboard?dates=${date}`,
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-california/scoreboard?dates=${date}`,
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-utah/scoreboard?dates=${date}`,
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-orlando/scoreboard?dates=${date}`,
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-golden-state/scoreboard?dates=${date}`
+    ]);
     case "NHL": return [`https://cdn.espn.com/core/nhl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
     case "MLS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`);
@@ -554,7 +568,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
           let finalStatusDesc = competition.status?.type?.shortDetail || "Upcoming";
           let finalStatus = "STATUS_SCHEDULED";
 
-          if (league === "FIFA" && (competition.status?.type?.completed === true || competition.status?.type?.name === "STATUS_FINAL" || MATCHUP_FINAL_STATUSES.includes(competition.status?.type?.name || "") || competition.status?.type?.shortDetail?.toLowerCase().includes("final") || competition.status?.type?.detail?.toLowerCase().includes("final"))) {
+          if (["FIFA", "LMX", "EPL", "MLS", "FRA", "TUR", "RPL", "CHN", "NWSL"].includes(league as string) && (competition.status?.type?.completed === true || competition.status?.type?.name === "STATUS_FINAL" || MATCHUP_FINAL_STATUSES.includes(competition.status?.type?.name || "") || competition.status?.type?.shortDetail?.toLowerCase().includes("final") || competition.status?.type?.detail?.toLowerCase().includes("final"))) {
               let calculatedHomeScore = home.linescores ? home.linescores.filter((ls: any) => ls.winner === true).length : homeScore;
               let calculatedAwayScore = away.linescores ? away.linescores.filter((ls: any) => ls.winner === true).length : awayScore;
 
@@ -634,7 +648,9 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                overUnder,
                spread,
                mlHome: mlHome ? parseInt(mlHome, 10) : null,
-               mlAway: mlAway ? parseInt(mlAway, 10) : null
+               mlAway: mlAway ? parseInt(mlAway, 10) : null,
+               homeLinescores: home.linescores || null,
+               awayLinescores: away.linescores || null
              }
           });
         }

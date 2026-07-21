@@ -9,6 +9,7 @@ export default function PrizeAdminPage() {
   const [prizeData, setPrizeData] = useState({
     activeUsersRequirement: 25,
     picksRequirement: 375,
+    referralsRequirement: 0,
     prizeDescription: '$5 Club 602 gift card',
     sponsorName: 'Club 602',
     targetMonth: new Date().toISOString().slice(0, 7), // Format YYYY-MM
@@ -73,6 +74,18 @@ export default function PrizeAdminPage() {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-zinc-400 mb-1">Referrals Requirement (0 to disable)</label>
+          <input
+            type="number"
+            value={prizeData.referralsRequirement || 0}
+            onChange={(e) => setPrizeData({...prizeData, referralsRequirement: parseInt(e.target.value) || 0})}
+            className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2 text-zinc-100"
+          />
+        </div>
+
+
+
+        <div>
           <label className="block text-sm font-medium text-zinc-400 mb-1">Prize Description</label>
           <input
             type="text"
@@ -103,6 +116,7 @@ export default function PrizeAdminPage() {
             <option value="Longest Chain">Longest Chain</option>
             <option value="Most Wins">Most Wins</option>
             <option value="Highest Win Percentage">Highest Win Percentage</option>
+            <option value="Most Referrals">Most Referrals</option>
           </select>
         </div>
 

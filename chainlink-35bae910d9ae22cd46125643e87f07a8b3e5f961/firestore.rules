@@ -1,0 +1,203 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Phase 3: Primitives
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    
+    function isAdmin() { 
+       return isSignedIn() && 
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN";
+    }
+
+    match /{document=**} {
+      allow read, write: if false; 
+    }
+
+    // users
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['email', 'name', 'role', 'status', 'createdAt']) &&
+               data.email is string && data.email.size() <= 200 &&
+               data.name is string && data.name.size() <= 100 &&
+               data.role in ['USER', 'ADMIN'] &&
+               data.status in ['ACTIVE', 'INACTIVE'] &&
+               data.createdAt is number;
+      }
+      
+      allow get: if isSignedIn();
+      allow list: if isAdmin(); // only admins can list all users
+      
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidId(userId) &&
+                    isValidUser(incoming()) && incoming().role == 'USER';
+                    
+      allow update: if (
+        isSignedIn() && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId && 
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'image', 'settings', 'status', 'updatedAt', 'role'])
+          )
+        )
+      );
+    }
+
+    // squads
+    match /squads/{squadId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin(); // Managed primarily via backend or admin
+    }
+
+    // matchups
+    match /matchups/{matchupId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // picks
+    match /picks/{pickId} {
+      function isValidPick(data) {
+        return data.keys().hasAll(['userId', 'matchupId', 'pickId', 'status', 'active', 'createdAt', 'updatedAt']) &&
+               data.userId is string && data.matchupId is string &&
+               data.status in ['PENDING', 'WIN', 'LOSS', 'PUSH'] &&
+               data.active is bool;
+      }
+      
+      allow read: if isSignedIn();
+      allow create: if (
+        isSignedIn() && isValidPick(incoming()) && 
+         incoming().userId == request.auth.uid &&
+        exists(/databases/$(database)/documents/matchups/$(incoming().matchupId))
+      );
+                    
+      allow update: if (
+        isSignedIn() && isValidPick(incoming()) && (
+          isAdmin() ||
+          (
+            request.auth.uid == existing().userId &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['pick', 'active', 'updatedAt']) &&
+            existing().status == 'PENDING'
+          )
+        )
+      );
+    }
+
+    // chains
+    match /chains/{chainId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && chainId == (request.auth.uid + "_current");
+      allow update: if isAdmin(); // Usually maintained by cloud logic based on picks
+    }
+
+    // Pickem 
+    match /pickemCampaigns/{campaignId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /pickemMatchups/{matchupId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /pickemParticipants/{participantId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin(); // Server maintained
+    }
+    match /pickemPicks/{pickId} {
+      allow read: if isSignedIn() && (resource == null || existing().participantId == request.auth.uid || isAdmin());
+      allow write: if isSignedIn() && (incoming().participantId == request.auth.uid || (resource != null && existing().participantId == request.auth.uid));
+    }
+
+    // achievements
+    match /achievements/{achievementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // shopItems
+    match /shopItems/{itemId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // purchases
+    match /purchases/{purchaseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); // Server processed
+    }
+
+    // games and quizzes
+    match /globalQuiz/{quizId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /quizResponses/{responseId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid; // Simplified
+      allow update, delete: if isAdmin();
+    }
+    match /bracketTournaments/{tournamentId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /brackets/{bracketId} { 
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /bracketGames/{gameId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /bracketGamePredictions/{predictionId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /slotMachineSpins/{spinId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /blackjackGames/{gameId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /coinTransactions/{txId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); // Core ledger via server
+    }
+
+    match /announcements/{announcementId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /sponsors/{sponsorId} { allow read: if true; allow write: if isAdmin(); }
+
+    // Reactions
+    match /reactions/{reactionId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /matchupReactions/{matchupReactionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+      allow update: if false; // Re-create instead
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        (existing().senderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        (existing().receiverId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || resource.data.referredBy == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+    
+    match /campaigns/{campaignId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /leagueSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+    match /link4Picks/{pickId} { allow read: if isSignedIn(); allow write: if isSignedIn() && (incoming().userId == request.auth.uid || (existing() != null && existing().userId == request.auth.uid)); }
+    match /link4Segments/{segmentId} { allow read: if true; allow write: if isAdmin(); }
+    match /linkTransactions/{txId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /notifications/{notificationId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /systemSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+  }
+}

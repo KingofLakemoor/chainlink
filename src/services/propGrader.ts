@@ -120,10 +120,12 @@ async function fetchPlayerStat(config: PropAthleteConfig, timeframe: PropTimefra
                 if (config.statType === 'ASSISTS') targetIdx = labels.findIndex((l: string) => l === 'AST');
                 if (config.statType === 'THREES') targetIdx = labels.findIndex((l: string) => l === '3PT');
                 
+                const groupType = statGroup.type || statGroup.name;
+                
                 // MLB mapping
-                if (config.statType === 'STRIKEOUTS') targetIdx = labels.findIndex((l: string) => l === 'K');
-                if (config.statType === 'HITS') targetIdx = labels.findIndex((l: string) => l === 'H');
-                if (config.statType === 'HOME_RUNS') targetIdx = labels.findIndex((l: string) => l === 'HR');
+                if (config.statType === 'STRIKEOUTS' && (!groupType || groupType === 'pitching')) targetIdx = labels.findIndex((l: string) => l === 'K');
+                if (config.statType === 'HITS' && (!groupType || groupType === 'batting')) targetIdx = labels.findIndex((l: string) => l === 'H');
+                if (config.statType === 'HOME_RUNS' && (!groupType || groupType === 'batting')) targetIdx = labels.findIndex((l: string) => l === 'HR');
                 
                 // NFL mapping
                 if (config.statType === 'PASSING_YARDS' && statGroup.name === 'passing') targetIdx = labels.findIndex((l: string) => l === 'YDS');
@@ -206,6 +208,10 @@ export async function updateAllProps() {
                 if (newStatus === 'STATUS_FINAL') {
                     matchupsToGrade.push({ id: doc.id, ...m, status: 'STATUS_FINAL', homeTeam: { ...m.homeTeam, score: valueB }, awayTeam: { ...m.awayTeam, score: valueA } });
                 }
+            } else if (m.startTime && Date.now() >= m.startTime && m.status === 'STATUS_SCHEDULED') {
+                // If games have started by time but boxscore is not ready, update status to lock the prop
+                batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS' });
+                count++;
             }
         }
         

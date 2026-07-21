@@ -150,7 +150,7 @@ export function TeamInsights() {
           </div>
           <div className="text-xl font-bold text-white mb-1">{stat.name}</div>
           <div className="text-sm font-medium text-zinc-400">
-            <span className="text-zinc-300 font-bold">{stat.count}</span> occurrences
+            <span className="text-zinc-300 font-bold">{String(stat.count)}</span> occurrences
           </div>
         </>
       ) : (

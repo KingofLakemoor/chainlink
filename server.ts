@@ -4,10 +4,11 @@ import cors from "cors";
 import path from "path";
 import { initializeApp, cert } from 'firebase-admin/app';
 import { apiRouter } from './src/apiRouter.js';
+import { startNotificationListener } from './src/services/notificationProcessor.js';
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
 
   const allowedOrigins = [
     'http://localhost:3000',
@@ -167,6 +168,7 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    startNotificationListener();
   });
 }
 

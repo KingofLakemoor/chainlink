@@ -229,7 +229,7 @@ export function AdminMatchups() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-zinc-500">{new Date(row.startTime).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-zinc-300 font-mono">{pickCounts[row.id] || 0}</td>
+                  <td className="px-4 py-3 text-zinc-300 font-mono">{String(pickCounts[row.id] || 0)}</td>
                   <td className="px-4 py-3 text-right">
                     <Link to={`/admin/matchups/${row.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block"><Edit className="w-4 h-4" /></Link>
                     <button onClick={() => handleDelete(row.id)} className="text-red-500/70 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>

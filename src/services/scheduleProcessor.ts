@@ -1,4 +1,89 @@
 import { adminDb } from '../lib/firebase-admin.js';
+
+async function processDependentProps(adminDb: any, gameId: string): Promise<void> {
+    try {
+        const propsASnap = await adminDb.collection('matchups')
+            .where('metadata.optionA.gameId', '==', gameId)
+            .where('status', '==', 'STATUS_SCHEDULED')
+            .get();
+        const propsBSnap = await adminDb.collection('matchups')
+            .where('metadata.optionB.gameId', '==', gameId)
+            .where('status', '==', 'STATUS_SCHEDULED')
+            .get();
+        
+        const propDocs = [...propsASnap.docs, ...propsBSnap.docs];
+        const uniqueProps = Array.from(new Map(propDocs.map(d => [d.id, d])).values());
+
+        if (uniqueProps.length === 0) return;
+
+        let batch = adminDb.batch();
+        let opCount = 0;
+
+        for (const propDoc of uniqueProps) {
+            batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', updatedAt: Date.now() });
+            opCount++;
+
+            const pendingPicksSnap = await adminDb.collection('picks')
+                .where('matchupId', '==', propDoc.id)
+                .where('status', '==', 'PENDING')
+                .get();
+            
+            for (const pickDoc of pendingPicksSnap.docs) {
+                const pickData = pickDoc.data();
+                const userPicksSnap = await adminDb.collection('picks')
+                    .where('userId', '==', pickData.userId)
+                    .where('status', '==', 'PENDING')
+                    .orderBy('createdAt', 'asc')
+                    .get();
+                const pickIndex = userPicksSnap.docs.findIndex(doc => doc.id === pickDoc.id);
+                if (pickIndex > 0) {
+                    batch.delete(pickDoc.ref);
+                    opCount++;
+                    const userRef = adminDb.collection('users').doc(pickData.userId);
+                    const userDoc = await userRef.get();
+                    if (userDoc.exists && pickData.links > 0) {
+                        const userData = userDoc.data();
+                        batch.update(userRef, { links: (userData.links || 0) + pickData.links, updatedAt: Date.now() });
+                        const logRef = adminDb.collection('linkTransactions').doc();
+                        batch.set(logRef, {
+                            userId: pickData.userId,
+                            username: userData.username || userData.name || 'Unknown User',
+                            type: 'PICK_CANCELLED',
+                            amount: pickData.links,
+                            description: `Wager refunded for cancelled pick on ${propDoc.data().title || 'player prop'}`,
+                            createdAt: Date.now()
+                        });
+                        opCount += 2;
+                    }
+                    const notificationsRef = adminDb.collection('notifications').doc();
+                    batch.set(notificationsRef, {
+                        title: 'Queued Pick Cancelled ⏱️',
+                        body: `Your queued pick on ${propDoc.data().title || 'a player prop'} was cancelled because the game started before it became your active pick. Your wager of ${pickData.links || 0} links was refunded.`,
+                        audience: 'USER',
+                        targetUserId: pickData.userId,
+                        status: 'PENDING',
+                        scheduledTime: Date.now(),
+                        createdAt: Date.now()
+                    });
+                    opCount++;
+                }
+
+                if (opCount >= 450) {
+                    await batch.commit();
+                    batch = adminDb.batch();
+                    opCount = 0;
+                }
+            }
+        }
+
+        if (opCount > 0) {
+            await batch.commit();
+        }
+    } catch (error) {
+        console.error(`Error processing dependent props for gameId ${gameId}:`, error);
+    }
+}
+
 import { gradeMatchups } from './grader.js';
 import { gradePickemMatchups } from './pickemGrader.js';
 import { gradeLink4Matchups, processCompletedLink4Segments } from './link4Grader.js';
@@ -311,6 +396,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                 }
 
                 if (data.status === 'STATUS_SCHEDULED' && (newStatus === 'STATUS_IN_PROGRESS' || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED')) {
+                  await processDependentProps(adminDb, existingGameId);
                   const pendingPicksSnap = await adminDb.collection('picks')
                     .where('matchupId', '==', existingGameId)
                     .where('status', '==', 'PENDING')
@@ -590,9 +676,10 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             Object.keys(flattenedUpdate).forEach(key => flattenedUpdate[key] === undefined && delete flattenedUpdate[key]);
 
             if (existingData.status === 'STATUS_SCHEDULED' &&
-                (scrapedMatchup.status === 'STATUS_IN_PROGRESS' ||
-                 scrapedMatchup.status === 'STATUS_FINAL' ||
+                (scrapedMatchup.status === 'STATUS_IN_PROGRESS' || 
+                 scrapedMatchup.status === 'STATUS_FINAL' || 
                  scrapedMatchup.status === 'STATUS_POSTPONED')) {
+              await processDependentProps(adminDb, gameId);
               const pendingPicksSnap = await adminDb.collection('picks')
                 .where('matchupId', '==', gameId)
                 .where('status', '==', 'PENDING')

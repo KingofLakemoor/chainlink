@@ -26,10 +26,29 @@ export async function requestNotificationPermission(userUid: string, profile: an
       return { granted: false, reason: 'missing_vapid' };
     }
 
-    const currentToken = await getToken(messaging, {
-      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-      serviceWorkerRegistration: registration
-    });
+    let currentToken;
+    try {
+      currentToken = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: registration
+      });
+    } catch (tokenErr: any) {
+      console.error('Error during getToken:', tokenErr);
+      if (tokenErr.message && tokenErr.message.includes('less than the existing version')) {
+        console.warn('Detected IndexedDB version mismatch. Clearing FCM DBs and retrying...');
+        const dbsToClear = ['firebase-messaging-database', 'firebase-installations-database', 'fcm_token_details_db'];
+        for (const dbName of dbsToClear) {
+          try { indexedDB.deleteDatabase(dbName); } catch (e) {}
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        currentToken = await getToken(messaging, {
+          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+      } else {
+        throw tokenErr;
+      }
+    }
     if (currentToken) {
       const hasToken = profile?.fcmTokens?.includes(currentToken);
       if (!hasToken) {
@@ -78,10 +97,29 @@ export function useNotifications() {
 
           const registration = await navigator.serviceWorker.ready;
 
-          const currentToken = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: registration
-          });
+          let currentToken;
+          try {
+            currentToken = await getToken(messaging, {
+              vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+              serviceWorkerRegistration: registration
+            });
+          } catch (tokenErr: any) {
+            console.error('Error during background getToken:', tokenErr);
+            if (tokenErr.message && tokenErr.message.includes('less than the existing version')) {
+              console.warn('Detected IndexedDB version mismatch. Clearing FCM DBs and retrying...');
+              const dbsToClear = ['firebase-messaging-database', 'firebase-installations-database', 'fcm_token_details_db'];
+              for (const dbName of dbsToClear) {
+                try { indexedDB.deleteDatabase(dbName); } catch (e) {}
+              }
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              currentToken = await getToken(messaging, {
+                vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+                serviceWorkerRegistration: registration
+              });
+            } else {
+              throw tokenErr;
+            }
+          }
 
           if (currentToken) {
             const hasToken = profile.fcmTokens?.includes(currentToken);

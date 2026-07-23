@@ -1068,6 +1068,11 @@ apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
       result = { success: true, message: 'Prop updates complete' };
     } else {
       result = await syncLeagueSchedules(league);
+      try {
+        await updateAllProps();
+      } catch (err) {
+        console.error('Failed to update props during sync-schedules:', err);
+      }
     }
 
     // Call process-notifications internally to avoid requiring a separate cron job

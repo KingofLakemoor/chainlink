@@ -11,7 +11,7 @@ export interface FirebaseImageProps extends React.ImgHTMLAttributes<HTMLImageEle
 export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: FirebaseImageProps) {
   // If the src is not a gs:// URL, we can render it immediately.
   const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(
-    (src && !src.startsWith('gs://')) ? src : fallback || undefined
+    (src && !src.startsWith('gs://')) ? (src.startsWith('/contestants/') ? 'https://scriptless.club602.com' + src : src) : fallback || undefined
   );
   const [hasError, setHasError] = useState(false);
 
@@ -46,7 +46,7 @@ export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: Firebas
         }
       } else {
         if (isMounted) {
-          setResolvedSrc(src);
+          setResolvedSrc(src.startsWith('/contestants/') ? 'https://scriptless.club602.com' + src : src);
         }
       }
     }
@@ -72,6 +72,7 @@ export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: Firebas
       {...props}
       style={{ ...props.style, display: (hasError && !fallbackIcon) ? 'none' : props.style?.display }}
       loading="lazy"
+      referrerPolicy="no-referrer"
       onError={(e) => {
         if (props.onError) {
            props.onError(e);

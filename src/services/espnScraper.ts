@@ -317,7 +317,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                startTime: new Date(sm.startTime).getTime(),
                active: finalStatus === "STATUS_SCHEDULED",
                featured: true,
-               featuredType: "yZd7SruYT08dhh6MbVIh",
+               featuredType: "ScriptLess",
                title: sm.name,
                league: sm.league,
                status: finalStatus,

@@ -6,7 +6,7 @@ admin.initializeApp({
 });
 const db = admin.firestore();
 async function run() {
-  const doc = await db.collection('matchups').doc('prop_builder_1784830497147_4346117_40912').get();
-  console.log(JSON.stringify(doc.data(), null, 2));
+  const snap = await db.collection('matchups').where('type', '==', 'STATS').get();
+  console.log(snap.docs.map(d => d.id));
 }
 run();

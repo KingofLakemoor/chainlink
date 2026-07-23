@@ -1,12 +1,14 @@
 const admin = require('firebase-admin');
 const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 let serviceAccount = JSON.parse(serviceAccountStr.startsWith('{') ? serviceAccountStr : Buffer.from(serviceAccountStr, 'base64').toString());
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+}
 const db = admin.firestore();
 async function run() {
-  const doc = await db.collection('matchups').doc('prop_builder_1784830497147_4346117_40912').get();
-  console.log(JSON.stringify(doc.data(), null, 2));
+  const snap = await db.collection('matchups').where('type', '==', 'STATS').get();
+  console.log(JSON.stringify(snap.docs.map(d => d.data()), null, 2));
 }
 run();

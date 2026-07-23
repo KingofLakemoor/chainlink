@@ -102,6 +102,33 @@ export default function ShopPage() {
     }
   };
 
+  
+  const handleManageSubscription = async () => {
+    if (!user) return;
+    setBuyLoading('portal');
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/stripe/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Failed to create portal session");
+      }
+    } catch (e: any) {
+      console.error(e);
+      setMessage({ text: e.message || "Failed to connect to billing portal.", type: 'error' });
+    } finally {
+      setBuyLoading(null);
+    }
+  };
+
   const handleStripeCheckout = async (itemType: string, amount?: number) => {
     if (!user) {
       setMessage({ text: "You must be logged in to make purchases.", type: 'error' });

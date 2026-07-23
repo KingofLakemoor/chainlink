@@ -8,7 +8,8 @@ import { startNotificationListener } from './src/services/notificationProcessor.
 
 async function startServer() {
   const app = express();
-  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const isProduction = process.env.NODE_ENV === "production" || process.env.NODE_ENV === "prod" || (process.argv[1] && (process.argv[1].endsWith("server.cjs") || process.argv[1].includes("dist")));
+  const PORT = isProduction ? parseInt(process.env.PORT || "3000", 10) : 3000;
 
   const allowedOrigins = [
     'http://localhost:3000',
@@ -141,9 +142,7 @@ async function startServer() {
     res.status(404).json({ success: false, error: 'Not Found' });
   });
 
-  const isProduction = process.env.NODE_ENV === "production" || 
-                       process.env.NODE_ENV === "prod" ||
-                       (process.argv[1] && (process.argv[1].endsWith('server.cjs') || process.argv[1].includes('dist')));
+  
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import("vite");

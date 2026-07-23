@@ -195,18 +195,39 @@ export async function updateAllProps() {
                 const statusB = await fetchGameStatus(m.metadata.optionB);
                 
                 let newStatus = 'STATUS_IN_PROGRESS';
-                if (statusA === 'STATUS_FINAL' && statusB === 'STATUS_FINAL') {
+                let statusDesc = 'In Progress';
+                if (statusA.status === 'STATUS_FINAL' && statusB.status === 'STATUS_FINAL') {
                     newStatus = 'STATUS_FINAL';
+                    statusDesc = 'Final';
+                } else {
+                    if (m.metadata.optionA.gameId === m.metadata.optionB.gameId) {
+                         statusDesc = statusA.detail || 'In Progress';
+                    } else {
+                         let farthest = statusA;
+                         if (statusA.status === 'STATUS_FINAL') {
+                             farthest = statusB;
+                         } else if (statusB.status === 'STATUS_FINAL') {
+                             farthest = statusA;
+                         } else if (statusA.period !== undefined && statusB.period !== undefined) {
+                             if (statusA.period < statusB.period) {
+                                 farthest = statusA;
+                             } else if (statusA.period > statusB.period) {
+                                 farthest = statusB;
+                             }
+                         }
+                         statusDesc = farthest.detail || 'In Progress';
+                    }
                 }
                 
                 batch.update(doc.ref, {
                     'awayTeam.score': valueA,
                     'homeTeam.score': valueB,
-                    status: newStatus
+                    status: newStatus,
+                    statusDesc: statusDesc
                 });
                 count++;
                 if (newStatus === 'STATUS_FINAL') {
-                    matchupsToGrade.push({ id: doc.id, ...m, status: 'STATUS_FINAL', homeTeam: { ...m.homeTeam, score: valueB }, awayTeam: { ...m.awayTeam, score: valueA } });
+                    matchupsToGrade.push({ id: doc.id, ...m, status: 'STATUS_FINAL', statusDesc: 'Final', homeTeam: { ...m.homeTeam, score: valueB }, awayTeam: { ...m.awayTeam, score: valueA } });
                 }
             } else if (m.startTime && Date.now() >= m.startTime && m.status === 'STATUS_SCHEDULED') {
                 // If games have started by time but boxscore is not ready, update status to lock the prop
@@ -227,7 +248,13 @@ export async function updateAllProps() {
     }
 }
 
-async function fetchGameStatus(config: PropAthleteConfig): Promise<string> {
+interface GameStatus {
+    status: string;
+    detail?: string;
+    period?: number;
+}
+
+async function fetchGameStatus(config: PropAthleteConfig): Promise<GameStatus> {
     try {
         let sport = '';
         let leaguePath = '';
@@ -239,12 +266,17 @@ async function fetchGameStatus(config: PropAthleteConfig): Promise<string> {
         }
         const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
         const res = await fetch(url);
-        if (!res.ok) return 'STATUS_IN_PROGRESS';
+        if (!res.ok) return { status: 'STATUS_IN_PROGRESS' };
         const data = await res.json();
-        const rawStatus = data.header?.competitions?.[0]?.status?.type?.name;
-        if (rawStatus === 'STATUS_FINAL') return 'STATUS_FINAL';
-        return 'STATUS_IN_PROGRESS';
+        const statusObj = data.header?.competitions?.[0]?.status;
+        const rawStatus = statusObj?.type?.name;
+        if (rawStatus === 'STATUS_FINAL') return { status: 'STATUS_FINAL', detail: statusObj?.type?.detail || 'Final' };
+        return { 
+           status: 'STATUS_IN_PROGRESS', 
+           detail: statusObj?.type?.shortDetail || statusObj?.type?.detail,
+           period: statusObj?.period
+        };
     } catch {
-        return 'STATUS_IN_PROGRESS';
+        return { status: 'STATUS_IN_PROGRESS' };
     }
 }

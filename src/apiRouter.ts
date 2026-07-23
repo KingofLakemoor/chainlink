@@ -149,7 +149,8 @@ const validateAdmin = async (req: express.Request, res: express.Response, next: 
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
+    console.log("Stripe request: ", { itemType, amount, uid });
 
     const userDoc = await adminDb.collection('users').doc(uid).get();
     if (!userDoc.exists || userDoc.data()?.role !== 'ADMIN') {
@@ -177,7 +178,7 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     let priceData: any | undefined;
     let metadata: Record<string, string> = { uid, itemType };
@@ -186,33 +187,33 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
 
     if (itemType === 'links') {
       let priceInCents = 0;
-      let productId = '';
+      let productName = '';
       if (amount === 150) {
         priceInCents = 525;
-        productId = 'prod_UbeZGEJ7qNYzqh';
+        productName = '150 Links Pack';
       } else if (amount === 350) {
         priceInCents = 1049;
-        productId = 'prod_UbeanXV0kHAOmx';
+        productName = '350 Links Pack';
       } else if (amount === 1050) {
         priceInCents = 2999;
-        productId = 'prod_UbeaOKAeLRoMYA';
+        productName = '1050 Links Pack';
       } else if (amount === 1800) {
         priceInCents = 4999;
-        productId = 'prod_UbeaHkQfsij3Je';
+        productName = '1800 Links Pack';
       } else {
         return res.status(400).json({ success: false, error: 'Invalid links amount' });
       }
 
       priceData = {
         currency: 'usd',
-        product: productId,
+        product_data: { name: productName },
         unit_amount: priceInCents,
       };
       metadata.amount = amount.toString();
     } else if (itemType === 'premium') {
       priceData = {
         currency: 'usd',
-        product: 'prod_Ubebt3HfTCfFfc',
+        product_data: { name: 'ChainLink Pro Subscription' },
         unit_amount: 499,
         recurring: {
           interval: 'month',
@@ -232,8 +233,8 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
         },
       ],
       mode,
-      success_url: `${req.headers.origin}/shop?success=true`,
-      cancel_url: `${req.headers.origin}/shop?canceled=true`,
+      success_url: `${req.headers.origin || (req.protocol + '://' + req.get('host'))}/shop?success=true`,
+      cancel_url: `${req.headers.origin || (req.protocol + '://' + req.get('host'))}/shop?canceled=true`,
     };
 
     if (mode === 'subscription') {
@@ -245,9 +246,45 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
 
     const session = await stripe.checkout.sessions.create(sessionData);
 
-    res.json({ success: true, id: session.id, url: session.url });
+    console.log("Stripe session created:", session.id); res.json({ success: true, id: session.id, url: session.url });
   } catch (e: any) {
     console.error("Create checkout session error:", e.message, e);
+    require('fs').appendFileSync('stripe-errors.log', new Date().toISOString() + " - " + e.message + "\n");
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+
+apiRouter.post("/admin/update-links", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId, amount } = req.body;
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const userRef = adminDb.collection('users').doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const userData = userDoc.data();
+    const currentLinks = userData.links || 0;
+    const newLinks = currentLinks + amount;
+
+    await userRef.update({ links: newLinks });
+
+    const logRef = adminDb.collection('linkTransactions').doc();
+    await logRef.set({
+      userId: targetUserId,
+      username: userData.username || userData.name || 'Unknown User',
+      type: 'ADMIN_MANUAL',
+      amount: amount,
+      description: 'Admin explicitly added/removed links',
+      createdAt: Date.now()
+    });
+
+    res.json({ success: true, newLinks });
+  } catch (e: any) {
+    console.error("Update links error:", e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -285,7 +322,7 @@ apiRouter.post("/shop/claim-daily", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -432,7 +469,7 @@ apiRouter.post("/link4/submit", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const segmentRef = adminDb.collection('link4Segments').doc(segmentId);
@@ -537,7 +574,7 @@ apiRouter.post("/picks/forfeit-pick", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -631,7 +668,7 @@ apiRouter.post("/picks/cancel-pick", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -705,7 +742,7 @@ apiRouter.post("/picks/make-pick", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -951,7 +988,7 @@ apiRouter.post("/shop/buy", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -1019,7 +1056,7 @@ apiRouter.post("/shop/buy-merch", async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -1105,7 +1142,7 @@ apiRouter.post("/user/equip" , async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);
@@ -1150,7 +1187,7 @@ apiRouter.post("/user/update-variant" , async (req, res) => {
     if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    const uid = decodedToken.uid; console.log("Stripe request: ", { itemType, amount, uid });
 
     await adminDb.runTransaction(async (transaction: any) => {
       const userRef = adminDb.collection('users').doc(uid);

@@ -116,7 +116,7 @@ export const MatchupCard = React.memo(function MatchupCard({
         <div className="flex flex-col items-end">
           {m.status !== 'STATUS_SCHEDULED' && m.statusDesc !== 'Upcoming' && <span className="text-[10px] text-zinc-500 uppercase">last update:</span>}
           <span className="text-xs text-zinc-300 font-medium">
-            {m.status === 'STATUS_SCHEDULED' ? formatUpcomingTime(m.startTime) : (m.statusDesc || 'Upcoming')}
+            {m.status === 'STATUS_SCHEDULED' ? (m.statusDesc?.toLowerCase().includes('delay') ? m.statusDesc : formatUpcomingTime(m.startTime)) : (m.statusDesc || 'Upcoming')}
           </span>
         </div>
       </div>

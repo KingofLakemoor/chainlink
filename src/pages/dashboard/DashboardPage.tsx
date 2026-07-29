@@ -25,25 +25,12 @@ export default function DashboardPage() {
   React.useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const q = query(collection(db, 'announcements'), where('active', '==', true), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
         const snap = await getDocs(q);
-        setAnnouncements(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setAnnouncements(docs.filter((d: any) => d.active === true));
       } catch (e) {
         console.error("Error fetching announcements:", e);
-        // Fallback without index
-        try {
-          const q = query(collection(db, 'announcements'), where('active', '==', true));
-          const snap = await getDocs(q);
-          const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          docs.sort((a: any, b: any) => {
-            const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-            const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-            return timeB - timeA;
-          });
-          setAnnouncements(docs);
-        } catch (innerE) {
-            console.error("Failed fallback announcement fetch", innerE);
-        }
       }
     };
     fetchAnnouncements();

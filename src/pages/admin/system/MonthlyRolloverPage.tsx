@@ -33,7 +33,7 @@ export default function MonthlyRolloverPage() {
       addToast({ title: "Success", body: "Monthly rollover completed successfully" });
     } catch (err: any) {
       console.error(err);
-      addToast({ title: "Error", body: err.message, type: "error" });
+      addToast({ title: "Error", body: err.message });
     } finally {
       setLoading(false);
     }

@@ -299,6 +299,162 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
   const processedGameIds = new Set<string>();
   const parsedMatchups: any[] = [];
 
+  if (league === 'CFL') {
+    const apiKey = process.env.ODDS_API_KEY;
+    if (!apiKey) {
+      response.error = "ODDS_API_KEY missing for CFL";
+      return response;
+    }
+    
+    try {
+      let oddsData = [];
+      if (!scoreboardOnly) {
+          const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/americanfootball_cfl/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
+          if (oddsRes.ok) oddsData = await oddsRes.json();
+      }
+      
+      let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
+      if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides['CFL'] !== undefined) {
+         threshold = Math.abs(scraperConfig.sportOverrides['CFL']);
+      }
+
+      // We use Yahoo Sports for CFL scores/schedules because it is free
+      const dates = [];
+      if (specificDates && specificDates.length > 0) {
+          for (const d of specificDates) {
+             dates.push(d.substring(0,4) + '-' + d.substring(4,6) + '-' + d.substring(6,8));
+          }
+      } else {
+          const now = new Date();
+          for (let i = -3; i <= 5; i++) {
+             dates.push(new Date(now.getTime() + i*86400000).toISOString().split('T')[0]);
+          }
+      }
+      
+      for (const date of dates) {
+        const yahooRes = await fetch(`https://api-secure.sports.yahoo.com/v1/editorial/s/scoreboard?leagues=cfl&date=${date}`);
+        if (!yahooRes.ok) continue;
+        const d = await yahooRes.json();
+        const games = d.service?.scoreboard?.games;
+        if (!games) continue;
+        
+        for (const k in games) {
+           const g = games[k];
+           if (processedGameIds.has(g.gameid)) continue;
+           processedGameIds.add(g.gameid);
+           
+           const homeTeamName = d.service.scoreboard.teams[g.home_team_id]?.full_name || "Home Team";
+           const awayTeamName = d.service.scoreboard.teams[g.away_team_id]?.full_name || "Away Team";
+           
+           let homeScore = parseInt(g.total_home_points, 10) || 0;
+           let awayScore = parseInt(g.total_away_points, 10) || 0;
+           
+           let finalStatus = "STATUS_SCHEDULED";
+           let finalStatusDesc = "Upcoming";
+           if (g.status_type === 'status.type.final') {
+              finalStatus = "STATUS_FINAL";
+              finalStatusDesc = "Final";
+           } else if (g.status_type !== 'status.type.pregame' && g.status_type !== 'status.type.postponed') {
+              finalStatus = "STATUS_IN_PROGRESS";
+              finalStatusDesc = "In Progress";
+           } else if (g.status_type === 'status.type.postponed') {
+              finalStatus = "STATUS_POSTPONED";
+              finalStatusDesc = "Postponed";
+           }
+           
+           // Match team names loosely if odds exist
+           const normalizeName = (name) => name ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, "").trim() : "";
+           
+           const oddsEvent = oddsData.find((o: any) => {
+               const oHome = normalizeName(o.home_team);
+               const oAway = normalizeName(o.away_team);
+               const yHome = normalizeName(homeTeamName);
+               const yAway = normalizeName(awayTeamName);
+               return (oHome.includes(yHome) || yHome.includes(oHome)) && (oAway.includes(yAway) || yAway.includes(oAway));
+           });
+         
+         let mlHome = scoreboardOnly ? undefined : null;
+         let mlAway = scoreboardOnly ? undefined : null;
+         let spread = scoreboardOnly ? undefined : null;
+         let overUnder = scoreboardOnly ? undefined : null;
+         
+         if (oddsEvent) {
+             const bookmaker = oddsEvent.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || oddsEvent.bookmakers?.[0];
+             if (bookmaker) {
+                 const h2h = bookmaker.markets?.find((m: any) => m.key === 'h2h');
+                 if (h2h) {
+                     mlHome = h2h.outcomes?.find((o: any) => normalizeName(o.name).includes(normalizeName(homeTeamName)) || normalizeName(homeTeamName).includes(normalizeName(o.name)))?.price || null;
+                     mlAway = h2h.outcomes?.find((o: any) => normalizeName(o.name).includes(normalizeName(awayTeamName)) || normalizeName(awayTeamName).includes(normalizeName(o.name)))?.price || null;
+                 }
+                 const spreads = bookmaker.markets?.find((m: any) => m.key === 'spreads');
+                 if (spreads) {
+                     const hs = spreads.outcomes?.find((o: any) => normalizeName(o.name).includes(normalizeName(homeTeamName)) || normalizeName(homeTeamName).includes(normalizeName(o.name)));
+                     if (hs && hs.point !== undefined) spread = (hs.point > 0 ? "+" : "") + hs.point;
+                 }
+                 const totals = bookmaker.markets?.find((m: any) => m.key === 'totals');
+                 if (totals) {
+                     const over = totals.outcomes?.find((o: any) => o.name.toLowerCase() === 'over');
+                     if (over && over.point !== undefined) overUnder = "O/U " + over.point;
+                 }
+             }
+         }
+         
+         let active = true;
+         if (mlHome) {
+             const h = parseInt(mlHome, 10);
+             if (!isNaN(h) && (h <= -threshold || h >= threshold)) active = false;
+         }
+         if (mlAway) {
+             const a = parseInt(mlAway, 10);
+             if (!isNaN(a) && (a <= -threshold || a >= threshold)) active = false;
+         }
+         
+         parsedMatchups.push({
+             startTime: new Date(g.start_time).getTime(),
+             active,
+             featured: false,
+             title: `${awayTeamName} @ ${homeTeamName}`,
+             league: 'CFL',
+             type: "SCORE",
+             status: finalStatus,
+             statusDesc: finalStatusDesc,
+             gameId: g.gameid,
+             homeTeam: {
+                 id: homeTeamName,
+                 name: homeTeamName,
+                 image: d.service.scoreboard.teams[g.home_team_id]?.sportacularLogo?.[0]?.url || "/logo.png",
+                 score: homeScore
+             },
+             awayTeam: {
+                 id: awayTeamName,
+                 name: awayTeamName,
+                 image: d.service.scoreboard.teams[g.away_team_id]?.sportacularLogo?.[0]?.url || "/logo.png",
+                 score: awayScore
+             },
+             cost: 0,
+             metadata: {
+                 network: "N/A",
+                 overUnder,
+                 spread,
+                 mlHome,
+                 mlAway,
+                 homeLinescores: null,
+                 awayLinescores: null
+             }
+         });
+        }
+      }
+      
+      response.data = parsedMatchups;
+      response.gamesOnSchedule = parsedMatchups.length;
+      return response;
+      
+    } catch (err: any) {
+      response.error = err.message;
+      return response;
+    }
+  }
+
   for (const endpoint of endpoints) {
     try {
       const scheduleData = await fetchScheduleData(endpoint, league, scoreboardOnly);
@@ -526,6 +682,10 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   if (!isNaN(mlAwayNum) && (mlAwayNum <= -threshold || mlAwayNum >= threshold)) {
                     active = false;
                   }
+                }
+                
+                if ((league === 'ATP' || league === 'WTA') && !mlHome && !mlAway) {
+                  active = false;
                 }
                 let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
                 if (isNaN(homeScore)) homeScore = 0;

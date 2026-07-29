@@ -89,6 +89,7 @@ const ADMIN_MENU_SECTIONS = [
     items: [
       { id: 'guide', label: 'Operating Guide', icon: BookOpen, path: '/admin/guide' },
       { id: 'monthly-rollover', label: 'Monthly Rollover', icon: Settings, path: '/admin/system/rollover' },
+      { id: 'engagement', label: 'Engagement & Records', icon: Settings, path: '/admin/system/engagement' },
     ]
   }
 ];

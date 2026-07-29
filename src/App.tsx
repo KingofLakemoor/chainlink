@@ -467,6 +467,7 @@ const PickEmPage = React.lazy(() => import('./pages/pickem/PickEmPage'));
 const SponsorPage = React.lazy(() => import('./pages/SponsorPage'));
 const HelpPage = React.lazy(() => import('./pages/help/HelpPage'));
 const OnboardingPage = React.lazy(() => import('./pages/onboarding/OnboardingPage'));
+const HallOfFamePage = React.lazy(() => import('./pages/leaderboards/HallOfFamePage'));
 
 function GlobalEffects() {
   useNotifications();
@@ -496,6 +497,7 @@ export default function App() {
           <Route path="/mypicks" element={<PrivateRoute><MainLayout><MyPicksPage /></MainLayout></PrivateRoute>} />
           <Route path="/advanced-metrics" element={<PrivateRoute><MainLayout><AdvancedMetricsPage /></MainLayout></PrivateRoute>} />
           <Route path="/leaderboards" element={<PrivateRoute><MainLayout><LeaderboardsPage /></MainLayout></PrivateRoute>} />
+          <Route path="/hall-of-fame" element={<MainLayout><HallOfFamePage /></MainLayout>} />
           <Route path="/shop" element={<PrivateRoute><MainLayout><ShopPage /></MainLayout></PrivateRoute>} />
           <Route path="/sponsor" element={<SponsorPage />} />
           <Route path="/help" element={<MainLayout><HelpPage /></MainLayout>} />

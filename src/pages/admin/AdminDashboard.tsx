@@ -38,6 +38,7 @@ const LinkTransactionsAdminPage = React.lazy(() => import('./logs/LinkTransactio
 const PremiumStatusAdminPage = React.lazy(() => import('./users/PremiumStatusAdminPage'));
 const ScraperSettingsPage = React.lazy(() => import('./settings/ScraperSettingsPage'));
 const PrizeAdminPage = React.lazy(() => import('./prize/PrizeAdminPage'));
+const EngagementAdminPage = React.lazy(() => import('./system/EngagementAdminPage'));
 const AdminGuidePage = React.lazy(() => import('./guide/AdminGuidePage'));
 const MonthlyRolloverPage = React.lazy(() => import('./system/MonthlyRolloverPage'));
 const EditPickPage = React.lazy(() => import('./picks/EditPickPage'));
@@ -138,6 +139,7 @@ export default function AdminDashboard() {
                 <Route path="guide" element={<AdminGuidePage />} />
 
                 <Route path="system/rollover" element={<MonthlyRolloverPage />} />
+                <Route path="system/engagement" element={<EngagementAdminPage />} />
                 <Route path="system/rollover" element={<MonthlyRolloverPage />} />
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="matchups" replace />} />

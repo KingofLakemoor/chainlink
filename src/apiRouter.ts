@@ -8,6 +8,7 @@ import { gradeMatchups } from './services/grader.js';
 import { gradeLink4Matchups, payoutLink4Segment } from './services/link4Grader.js';
 import { gradePickemMatchups } from './services/pickemGrader.js';
 import { updateAllProps } from './services/propGrader.js';
+import { syncTennisOdds } from './services/oddsProcessor.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -175,6 +176,37 @@ apiRouter.post("/referral/increment", validateAuth, async (req, res) => {
     return res.status(500).json({ success: false, error: error.message || 'Internal server error' });
   }
 });
+
+const validateAdminOrApiKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  try {
+    const providedApiKey = req.headers['x-api-key'];
+    if (providedApiKey && providedApiKey === process.env.SCRIPTLESS_API_KEY) {
+       return next();
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Missing or invalid API key/token' });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
+
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const uid = decodedToken.uid;
+
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    if (!userDoc.exists || userDoc.data()?.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Admin access required' });
+    }
+
+    (req as any).uid = uid;
+    next();
+  } catch (e: any) {
+    console.error('validateAdminOrApiKey Error:', e);
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+};
 
 const validateAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
@@ -1014,6 +1046,16 @@ apiRouter.post("/admin/link4/payout", validateAdmin, async (req, res) => {
 });
 
 
+
+apiRouter.post("/admin/sync-odds", validateAdmin, async (req, res) => {
+  try {
+    const result = await syncTennisOdds();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) => {
   const result = await processPendingNotifications();
   if (result.success) {
@@ -1025,7 +1067,9 @@ apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) =
 
 apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
   try {
-    let { league } = req.body;
+    let { league, scoreboardOnly } = req.body;
+    // Default to false if not provided
+    const isScoreboardOnly = !!scoreboardOnly;
     let result = {};
     
     // Handle potential aliases from external crons
@@ -1054,7 +1098,7 @@ apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
            await updateAllProps();
         } else {
            try {
-             const res = await syncLeagueSchedules(activeLeague);
+             const res = await syncLeagueSchedules(activeLeague, isScoreboardOnly);
              totalUpdated += res.matchupsUpdated || 0;
              totalCreated += res.scoreMatchupsCreated || 0;
            } catch (e) {
@@ -1063,6 +1107,15 @@ apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
         }
       }
       
+
+      try {
+         if (!isScoreboardOnly) {
+            await syncTennisOdds();
+         }
+      } catch (err) {
+         console.error('Failed to sync tennis odds:', err);
+      }
+
       result = { 
         success: true, 
         message: 'Synced all active leagues', 
@@ -1074,7 +1127,7 @@ apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
       await updateAllProps();
       result = { success: true, message: 'Prop updates complete' };
     } else {
-      result = await syncLeagueSchedules(league);
+      result = await syncLeagueSchedules(league, isScoreboardOnly);
       try {
         await updateAllProps();
       } catch (err) {
@@ -1396,7 +1449,7 @@ apiRouter.get("/external/check-premium", async (req, res) => {
   }
 });
 
-apiRouter.post("/admin/matchups/external", validateAdmin, async (req, res) => {
+apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
   try {
     const { gameId, title, league, startTime, homeTeam, awayTeam, status, active } = req.body;

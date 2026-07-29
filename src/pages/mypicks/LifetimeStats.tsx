@@ -23,6 +23,8 @@ const leagueIconMap: Record<string, string> = {
   NBASL: '🏀',
   CFL: '🏈',
   LMX: '⚽',
+  ARG: '⚽',
+  BRA: '⚽',
 };
 
 interface LifetimeStatsProps {

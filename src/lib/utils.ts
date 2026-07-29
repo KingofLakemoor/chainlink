@@ -42,14 +42,7 @@ export const getSportFromLeague = (league: string): string => {
   if (["NFL", "COLLEGE-FOOTBALL", "UFL", "CFB", "CFL"].includes(league)) return "football";
   if (["MLB"].includes(league)) return "baseball";
   if (["NHL"].includes(league)) return "hockey";
-  if (
-    ["MLS", "NWSL", "EPL", "RPL",
-  "CFL",
-  "LMX", "CSL", "ARG", "TUR", "FRIENDLY", "LMX", "FIFA", "FRA", "CHN"].includes(
-      league
-    )
-  )
-    return "soccer";
+  if (["MLS", "NWSL", "EPL", "RPL", "CFL", "LMX", "ARG", "BRA", "CSL", "TUR", "FRIENDLY", "FIFA", "FRA", "CHN"].includes(league)) return "soccer";
   if (["PLL"].includes(league)) return "lacrosse";
 
   return "other";
@@ -88,4 +81,6 @@ export const ACTIVE_LEAGUES: string[] = [
   "RPL",
   "CFL",
   "LMX",
+  "ARG",
+  "BRA",
 ];

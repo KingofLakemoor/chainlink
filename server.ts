@@ -9,7 +9,7 @@ import { startNotificationListener } from './src/services/notificationProcessor.
 async function startServer() {
   const app = express();
   const isProduction = process.env.NODE_ENV === "production" || process.env.NODE_ENV === "prod" || (process.argv[1] && (process.argv[1].endsWith("server.cjs") || process.argv[1].includes("dist")));
-  const PORT = isProduction ? parseInt(process.env.PORT || "3000", 10) : 3000;
+  const PORT = 3000;
 
   const allowedOrigins = [
     'http://localhost:3000',
@@ -152,13 +152,12 @@ async function startServer() {
     });
     app.get('/sw.js', (req, res) => {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Clear-Site-Data', '"cache"');
       res.sendFile(path.join(process.cwd(), 'public/sw.js'));
     });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.get("/sw.js", (req, res) => { res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate"); res.setHeader("Clear-Site-Data", "\"cache\""); res.sendFile(path.join(distPath, "sw.js")); });
+    app.get('/sw.js', (req, res) => { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.sendFile(path.join(distPath, 'sw.js')); });
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

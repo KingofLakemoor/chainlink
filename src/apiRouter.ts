@@ -1,3 +1,4 @@
+import { executeRollover } from './services/monthlyRollover.js';
 import { processPendingNotifications } from './services/notificationProcessor.js';
 import { gradeBrackets } from './services/bracketGrader.js';
 import express from 'express';
@@ -1031,6 +1032,12 @@ apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
     if (league === 'MEX' || league === 'Liga MX') {
       league = 'LMX';
     }
+    if (league === 'Argentina' || league === 'Liga Profesional') {
+      league = 'ARG';
+    }
+    if (league === 'Brazil' || league === 'Serie A' || league === 'Campeonato Brasileiro') {
+      league = 'BRA';
+    }
 
     if (!league || league === 'All' || league === 'ALL') {
       // If no specific league is provided, sync all active leagues
@@ -1517,6 +1524,7 @@ apiRouter.post("/admin/monthly-rollover", validateAdmin, async (req, res) => {
       scheduledTime: Date.now(),
       createdAt: Date.now()
     });
+
 
     // 2. Archiving and Resetting
     const date = new Date();

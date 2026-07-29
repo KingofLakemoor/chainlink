@@ -5,7 +5,7 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 import firebaseConfig from '../firebase-applet-config.json';
 
-// VERSION: 1.0.1 - Force update to clear stuck caches
+// VERSION: 1.0.2 - Force update to clear stuck caches
 
 self.addEventListener('install', () => {
   self.skipWaiting();

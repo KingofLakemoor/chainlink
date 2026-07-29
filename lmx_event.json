@@ -1,0 +1,826 @@
+{
+  "id": "401877029",
+  "uid": "s:600~l:760~e:401877029",
+  "date": "2026-07-26T23:00Z",
+  "name": "Monterrey at Necaxa",
+  "shortName": "MTY @ NCX",
+  "season": {
+    "year": 2026,
+    "type": 14277,
+    "slug": "torneo-apertura"
+  },
+  "competitions": [
+    {
+      "id": "401877029",
+      "uid": "s:600~l:760~e:401877029~c:401877029",
+      "date": "2026-07-26T23:00Z",
+      "startDate": "2026-07-26T23:00Z",
+      "attendance": 0,
+      "timeValid": true,
+      "recent": true,
+      "status": {
+        "clock": 5400,
+        "displayClock": "90'+10'",
+        "period": 2,
+        "type": {
+          "id": "28",
+          "name": "STATUS_FULL_TIME",
+          "state": "post",
+          "completed": true,
+          "description": "Full Time",
+          "detail": "FT",
+          "shortDetail": "FT"
+        }
+      },
+      "venue": {
+        "id": "1402",
+        "fullName": "Estadio Victoria",
+        "address": {
+          "city": "Aguascalientes",
+          "country": "Mexico"
+        }
+      },
+      "format": {
+        "regulation": {
+          "periods": 2
+        }
+      },
+      "altGameNote": "Liga MX",
+      "notes": [],
+      "geoBroadcasts": [],
+      "broadcasts": [],
+      "broadcast": "",
+      "competitors": [
+        {
+          "id": "229",
+          "uid": "s:600~t:229",
+          "type": "team",
+          "order": 0,
+          "homeAway": "home",
+          "winner": true,
+          "form": "WWLDD",
+          "score": "2",
+          "records": [
+            {
+              "name": "All Splits",
+              "type": "total",
+              "summary": "2-0-0",
+              "abbreviation": "Total"
+            }
+          ],
+          "team": {
+            "id": "229",
+            "uid": "s:600~t:229",
+            "abbreviation": "NCX",
+            "displayName": "Necaxa",
+            "shortDisplayName": "Necaxa",
+            "name": "Necaxa",
+            "location": "Necaxa",
+            "color": "EF0107",
+            "alternateColor": "000000",
+            "isActive": true,
+            "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/229.png",
+            "links": [
+              {
+                "rel": [
+                  "clubhouse",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/club/_/id/229/necaxa",
+                "text": "Clubhouse",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "stats",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/team/stats/_/id/229/necaxa",
+                "text": "Stats",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "stats",
+                  "sportscenter",
+                  "app",
+                  "team"
+                ],
+                "href": "sportscenter://x-callback-url/showClubhouse?uid=s:600~t:229&section=stats",
+                "text": "Stats",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "schedule",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/team/fixtures/_/id/229/necaxa",
+                "text": "Fixtures",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "schedule",
+                  "sportscenter",
+                  "app",
+                  "team"
+                ],
+                "href": "sportscenter://x-callback-url/showClubhouse?uid=s:600~t:229&section=scores",
+                "text": "Fixtures",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "squad",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/team/squad/_/id/229/necaxa",
+                "text": "Squad",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "squad",
+                  "sportscenter",
+                  "app",
+                  "team"
+                ],
+                "href": "sportscenter://x-callback-url/showClubhouse?uid=s:600~t:229&section=squad",
+                "text": "Squad",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              }
+            ],
+            "venue": {
+              "id": "1402"
+            }
+          },
+          "statistics": [
+            {
+              "name": "appearances",
+              "abbreviation": "APP",
+              "displayValue": "0"
+            },
+            {
+              "name": "foulsCommitted",
+              "abbreviation": "FC",
+              "displayValue": "21"
+            },
+            {
+              "name": "wonCorners",
+              "abbreviation": "CW",
+              "displayValue": "4"
+            },
+            {
+              "name": "goalAssists",
+              "abbreviation": "A",
+              "displayValue": "2"
+            },
+            {
+              "name": "possessionPct",
+              "abbreviation": "PP",
+              "displayValue": "64.8"
+            },
+            {
+              "name": "shotAssists",
+              "abbreviation": "SHAST",
+              "displayValue": "15"
+            },
+            {
+              "name": "shotsOnTarget",
+              "abbreviation": "SOG",
+              "displayValue": "9"
+            },
+            {
+              "name": "totalGoals",
+              "abbreviation": "G",
+              "displayValue": "2"
+            },
+            {
+              "name": "totalShots",
+              "abbreviation": "SHOT",
+              "displayValue": "19"
+            }
+          ]
+        },
+        {
+          "id": "220",
+          "uid": "s:600~t:220",
+          "type": "team",
+          "order": 1,
+          "homeAway": "away",
+          "winner": false,
+          "form": "LWLWL",
+          "score": "1",
+          "records": [
+            {
+              "name": "All Splits",
+              "type": "total",
+              "summary": "1-0-1",
+              "abbreviation": "Total"
+            }
+          ],
+          "team": {
+            "id": "220",
+            "uid": "s:600~t:220",
+            "abbreviation": "MTY",
+            "displayName": "Monterrey",
+            "shortDisplayName": "Monterrey",
+            "name": "Monterrey",
+            "location": "Monterrey",
+            "color": "001C58",
+            "alternateColor": "ffffff",
+            "isActive": true,
+            "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/220.png",
+            "links": [
+              {
+                "rel": [
+                  "clubhouse",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/club/_/id/220/monterrey",
+                "text": "Clubhouse",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "stats",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/team/stats/_/id/220/monterrey",
+                "text": "Stats",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "stats",
+                  "sportscenter",
+                  "app",
+                  "team"
+                ],
+                "href": "sportscenter://x-callback-url/showClubhouse?uid=s:600~t:220&section=stats",
+                "text": "Stats",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "schedule",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/team/fixtures/_/id/220/monterrey",
+                "text": "Fixtures",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "schedule",
+                  "sportscenter",
+                  "app",
+                  "team"
+                ],
+                "href": "sportscenter://x-callback-url/showClubhouse?uid=s:600~t:220&section=scores",
+                "text": "Fixtures",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "squad",
+                  "desktop",
+                  "team"
+                ],
+                "href": "https://www.espn.com/soccer/team/squad/_/id/220/monterrey",
+                "text": "Squad",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              },
+              {
+                "rel": [
+                  "squad",
+                  "sportscenter",
+                  "app",
+                  "team"
+                ],
+                "href": "sportscenter://x-callback-url/showClubhouse?uid=s:600~t:220&section=squad",
+                "text": "Squad",
+                "isExternal": false,
+                "isPremium": false,
+                "isHidden": false
+              }
+            ],
+            "venue": {
+              "id": "6351"
+            }
+          },
+          "statistics": [
+            {
+              "name": "appearances",
+              "abbreviation": "APP",
+              "displayValue": "0"
+            },
+            {
+              "name": "foulsCommitted",
+              "abbreviation": "FC",
+              "displayValue": "14"
+            },
+            {
+              "name": "wonCorners",
+              "abbreviation": "CW",
+              "displayValue": "1"
+            },
+            {
+              "name": "goalAssists",
+              "abbreviation": "A",
+              "displayValue": "0"
+            },
+            {
+              "name": "possessionPct",
+              "abbreviation": "PP",
+              "displayValue": "35.2"
+            },
+            {
+              "name": "shotAssists",
+              "abbreviation": "SHAST",
+              "displayValue": "3"
+            },
+            {
+              "name": "shotsOnTarget",
+              "abbreviation": "SOG",
+              "displayValue": "2"
+            },
+            {
+              "name": "totalGoals",
+              "abbreviation": "G",
+              "displayValue": "1"
+            },
+            {
+              "name": "totalShots",
+              "abbreviation": "SHOT",
+              "displayValue": "6"
+            }
+          ]
+        }
+      ],
+      "details": [
+        {
+          "type": {
+            "id": "94",
+            "text": "Yellow Card"
+          },
+          "clock": {
+            "value": 271,
+            "displayValue": "5'"
+          },
+          "team": {
+            "id": "229"
+          },
+          "scoreValue": 0,
+          "scoringPlay": false,
+          "redCard": false,
+          "yellowCard": true,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "259971",
+              "displayName": "Ricardo Monreal",
+              "shortName": "R. Monreal",
+              "fullName": "Ricardo Monreal",
+              "jersey": "30",
+              "team": {
+                "id": "229"
+              },
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/259971/ricardo-monreal",
+                  "isHidden": false
+                }
+              ],
+              "position": "RM"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "93",
+            "text": "Red Card"
+          },
+          "clock": {
+            "value": 1182,
+            "displayValue": "20'"
+          },
+          "team": {
+            "id": "220"
+          },
+          "scoreValue": 0,
+          "scoringPlay": false,
+          "redCard": true,
+          "yellowCard": false,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "146989",
+              "displayName": "Stefan Medina",
+              "shortName": "S. Medina",
+              "fullName": "Stefan Medina",
+              "jersey": "33",
+              "team": {
+                "id": "220"
+              },
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/146989/stefan-medina",
+                  "isHidden": false
+                }
+              ],
+              "position": "CD-R"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "94",
+            "text": "Yellow Card"
+          },
+          "clock": {
+            "value": 1592,
+            "displayValue": "27'"
+          },
+          "team": {
+            "id": "229"
+          },
+          "scoreValue": 0,
+          "scoringPlay": false,
+          "redCard": false,
+          "yellowCard": true,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "154517",
+              "displayName": "Lorenzo Faravelli",
+              "shortName": "L. Faravelli",
+              "fullName": "Lorenzo Faravelli",
+              "jersey": "8",
+              "team": {
+                "id": "229"
+              },
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/154517/lorenzo-faravelli",
+                  "isHidden": false
+                }
+              ],
+              "position": "CM-R"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "94",
+            "text": "Yellow Card"
+          },
+          "clock": {
+            "value": 1900,
+            "displayValue": "32'"
+          },
+          "team": {
+            "id": "220"
+          },
+          "scoreValue": 0,
+          "scoringPlay": false,
+          "redCard": false,
+          "yellowCard": true,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "202106",
+              "displayName": "Ricardo Chávez",
+              "shortName": "R. Chávez",
+              "fullName": "Ricardo Chávez",
+              "jersey": "2",
+              "team": {
+                "id": "220"
+              },
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/202106/ricardo-chavez",
+                  "isHidden": false
+                }
+              ],
+              "position": "RB"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "94",
+            "text": "Yellow Card"
+          },
+          "clock": {
+            "value": 2125,
+            "displayValue": "36'"
+          },
+          "team": {
+            "id": "220"
+          },
+          "scoreValue": 0,
+          "scoringPlay": false,
+          "redCard": false,
+          "yellowCard": true,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "184299",
+              "displayName": "Carlos Salcedo",
+              "shortName": "C. Salcedo",
+              "fullName": "Carlos Salcedo",
+              "jersey": "13",
+              "team": {
+                "id": "220"
+              },
+              "headshot": "https://a.espncdn.com/i/headshots/soccer/players/full/184299.png",
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/184299/carlos-salcedo",
+                  "isHidden": false
+                }
+              ],
+              "position": "CD-L"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "70",
+            "text": "Goal"
+          },
+          "clock": {
+            "value": 3336,
+            "displayValue": "56'"
+          },
+          "team": {
+            "id": "229"
+          },
+          "scoreValue": 1,
+          "scoringPlay": true,
+          "redCard": false,
+          "yellowCard": false,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "262566",
+              "displayName": "Julián Carranza",
+              "shortName": "J. Carranza",
+              "fullName": "Julián Carranza",
+              "jersey": "9",
+              "team": {
+                "id": "229"
+              },
+              "headshot": "https://a.espncdn.com/i/headshots/soccer/players/full/262566.png",
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/262566/julian-carranza",
+                  "isHidden": false
+                }
+              ],
+              "position": "F"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "98",
+            "text": "Penalty - Scored"
+          },
+          "clock": {
+            "value": 3986,
+            "displayValue": "67'"
+          },
+          "team": {
+            "id": "220"
+          },
+          "scoreValue": 1,
+          "scoringPlay": true,
+          "redCard": false,
+          "yellowCard": false,
+          "penaltyKick": true,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "159263",
+              "displayName": "Lucas Ocampos",
+              "shortName": "L. Ocampos",
+              "fullName": "Lucas Ocampos",
+              "jersey": "7",
+              "team": {
+                "id": "220"
+              },
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/159263/lucas-ocampos",
+                  "isHidden": false
+                }
+              ],
+              "position": "AM-L"
+            }
+          ]
+        },
+        {
+          "type": {
+            "id": "94",
+            "text": "Yellow Card"
+          },
+          "clock": {
+            "value": 4685,
+            "displayValue": "79'"
+          },
+          "team": {
+            "id": "229"
+          },
+          "scoreValue": 0,
+          "scoringPlay": false,
+          "redCard": false,
+          "yellowCard": true,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false
+        },
+        {
+          "type": {
+            "id": "70",
+            "text": "Goal"
+          },
+          "clock": {
+            "value": 5400,
+            "displayValue": "90'+1'"
+          },
+          "team": {
+            "id": "229"
+          },
+          "scoreValue": 1,
+          "scoringPlay": true,
+          "redCard": false,
+          "yellowCard": false,
+          "penaltyKick": false,
+          "ownGoal": false,
+          "shootout": false,
+          "athletesInvolved": [
+            {
+              "id": "406874",
+              "displayName": "Juan Valencia",
+              "shortName": "J. Valencia",
+              "fullName": "Juan Valencia",
+              "jersey": "90",
+              "team": {
+                "id": "229"
+              },
+              "links": [
+                {
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/406874/juan-valencia",
+                  "isHidden": false
+                }
+              ],
+              "position": "SUB"
+            }
+          ]
+        }
+      ],
+      "odds": [
+        null
+      ],
+      "wasSuspended": false,
+      "playByPlayAvailable": true,
+      "playByPlayAthletes": true
+    }
+  ],
+  "status": {
+    "clock": 5400,
+    "displayClock": "90'+10'",
+    "period": 2,
+    "type": {
+      "id": "28",
+      "name": "STATUS_FULL_TIME",
+      "state": "post",
+      "completed": true,
+      "description": "Full Time",
+      "detail": "FT",
+      "shortDetail": "FT"
+    }
+  },
+  "venue": {
+    "displayName": "Estadio Victoria"
+  },
+  "links": [
+    {
+      "language": "en-US",
+      "rel": [
+        "summary",
+        "desktop",
+        "event"
+      ],
+      "href": "https://www.espn.com/soccer/match/_/gameId/401877029/monterrey-necaxa",
+      "text": "Summary",
+      "shortText": "Summary",
+      "isExternal": false,
+      "isPremium": false,
+      "isHidden": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "desktop",
+        "event"
+      ],
+      "href": "https://www.espn.com/soccer/matchstats/_/gameId/401877029",
+      "text": "Statistics",
+      "shortText": "Statistics",
+      "isExternal": false,
+      "isPremium": false,
+      "isHidden": false
+    }
+  ]
+}

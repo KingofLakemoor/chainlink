@@ -39,6 +39,7 @@ const PremiumStatusAdminPage = React.lazy(() => import('./users/PremiumStatusAdm
 const ScraperSettingsPage = React.lazy(() => import('./settings/ScraperSettingsPage'));
 const PrizeAdminPage = React.lazy(() => import('./prize/PrizeAdminPage'));
 const AdminGuidePage = React.lazy(() => import('./guide/AdminGuidePage'));
+const MonthlyRolloverPage = React.lazy(() => import('./system/MonthlyRolloverPage'));
 const EditPickPage = React.lazy(() => import('./picks/EditPickPage'));
 
 export default function AdminDashboard() {
@@ -136,6 +137,8 @@ export default function AdminDashboard() {
                 {/* Admin Guide */}
                 <Route path="guide" element={<AdminGuidePage />} />
 
+                <Route path="system/rollover" element={<MonthlyRolloverPage />} />
+                <Route path="system/rollover" element={<MonthlyRolloverPage />} />
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="matchups" replace />} />
              </Routes>

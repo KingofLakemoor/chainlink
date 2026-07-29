@@ -163,7 +163,7 @@ export default function PlayDashboard() {
       if (filterType === 'chain' && !m.featured) return false;
 
       if (selectedSport === 'FOOTBALL' && !['NFL', 'CFB', 'CFL'].includes(m.league)) return false;
-      if (selectedSport === 'SOCCER' && !['MLS', 'LMX', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) return false;
+      if (selectedSport === 'SOCCER' && !['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) return false;
       if (selectedSport === 'BASKETBALL' && !['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(m.league)) return false;
       if (selectedSport === 'HOCKEY' && !['NHL'].includes(m.league)) return false;
       if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE'].includes(m.league)) return false;

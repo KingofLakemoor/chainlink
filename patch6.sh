@@ -1,1 +1,0 @@
-sed -i "s/{m.status === 'STATUS_SCHEDULED' ? formatUpcomingTime(m.startTime) : (m.statusDesc || 'Upcoming')}/{m.status === 'STATUS_SCHEDULED' ? (m.statusDesc?.toLowerCase().includes('delay') ? m.statusDesc : formatUpcomingTime(m.startTime)) : (m.statusDesc || 'Upcoming')}/g" src/components/ui/MatchupCard.tsx

@@ -39,7 +39,7 @@ service cloud.firestore {
           isAdmin() ||
           (
             request.auth.uid == userId && 
-            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'image', 'settings', 'status', 'updatedAt', 'role'])
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'image', 'settings', 'status', 'updatedAt', 'role', 'fcmTokens'])
           )
         )
       );

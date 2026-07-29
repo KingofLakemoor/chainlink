@@ -164,7 +164,7 @@ export default function LeaderboardsPage() {
                     const hStats = userData.historicalStats[prevMonthKey];
                     statsToUse = { wins: hStats.wins, losses: hStats.losses, pushes: hStats.pushes };
                     bestChainToUse = hStats.longestWinChain || 0;
-                    currentChainToUse = 0; // Not applicable for past months
+                    currentChainToUse = hStats.endOfMonthChain || 0;
                 } else {
                     statsToUse = { wins: 0, losses: 0, pushes: 0 };
                     bestChainToUse = 0;

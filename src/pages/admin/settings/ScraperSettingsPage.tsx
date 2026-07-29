@@ -5,7 +5,7 @@ import { db } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 
-const ALL_LEAGUES = ["MLB", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "CFL", "WBB", "MBB", "MLS", "LMX", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA"];
+const ALL_LEAGUES = ["MLB", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "CFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA"];
 
 export default function ScraperSettingsPage() {
   const [maxMoneylineOdds, setMaxMoneylineOdds] = useState<string>('-300');

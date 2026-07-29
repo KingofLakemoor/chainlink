@@ -30,8 +30,11 @@ export default function PickEmCampaignDetail() {
   const [themeLogoFile, setThemeLogoFile] = useState<File | null>(null);
   const [themeLogoUrl, setThemeLogoUrl] = useState('');
 
+  const [visibleDateStr, setVisibleDateStr] = useState('');
+  const [gamesBeginDateStr, setGamesBeginDateStr] = useState('');
   const [startDateStr, setStartDateStr] = useState('');
   const [endDateStr, setEndDateStr] = useState('');
+  const [totalWeeks, setTotalWeeks] = useState<number>(18);
 
 
   const fetchCampaign = async () => {
@@ -43,12 +46,21 @@ export default function PickEmCampaignDetail() {
         const data = docSnap.data();
         setCampaign({ id: docSnap.id, ...data });
         setSelectedWeek(data.currentWeek || 1);
+        setTotalWeeks(data.totalWeeks || 18);
 
         setThemePrimaryColor(data.theme?.primaryColor || '#22c55e');
         setThemeTitle(data.theme?.title || '');
         setThemeSubtitle(data.theme?.subtitle || '');
         setThemeLogoUrl(data.theme?.logoUrl || '');
 
+        if (data.visibleDate) {
+          const d = new Date(data.visibleDate);
+          setVisibleDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+        }
+        if (data.gamesBeginDate) {
+          const d = new Date(data.gamesBeginDate);
+          setGamesBeginDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+        }
         if (data.startDate) {
           const d = new Date(data.startDate);
           setStartDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
@@ -108,7 +120,10 @@ export default function PickEmCampaignDetail() {
 
       await updateDoc(doc(db, 'pickemCampaigns', id), {
         currentWeek: selectedWeek,
-        startDate: startDateStr ? new Date(startDateStr).getTime() || campaign.startDate || Date.now() : campaign.startDate || Date.now(),
+        totalWeeks: totalWeeks,
+        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() || campaign.visibleDate || Date.now() : campaign.visibleDate || Date.now(),
+        gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() || campaign.gamesBeginDate || Date.now() : campaign.gamesBeginDate || Date.now(),
+        startDate: visibleDateStr ? new Date(visibleDateStr).getTime() || campaign.visibleDate || Date.now() : campaign.visibleDate || Date.now(),
         endDate: endDateStr ? new Date(endDateStr).getTime() || campaign.endDate || Date.now() : campaign.endDate || Date.now(),
 
       theme: {
@@ -119,18 +134,18 @@ export default function PickEmCampaignDetail() {
       }
 
       });
-      setCampaign(prev => ({ ...prev, currentWeek: selectedWeek, theme: { primaryColor: themePrimaryColor, title: themeTitle, subtitle: themeSubtitle, logoUrl: finalLogoUrl } }));
-      alert(`Campaign updated`);
+      setCampaign(prev => ({ ...prev, currentWeek: selectedWeek, totalWeeks, theme: { primaryColor: themePrimaryColor, title: themeTitle, subtitle: themeSubtitle, logoUrl: finalLogoUrl } }));
+      console.log(`Campaign updated`);
     } catch (err) {
       console.error(err);
-      alert('Failed to update week');
+      console.log('Failed to update week');
     }
   };
 
   
   const handleAddProp = async () => {
     if (!id || !propTitle || !propOptionA || !propOptionB || !propDate) {
-      alert('Please fill out all fields');
+      console.log('Please fill out all fields');
       return;
     }
     
@@ -158,7 +173,7 @@ export default function PickEmCampaignDetail() {
       fetchMatchups(selectedWeek);
     } catch (e) {
       console.error(e);
-      alert('Failed to add prop');
+      console.log('Failed to add prop');
     } finally {
       setMatchupsLoading(false);
     }
@@ -171,11 +186,11 @@ export default function PickEmCampaignDetail() {
       : (campaign.league ? [campaign.league] : []);
 
     if (leaguesToSync.length === 0) {
-      alert("No leagues configured for this campaign.");
+      console.log("No leagues configured for this campaign.");
       return;
     }
 
-    if (!confirm(`Sync ${leaguesToSync.join(', ')} matchups for Week ${selectedWeek}?`)) return;
+    // confirm removed
 
     setMatchupsLoading(true);
     try {
@@ -185,14 +200,16 @@ export default function PickEmCampaignDetail() {
 
       for (const lg of leaguesToSync) {
         const res = await scrapeLeagueSchedules(lg, false);
+        console.log('API returned games:', res.data?.length);
+        if (res.data) res.data.forEach(m => console.log('Game', m.title, new Date(m.startTime).toLocaleString(), m.startTime, 'vs bounds:', campaign.gamesBeginDate, campaign.endDate));
         if (!res.data || res.data.length === 0) {
           console.warn(`No games found to sync for ${lg}.`);
           continue;
         }
 
         for (const m of res.data) {
-          // Skip games that start before the campaign starts or after it ends
-          if (campaign.startDate && m.startTime < campaign.startDate) {
+          console.log('Game', m.title, new Date(m.startTime).toLocaleString(), 'vs bounds:', campaign.gamesBeginDate ? new Date(campaign.gamesBeginDate).toLocaleString() : null, campaign.endDate ? new Date(campaign.endDate).toLocaleString() : null);
+          if (campaign.gamesBeginDate && m.startTime < campaign.gamesBeginDate) {
             continue;
           }
           if (campaign.endDate && m.startTime > campaign.endDate) {
@@ -273,11 +290,11 @@ export default function PickEmCampaignDetail() {
         alert(`Synced ${count} matchups successfully across ${leaguesToSync.length} league(s)!`);
         await fetchMatchups(selectedWeek);
       } else {
-        alert("No games found to sync across any leagues.");
+        alert(`No games found. They may have been filtered out by date bounds (Games Begin: ${campaign.gamesBeginDate ? new Date(campaign.gamesBeginDate).toLocaleString() : 'N/A'}, End: ${campaign.endDate ? new Date(campaign.endDate).toLocaleString() : 'N/A'}).`);
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to sync matchups');
+      alert('Failed to sync matchups: ' + (err.message || String(err)));
     } finally {
       setMatchupsLoading(false);
     }
@@ -293,7 +310,7 @@ export default function PickEmCampaignDetail() {
       setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, type: newType } : m));
     } catch (err) {
       console.error(err);
-      alert("Failed to toggle matchup type");
+      console.log("Failed to toggle matchup type");
     }
   };
 
@@ -307,22 +324,22 @@ export default function PickEmCampaignDetail() {
       });
       await batch.commit();
       setMatchups(prev => prev.map(m => ({ ...m, type: "SPREAD" })));
-      alert("All matchups set to ATS.");
+      console.log("All matchups set to ATS.");
     } catch (err) {
       console.error(err);
-      alert("Failed to update matchups");
+      console.log("Failed to update matchups");
     }
   };
 
   const handleDeleteMatchup = async (matchupId: string) => {
-    if (!confirm('Are you sure you want to remove this matchup from the pool?')) return;
+    
 
     try {
       await deleteDoc(doc(db, 'pickemMatchups', matchupId));
       setMatchups(prev => prev.filter(m => m.id !== matchupId));
     } catch (err) {
       console.error(err);
-      alert('Failed to remove matchup');
+      console.log('Failed to remove matchup');
     }
   };
 
@@ -344,11 +361,11 @@ export default function PickEmCampaignDetail() {
     else if (action === '3') manualWinnerId = 'PUSH';
     else if (action === '4') manualWinnerId = undefined;
     else {
-      alert("Invalid option. Grading cancelled.");
+      console.log("Invalid option. Grading cancelled.");
       return;
     }
 
-    if (!confirm(`Are you sure you want to trigger grading for this game${manualWinnerId ? ' with your manual selection' : ' automatically'}?`)) return;
+    
 
     try {
         const res = await fetch('/api/admin/grade-pickem-matchup', {
@@ -361,13 +378,13 @@ export default function PickEmCampaignDetail() {
         });
         const data = await res.json();
         if (data.success) {
-            alert('Matchup graded successfully!');
+            console.log('Matchup graded successfully!');
         } else {
-            alert('Failed to grade picks: ' + (data.error || 'Unknown error'));
+            console.log('Failed to grade picks: ' + (data.error || 'Unknown error'));
         }
     } catch (err: any) {
         console.error('Error grading matchup:', err);
-        alert(`Failed to contact server for grading. Error: ${err.message}`);
+        console.log(`Failed to contact server for grading. Error: ${err.message}`);
     }
   };
 
@@ -431,7 +448,7 @@ export default function PickEmCampaignDetail() {
               onChange={(e) => setSelectedWeek(Number(e.target.value))}
               className="bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
             >
-              {[...Array(20)].map((_, i) => (
+              {[...Array(totalWeeks)].map((_, i) => (
                 <option key={i+1} value={i+1}>Week {i+1}</option>
               ))}
             </select>
@@ -443,16 +460,36 @@ export default function PickEmCampaignDetail() {
           {/* Campaign Schedule */}
           <div className="pt-6 border-t border-zinc-800 w-full mt-6 col-span-2">
             <h3 className="text-lg font-medium text-white mb-4">Campaign Schedule</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Start Date</label>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Visible Date</label>
                 <input
                   type="datetime-local"
-                  value={startDateStr}
-                  onChange={e => setStartDateStr(e.target.value)}
+                  value={visibleDateStr}
+                  onChange={e => setVisibleDateStr(e.target.value)}
                   className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Games Begin Date</label>
+                <input
+                  type="datetime-local"
+                  value={gamesBeginDateStr}
+                  onChange={e => setGamesBeginDateStr(e.target.value)}
+                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={totalWeeks}
+                  onChange={e => setTotalWeeks(parseInt(e.target.value) || 1)}
+                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                />
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-1">End Date</label>
                 <input

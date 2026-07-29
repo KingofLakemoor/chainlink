@@ -50,7 +50,8 @@ export default function PickEmPage() {
         camps = camps.filter((c: any) => {
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true; // Keep legacy campaigns
-          return now >= c.startDate && now <= c.endDate;
+          const startToCheck = c.visibleDate || c.startDate;
+          return now >= startToCheck && now <= c.endDate;
         });
 
         // Mock for local dev
@@ -232,7 +233,7 @@ export default function PickEmPage() {
       });
     } catch (err) {
       console.error(err);
-      alert('Failed to clear pick');
+      console.log('Failed to clear pick');
     }
   };
 
@@ -255,7 +256,7 @@ export default function PickEmPage() {
       if (!existingPick && selectedCampaign.pickLimit > 0) {
         const currentPicksCount = Object.keys(userPicks).length;
         if (currentPicksCount >= selectedCampaign.pickLimit) {
-          alert(`You have reached the maximum of ${selectedCampaign.pickLimit} picks for this week.`);
+          console.log(`You have reached the maximum of ${selectedCampaign.pickLimit} picks for this week.`);
           return;
         }
       }
@@ -277,7 +278,7 @@ export default function PickEmPage() {
       setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick } }));
     } catch (err) {
       console.error(err);
-      alert('Failed to save pick');
+      console.log('Failed to save pick');
     }
   };
 
@@ -333,7 +334,7 @@ export default function PickEmPage() {
             onChange={e => setSelectedWeek(Number(e.target.value))}
             className="bg-[#121212] border border-zinc-800 rounded-xl px-4 py-3 text-white text-lg font-medium"
           >
-            {[...Array(20)].map((_, i) => (
+            {[...Array(selectedCampaign?.totalWeeks || 18)].map((_, i) => (
               <option key={i+1} value={i+1}>Week {i+1}</option>
             ))}
           </select>

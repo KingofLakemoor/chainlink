@@ -28,7 +28,7 @@ export default function PickEmCampaignsList() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this campaign?")) return;
+    
     await deleteDoc(doc(db, 'pickemCampaigns', id));
     fetchData();
   };

@@ -1,3 +1,10 @@
+
+// Override confirm for AI Studio iframe environment
+const originalConfirm = window.confirm;
+window.confirm = (msg) => {
+  if (window.self !== window.top) return true;
+  return originalConfirm(msg);
+};
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';

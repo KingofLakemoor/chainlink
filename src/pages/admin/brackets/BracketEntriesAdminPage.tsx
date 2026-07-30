@@ -4,7 +4,6 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 import { db } from '../../../lib/firebase';
 import { ArrowLeft, Loader2, Trophy } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { WorldCupBracket } from '../../brackets/WorldCupBracket';
 
 export default function BracketEntriesAdminPage() {
   const { id } = useParams();
@@ -121,14 +120,7 @@ export default function BracketEntriesAdminPage() {
              <div className="bg-[#0a0a0a] border border-zinc-800 rounded-xl p-4">
                 <h2 className="text-xl font-bold text-white mb-4">Picks for {selectedEntry.userName}</h2>
                 <div className="pointer-events-none opacity-90 scale-95 origin-top">
-                  <WorldCupBracket 
-                     bracket={bracket}
-                     // Pass a specific prop or use a context? Wait, WorldCupBracket inherently reads from the current user!
-                     // Oh, WorldCupBracket reads from useAuth()! 
-                     // I cannot easily use WorldCupBracket as a pure display component for another user.
-                     // It fetches the currently logged in user's selections.
-                     // I'll need to update WorldCupBracket to accept an optional 'adminSelections' and 'adminUserId'.
-                  />
+                  <div className="text-zinc-500 py-12 text-center">Generic bracket view coming soon...</div>
                 </div>
              </div>
            ) : (

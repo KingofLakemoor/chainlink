@@ -2,7 +2,6 @@ import { FirebaseImage } from "../../components/ui/FirebaseImage";
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Trophy, Loader2, Layers } from 'lucide-react';
-import { WorldCupBracket } from './WorldCupBracket';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
@@ -287,7 +286,11 @@ export function BracketsPage() {
             </div>
           </div>
 
-          {activeTab === 'bracket' && <WorldCupBracket bracket={bracket} />}
+          {activeTab === 'bracket' && (
+            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center text-zinc-500">
+              Generic bracket UI coming soon...
+            </div>
+          )}
 
           {activeTab === 'leaderboard' && (
             <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden max-w-7xl mx-auto">

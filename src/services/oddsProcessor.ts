@@ -9,8 +9,9 @@ export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
 
 // Setup internal cron to run every 6 hours for odds sync
 cron.schedule('0 */6 * * *', async () => {
-    console.log('[OddsProcessor] Running scheduled 6-hour tennis odds sync');
+    console.log('[OddsProcessor] Running scheduled 6-hour odds sync (Tennis & Soccer)');
     await syncTennisOdds();
+    await syncSoccerOdds();
 });
 
 /**
@@ -228,6 +229,124 @@ export async function syncTennisOdds() {
     return { success: true, updatedCount };
   } catch (err: any) {
     console.error("[OddsProcessor] Odds processing error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+
+export async function syncSoccerOdds() {
+  const adminDb = getAdminDb();
+  if (!adminDb) return { success: false, error: 'No admin db' };
+  const apiKey = process.env.ODDS_API_KEY;
+  if (!apiKey) return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
+
+  try {
+    const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
+    let threshold = 300;
+    if (scraperSnap.exists) {
+       const scraperConfig = scraperSnap.data();
+       threshold = Math.abs(scraperConfig.maxMoneylineOdds ?? 300);
+       if (scraperConfig.sportOverrides && scraperConfig.sportOverrides['RPL'] !== undefined) {
+          threshold = Math.abs(scraperConfig.sportOverrides['RPL']);
+       }
+    }
+
+    const matchupsSnap = await adminDb.collection('matchups')
+      .where('status', '==', 'STATUS_SCHEDULED')
+      .where('league', '==', 'RPL')
+      .get();
+      
+    if (matchupsSnap.empty) return { success: true, message: 'No scheduled RPL matches in DB.' };
+    const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_russia_premier_league/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
+    if (!oddsRes.ok) return { success: false, error: 'Failed to fetch RPL odds' };
+    const oddsData = await oddsRes.json();
+
+    let updatedCount = 0;
+    const batch = adminDb.batch();
+    let batchCount = 0;
+    const matchedIds = new Set<string>();
+
+    for (const event of oddsData) {
+       const homeTeamName = event.home_team;
+       const awayTeamName = event.away_team;
+       
+       const bookmaker = event.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
+       if (!bookmaker) continue;
+       
+       const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
+       if (!h2hMarket || !h2hMarket.outcomes) continue;
+       
+       const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName);
+       const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName);
+       if (!homeOutcome || !awayOutcome) continue;
+
+       const mlHome = homeOutcome.price;
+       const mlAway = awayOutcome.price;
+
+       const match = dbMatchups.find((m: any) => {
+          if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
+          const espnHome = m.homeTeam.name;
+          const espnAway = m.awayTeam.name;
+          if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) return true;
+          if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) return true;
+          return false;
+       });
+
+       if (match) {
+          matchedIds.add(match.id);
+          let finalMlHome = mlHome;
+          let finalMlAway = mlAway;
+          if (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName)) {
+              finalMlHome = mlAway;
+              finalMlAway = mlHome;
+          }
+          const matchRef = adminDb.collection('matchups').doc(match.id);
+          const finalMlHomeNum = parseInt(finalMlHome, 10);
+          const finalMlAwayNum = parseInt(finalMlAway, 10);
+          let active = true;
+          if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
+          if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
+          
+          if (!active) {
+              const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+              if (!picksSnap.empty) active = true;
+          }
+
+          batch.update(matchRef, {
+            'metadata.mlHome': finalMlHome,
+            'metadata.mlAway': finalMlAway,
+            'active': active,
+            'updatedAt': Date.now()
+          });
+          updatedCount++;
+          batchCount++;
+          
+          if (batchCount === 490) {
+             await batch.commit();
+             batchCount = 0;
+          }
+       }
+    }
+
+    for (const match of dbMatchups) {
+       if (!matchedIds.has(match.id) && (match as any).active === true) {
+           const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+           if (!picksSnap.empty) continue;
+           const matchRef = adminDb.collection('matchups').doc(match.id);
+           batch.update(matchRef, { 'active': false, 'updatedAt': Date.now() });
+           batchCount++;
+           if (batchCount === 490) { await batch.commit(); batchCount = 0; }
+       }
+    }
+    
+    if (batchCount > 0) await batch.commit();
+    console.log(`[OddsProcessor] Successfully updated ${updatedCount} RPL matchups with third-party odds.`);
+    return { success: true, updatedCount };
+
+  } catch (err: any) {
+    console.error("[OddsProcessor] RPL odds processing error:", err);
     return { success: false, error: err.message };
   }
 }

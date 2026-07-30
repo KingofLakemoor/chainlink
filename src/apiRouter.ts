@@ -1108,14 +1108,8 @@ apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
       }
       
 
-      try {
-         if (!isScoreboardOnly) {
-            await syncTennisOdds();
-         }
-      } catch (err) {
-         console.error('Failed to sync tennis odds:', err);
-      }
-
+      // Tennis odds are now synced on a 6-hour internal cron in oddsProcessor.ts
+      
       result = { 
         success: true, 
         message: 'Synced all active leagues', 
@@ -1401,6 +1395,119 @@ apiRouter.post("/admin/grade-matchup", validateAdmin, async (req, res) => {
   } catch (e: any) {
     console.error("Grade matchup error:", e.message, e);
     res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/webhooks/scriptless", async (req, res) => {
+  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
+  try {
+    const providedApiKey = req.headers['x-api-key'];
+    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
+      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
+    }
+
+    console.log("Received ScriptLess webhook. Body:", req.body);
+    
+    // Trigger sync for SCRIPTLESS
+    const result = await syncLeagueSchedules('SCRIPTLESS', false);
+    
+    // Update props in case a matchup finalized
+    try {
+      await updateAllProps();
+    } catch (err) {
+      console.error('Failed to update props during scriptless webhook:', err);
+    }
+    
+    // Process notifications
+    try {
+      await processPendingNotifications();
+    } catch (err) {
+      console.error('Failed to process notifications during scriptless webhook:', err);
+    }
+    
+    return res.json({ success: true, result });
+  } catch (e: any) {
+    console.error("ScriptLess webhook error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/webhooks/putting", async (req, res) => {
+  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
+  try {
+    const providedApiKey = req.headers['x-api-key'];
+    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
+      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
+    }
+
+    console.log("Received PUTTING webhook. Body:", req.body);
+    
+    // If it contains matchup data, process it like /admin/matchups/external
+    const { gameId, title, league, startTime, homeTeam, awayTeam, status, active } = req.body;
+    
+    if (gameId && homeTeam && awayTeam) {
+       const matchupRef = adminDb.collection('matchups').doc(gameId);
+       const existingDoc = await matchupRef.get();
+       const existingData = existingDoc.exists ? existingDoc.data() : null;
+
+       let finalStartTime = startTime || Date.now();
+       if ((league === 'PUTTING' || req.body.league === 'PUTTING') && !existingDoc.exists) {
+         finalStartTime = Date.now() + 15 * 60 * 1000;
+       } else if ((league === 'PUTTING' || req.body.league === 'PUTTING') && existingDoc.exists) {
+         finalStartTime = existingData?.startTime || finalStartTime;
+       }
+
+       const isLocked = Date.now() >= finalStartTime;
+
+       const matchupData: any = {
+         gameId,
+         title: title || `${awayTeam.name} @ ${homeTeam.name}`,
+         league: league || 'PUTTING',
+         startTime: finalStartTime,
+         homeTeam: {
+           id: homeTeam.id,
+           name: homeTeam.name,
+           image: homeTeam.image || "/logo.png",
+           score: homeTeam.score || 0
+         },
+         awayTeam: {
+           id: awayTeam.id,
+           name: awayTeam.name,
+           image: awayTeam.image || "/logo.png",
+           score: awayTeam.score || 0
+         },
+         status: status || 'STATUS_SCHEDULED',
+         active: (league === 'DARTS' || league === 'PUTTING') ? !isLocked : (active !== undefined ? active : true),
+         type: "SCORE",
+         updatedAt: Date.now()
+       };
+
+       if (!existingDoc.exists) {
+         matchupData.createdAt = Date.now();
+       }
+
+       await matchupRef.set(matchupData, { merge: true });
+
+       if (matchupData.status === 'STATUS_FINAL' || matchupData.status === 'STATUS_POSTPONED') {
+         await gradeMatchups([matchupData]);
+         await gradeLink4Matchups([matchupData]);
+       }
+       
+       // Update props and notifications
+       try {
+         await updateAllProps();
+         await processPendingNotifications();
+       } catch (err) {
+         console.error('Failed to update props/notifications during putting webhook:', err);
+       }
+       
+       return res.json({ success: true, message: "Putting Matchup webhook processed", matchup: matchupData });
+    }
+    
+    return res.json({ success: true, message: "Webhook received" });
+  } catch (e: any) {
+    console.error("PUTTING webhook error:", e);
+    return res.status(500).json({ success: false, error: e.message });
   }
 });
 

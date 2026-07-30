@@ -5,7 +5,7 @@ import { collection, getDocs, doc, query, where, setDoc, getDoc, deleteDoc, docu
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export default function PickEmPage() {
@@ -28,7 +28,7 @@ export default function PickEmPage() {
 
 
   const { campaignId } = useParams<{ campaignId: string }>();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
@@ -150,7 +150,7 @@ export default function PickEmPage() {
         const participantStats: Record<string, { wins: number, losses: number, pushes: number, points: number, picks: any[] }> = {};
 
         pSnap.docs.forEach(d => {
-          const pick = d.data();
+          const pick = { id: d.id, ...d.data() } as any;
           const pId = pick.participantId;
           if (!participantStats[pId]) {
             participantStats[pId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
@@ -400,6 +400,14 @@ export default function PickEmPage() {
 
                 const isSpreadPendingLock = isSpread && (m.league === 'CFB' || m.league === 'NFL') && !m.metadata?.spreadLocked;
 
+                const hasMoneyline = m.metadata?.mlAway !== undefined && m.metadata?.mlHome !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlHome !== null;
+                const isAwayFavorite = hasMoneyline
+                  ? Number(m.metadata.mlAway) < Number(m.metadata.mlHome)
+                  : (m.metadata?.spread !== undefined ? Number(m.metadata.spread) > 0 : false);
+                const isHomeFavorite = hasMoneyline
+                  ? Number(m.metadata.mlHome) < Number(m.metadata.mlAway)
+                  : (m.metadata?.spread !== undefined ? Number(m.metadata.spread) < 0 : false);
+
                 return (
                   <div key={m.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
                     <div className="p-3 bg-[#18181A] border-b border-zinc-800 text-xs text-zinc-400 font-medium flex justify-between items-center">
@@ -435,7 +443,14 @@ export default function PickEmPage() {
                         style={pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
-                          <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                          <div className="relative">
+                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                            {profile?.premium && isAwayFavorite && m.type !== 'OVER_UNDER' && (
+                              <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
+                                <Star className="w-2.5 h-2.5 text-white fill-current" />
+                              </div>
+                            )}
+                          </div>
                           <div className="flex flex-row items-baseline gap-2">
                             <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name}</span>
                             {isSpread && !isSpreadPendingLock && (
@@ -475,7 +490,14 @@ export default function PickEmPage() {
                         style={pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
-                          <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                          <div className="relative">
+                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                            {profile?.premium && isHomeFavorite && m.type !== 'OVER_UNDER' && (
+                              <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
+                                <Star className="w-2.5 h-2.5 text-white fill-current" />
+                              </div>
+                            )}
+                          </div>
                           <div className="flex flex-row items-baseline gap-2">
                             <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name}</span>
                             {isSpread && !isSpreadPendingLock && (

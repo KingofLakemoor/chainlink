@@ -1,10 +1,17 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import fetch from 'node-fetch';
+import cron from 'node-cron';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 
 // Export for mocking in tests
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
+
+// Setup internal cron to run every 6 hours for odds sync
+cron.schedule('0 */6 * * *', async () => {
+    console.log('[OddsProcessor] Running scheduled 6-hour tennis odds sync');
+    await syncTennisOdds();
+});
 
 /**
  * Normalizes player names to help matching between ESPN and Odds API.
@@ -166,6 +173,14 @@ export async function syncTennisOdds() {
                 active = false;
             }
 
+            if (!active) {
+                // Check if anyone has already picked this before making it inactive
+                const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+                if (!picksSnap.empty) {
+                    active = true;
+                }
+            }
+
             batch.update(matchRef, {
               'metadata.mlHome': finalMlHome,
               'metadata.mlAway': finalMlAway,
@@ -186,6 +201,12 @@ export async function syncTennisOdds() {
     // Mark any unmatched ATP/WTA matchups as inactive
     for (const match of dbMatchups) {
        if (!matchedIds.has(match.id) && (match as any).active === true) {
+           // Check if anyone has already picked this before making it inactive
+           const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+           if (!picksSnap.empty) {
+               continue;
+           }
+
            const matchRef = adminDb.collection('matchups').doc(match.id);
            batch.update(matchRef, {
                'active': false,

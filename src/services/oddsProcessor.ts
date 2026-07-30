@@ -96,6 +96,7 @@ export async function syncTennisOdds() {
     let updatedCount = 0;
     const batch = adminDb.batch();
     let batchCount = 0;
+    const matchedIds = new Set<string>();
 
     for (const sport of tennisSports) {
        const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
@@ -106,7 +107,7 @@ export async function syncTennisOdds() {
        const oddsData: any = await oddsRes.json();
        
        for (const event of oddsData) {
-         const homeTeamName = event.home_team; 
+         const homeTeamName = event.home_team;
          const awayTeamName = event.away_team;
          
          // Prefer DraftKings or FanDuel, otherwise just take the first US bookmaker
@@ -136,8 +137,6 @@ export async function syncTennisOdds() {
                 return true;
             }
             if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) {
-                // If they are swapped in our DB compared to Odds API, we need to swap the odds!
-                // But for returning the match finding, we just return true here.
                 return true;
             }
             
@@ -145,6 +144,7 @@ export async function syncTennisOdds() {
          });
          
          if (match) {
+            matchedIds.add(match.id);
             let finalMlHome = mlHome;
             let finalMlAway = mlAway;
             
@@ -157,6 +157,7 @@ export async function syncTennisOdds() {
             const matchRef = adminDb.collection('matchups').doc(match.id);
             const finalMlHomeNum = parseInt(finalMlHome, 10);
             const finalMlAwayNum = parseInt(finalMlAway, 10);
+
             let active = true;
             if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) {
                 active = false;
@@ -179,6 +180,22 @@ export async function syncTennisOdds() {
                batchCount = 0;
             }
          }
+       }
+    }
+    
+    // Mark any unmatched ATP/WTA matchups as inactive
+    for (const match of dbMatchups) {
+       if (!matchedIds.has(match.id) && (match as any).active === true) {
+           const matchRef = adminDb.collection('matchups').doc(match.id);
+           batch.update(matchRef, {
+               'active': false,
+               'updatedAt': Date.now()
+           });
+           batchCount++;
+           if (batchCount === 490) {
+               await batch.commit();
+               batchCount = 0;
+           }
        }
     }
     

@@ -605,9 +605,34 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   }
                   const homeLinescores = homeCompetitor.linescores ? homeCompetitor.linescores.map((ls: any) => ls.value || 0) : [];
                   const awayLinescores = awayCompetitor.linescores ? awayCompetitor.linescores.map((ls: any) => ls.value || 0) : [];
+
+                  const mlHomeStr = comp.odds?.[0]?.moneyline?.home?.close?.odds || comp.odds?.[0]?.moneyline?.home?.open?.odds;
+                  const mlAwayStr = comp.odds?.[0]?.moneyline?.away?.close?.odds || comp.odds?.[0]?.moneyline?.away?.open?.odds;
+                  let isActive = true;
+                  if (!mlHomeStr && !mlAwayStr) {
+                      isActive = false;
+                  } else {
+                      let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
+                      if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[league] !== undefined) {
+                        threshold = Math.abs(scraperConfig.sportOverrides[league]);
+                      }
+                      if (mlHomeStr) {
+                          const mlHomeNum = parseInt(mlHomeStr, 10);
+                          if (!isNaN(mlHomeNum) && (mlHomeNum <= -threshold || mlHomeNum >= threshold)) {
+                              isActive = false;
+                          }
+                      }
+                      if (mlAwayStr) {
+                          const mlAwayNum = parseInt(mlAwayStr, 10);
+                          if (!isNaN(mlAwayNum) && (mlAwayNum <= -threshold || mlAwayNum >= threshold)) {
+                              isActive = false;
+                          }
+                      }
+                  }
+
                   parsedMatchups.push({
                      startTime,
-                     active: true,
+                     active: isActive,
                      featured: false,
                      title: `${awayName || 'Away'} @ ${homeName || 'Home'}`,
                      league,

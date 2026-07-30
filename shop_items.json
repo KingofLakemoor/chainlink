@@ -1644,5 +1644,19 @@
     "preview": "gs://chainlink-2-72590.firebasestorage.app/4th of July hero banner.png",
     "order": 2,
     "collectionId": ""
+  },
+  {
+    "id": "banner_haboob",
+    "name": "Haboob Banner",
+    "description": "A dusty storm banner for your profile.",
+    "cost": 5000,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "HaboobBanner",
+    "featured": true,
+    "preview": "HaboobBanner",
+    "order": 3,
+    "collectionId": ""
   }
 ]

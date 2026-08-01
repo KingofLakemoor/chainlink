@@ -5,6 +5,7 @@ import path from "path";
 import { initializeApp, cert } from 'firebase-admin/app';
 import { apiRouter } from './src/apiRouter.js';
 import { startNotificationListener } from './src/services/notificationProcessor.js';
+import { startMonthlyRolloverJob } from './src/services/monthlyRollover.js';
 
 async function startServer() {
   const app = express();
@@ -167,6 +168,7 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     startNotificationListener();
+    startMonthlyRolloverJob();
   });
 }
 

@@ -1,4 +1,3 @@
-import { executeRollover } from './services/monthlyRollover.js';
 import { processPendingNotifications } from './services/notificationProcessor.js';
 import { gradeBrackets } from './services/bracketGrader.js';
 import express from 'express';
@@ -1047,7 +1046,7 @@ apiRouter.post("/admin/link4/payout", validateAdmin, async (req, res) => {
 
 
 
-apiRouter.post("/admin/sync-odds", validateAdmin, async (req, res) => {
+apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
   try {
     const result = await syncTennisOdds();
     res.json(result);
@@ -1065,7 +1064,7 @@ apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) =
   }
 });
 
-apiRouter.post("/admin/sync-schedules", validateAdmin, async (req, res) => {
+apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) => {
   try {
     let { league, scoreboardOnly } = req.body;
     // Default to false if not provided

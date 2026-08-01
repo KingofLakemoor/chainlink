@@ -15,12 +15,14 @@ export function startMonthlyRolloverJob() {
       
       const rolloverLockRef = adminDb.collection('systemSettings').doc('monthlyRollover');
       
+      let alreadyRun = false;
       await adminDb.runTransaction(async (t) => {
         const doc = await t.get(rolloverLockRef);
         if (doc.exists) {
           const data = doc.data();
           if (data && data.lastRolloverMonth === monthKey) {
             console.log(`Monthly rollover for ${monthKey} was already completed.`);
+            alreadyRun = true;
             return;
           }
         }
@@ -28,6 +30,10 @@ export function startMonthlyRolloverJob() {
         // Lock it
         t.set(rolloverLockRef, { lastRolloverMonth: monthKey, timestamp: Date.now() }, { merge: true });
       });
+
+      if (alreadyRun) {
+        return;
+      }
 
       // Execute Rollover logic
       // We can refactor the logic from apiRouter.ts or just duplicate it here for the cron.

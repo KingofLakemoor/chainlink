@@ -536,10 +536,6 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
           if (!scoreboardOnly) {
             let scraperActive = scrapedMatchup.active;
-            if (!scraperActive && existingData.type !== 'SCORE' && existingData.type !== undefined) {
-              scraperActive = true;
-            }
-
             // Only deactivate if scraper says it shouldn't be active (e.g. wild odds)
             // If it's already active, don't let defaultActive=false override it
             if (existingData.active && !scraperActive) {
@@ -548,9 +544,13 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
               if (!picksSnap.empty || !pickemPicksSnap.empty) {
                 finalActive = true;
+              } else if (existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null) {
+                finalActive = true;
               } else {
                 finalActive = false;
               }
+            } else if (!existingData.active && scraperActive) {
+                finalActive = true;
             }
           }
 
@@ -601,10 +601,10 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               },
               metadata: {
                   ...(existingData.metadata || {}),
-                  overUnder: scrapedMatchup.metadata?.overUnder !== undefined ? scrapedMatchup.metadata?.overUnder : (existingData.metadata?.overUnder || null),
-                  mlHome: scrapedMatchup.metadata?.mlHome !== undefined ? scrapedMatchup.metadata?.mlHome : (existingData.metadata?.mlHome || null),
-                  mlAway: scrapedMatchup.metadata?.mlAway !== undefined ? scrapedMatchup.metadata?.mlAway : (existingData.metadata?.mlAway || null),
-                  spread: existingData.type === 'SPREAD' ? existingData.metadata?.spread : (scrapedMatchup.metadata?.spread !== undefined ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null)),
+                  overUnder: (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null) ? scrapedMatchup.metadata?.overUnder : (existingData.metadata?.overUnder || null),
+                  mlHome: (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null) ? scrapedMatchup.metadata?.mlHome : (existingData.metadata?.mlHome || null),
+                  mlAway: (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null) ? scrapedMatchup.metadata?.mlAway : (existingData.metadata?.mlAway || null),
+                  spread: existingData.type === 'SPREAD' ? existingData.metadata?.spread : ((scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null) ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null)),
                   homeLinescores: scrapedMatchup.metadata?.homeLinescores !== undefined ? scrapedMatchup.metadata?.homeLinescores : (existingData.metadata?.homeLinescores || null),
                   awayLinescores: scrapedMatchup.metadata?.awayLinescores !== undefined ? scrapedMatchup.metadata?.awayLinescores : (existingData.metadata?.awayLinescores || null),
                   network: scrapedMatchup.metadata?.network !== undefined ? scrapedMatchup.metadata?.network : (existingData.metadata?.network || "N/A")
@@ -799,13 +799,16 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             abandoned = false;
           }
 
-          const newMatchupData = {
+          const newMatchupData: any = {
             ...scrapedMatchup,
             active,
             abandoned,
             updatedAt: Date.now(),
             createdAt: Date.now()
           };
+          if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA') {
+            newMatchupData.link4Excluded = true;
+          }
 
           batch.set(newDocRef, newMatchupData);
           opCount++;

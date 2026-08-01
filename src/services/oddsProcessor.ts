@@ -167,11 +167,15 @@ export async function syncTennisOdds() {
             const finalMlAwayNum = parseInt(finalMlAway, 10);
 
             let active = true;
-            if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) {
+            if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
                 active = false;
-            }
-            if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) {
-                active = false;
+            } else {
+                if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) {
+                    active = false;
+                }
+                if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) {
+                    active = false;
+                }
             }
 
             if (!active) {
@@ -261,7 +265,7 @@ export async function syncSoccerOdds() {
 
     const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_russia_premier_league/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
     if (!oddsRes.ok) return { success: false, error: 'Failed to fetch RPL odds' };
-    const oddsData = await oddsRes.json();
+    const oddsData: any = await oddsRes.json();
 
     let updatedCount = 0;
     const batch = adminDb.batch();
@@ -306,8 +310,12 @@ export async function syncSoccerOdds() {
           const finalMlHomeNum = parseInt(finalMlHome, 10);
           const finalMlAwayNum = parseInt(finalMlAway, 10);
           let active = true;
-          if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
-          if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
+          if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
+              active = false;
+          } else {
+              if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
+              if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
+          }
           
           if (!active) {
               const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();

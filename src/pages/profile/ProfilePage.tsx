@@ -257,27 +257,6 @@ export default function ProfilePage() {
   };
 
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full text-zinc-500 font-medium">
-        Loading profile...
-      </div>
-    );
-  }
-
-  if (!user || !profile) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-zinc-500 font-medium">
-        <p>You must be logged in to view your profile.</p>
-      </div>
-    );
-  }
-
-  // Calculate Win Rate (using allTimeStats for lifetime profile view)
-  const stats = profile.allTimeStats || profile.stats || { wins: 0, losses: 0, pushes: 0 };
-  const totalDecisions = stats.wins + stats.losses;
-  const winRate = totalDecisions > 0 ? (stats.wins / totalDecisions) * 100 : 0;
-
   // Aggregate monthly stats from picks
   const monthlyStats = React.useMemo(() => {
     if (!picks || picks.length === 0) return [];
@@ -328,6 +307,27 @@ export default function ProfilePage() {
 
     return Object.values(monthsMap).sort((a: any, b: any) => b.monthKey.localeCompare(a.monthKey));
   }, [picks]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full text-zinc-500 font-medium">
+        Loading profile...
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-zinc-500 font-medium">
+        <p>You must be logged in to view your profile.</p>
+      </div>
+    );
+  }
+
+  // Calculate Win Rate (using allTimeStats for lifetime profile view)
+  const stats = profile.allTimeStats || profile.stats || { wins: 0, losses: 0, pushes: 0 };
+  const totalDecisions = stats.wins + stats.losses;
+  const winRate = totalDecisions > 0 ? (stats.wins / totalDecisions) * 100 : 0;
 
   // Formatting date
   let joinDate = 'Unknown';

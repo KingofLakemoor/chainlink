@@ -231,8 +231,8 @@ export const MatchupCard = React.memo(function MatchupCard({
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
                         </span>
-                        { (m.league === 'ATP' || m.league === 'WTA') && m.statusDesc ? (
-                          <span className="text-[9px] font-bold text-red-500 tracking-wider whitespace-nowrap">{m.statusDesc.toUpperCase()}</span>
+                        { m.statusDesc && m.statusDesc.toUpperCase() !== 'IN PROGRESS' ? (
+                          <span className="text-[9px] font-bold text-red-500 tracking-wider whitespace-nowrap text-center px-1">{m.statusDesc.toUpperCase()}</span>
                         ) : (
                           <span className="text-[9px] font-bold text-red-500 tracking-wider">LIVE</span>
                         )}

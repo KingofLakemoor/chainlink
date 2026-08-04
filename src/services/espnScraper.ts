@@ -131,7 +131,10 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       ]);
       case "NHL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`);
       case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
-      case "MLS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`);
+      case "MLS": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
+      ];
       case "EPL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${date}`);
       case "FIFA": return [`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${new Date().getFullYear()}&limit=300`];
       case "FRA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/scoreboard?dates=${date}`);
@@ -139,9 +142,21 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       case "RPL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard?dates=${date}`);
       case "CHN": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/chn.1/scoreboard?dates=${date}`);
       case "CFL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/cfl/scoreboard?dates=${date}`);
-      case "LMX": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard?dates=${date}`);
-      case "ARG": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${date}`);
-      case "BRA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${date}`);
+      case "LMX": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
+      ];
+      case "ARG": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.copa/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${date}`)
+      ];
+      case "BRA": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${date}`)
+      ];
       case "CFB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=${date}`);
       case "CBASE": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard?dates=${date}&limit=500`);
       case "WNBA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${date}`);
@@ -168,7 +183,10 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     ]);
     case "NHL": return [`https://cdn.espn.com/core/nhl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
-    case "MLS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`);
+    case "MLS": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
+      ];
     case "EPL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${date}`);
     case "FIFA": return [`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${year}&limit=300`];
     case "FRA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/scoreboard?dates=${date}`);
@@ -176,9 +194,21 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     case "RPL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard?dates=${date}`);
     case "CHN": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/chn.1/scoreboard?dates=${date}`);
     case "CFL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/cfl/scoreboard?dates=${date}`);
-    case "LMX": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard?dates=${date}`);
-      case "ARG": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${date}`);
-      case "BRA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${date}`);
+    case "LMX": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
+      ];
+      case "ARG": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/arg.copa/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${date}`)
+      ];
+      case "BRA": return [
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${date}`),
+        ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${date}`)
+      ];
     case "CFB": return [`https://cdn.espn.com/core/college-football/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "CBASE": return [`https://cdn.espn.com/core/college-baseball/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "WNBA": return [`https://cdn.espn.com/core/wnba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
@@ -568,6 +598,10 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   if (MATCHUP_POSTPONED_STATUSES.includes(rawStatus) || descLower.includes('postponed') || descLower.includes('canceled') || descLower.includes('cancelled') || descLower.includes('abandoned') || detailLower.includes('postponed') || detailLower.includes('canceled') || detailLower.includes('cancelled') || detailLower.includes('abandoned')) {
                       finalStatus = "STATUS_POSTPONED";
                   } else if (MATCHUP_DELAYED_STATUSES.includes(rawStatus) || descLower.includes('suspended') || detailLower.includes('suspended') || descLower.includes('delayed') || detailLower.includes('delayed')) {
+                      if ((league === 'ATP' || league === 'WTA') && (descLower.includes('suspended') || detailLower.includes('suspended'))) {
+                          finalStatus = "STATUS_POSTPONED";
+                          finalStatusDesc = "Suspended";
+                      } else 
                       if (compState === 'pre') {
                           finalStatus = "STATUS_SCHEDULED";
                           finalStatusDesc = comp.status?.type?.detail || comp.status?.type?.shortDetail || "Delayed";
@@ -581,11 +615,6 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                       finalStatus = "STATUS_FINAL";
                   } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || compState === 'in' || (rawStatus === 'STATUS_SCHEDULED' && (hasLinescores || (compState !== 'pre' && comp.status?.period && comp.status?.period > 0))) || (rawStatus === "STATUS_SCHEDULED" && startTime > 0 && Date.now() >= startTime)) {
                       finalStatus = "STATUS_IN_PROGRESS";
-                      if (comp.status?.type?.detail && !comp.status.type.detail.toLowerCase().match(/\b(am|pm|edt|est|pdt|pst|cst|cdt)\b/)) {
-                          finalStatusDesc = comp.status.type.detail;
-                      } else {
-                          finalStatusDesc = "In Progress";
-                      }
                       if ((league as string) === "CRICKET" && comp.status?.period) {
                           let currentOvers = null;
                           for (const competitor of comp.competitors || []) {
@@ -598,6 +627,16 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                               }
                           }
                           finalStatusDesc = currentOvers !== null ? `Thru ${currentOvers}` : `Thru ${comp.status.period}`;
+                      } else {
+                          if (comp.status?.displayClock && comp.status.displayClock !== "0'") {
+                              finalStatusDesc = comp.status.displayClock;
+                          } else if (comp.status?.type?.shortDetail && !comp.status.type.shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && comp.status.type.shortDetail.toLowerCase() !== 'scheduled') {
+                              finalStatusDesc = comp.status.type.shortDetail;
+                          } else if (comp.status?.type?.detail && !comp.status.type.detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && comp.status.type.detail.toLowerCase() !== 'scheduled') {
+                              finalStatusDesc = comp.status.type.detail;
+                          } else {
+                              finalStatusDesc = "In Progress";
+                          }
                       }
                   } else {
                       finalStatus = "STATUS_SCHEDULED";
@@ -734,6 +773,10 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 if (MATCHUP_POSTPONED_STATUSES.includes(rawStatus) || descLower.includes('postponed') || descLower.includes('canceled') || descLower.includes('cancelled') || descLower.includes('abandoned') || detailLower.includes('postponed') || detailLower.includes('canceled') || detailLower.includes('cancelled') || detailLower.includes('abandoned')) {
                     finalStatus = "STATUS_POSTPONED";
                 } else if (MATCHUP_DELAYED_STATUSES.includes(rawStatus) || descLower.includes('suspended') || detailLower.includes('suspended') || descLower.includes('delayed') || detailLower.includes('delayed')) {
+                      if ((league === 'ATP' || league === 'WTA') && (descLower.includes('suspended') || detailLower.includes('suspended'))) {
+                          finalStatus = "STATUS_POSTPONED";
+                          finalStatusDesc = "Suspended";
+                      } else 
                     if (competition.status?.type?.state === 'pre') {
                         finalStatus = "STATUS_SCHEDULED";
                         finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
@@ -770,6 +813,16 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                       }
                   }
                   finalStatusDesc = currentOvers !== null ? `Thru ${currentOvers}` : `Thru ${competition.status.period}`;
+              } else {
+                  if (competition.status?.displayClock && competition.status.displayClock !== "0'") {
+                      finalStatusDesc = competition.status.displayClock;
+                  } else if (competition.status?.type?.shortDetail && !competition.status.type.shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && competition.status.type.shortDetail.toLowerCase() !== 'scheduled') {
+                      finalStatusDesc = competition.status.type.shortDetail;
+                  } else if (competition.status?.type?.detail && !competition.status.type.detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && competition.status.type.detail.toLowerCase() !== 'scheduled') {
+                      finalStatusDesc = competition.status.type.detail;
+                  } else {
+                      finalStatusDesc = "In Progress";
+                  }
               }
           } else {
               finalStatus = "STATUS_SCHEDULED";
@@ -928,6 +981,10 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                 if (MATCHUP_POSTPONED_STATUSES.includes(rawStatus) || descLower.includes('postponed') || descLower.includes('canceled') || descLower.includes('cancelled') || descLower.includes('abandoned') || detailLower.includes('postponed') || detailLower.includes('canceled') || detailLower.includes('cancelled') || detailLower.includes('abandoned')) {
                     finalStatus = "STATUS_POSTPONED";
                 } else if (MATCHUP_DELAYED_STATUSES.includes(rawStatus) || descLower.includes('suspended') || detailLower.includes('suspended') || descLower.includes('delayed') || detailLower.includes('delayed')) {
+                      if ((league === 'ATP' || league === 'WTA') && (descLower.includes('suspended') || detailLower.includes('suspended'))) {
+                          finalStatus = "STATUS_POSTPONED";
+                          finalStatusDesc = "Suspended";
+                      } else 
                     if (competition.status?.type?.state === 'pre') {
                         finalStatus = "STATUS_SCHEDULED";
                         finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";

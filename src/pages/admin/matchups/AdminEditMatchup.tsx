@@ -154,6 +154,35 @@ export function AdminEditMatchup() {
     }
   };
 
+  const handleReleasePicks = async () => {
+      try {
+          const res = await fetch('/api/admin/release-picks', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+              },
+              body: JSON.stringify({ gameId: matchup.gameId })
+          });
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            const rawText = await res.text();
+            throw new Error(`Server returned an invalid response (${res.status}). The backend API may not be running.\nResponse: ${rawText.substring(0, 100)}`);
+          }
+          const data = await res.json();
+          if (data.success) {
+              alert('Matchup abandoned and picks refunded successfully!');
+              handleChange('status', 'STATUS_POSTPONED');
+              handleChange('abandoned', true);
+          } else {
+              alert('Failed to release picks: ' + (data.error || 'Unknown error'));
+          }
+      } catch (e: any) {
+          console.error('Error releasing picks:', e);
+          alert(`Failed to contact server for release. Error: ${e.message}`);
+      }
+  };
+
   const handleFinalize = async () => {
       handleChange('status', 'STATUS_FINAL');
 
@@ -401,7 +430,7 @@ export function AdminEditMatchup() {
             <h3 className="font-bold text-lg text-white">In Progress Actions</h3>
             <div className="flex flex-col gap-3">
                 <button onClick={handleFinalize} className="w-full bg-red-900/40 hover:bg-red-800/60 text-red-100 font-bold py-3 rounded-lg transition-colors border border-red-900/50">Finalize Matchup</button>
-                <button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-3 rounded-lg transition-colors">Release Picks</button>
+                <button onClick={handleReleasePicks} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-3 rounded-lg transition-colors">Release Picks</button>
             </div>
         </div>
 

@@ -310,7 +310,6 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                  awayFrozenScore = awayScore;
               }
 
-              console.log('Update check for', existingGameId, 'homeFinal:', homeFinal, 'awayFinal:', awayFinal);
               let newStatus = data.status;
               let newActive = data.active;
               let newAbandoned = data.abandoned;
@@ -349,7 +348,9 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                   }
               }
 
-              const needsUpdate = data.status !== newStatus ||
+              // FORCE skip update if abandoned
+          if (data.abandoned === true) { continue; }
+          const needsUpdate = data.status !== newStatus ||
                   data.statusDesc !== (newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming') ||
                   data.homeTeam?.score !== homeScore ||
                   data.awayTeam?.score !== awayScore ||
@@ -554,6 +555,8 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             }
           }
 
+          // FORCE skip update if abandoned
+          if (existingData.abandoned === true) { continue; }
           const needsUpdate = existingData.status !== newStatus || existingData.statusDesc !== newStatusDesc ||
               existingData.startTime !== scrapedMatchup.startTime ||
               existingData.homeTeam?.score !== homeScore ||
@@ -567,7 +570,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               existingData.awayTeam?.image !== scrapedMatchup.awayTeam?.image ||
               existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id ||
               existingData.active !== finalActive ||
-              existingData.abandoned !== false ||
+              (existingData.abandoned !== false && !existingData.abandoned) ||
               (scrapedMatchup.metadata?.overUnder !== undefined && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
               (scrapedMatchup.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
               (scrapedMatchup.metadata?.mlAway !== undefined && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway) ||
@@ -578,10 +581,10 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
           if (needsUpdate || existingDoc.id !== gameId) {
             const updateData: any = {
               ...existingData,
-              abandoned: false,
+              abandoned: existingData.abandoned === true ? true : false,
               title: newTitle,
               league: scrapedMatchup.league,
-              active: finalActive,
+              active: existingData.abandoned === true ? false : finalActive,
               status: newStatus,
               statusDesc: newStatusDesc,
               startTime: scrapedMatchup.startTime,
@@ -675,7 +678,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
             Object.keys(flattenedUpdate).forEach(key => flattenedUpdate[key] === undefined && delete flattenedUpdate[key]);
 
-            if (existingData.status === 'STATUS_SCHEDULED' &&
+            if ((existingData.status === 'STATUS_SCHEDULED' || existingData.status === 'STATUS_DELAYED') &&
                 (scrapedMatchup.status === 'STATUS_IN_PROGRESS' || 
                  scrapedMatchup.status === 'STATUS_FINAL' || 
                  scrapedMatchup.status === 'STATUS_POSTPONED')) {

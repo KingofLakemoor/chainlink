@@ -31,12 +31,63 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
   if (!user) return null;
 
 
-  const NavItem = ({ icon: Icon, label, path }: { icon: any, label: string, path: string }) => {
+  const [hasActivePickEm, setHasActivePickEm] = useState(false);
+  const [hasActiveLink4, setHasActiveLink4] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check for active PickEm
+    const pickemUnsub = onSnapshot(collection(db, 'pickemCampaigns'), (snap) => {
+       const now = Date.now();
+       let active = false;
+       snap.forEach(doc => {
+          const c = doc.data();
+          const startToCheck = c.visibleDate || c.startDate;
+          if (!startToCheck || !c.endDate) active = true; // Legacy
+          else if (now >= startToCheck && now <= c.endDate) active = true;
+       });
+       setHasActivePickEm(active);
+    }, () => {});
+
+    return () => pickemUnsub();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const now = new Date();
+    const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
+    const q = query(collection(db, 'link4Segments'), where('endTime', '>', twelveHoursAgo));
+    
+    const link4Unsub = onSnapshot(q, (snap) => {
+        let active = false;
+        snap.forEach(doc => {
+            const seg = doc.data();
+            if (seg.startTime && new Date(seg.startTime) <= new Date()) {
+                active = true;
+            }
+        });
+        setHasActiveLink4(active);
+    }, () => {});
+    
+    return () => link4Unsub();
+  }, [user]);
+
+  const NavItem = ({ icon: Icon, label, path, showBadge = false }: { icon: any, label: string, path: string, showBadge?: boolean }) => {
     const active = location.pathname === path;
     return (
-      <Link to={path} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${active ? 'bg-[#22c55e]/10 text-[#22c55e] font-medium' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}>
-        <Icon className="w-5 h-5" />
-        <span className="text-sm">{label}</span>
+      <Link to={path} className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${active ? 'bg-[#22c55e]/10 text-[#22c55e] font-medium' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}>
+        <div className="flex items-center gap-3">
+          <Icon className="w-5 h-5" />
+          <span className="text-sm">{label}</span>
+        </div>
+        {showBadge && (
+           <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+           </span>
+        )}
       </Link>
     );
   };
@@ -70,11 +121,11 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
 
         <div className="mt-6 mb-2 px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">ChainLink</div>
         <NavItem icon={PlayCircle} label="Play ChainLink" path="/" />
-        <NavItem icon={Layers} label="Pick'em" path="/pickem" />
+        <NavItem icon={Layers} label="Pick'em" path="/pickem" showBadge={hasActivePickEm} />
         <NavItem icon={CheckCircle2} label="My Stats" path="/mypicks" />
         <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
         <NavItem icon={ShoppingCart} label="Link Shop" path="/shop" />
-        <NavItem icon={Grid} label="Link4" path="/link4" />
+        <NavItem icon={Grid} label="Link4" path="/link4" showBadge={hasActiveLink4} />
         <NavItem icon={HelpCircle} label="Help & Rules" path="/help" />
 
         {profile?.role === "ADMIN" && (

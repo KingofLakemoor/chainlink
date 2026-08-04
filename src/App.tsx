@@ -28,9 +28,6 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
   const location = useLocation();
   const { isInstallable, promptInstall } = useInstallPrompt();
 
-  if (!user) return null;
-
-
   const [hasActivePickEm, setHasActivePickEm] = useState(false);
   const [hasActiveLink4, setHasActiveLink4] = useState(false);
 
@@ -91,6 +88,8 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
       </Link>
     );
   };
+
+  if (!user) return null;
 
   return (
     <>

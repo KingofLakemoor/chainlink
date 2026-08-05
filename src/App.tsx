@@ -431,14 +431,15 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, profile } = useAuth();
   const location = useLocation();
 
-  if (profile?.needsOnboarding && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" />;
-  }
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  if (profile?.needsOnboarding && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" />;
+  }
 
   const pageTitle = {
     '/dashboard': 'Dashboard',

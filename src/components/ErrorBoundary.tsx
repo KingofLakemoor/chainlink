@@ -30,19 +30,24 @@ export class ErrorBoundary extends Component<Props, State> {
       (error.message && error.message.includes('Loading chunk')) ||
       (error.message && error.message.includes('dynamically imported module'))
     ) {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          for (let registration of registrations) {
-            registration.unregister();
-          }
+      const reloaded = sessionStorage.getItem('chunk_error_reloaded');
+      if (!reloaded) {
+        sessionStorage.setItem('chunk_error_reloaded', 'true');
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
+            window.location.reload();
+          }).catch(() => {
+            window.location.reload();
+          });
+        } else {
           window.location.reload();
-        }).catch(() => {
-          window.location.reload();
-        });
-      } else {
-        window.location.reload();
+        }
+        return;
       }
-      return;
+      // If we already reloaded, just let it render the fallback UI to avoid infinite loops
     }
   }
 

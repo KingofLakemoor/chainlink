@@ -28,17 +28,21 @@
   <script>
     window.addEventListener('error', function(e) {
       if (e.target && (e.target.nodeName === 'SCRIPT' || e.target.nodeName === 'LINK')) {
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (var i = 0; i < registrations.length; i++) {
-              registrations[i].unregister();
-            }
+        var reloaded = sessionStorage.getItem('chunk_error_reloaded_html');
+        if (!reloaded) {
+          sessionStorage.setItem('chunk_error_reloaded_html', 'true');
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+              window.location.reload();
+            }).catch(function() {
+              window.location.reload();
+            });
+          } else {
             window.location.reload();
-          }).catch(function() {
-            window.location.reload();
-          });
-        } else {
-          window.location.reload();
+          }
         }
         return;
       }
@@ -54,7 +58,10 @@
   </script>
   <script>
     if ("serviceWorker" in navigator) {
+      let refreshing = false;
       navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
         window.location.reload();
       });
     }

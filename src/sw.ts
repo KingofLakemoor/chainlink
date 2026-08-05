@@ -22,15 +22,7 @@ self.addEventListener('activate', (event) => {
           }
           return caches.delete(cacheName);
         })
-      ).then(() => {
-        if (needsReload) {
-          self.clients.matchAll({ type: 'window' }).then(windowClients => {
-            for (let client of windowClients) {
-              client.navigate(client.url);
-            }
-          });
-        }
-      });
+      );
     })
   );
   self.clients.claim();

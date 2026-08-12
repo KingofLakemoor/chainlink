@@ -90,11 +90,13 @@ export default function LeaderboardsPage() {
 
         const token = await auth.currentUser?.getIdToken();
 
-        const [usersRes, chainsSnap, pendingPicksSnap, shopItemsSnap] = await Promise.all([
+        const [usersRes, chainsRes, pendingPicksSnap, shopItemsSnap] = await Promise.all([
            fetch('/api/users/public', {
               headers: { 'Authorization': `Bearer ${token}` }
            }),
-           getDocs(collection(db, 'chains')),
+           fetch('/api/chains', {
+              headers: { 'Authorization': `Bearer ${token}` }
+           }),
            getDocs(query(collection(db, 'picks'), where('status', '==', 'PENDING'))),
            getDocs(collection(db, 'shopItems'))
         ]);
@@ -138,10 +140,6 @@ export default function LeaderboardsPage() {
         });
 
         const chainsMap = new Map();
-        chainsSnap.docs.forEach(doc => {
-            const data = doc.data();
-            chainsMap.set(data.userId, data);
-        });
         const items = shopItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setInventoryItems(items);
 

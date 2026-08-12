@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express from "express";
 import cors from "cors";
 import path from "path";
+import compression from "compression";
+import helmet from "helmet";
 import { initializeApp, cert } from 'firebase-admin/app';
 import { apiRouter } from './src/apiRouter.js';
 import { startNotificationListener } from './src/services/notificationProcessor.js';
@@ -20,6 +22,12 @@ async function startServer() {
     'https://www.chainlink.club602.com',
     'https://www.ChainLink.club602.com'
   ];
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false
+  }));
+  app.use(compression());
   app.use(cors({ origin: allowedOrigins }));
 
   // Proxy /__/auth/* requests to the default Firebase auth domain to support custom and preview domains

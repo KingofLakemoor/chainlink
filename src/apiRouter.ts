@@ -41,41 +41,7 @@ const validateAuth = async (req: express.Request, res: express.Response, next: e
 
 
 
-apiRouter.post("/referral/increment", validateAuth, async (req, res) => {
-  try {
-    const { referrerId } = req.body;
-    if (!referrerId || !adminDb) return res.json({ success: false });
 
-    const referrerRef = adminDb.collection('users').doc(referrerId);
-    await adminDb.runTransaction(async (transaction: any) => {
-      const doc = await transaction.get(referrerRef);
-      if (!doc.exists) return;
-      const data = doc.data();
-      const currentLinks = data.links || 0;
-      const currentCount = data.referralsCount || 0;
-      
-      transaction.update(referrerRef, {
-        links: currentLinks + 50,
-        referralsCount: currentCount + 1
-      });
-
-      const logRef = adminDb.collection('linkTransactions').doc();
-      transaction.set(logRef, {
-        userId: referrerId,
-        username: data.username || data.name || 'Unknown',
-        type: 'REFERRAL_BONUS',
-        amount: 50,
-        description: `Bonus for referring a new user`,
-        createdAt: Date.now()
-      });
-    });
-
-    res.json({ success: true });
-  } catch (e: any) {
-    console.error("Referral increment error:", e);
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
 
 apiRouter.get("/users/check-username", validateAuth, async (req, res) => {
   try {
@@ -91,6 +57,11 @@ apiRouter.get("/users/check-username", validateAuth, async (req, res) => {
   }
 });
 
+
+let publicUsersCache: any = null;
+let publicUsersCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 apiRouter.get("/users/public", validateAuth, async (req, res) => {
   try {
     const { uids } = req.query;
@@ -100,33 +71,63 @@ apiRouter.get("/users/public", validateAuth, async (req, res) => {
       if (uidList.length === 0) return res.json({ users: [] });
       const refs = uidList.map(uid => adminDb.collection('users').doc(uid));
       snap = await adminDb.getAll(...refs);
+      
+      const docs = Array.isArray(snap) ? snap : snap.docs;
+      const users = docs.map(doc => {
+        if (!doc.exists) return null;
+        const data = doc.data();
+        if (!data) return null;
+
+        return {
+          id: doc.id,
+          username: data.username,
+          name: data.name,
+          image: data.image,
+          stats: data.stats,
+          allTimeStats: data.allTimeStats,
+          allTimeBest: data.allTimeBest,
+          historicalStats: data.historicalStats,
+          equippedCosmetics: data.equippedCosmetics,
+          role: data.role,
+          status: data.status,
+          createdAt: data.createdAt,
+        };
+      }).filter(Boolean);
+
+      return res.json({ users });
     } else {
+      // Fetch all users (cached)
+      if (publicUsersCache && Date.now() - publicUsersCacheTime < CACHE_TTL) {
+        return res.json({ users: publicUsersCache, cached: true });
+      }
       snap = await adminDb.collection('users').get();
+      const docs = Array.isArray(snap) ? snap : snap.docs;
+      const users = docs.map(doc => {
+        if (!doc.exists) return null;
+        const data = doc.data();
+        if (!data) return null;
+
+        return {
+          id: doc.id,
+          username: data.username,
+          name: data.name,
+          image: data.image,
+          stats: data.stats,
+          allTimeStats: data.allTimeStats,
+          allTimeBest: data.allTimeBest,
+          historicalStats: data.historicalStats,
+          equippedCosmetics: data.equippedCosmetics,
+          role: data.role,
+          status: data.status,
+          createdAt: data.createdAt,
+        };
+      }).filter(Boolean);
+      
+      publicUsersCache = users;
+      publicUsersCacheTime = Date.now();
+      
+      return res.json({ users });
     }
-
-    const docs = Array.isArray(snap) ? snap : snap.docs;
-    const users = docs.map(doc => {
-      if (!doc.exists) return null;
-      const data = doc.data();
-      if (!data) return null;
-
-      return {
-        id: doc.id,
-        username: data.username,
-        name: data.name,
-        image: data.image,
-        stats: data.stats,
-        allTimeStats: data.allTimeStats,
-        allTimeBest: data.allTimeBest,
-        historicalStats: data.historicalStats,
-        equippedCosmetics: data.equippedCosmetics,
-        role: data.role,
-        status: data.status,
-        createdAt: data.createdAt,
-      };
-    }).filter(Boolean);
-
-    return res.json({ users });
   } catch (error) {
     console.error('Error fetching public users', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -1691,4 +1692,25 @@ apiRouter.post("/admin/force-grade-brackets", validateAdmin, async (req, res) =>
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
+});
+
+let chainsCache: any = null;
+let chainsCacheTime = 0;
+
+apiRouter.get("/chains", validateAuth, async (req, res) => {
+  try {
+    if (chainsCache && Date.now() - chainsCacheTime < CACHE_TTL) {
+      return res.json({ chains: chainsCache, cached: true });
+    }
+    const snap = await adminDb.collection('chains').get();
+    const chains = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    chainsCache = chains;
+    chainsCacheTime = Date.now();
+    
+    return res.json({ chains });
+  } catch (error) {
+    console.error('Error fetching chains', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });

@@ -1,5 +1,14 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { gradeMatchups } from './grader.js';
+
+const boxscoreCache = new Map<string, any>();
+const gameStatusCache = new Map<string, any>();
+
+// Invalidate caches every 5 minutes to prevent memory leaks if used in a long-running process
+setInterval(() => {
+    boxscoreCache.clear();
+    gameStatusCache.clear();
+}, 5 * 60 * 1000);
 export type PropLeague = 'NFL' | 'CFB' | 'NBA' | 'MLB';
 
 export type PropStatType = 
@@ -180,12 +189,16 @@ export async function updateAllProps() {
             
         let batch = adminDb.batch();
         let count = 0;
+        let batchCount = 0;
         const matchupsToGrade: any[] = [];
         
-        for (const doc of snap.docs) {
+        const chunk = 20;
+        for (let i = 0; i < snap.docs.length; i += chunk) {
+            const batchDocs = snap.docs.slice(i, i + chunk);
+            await Promise.all(batchDocs.map(async (doc) => {
             try {
             const m = doc.data();
-            if (!m.metadata?.isPropMatchup) continue;
+            if (!m.metadata?.isPropMatchup) return;
             
             const valueA = await fetchPlayerStat(m.metadata.optionA, m.metadata.timeframe);
             const valueB = await fetchPlayerStat(m.metadata.optionB, m.metadata.timeframe);
@@ -242,6 +255,12 @@ export async function updateAllProps() {
                 
                 batch.update(doc.ref, updateData);
                 count++;
+                batchCount++;
+                if (batchCount >= 490) {
+                    await batch.commit();
+                    batch = adminDb.batch();
+                    batchCount = 0;
+                }
                 if (newStatus === 'STATUS_FINAL') {
                     matchupsToGrade.push({ id: doc.id, ...m, status: 'STATUS_FINAL', statusDesc: 'Final', homeTeam: { ...m.homeTeam, score: currentScoreB }, awayTeam: { ...m.awayTeam, score: currentScoreA } });
                 }
@@ -249,13 +268,20 @@ export async function updateAllProps() {
                 // If games have started by time but boxscore is not ready, update status to lock the prop
                 batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS' });
                 count++;
+                batchCount++;
+                if (batchCount >= 490) {
+                    await batch.commit();
+                    batch = adminDb.batch();
+                    batchCount = 0;
+                }
             }
             } catch (err) {
                 console.error('Error processing prop matchup ' + doc.id, err);
             }
+        }));
         }
         
-        if (count > 0) {
+        if (batchCount > 0) {
             await batch.commit();
             console.log(`[propGrader] Updated ${count} prop matchups.`);
             if (matchupsToGrade.length > 0) {
@@ -275,9 +301,18 @@ interface GameStatus {
 
 async function fetchGameStatus(adminDb: any, config: PropAthleteConfig): Promise<GameStatus> {
     try {
-        const doc = await adminDb.collection('matchups').doc(config.gameId).get();
-        if (doc.exists) {
-            const data = doc.data();
+        let data;
+        if (gameStatusCache.has(config.gameId)) {
+            data = gameStatusCache.get(config.gameId);
+        } else {
+            const doc = await adminDb.collection('matchups').doc(config.gameId).get();
+            if (doc.exists) {
+                data = doc.data();
+                gameStatusCache.set(config.gameId, data);
+            }
+        }
+        
+        if (data) {
             return {
                 status: data.status === 'STATUS_FINAL' ? 'STATUS_FINAL' : 'STATUS_IN_PROGRESS',
                 detail: data.statusDesc || 'In Progress',

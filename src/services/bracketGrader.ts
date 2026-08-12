@@ -183,12 +183,11 @@ async function payoutBracket(bracketId: string, bracket: any, currentResults: an
 
           if (bracketTxDoc.exists && !bracketTxDoc.data().payoutComplete) {
               // 1. ALL READS FIRST
-              const userDocs = [];
-              for (const winner of winners) {
+              const userDocs = await Promise.all(winners.map(async (winner) => {
                   const userRef = adminDb.collection('users').doc(winner.uid);
                   const userDoc = await transaction.get(userRef);
-                  userDocs.push({ ref: userRef, doc: userDoc, winnerUid: winner.uid });
-              }
+                  return { ref: userRef, doc: userDoc, winnerUid: winner.uid };
+              }));
 
               // 2. THEN ALL WRITES
               for (const { ref, doc, winnerUid } of userDocs) {

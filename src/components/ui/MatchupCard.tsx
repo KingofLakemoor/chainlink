@@ -51,13 +51,16 @@ export const MatchupCard = React.memo(function MatchupCard({
   const homeHotPct = mCounts.total > 0 ? Math.round(((mCounts.home || 0) / mCounts.total) * 100) : 0;
   const isScheduled = m.status === 'STATUS_SCHEDULED' && (!m.metadata?.homeLinescores || m.metadata?.homeLinescores.length === 0) && (!m.metadata?.awayLinescores || m.metadata?.awayLinescores.length === 0) && (m.homeTeam.score === 0 && m.awayTeam.score === 0);
 
-  const hasMoneyline = m.metadata?.mlAway !== undefined && m.metadata?.mlHome !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlHome !== null;
-  const isAwayFavorite = hasMoneyline
-    ? m.metadata.mlAway < m.metadata.mlHome
-    : (m.metadata?.spread !== undefined ? m.metadata.spread > 0 : false);
-  const isHomeFavorite = hasMoneyline
-    ? m.metadata.mlHome < m.metadata.mlAway
-    : (m.metadata?.spread !== undefined ? m.metadata.spread < 0 : false);
+  const hasMoneyline = m.metadata?.mlAway !== undefined && m.metadata?.mlHome !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlHome !== null && m.metadata?.mlAway !== "" && m.metadata?.mlHome !== "";
+  const mlAwayNum = hasMoneyline ? Number(m.metadata.mlAway) : NaN;
+  const mlHomeNum = hasMoneyline ? Number(m.metadata.mlHome) : NaN;
+
+  const isAwayFavorite = hasMoneyline && !isNaN(mlAwayNum) && !isNaN(mlHomeNum)
+    ? mlAwayNum < mlHomeNum
+    : (m.metadata?.spread !== undefined && m.metadata.spread !== null ? Number(m.metadata.spread) > 0 : false);
+  const isHomeFavorite = hasMoneyline && !isNaN(mlAwayNum) && !isNaN(mlHomeNum)
+    ? mlHomeNum < mlAwayNum
+    : (m.metadata?.spread !== undefined && m.metadata.spread !== null ? Number(m.metadata.spread) < 0 : false);
 
   let featuredColor = "";
   let featuredName = "Featured Sponsor";

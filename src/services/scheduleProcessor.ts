@@ -134,6 +134,18 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
         console.error("Error fetching bracket match IDs", err);
       }
 
+      // Gather pickem match IDs to force activity
+      const pickemMatchupIds = new Set<string>();
+      try {
+          const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').get();
+          for (const doc of pickemMatchupsSnap.docs) {
+              const gameId = doc.data().gameId;
+              if (gameId) pickemMatchupIds.add(String(gameId));
+          }
+      } catch (err) {
+          console.error("Error fetching pickem match IDs", err);
+      }
+
       const existingMap = new Map<string, any>();
       const gameIds = response.data.map(m => m.gameId).filter(id => id);
 
@@ -174,6 +186,59 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
       const scrapedGameIds = new Set<string>();
 
       let fifaBracketUpdates: Record<string, { oldHome: string, newHome: string, oldAway: string, newAway: string }> = {};
+
+      // OPTIMIZATION: Pre-fetch deactivation picks concurrently
+      const deactivationGameIds = response.data.filter((m: any) => !m.isRawPGAData && !scoreboardOnly && !m.active).map((m: any) => {
+         const existingDoc = existingMap.get(m.gameId);
+         if (existingDoc && existingDoc.data().active) return m.gameId;
+         return null;
+      }).filter(Boolean);
+
+      const deactivationPicksCache = new Map<string, boolean>();
+      if (deactivationGameIds.length > 0) {
+         const chunk = 20;
+         for (let i = 0; i < deactivationGameIds.length; i += chunk) {
+             const batchIds = deactivationGameIds.slice(i, i + chunk);
+             await Promise.all(batchIds.map(async (gameId) => {
+                 const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).limit(1).get();
+                 const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', gameId).limit(1).get();
+                 deactivationPicksCache.set(gameId, !picksSnap.empty || !pickemPicksSnap.empty);
+             }));
+         }
+      }
+
+      // OPTIMIZATION: Pre-fetch STATS summaries concurrently
+      const statsCache = new Map<string, any>();
+      const statsMatchupsToFetch = response.data.filter((m: any) => {
+          if (m.isRawPGAData) return false;
+          const gameId = m.gameId;
+          const existingDoc = existingMap.get(gameId);
+          if (existingDoc && existingDoc.data().type === 'STATS' && (league === 'NFL' || league === 'CFB')) {
+              if (['STATUS_FINAL', 'STATUS_IN_PROGRESS'].includes(m.status)) {
+                  return true;
+              }
+          }
+          return false;
+      });
+
+      if (statsMatchupsToFetch.length > 0) {
+         const chunk = 10;
+         for (let i = 0; i < statsMatchupsToFetch.length; i += chunk) {
+             const batchMatchups = statsMatchupsToFetch.slice(i, i + chunk);
+             await Promise.all(batchMatchups.map(async (m: any) => {
+                 try {
+                     const sportStr = league === 'NFL' ? 'nfl' : 'college-football';
+                     const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/${sportStr}/summary?event=${m.gameId}`;
+                     const summaryRes = await fetch(summaryUrl, { headers: { 'Accept': 'application/json' }});
+                     const summaryData = await summaryRes.json();
+                     statsCache.set(m.gameId, summaryData);
+                 } catch (e) {
+                     console.error('Error prefetching stats', e);
+                 }
+             }));
+         }
+      }
+
 
       for (const scrapedMatchup of response.data) {
         if (scrapedMatchup.isRawPGAData) {
@@ -349,8 +414,9 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               }
 
               // FORCE skip update if abandoned
-          if (data.abandoned === true) { continue; }
-          const needsUpdate = data.status !== newStatus ||
+          if (data.abandoned === true && !pickemMatchupIds.has(existingGameId) && !bracketMatchIds.has(existingGameId)) { continue; }
+          const isProtected = pickemMatchupIds.has(existingGameId) || bracketMatchIds.has(existingGameId);
+          const needsUpdate = (data.abandoned === true && isProtected) || data.status !== newStatus ||
                   data.statusDesc !== (newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming') ||
                   data.homeTeam?.score !== homeScore ||
                   data.awayTeam?.score !== awayScore ||
@@ -363,8 +429,8 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                   ...data,
                   status: newStatus,
                   statusDesc: newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming',
-                  active: newActive,
-                  abandoned: newAbandoned,
+                  active: isProtected ? true : newActive,
+                  abandoned: isProtected ? false : newAbandoned,
                   homeTeam: {
                       ...data.homeTeam,
                       score: homeScore
@@ -474,16 +540,11 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                   const statCategory = existingData.metadata?.statCategory;
                   const statKey = existingData.metadata?.statKey;
                   if (statCategory && statKey) {
-                      const sportStr = league === 'NFL' ? 'nfl' : 'college-football';
-                      const summaryUrl = `https://site.api.espn.com/apis/site/v2/sports/football/${sportStr}/summary?event=${existingData.gameId}`;
-                      const fetchOptions = {
-                        headers: {
-                          
-                          'Accept': 'application/json'
-                        }
-                      };
-                      const summaryRes = await fetch(summaryUrl, fetchOptions);
-                      const summaryData = await summaryRes.json();
+                      const summaryData = statsCache.get(existingData.gameId);
+                      if (!summaryData) {
+                          console.log('Skipping stats processing for', existingData.gameId, 'due to failed prefetch');
+                          continue;
+                      }
 
                       // We also might want to update status if ESPN says the game is final.
                       const gameInfoStatus = summaryData.header?.competitions?.[0]?.status?.type?.name;
@@ -540,13 +601,18 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             // Only deactivate if scraper says it shouldn't be active (e.g. wild odds)
             // If it's already active, don't let defaultActive=false override it
             if (existingData.active && !scraperActive) {
-              const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).limit(1).get();
-              const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', gameId).limit(1).get();
+              const hasPicks = deactivationPicksCache.get(gameId) || false;
 
-              if (!picksSnap.empty || !pickemPicksSnap.empty) {
+              if (hasPicks) {
                 finalActive = true;
               } else if (existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null) {
-                finalActive = true;
+                if ((scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA')) {
+                  finalActive = true;
+                } else if (scrapedMatchup.metadata?.mlHome === null && scrapedMatchup.metadata?.mlAway === null) {
+                  finalActive = false;
+                } else {
+                  finalActive = true;
+                }
               } else {
                 finalActive = false;
               }
@@ -556,8 +622,9 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
           }
 
           // FORCE skip update if abandoned
-          if (existingData.abandoned === true) { continue; }
-          const needsUpdate = existingData.status !== newStatus || existingData.statusDesc !== newStatusDesc ||
+          if (existingData.abandoned === true && !pickemMatchupIds.has(gameId) && !bracketMatchIds.has(gameId)) { continue; }
+          const isProtected = pickemMatchupIds.has(gameId) || bracketMatchIds.has(gameId);
+          const needsUpdate = (existingData.abandoned === true && isProtected) || existingData.status !== newStatus || existingData.statusDesc !== newStatusDesc ||
               existingData.startTime !== scrapedMatchup.startTime ||
               existingData.homeTeam?.score !== homeScore ||
               existingData.awayTeam?.score !== awayScore ||
@@ -581,10 +648,10 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
           if (needsUpdate || existingDoc.id !== gameId) {
             const updateData: any = {
               ...existingData,
-              abandoned: existingData.abandoned === true ? true : false,
+              abandoned: (existingData.abandoned === true && !isProtected) ? true : false,
               title: newTitle,
               league: scrapedMatchup.league,
-              active: existingData.abandoned === true ? false : finalActive,
+              active: (existingData.abandoned === true && !isProtected) ? false : (isProtected ? true : finalActive),
               status: newStatus,
               statusDesc: newStatusDesc,
               startTime: scrapedMatchup.startTime,
@@ -745,7 +812,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                 }
               }
 
-              if (!hasValidPicks && !bracketMatchIds.has(gameId)) {
+              if (!hasValidPicks && !bracketMatchIds.has(gameId) && !pickemMatchupIds.has(gameId)) {
                 updateData.abandoned = true;
                 updateData.active = false;
                 flattenedUpdate.abandoned = true;
@@ -797,7 +864,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             }
           }
 
-          if (bracketMatchIds.has(gameId)) {
+          if (bracketMatchIds.has(gameId) || pickemMatchupIds.has(gameId)) {
             active = true;
             abandoned = false;
           }
@@ -833,23 +900,31 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
       // Check for removed/cancelled games only on full schedule sync
       if (!scoreboardOnly) {
+        const gamesToCheck = [];
         for (const [gameId, doc] of existingMap.entries()) {
-          const data = doc.data();
-          // If it was scheduled, not abandoned, and no longer in the scraped data
-          if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET') {
-            const pendingPicksSnap = await adminDb.collection('picks')
-              .where('matchupId', '==', gameId)
-              .where('status', '==', 'PENDING')
-              .limit(1)
-              .get();
+            const data = doc.data();
+            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET') {
+                gamesToCheck.push({ gameId, doc, data });
+            }
+        }
+        
+        const cancellationPicksCache = new Map<string, boolean>();
+        if (gamesToCheck.length > 0) {
+            const chunk = 20;
+            for (let i = 0; i < gamesToCheck.length; i += chunk) {
+                const batchGames = gamesToCheck.slice(i, i + chunk);
+                await Promise.all(batchGames.map(async ({ gameId }) => {
+                    const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).where('status', '==', 'PENDING').limit(1).get();
+                    const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', gameId).where('status', '==', 'PENDING').limit(1).get();
+                    cancellationPicksCache.set(gameId, !picksSnap.empty || !pickemPicksSnap.empty);
+                }));
+            }
+        }
 
-            const pendingPickemPicksSnap = await adminDb.collection('pickemPicks')
-              .where('matchupId', '==', gameId)
-              .where('status', '==', 'PENDING')
-              .limit(1)
-              .get();
+        for (const { gameId, doc, data } of gamesToCheck) {
+            const hasPicks = cancellationPicksCache.get(gameId) || false;
 
-            if (pendingPicksSnap.empty && pendingPickemPicksSnap.empty) {
+            if (!hasPicks) {
               // No picks, safe to hide and let cron purge
               batch.update(doc.ref, { abandoned: true, active: false, updatedAt: Date.now() });
               opCount++;
@@ -870,7 +945,6 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             }
           }
         }
-      }
 
       if (opCount > 0) {
         await batch.commit();

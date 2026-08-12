@@ -485,9 +485,22 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
     }
   }
 
-  for (const endpoint of endpoints) {
+  const scheduleDataPromises = endpoints.map(async (endpoint) => {
     try {
       const scheduleData = await fetchScheduleData(endpoint, league, scoreboardOnly);
+      return { endpoint, scheduleData };
+    } catch (err) {
+      console.error(`Failed parsing data for endpoint: ${endpoint}`, err);
+      return null;
+    }
+  });
+  
+  const scheduleDataResults = await Promise.all(scheduleDataPromises);
+  
+  for (const result of scheduleDataResults) {
+    if (!result) continue;
+    const { scheduleData, endpoint } = result;
+    try {
 
       for (const day in scheduleData) {
         const games = scheduleData[day].games;
@@ -649,6 +662,11 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   const mlAwayStr = comp.odds?.[0]?.moneyline?.away?.close?.odds || comp.odds?.[0]?.moneyline?.away?.open?.odds;
                   let isActive = true;
                   if (!mlHomeStr && !mlAwayStr) {
+                      isActive = false;
+                  }
+                  
+                  // Force tennis to inactive by default, oddsProcessor will activate them if valid odds exist
+                  if (league === 'ATP' || league === 'WTA') {
                       isActive = false;
                   } else {
                       let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
@@ -866,7 +884,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
         } // for game
       } // for day
     } catch (err: any) {
-      console.error(`Endpoint failed: ${endpoint}`, err);
+      console.error(`Failed parsing data for endpoint: ${endpoint}`, err);
     }
   }
   response.data = parsedMatchups;

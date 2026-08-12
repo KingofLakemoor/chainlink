@@ -114,7 +114,7 @@ export async function gradeSingleMatchup(matchup: any) {
     winnerId = adjustedHomeScore > awayScore ? matchup.homeTeam.id : matchup.awayTeam.id;
   }
 
-  for (const pickDoc of pendingPicksSnap.docs) {
+  const pickPromises = pendingPicksSnap.docs.map(async (pickDoc) => {
     const pickData = pickDoc.data();
     const userId = pickData.userId;
     const wager = pickData.links ?? 0;
@@ -343,5 +343,7 @@ export async function gradeSingleMatchup(matchup: any) {
     } catch (err) {
       console.error(`[Grader] Failed to grade pick ${pickDoc.id}:`, err);
     }
-  }
+  });
+  
+  await Promise.allSettled(pickPromises);
 }

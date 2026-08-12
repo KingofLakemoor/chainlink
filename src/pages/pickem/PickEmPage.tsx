@@ -51,7 +51,13 @@ export default function PickEmPage() {
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true; // Keep legacy campaigns
           const startToCheck = c.visibleDate || c.startDate;
-          return now >= startToCheck && now <= c.endDate;
+          return now >= startToCheck; // Keep past campaigns
+        });
+        
+        camps.sort((a, b) => {
+          const aEnd = a.endDate || 0;
+          const bEnd = b.endDate || 0;
+          return bEnd - aEnd;
         });
 
         // Mock for local dev

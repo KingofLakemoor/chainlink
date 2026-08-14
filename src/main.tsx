@@ -34,4 +34,11 @@ if ('serviceWorker' in navigator) {
       registration.update();
     }
   });
+  
+  // Hard cache clear if we detect the query param
+  if (window.location.search.includes('nocache')) {
+    caches.keys().then(function(names) {
+      for (let name of names) caches.delete(name);
+    });
+  }
 }

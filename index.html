@@ -31,17 +31,23 @@
         var reloaded = sessionStorage.getItem('chunk_error_reloaded_html');
         if (!reloaded) {
           sessionStorage.setItem('chunk_error_reloaded_html', 'true');
+          var doReload = function() {
+            var url = new URL(window.location.href);
+            url.searchParams.set('nocache', new Date().getTime());
+            window.location.href = url.toString();
+          };
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
               for (var i = 0; i < registrations.length; i++) {
                 registrations[i].unregister();
               }
-              window.location.reload();
-            }).catch(function() {
-              window.location.reload();
-            });
+              caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+                doReload();
+              });
+            }).catch(doReload);
           } else {
-            window.location.reload();
+            doReload();
           }
         }
         return;
@@ -62,7 +68,12 @@
       navigator.serviceWorker.addEventListener("controllerchange", () => {
         if (refreshing) return;
         refreshing = true;
-        window.location.reload();
+        caches.keys().then(function(names) {
+            for (let name of names) caches.delete(name);
+            var url = new URL(window.location.href);
+            url.searchParams.set('nocache', new Date().getTime());
+            window.location.href = url.toString();
+        });
       });
     }
   </script>

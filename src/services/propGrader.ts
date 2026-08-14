@@ -99,10 +99,27 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
         case 'NBA': sport = 'basketball'; leaguePath = 'nba'; break;
     }
 
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-    if (!res.ok) throw new Error(`Failed to fetch ${config.league} data`);
-    const data = await res.json();
+    let data;
+    if (boxscoreCache.has(config.gameId)) {
+        const cached = boxscoreCache.get(config.gameId);
+        if (cached instanceof Promise) {
+            data = await cached;
+        } else {
+            data = cached;
+        }
+    } else {
+        const fetchPromise = (async () => {
+            const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
+            const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+            if (!res.ok) throw new Error(`Failed to fetch ${config.league} data`);
+            return await res.json();
+        })();
+        
+        boxscoreCache.set(config.gameId, fetchPromise);
+        data = await fetchPromise;
+        // Replace promise with actual data once resolved to save memory/avoid promise resolution overhead on every hit
+        boxscoreCache.set(config.gameId, data);
+    }
 
     // NOTE: This is a simplified extractor. 
     // In reality, we need to parse the `boxscore.players` array or the `plays` array
@@ -323,12 +340,28 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig): Promise
     try {
         let data;
         if (gameStatusCache.has(config.gameId)) {
-            data = gameStatusCache.get(config.gameId);
+            const cached = gameStatusCache.get(config.gameId);
+            if (cached instanceof Promise) {
+                data = await cached;
+            } else {
+                data = cached;
+            }
         } else {
-            const doc = await adminDb.collection('matchups').doc(config.gameId).get();
-            if (doc.exists) {
-                data = doc.data();
+            const fetchPromise = (async () => {
+                const doc = await adminDb.collection('matchups').doc(config.gameId).get();
+                if (doc.exists) {
+                    return doc.data();
+                }
+                return null;
+            })();
+            
+            gameStatusCache.set(config.gameId, fetchPromise);
+            data = await fetchPromise;
+            
+            if (data) {
                 gameStatusCache.set(config.gameId, data);
+            } else {
+                gameStatusCache.delete(config.gameId);
             }
         }
         
@@ -351,11 +384,28 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig): Promise
             case 'CFB': sport = 'football'; leaguePath = 'college-football'; break;
             case 'NBA': sport = 'basketball'; leaguePath = 'nba'; break;
         }
-        const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-        if (!res.ok) return { status: 'STATUS_IN_PROGRESS' };
-        const data = await res.json();
-        const statusObj = data.header?.competitions?.[0]?.status;
+        
+        let data;
+        if (boxscoreCache.has(config.gameId)) {
+            const cached = boxscoreCache.get(config.gameId);
+            if (cached instanceof Promise) {
+                data = await cached;
+            } else {
+                data = cached;
+            }
+        } else {
+            const fetchPromise = (async () => {
+                const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
+                const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+                if (!res.ok) throw new Error('Failed to fetch espn');
+                return await res.json();
+            })();
+            boxscoreCache.set(config.gameId, fetchPromise);
+            data = await fetchPromise;
+            boxscoreCache.set(config.gameId, data);
+        }
+
+        const statusObj = data?.header?.competitions?.[0]?.status;
         const rawStatus = statusObj?.type?.name;
         if (rawStatus === 'STATUS_FINAL') return { status: 'STATUS_FINAL', detail: statusObj?.type?.detail || 'Final' };
         return { 

@@ -134,6 +134,49 @@ export const MatchupCard = React.memo(function MatchupCard({
           {m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title}
         </div>
 
+        {m.metadata?.isYesOnly ? (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 flex-1">
+            <div className="relative flex-shrink-0">
+               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border border-[#3f3f46] flex items-center justify-center p-1 bg-[#1a1a1a] overflow-hidden">
+                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-6 h-6 text-zinc-600" />} src={m.awayTeam.image} className="w-full h-full object-contain rounded-full drop-shadow-md" alt={m.awayTeam.name} />
+               </div>
+               {m.status === 'STATUS_IN_PROGRESS' && (
+                  <div className="absolute top-0 right-0 w-4 h-4 rounded-full bg-red-500 border-2 border-[#131415] flex items-center justify-center z-10">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  </div>
+               )}
+            </div>
+            <div className="flex flex-col items-start gap-1">
+              <span className="text-sm sm:text-base font-bold text-zinc-100 line-clamp-2 leading-tight">{m.awayTeam.name}</span>
+              <span className="text-[11px] sm:text-xs font-semibold text-zinc-400">
+                 {m.metadata.yesOnlyLabel || 'Anytime TD Scorer'}
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                 <div className={cn("px-2 py-0.5 rounded font-mono font-bold text-xs shadow-inner",
+                   m.status === 'STATUS_IN_PROGRESS' ? "bg-[#27272a] text-white ring-1 ring-zinc-700" : "bg-[#1a1a1a] text-zinc-500"
+                 )}>
+                   TDs: {typeof m.awayTeam.score === 'number' && !isNaN(m.awayTeam.score) ? m.awayTeam.score : 0}
+                 </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-2 flex-shrink-0">
+             <button
+               disabled={isPickDisabled && !isQueueState}
+               onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, { id: 'OVER', name: m.metadata?.yesOnlyLabel || 'YES', image: m.awayTeam.image })}
+               className={cn("w-20 h-16 sm:w-28 sm:h-20 rounded-xl border flex flex-col items-center justify-center p-2 transition-all", pickData?.pick?.id === 'OVER' ? 'border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] bg-[#1a1a1a] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] bg-[#1a1a1a] opacity-80 cursor-pointer' : 'border-[#3f3f46] bg-[#1a1a1a] cursor-default opacity-50')))}
+             >
+                <span className={cn("text-base sm:text-lg font-black tracking-widest", pickData?.pick?.id === 'OVER' ? "text-[#22c55e]" : "text-zinc-300")}>YES</span>
+             </button>
+             {pickData?.pick?.id === 'OVER' && (
+               <div className="text-[10px] font-bold text-[#22c55e] uppercase tracking-wider">
+                 Selected
+               </div>
+             )}
+          </div>
+        </div>
+      ) : (
         <div className="flex items-center justify-between">
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
              <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name}</span>
@@ -158,6 +201,11 @@ export const MatchupCard = React.memo(function MatchupCard({
                {m.type === 'SPREAD' && m.metadata?.spread !== undefined && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
                    {m.metadata.spread > 0 ? `-${m.metadata.spread}` : `+${Math.abs(m.metadata.spread)}`}
+                   {activeProfile?.premium && m.metadata.previousSpread !== undefined && m.metadata.previousSpread !== null && m.metadata.previousSpread !== m.metadata.spread && (
+                     <span className="text-zinc-500 line-through text-[10px] ml-1 font-medium">
+                       {m.metadata.previousSpread > 0 ? `-${m.metadata.previousSpread}` : `+${Math.abs(m.metadata.previousSpread)}`}
+                     </span>
+                   )}
                  </div>
                )}
                {isLink4 && m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && (
@@ -302,6 +350,11 @@ export const MatchupCard = React.memo(function MatchupCard({
                {m.type === 'SPREAD' && m.metadata?.spread !== undefined && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
                    {m.metadata.spread > 0 ? `+${m.metadata.spread}` : `-${Math.abs(m.metadata.spread)}`}
+                   {activeProfile?.premium && m.metadata.previousSpread !== undefined && m.metadata.previousSpread !== null && m.metadata.previousSpread !== m.metadata.spread && (
+                     <span className="text-zinc-500 line-through text-[10px] ml-1 font-medium">
+                       {m.metadata.previousSpread > 0 ? `+${m.metadata.previousSpread}` : `-${Math.abs(m.metadata.previousSpread)}`}
+                     </span>
+                   )}
                  </div>
                )}
                {isLink4 && m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && (
@@ -322,8 +375,8 @@ export const MatchupCard = React.memo(function MatchupCard({
              </div>
            </div>
         </div>
+        )}
       </div>
-
       {/* Footer */}
       {sharingMatchupId === m.gameId ? (
         <div className="px-5 py-3 border-t border-[#27272a] flex items-center justify-center bg-[#111111] h-[52px]">

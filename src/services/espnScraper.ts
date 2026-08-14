@@ -1,6 +1,6 @@
 import { ScriptLessPayload } from '../types/scriptless.js';
 
-export const SUPPORTED_LEAGUES = ["NFL", "NBA", "NBASL", "NHL", "MLB", "MLS", "EPL", "MBB", "WBB", "NWSL", "CFB", "CBASE", "ATP", "WTA", "WNBA", "PGA", "FIFA", "FRA", "TUR", "RPL", "CHN", "CFL", "LMX", "ARG", "BRA", "CRICKET", "SCRIPTLESS"] as const;
+export const SUPPORTED_LEAGUES = ["NFL", "NBA", "NBASL", "NHL", "MLB", "LLWS", "MLS", "EPL", "MBB", "WBB", "NWSL", "CFB", "CBASE", "ATP", "WTA", "WNBA", "PGA", "FIFA", "FRA", "TUR", "RPL", "CHN", "CFL", "LMX", "ARG", "BRA", "CRICKET", "SCRIPTLESS"] as const;
 
 export type League = typeof SUPPORTED_LEAGUES[number] | string;
 
@@ -131,6 +131,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       ]);
       case "NHL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`);
       case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
+    case "LLWS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/llb/scoreboard?dates=${date}`);
       case "MLS": return [
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`),
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
@@ -183,6 +184,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     ]);
     case "NHL": return [`https://cdn.espn.com/core/nhl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
+    case "LLWS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/llb/scoreboard?dates=${date}`);
     case "MLS": return [
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${date}`),
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
@@ -666,7 +668,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   }
                   
                   // Force tennis to inactive by default, oddsProcessor will activate them if valid odds exist
-                  if (league === 'ATP' || league === 'WTA') {
+                  if (league === 'ATP' || league === 'WTA' || league === 'RPL') {
                       isActive = false;
                   } else {
                       let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
@@ -728,6 +730,9 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 const home = competition.competitors.find((c: any) => c.homeAway === "home");
                 const away = competition.competitors.find((c: any) => c.homeAway === "away");
                 if (!home || !away) continue;
+                const homeName = home.team?.displayName || home.team?.name || "Home Team";
+                const awayName = away.team?.displayName || away.team?.name || "Away Team";
+                if (league !== "FIFA" && (homeName.includes("TBD") || awayName.includes("TBD"))) continue;
                 let gameTime = new Date(competition.date).getTime();
                 const overUnderRaw = competition.odds?.[0]?.overUnder;
                 const overUnder = extractLine(overUnderRaw);
@@ -766,8 +771,27 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   }
                 }
                 
-                if ((league === 'ATP' || league === 'WTA') && !mlHome && !mlAway) {
+                if ((league === 'ATP' || league === 'WTA' || league === 'RPL') && !mlHome && !mlAway) {
                   active = false;
+                }
+                
+                if (league === "NFL" || league === "CFB") {
+                  const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
+                  const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
+                  if (isNaN(mlHNum) || isNaN(mlANum)) {
+                    active = false;
+                  }
+                }
+
+                let matchupType = "SCORE";
+                if (!active && (league === "NFL" || league === "CFB")) {
+                  if (spread !== null) {
+                    const spreadNum = parseFloat(spread);
+                    if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
+                      active = true;
+                      matchupType = "SPREAD";
+                    }
+                  }
                 }
                 let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
                 if (isNaN(homeScore)) homeScore = 0;
@@ -853,19 +877,19 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
              featured: false,
              title: `${away.team.name} @ ${home.team.name}`,
              league,
-             type: "SCORE",
+             type: matchupType,
              status: finalStatus,
              statusDesc: finalStatusDesc,
              gameId: gameId,
              homeTeam: {
                id: String(home.id),
-               name: home.team.name || "Home Team",
+               name: homeName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(home.id)] : undefined) || home.team.logo || "/logo.png",
                score: homeScore
              },
              awayTeam: {
                id: String(away.id),
-               name: away.team.name || "Away Team",
+               name: awayName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(away.id)] : undefined) || away.team.logo || "/logo.png",
                score: awayScore
              },
@@ -908,6 +932,7 @@ export function getScoreboardUrl(league: string): string | null {
         NBA: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
         NHL: "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
         MLB: "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
+        LLWS: "https://site.api.espn.com/apis/site/v2/sports/baseball/llb/scoreboard",
         MLS: "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard",
         EPL: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard",
         FIFA: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard",
@@ -939,6 +964,9 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                 const home = competition.competitors.find((c: any) => c.homeAway === "home");
                 const away = competition.competitors.find((c: any) => c.homeAway === "away");
                 if (!home || !away) continue;
+                const homeName = home.team?.displayName || home.team?.name || "Home Team";
+                const awayName = away.team?.displayName || away.team?.name || "Away Team";
+                if (league !== "FIFA" && (homeName.includes("TBD") || awayName.includes("TBD"))) continue;
                 const gameId = String(competition.id || event.id);
                 let gameTime = new Date(competition.date).getTime();
                 const overUnderRaw = competition.odds?.[0]?.overUnder;
@@ -1057,13 +1085,13 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
              gameId: gameId,
              homeTeam: {
                id: String(home.id),
-               name: home.team.name || "Home Team",
+               name: homeName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(home.id)] : undefined) || home.team.logo || "/logo.png",
                score: homeScore
              },
              awayTeam: {
                id: String(away.id),
-               name: away.team.name || "Away Team",
+               name: awayName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(away.id)] : undefined) || away.team.logo || "/logo.png",
                score: awayScore
              },

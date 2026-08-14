@@ -61,15 +61,20 @@ export async function gradeLink4Matchups(matchups: any[]) {
         if (finalizedMatchup.status === 'STATUS_POSTPONED') {
            status = 'PUSH';
         } else {
-           const homeScore = finalizedMatchup.homeTeam?.score || 0;
+           let adjustedHomeScore = finalizedMatchup.homeTeam?.score || 0;
            const awayScore = finalizedMatchup.awayTeam?.score || 0;
+
+           if (finalizedMatchup.type === 'SPREAD' && finalizedMatchup.metadata?.spread !== undefined && finalizedMatchup.metadata?.spread !== null) {
+               adjustedHomeScore += Number(finalizedMatchup.metadata.spread);
+           }
+
            let won = false;
-           if (homeScore === awayScore) {
+           if (adjustedHomeScore === awayScore) {
              status = 'PUSH';
            } else {
              const pickedHome = pick.name === finalizedMatchup.homeTeam?.name;
-             if (pickedHome && homeScore > awayScore) won = true;
-             if (!pickedHome && awayScore > homeScore) won = true;
+             if (pickedHome && adjustedHomeScore > awayScore) won = true;
+             if (!pickedHome && awayScore > adjustedHomeScore) won = true;
              status = won ? 'WIN' : 'LOSS';
 
              if (pickScore === 0) {

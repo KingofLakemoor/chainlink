@@ -11,6 +11,7 @@ const leagueIconMap: Record<string, string> = {
   MBB: '🏀',
   WBB: '🏀',
   MLB: '⚾',
+  LLWS: '⚾',
   NFL: '🏈',
   'COLLEGE-FOOTBALL': '🏈',
   NHL: '🏒',

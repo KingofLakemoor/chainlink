@@ -207,6 +207,29 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
          }
       }
 
+      // OPTIMIZATION: Pre-fetch spread picks concurrently
+      const spreadUpdateGameIds = response.data.filter((m: any) => {
+         const existingDoc = existingMap.get(m.gameId);
+         if (!existingDoc) return false;
+         const data = existingDoc.data();
+         if (data.type === 'SPREAD' && m.metadata?.spread !== undefined && m.metadata.spread !== data.metadata?.spread) {
+             return true;
+         }
+         return false;
+      }).map((m: any) => m.gameId);
+
+      const spreadUpdatePicksCache = new Map<string, boolean>();
+      if (spreadUpdateGameIds.length > 0) {
+         const chunk = 20;
+         for (let i = 0; i < spreadUpdateGameIds.length; i += chunk) {
+             const batchIds = spreadUpdateGameIds.slice(i, i + chunk);
+             await Promise.all(batchIds.map(async (gameId) => {
+                 const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).limit(1).get();
+                 spreadUpdatePicksCache.set(gameId, !picksSnap.empty);
+             }));
+         }
+      }
+
       // OPTIMIZATION: Pre-fetch STATS summaries concurrently
       const statsCache = new Map<string, any>();
       const statsMatchupsToFetch = response.data.filter((m: any) => {
@@ -522,7 +545,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
           // Removed continue check for abandoned games so that their scores still update.
           // This is necessary because they might be part of a Pick'em or Link4 campaign.
-          // if (existingData.abandoned && scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET') {
+          // if (existingData.abandoned && scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET' && scrapedMatchup.league !== 'RPL') {
           //   if (existingData.status !== 'STATUS_SCHEDULED') {
           //     continue;
           //   }
@@ -606,7 +629,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               if (hasPicks) {
                 finalActive = true;
               } else if (existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null) {
-                if ((scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA')) {
+                if ((scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL')) {
                   finalActive = true;
                 } else if (scrapedMatchup.metadata?.mlHome === null && scrapedMatchup.metadata?.mlAway === null) {
                   finalActive = false;
@@ -619,6 +642,10 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             } else if (!existingData.active && scraperActive) {
                 finalActive = true;
             }
+          }
+          
+          if (newStatus === 'STATUS_IN_PROGRESS' || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
+              finalActive = false;
           }
 
           // FORCE skip update if abandoned
@@ -674,7 +701,8 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                   overUnder: (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null) ? scrapedMatchup.metadata?.overUnder : (existingData.metadata?.overUnder || null),
                   mlHome: (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null) ? scrapedMatchup.metadata?.mlHome : (existingData.metadata?.mlHome || null),
                   mlAway: (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null) ? scrapedMatchup.metadata?.mlAway : (existingData.metadata?.mlAway || null),
-                  spread: existingData.type === 'SPREAD' ? existingData.metadata?.spread : ((scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null) ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null)),
+                  spread: existingData.type === 'SPREAD' ? ((!isProtected && spreadUpdatePicksCache.get(existingData.gameId) === false) ? scrapedMatchup.metadata?.spread : existingData.metadata?.spread) : ((scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null) ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null)),
+                  previousSpread: existingData.metadata?.spread,
                   homeLinescores: scrapedMatchup.metadata?.homeLinescores !== undefined ? scrapedMatchup.metadata?.homeLinescores : (existingData.metadata?.homeLinescores || null),
                   awayLinescores: scrapedMatchup.metadata?.awayLinescores !== undefined ? scrapedMatchup.metadata?.awayLinescores : (existingData.metadata?.awayLinescores || null),
                   network: scrapedMatchup.metadata?.network !== undefined ? scrapedMatchup.metadata?.network : (existingData.metadata?.network || "N/A")
@@ -710,6 +738,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               'metadata.mlHome': updateData.metadata.mlHome,
               'metadata.mlAway': updateData.metadata.mlAway,
               'metadata.spread': updateData.metadata.spread,
+              'metadata.previousSpread': updateData.metadata.spread !== existingData.metadata?.spread ? existingData.metadata?.spread : (existingData.metadata?.previousSpread || null),
               'metadata.network': updateData.metadata.network,
               updatedAt: updateData.updatedAt
             };
@@ -859,7 +888,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               scrapedMatchup.status === 'STATUS_FINAL' ||
               scrapedMatchup.status === 'STATUS_POSTPONED') {
             active = false;
-            if (scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET') {
+            if (scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET' && scrapedMatchup.league !== 'RPL') {
               abandoned = true;
             }
           }
@@ -876,7 +905,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             updatedAt: Date.now(),
             createdAt: Date.now()
           };
-          if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA') {
+          if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL') {
             newMatchupData.link4Excluded = true;
           }
 
@@ -903,7 +932,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
         const gamesToCheck = [];
         for (const [gameId, doc] of existingMap.entries()) {
             const data = doc.data();
-            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET') {
+            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET' && data.league !== 'RPL') {
                 gamesToCheck.push({ gameId, doc, data });
             }
         }

@@ -166,7 +166,7 @@ export default function PlayDashboard() {
       if (selectedSport === 'SOCCER' && !['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) return false;
       if (selectedSport === 'BASKETBALL' && !['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(m.league)) return false;
       if (selectedSport === 'HOCKEY' && !['NHL'].includes(m.league)) return false;
-      if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE'].includes(m.league)) return false;
+      if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE', 'LLWS'].includes(m.league)) return false;
       if (selectedSport === 'TENNIS' && !['ATP', 'WTA'].includes(m.league)) return false;
       if (selectedSport === 'GOLF' && !['PGA'].includes(m.league)) return false;
 

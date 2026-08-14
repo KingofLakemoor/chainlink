@@ -80,6 +80,18 @@ export const DashboardPick = React.memo(function DashboardPick({ activePick, act
               {activeMatchup.type === 'SOCCER_SCORE' ? `${activeMatchup.awayTeam.name} @ ${activeMatchup.homeTeam.name}` : activeMatchup.title}
             </div>
 
+            {activeMatchup.metadata?.isYesOnly ? (
+            <div className="flex flex-col items-center justify-center gap-4 w-full">
+              <div className={cn("flex flex-col items-center gap-3 p-4 rounded-xl border relative w-48", activePick?.pick?.id === 'OVER' ? 'border-green-500 bg-green-500/10' : 'border-zinc-800 opacity-50')}>
+                <FirebaseImage src={activeMatchup.awayTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-20 h-20 object-contain flex items-center justify-center rounded-full border border-zinc-700 bg-zinc-900" alt={activeMatchup.awayTeam.name} loading="lazy" />
+                <div className="flex flex-col items-center text-center">
+                  <span className="text-base font-black text-[#22c55e] tracking-widest">{activeMatchup.metadata?.yesOnlyLabel || 'YES'}</span>
+                  <span className="text-xs font-semibold text-zinc-200 mt-1">{activeMatchup.awayTeam.name}</span>
+                </div>
+                {activePick?.pick?.id === 'OVER' && <span className="text-xs bg-green-500 text-green-950 px-2 py-0.5 rounded font-bold mt-1">YOUR PICK</span>}
+              </div>
+            </div>
+          ) : (
             <div className="flex items-center justify-center gap-8 w-full">
               <div className={cn("flex flex-col items-center gap-3 p-4 rounded-xl border relative", activePick?.pick?.id === (activeMatchup.type === 'OVER_UNDER' ? 'OVER' : activeMatchup.awayTeam.id) ? 'border-green-500 bg-green-500/10' : 'border-zinc-800 opacity-50')}>
                 <FirebaseImage src={activeMatchup.type === 'OVER_UNDER' ? '/images/over.png' : activeMatchup.awayTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-16 h-16 object-contain flex items-center justify-center" alt={activeMatchup.type === 'OVER_UNDER' ? 'OVER' : activeMatchup.awayTeam.name} loading="lazy" />
@@ -123,6 +135,7 @@ export const DashboardPick = React.memo(function DashboardPick({ activePick, act
                  })()}
               </div>
             </div>
+          )}
           </div>
           <div className="bg-[#111111] px-5 py-3 border-t border-[#27272a] flex justify-between items-center text-sm">
             <span className="text-zinc-400 font-medium">{activeMatchup.status === 'STATUS_SCHEDULED' ? 'Upcoming' : 'In Progress'}</span>

@@ -8,6 +8,7 @@ import { gradeMatchups } from './services/grader.js';
 import { gradeLink4Matchups, payoutLink4Segment } from './services/link4Grader.js';
 import { gradePickemMatchups } from './services/pickemGrader.js';
 import { updateAllProps } from './services/propGrader.js';
+import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds } from './services/oddsProcessor.js';
 import Stripe from 'stripe';
 

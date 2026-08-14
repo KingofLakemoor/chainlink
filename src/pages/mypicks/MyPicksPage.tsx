@@ -152,8 +152,8 @@ export default function MyPicksPage() {
               statusColorClass = 'bg-red-950/20 border-red-900/50';
               statusTextColor = 'text-red-500';
             } else if (pick.status === 'PUSH') {
-              statusColorClass = 'bg-zinc-900 border-zinc-700';
-              statusTextColor = 'text-zinc-500';
+              statusColorClass = 'bg-yellow-950/20 border-yellow-900/50';
+              statusTextColor = 'text-yellow-500';
             } else if (pick.status === 'PENDING') {
               statusColorClass = 'bg-blue-950/20 border-blue-900/50';
               statusTextColor = 'text-blue-400';

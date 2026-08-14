@@ -100,7 +100,7 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
     }
 
     const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
     if (!res.ok) throw new Error(`Failed to fetch ${config.league} data`);
     const data = await res.json();
 
@@ -132,9 +132,9 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
                 const groupType = statGroup.type || statGroup.name;
                 
                 // MLB mapping
-                if (config.statType === 'STRIKEOUTS' && (!groupType || groupType === 'pitching')) targetIdx = labels.findIndex((l: string) => l === 'K');
-                if (config.statType === 'HITS' && (!groupType || groupType === 'batting')) targetIdx = labels.findIndex((l: string) => l === 'H');
-                if (config.statType === 'HOME_RUNS' && (!groupType || groupType === 'batting')) targetIdx = labels.findIndex((l: string) => l === 'HR');
+                if (config.statType === 'STRIKEOUTS' && groupType === 'pitching') targetIdx = labels.findIndex((l: string) => l === 'K');
+                if (config.statType === 'HITS' && groupType === 'batting') targetIdx = labels.findIndex((l: string) => l === 'H');
+                if (config.statType === 'HOME_RUNS' && groupType === 'batting') targetIdx = labels.findIndex((l: string) => l === 'HR');
                 
                 // NFL mapping
                 if (config.statType === 'PASSING_YARDS' && statGroup.name === 'passing') targetIdx = labels.findIndex((l: string) => l === 'YDS');
@@ -183,7 +183,7 @@ export async function updateAllProps() {
     
     try {
         const snap = await adminDb.collection('matchups')
-            .where('type', '==', 'STATS')
+            .where('metadata.isPropMatchup', '==', true)
             .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS'])
             .get();
             
@@ -200,13 +200,13 @@ export async function updateAllProps() {
             const m = doc.data();
             if (!m.metadata?.isPropMatchup) return;
             
-            const valueA = await fetchPlayerStat(m.metadata.optionA, m.metadata.timeframe);
-            const valueB = await fetchPlayerStat(m.metadata.optionB, m.metadata.timeframe);
+            const valueA = m.metadata.optionA ? await fetchPlayerStat(m.metadata.optionA, m.metadata.timeframe) : null;
+            const valueB = m.metadata.optionB ? await fetchPlayerStat(m.metadata.optionB, m.metadata.timeframe) : null;
             
             if (valueA !== null || valueB !== null) {
                 // Determine if both games are final
                 const statusA = await fetchGameStatus(adminDb, m.metadata.optionA);
-                const statusB = await fetchGameStatus(adminDb, m.metadata.optionB);
+                const statusB = m.metadata.optionB ? await fetchGameStatus(adminDb, m.metadata.optionB) : statusA;
                 
                 let newStatus = 'STATUS_IN_PROGRESS';
                 let statusDesc = 'In Progress';
@@ -251,6 +251,26 @@ export async function updateAllProps() {
                 if (valueB !== null) {
                     updateData['homeTeam.score'] = valueB;
                     currentScoreB = valueB;
+                }
+                
+                if (m.metadata.isSinglePlayerProp && m.type === 'OVER_UNDER') {
+                     const ou = m.metadata.overUnder || 0;
+                     // If the prop is Yes Only, and it hit the mark, grade it immediately
+                     if (currentScoreA > ou && newStatus !== 'STATUS_FINAL' && m.metadata.isYesOnly) {
+                          newStatus = 'STATUS_FINAL';
+                          updateData.status = 'STATUS_FINAL';
+                          updateData.statusDesc = 'Final';
+                          updateData['metadata.winningSide'] = 'OVER';
+                     } else if (newStatus === 'STATUS_FINAL') {
+                          if (currentScoreA > ou) updateData['metadata.winningSide'] = 'OVER';
+                          else if (currentScoreA < ou) updateData['metadata.winningSide'] = 'UNDER';
+                          else updateData['metadata.winningSide'] = 'PUSH';
+                     }
+                } else if (newStatus === 'STATUS_FINAL') {
+                     // Existing head-to-head logic
+                     if (currentScoreA > currentScoreB) updateData['metadata.winningSide'] = m.awayTeam.id;
+                     else if (currentScoreB > currentScoreA) updateData['metadata.winningSide'] = m.homeTeam.id;
+                     else updateData['metadata.winningSide'] = 'PUSH';
                 }
                 
                 batch.update(doc.ref, updateData);
@@ -332,7 +352,7 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig): Promise
             case 'NBA': sport = 'basketball'; leaguePath = 'nba'; break;
         }
         const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/${leaguePath}/summary?event=${config.gameId}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
         if (!res.ok) return { status: 'STATUS_IN_PROGRESS' };
         const data = await res.json();
         const statusObj = data.header?.competitions?.[0]?.status;

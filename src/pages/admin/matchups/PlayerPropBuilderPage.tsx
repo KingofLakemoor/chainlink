@@ -286,6 +286,26 @@ export default function PlayerPropBuilderPage() {
           <UserPlus className="text-blue-500" />
           Player Prop Builder
         </h1>
+        <div className="flex-1" />
+        <Button 
+           variant="outline" 
+           onClick={async () => {
+              const res = await fetch('/api/admin/auto-generate-props', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ league: 'NFL' })
+              });
+              const data = await res.json();
+              if (data.success) {
+                  alert(data.message);
+              } else {
+                  alert('Error: ' + data.message);
+              }
+           }} 
+           className="bg-blue-900/30 text-blue-400 border-blue-900/50 hover:bg-blue-900/50"
+        >
+          Auto-Gen NFL Props
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

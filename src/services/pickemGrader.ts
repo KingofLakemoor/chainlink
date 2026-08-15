@@ -31,10 +31,6 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     .where('status', '==', 'PENDING')
     .get();
 
-  if (pendingPicksSnap.empty) {
-    return;
-  }
-
   const homeScore = Number(matchup.homeTeam?.score || 0);
   const awayScore = Number(matchup.awayTeam?.score || 0);
   const lowerScoreWins = matchup.metadata?.lowerScoreWins;
@@ -100,6 +96,18 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     winnerId = adjustedHomeScore < awayScore ? matchup.homeTeam.id : matchup.awayTeam.id;
   } else {
     winnerId = adjustedHomeScore > awayScore ? matchup.homeTeam.id : matchup.awayTeam.id;
+  }
+
+  try {
+    if (matchup.id) {
+      await adminDb.collection('pickemMatchups').doc(matchup.id).update({ winnerId: isTie ? 'PUSH' : winnerId, status: matchup.status || 'STATUS_FINAL' });
+    }
+  } catch (err) {
+    console.error('Failed to update pickemMatchup winnerId:', err);
+  }
+
+  if (pendingPicksSnap.empty) {
+    return;
   }
 
   for (const pickDoc of pendingPicksSnap.docs) {

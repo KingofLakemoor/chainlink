@@ -918,6 +918,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
           if (scrapedMatchup.status === 'STATUS_FINAL') {
               matchupsToGrade.push({ ...newMatchupData, id: gameId, gameId: gameId });
           }
+          matchupsToSyncToPickem.push({ ...newMatchupData, id: gameId, gameId: gameId });
         }
 
         if (opCount >= 500) {
@@ -1048,6 +1049,8 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
           }
       }
 
+      await processActivePlayerProps(adminDb, matchupsToGrade, matchupsToSyncToPickem);
+
       if (matchupsToGrade.length > 0) {
         await gradeMatchups(matchupsToGrade);
         await gradeBrackets(matchupsToGrade);
@@ -1156,4 +1159,176 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
   }
 
   return response;
+}
+
+async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], matchupsToSyncToPickem: any[]) {
+    try {
+        const propsSnap = await adminDb.collection('matchups')
+            .where('type', '==', 'STATS')
+            .where('metadata.isPropMatchup', '==', true)
+            .get();
+
+        const activeProps = propsSnap.docs.filter((d: any) => {
+            const status = d.data().status;
+            return status !== 'STATUS_FINAL' && status !== 'STATUS_POSTPONED';
+        });
+
+        if (activeProps.length === 0) return;
+
+        let batch = adminDb.batch();
+        let opCount = 0;
+
+        for (const propDoc of activeProps) {
+            const data = propDoc.data();
+            const optionA = data.metadata?.optionA;
+            const optionB = data.metadata?.optionB;
+            const isSoloProp = data.metadata?.isSoloProp;
+            
+            if (!optionA && !isSoloProp) continue;
+            if (!isSoloProp && (!optionA || !optionB)) continue;
+
+            let aScore = data.awayTeam?.score || 0;
+            let bScore = data.homeTeam?.score || 0;
+            let aStatus = data.metadata?.optionAStatus || 'STATUS_SCHEDULED';
+            let bStatus = data.metadata?.optionBStatus || 'STATUS_SCHEDULED';
+
+            const fetchStat = async (option: any) => {
+                try {
+                    let sportStr = '';
+                    if (option.league === 'NFL') sportStr = 'football/nfl';
+                    else if (option.league === 'CFB') sportStr = 'football/college-football';
+                    else if (option.league === 'NBA') sportStr = 'basketball/nba';
+                    else if (option.league === 'MLB') sportStr = 'baseball/mlb';
+                    else return { score: 0, status: 'STATUS_SCHEDULED' };
+
+                    const url = `https://site.api.espn.com/apis/site/v2/sports/${sportStr}/summary?event=${option.gameId}`;
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+                    const summary = await res.json();
+                    
+                    let status = summary.header?.competitions?.[0]?.status?.type?.name || 'STATUS_SCHEDULED';
+                    if (status.includes('FINAL')) status = 'STATUS_FINAL';
+                    else if (status.includes('IN_PROGRESS') || status === 'STATUS_HALFTIME') status = 'STATUS_IN_PROGRESS';
+                    else if (status.includes('POSTPONED') || status.includes('CANCELED')) status = 'STATUS_POSTPONED';
+
+                    let score = 0;
+                    if (summary.boxscore && summary.boxscore.players) {
+                        for (const team of summary.boxscore.players) {
+                            for (const statCat of team.statistics || []) {
+                                let keyIndex = -1;
+                                if (option.league === 'NFL' || option.league === 'CFB') {
+                                    if (option.statType === 'PASSING_YARDS') keyIndex = (statCat.keys || []).indexOf('passingYards');
+                                    else if (option.statType === 'RUSHING_YARDS') keyIndex = (statCat.keys || []).indexOf('rushingYards');
+                                    else if (option.statType === 'RECEIVING_YARDS') keyIndex = (statCat.keys || []).indexOf('receivingYards');
+                                    else if (option.statType === 'INTERCEPTIONS') keyIndex = (statCat.keys || []).indexOf('interceptions');
+                                } else if (option.league === 'NBA') {
+                                    if (option.statType === 'POINTS') keyIndex = (statCat.keys || []).indexOf('points');
+                                    else if (option.statType === 'REBOUNDS') keyIndex = (statCat.keys || []).indexOf('rebounds');
+                                    else if (option.statType === 'ASSISTS') keyIndex = (statCat.keys || []).indexOf('assists');
+                                    else if (option.statType === 'THREES') keyIndex = (statCat.keys || []).indexOf('threePointFieldGoalsMade-threePointFieldGoalsAttempted');
+                                } else if (option.league === 'MLB') {
+                                    if (option.statType === 'STRIKEOUTS') keyIndex = (statCat.keys || []).indexOf('strikeouts');
+                                    else if (option.statType === 'HITS') keyIndex = (statCat.keys || []).indexOf('hits');
+                                    else if (option.statType === 'HOME_RUNS') keyIndex = (statCat.keys || []).indexOf('homeRuns');
+                                }
+
+                                if (keyIndex !== -1 && statCat.athletes) {
+                                    for (const a of statCat.athletes) {
+                                        if (String(a.athlete?.id) === String(option.playerId)) {
+                                            const statValStr = a.stats[keyIndex];
+                                            let statVal = 0;
+                                            if (typeof statValStr === 'string' && statValStr.includes('-')) {
+                                                statVal = parseFloat(statValStr.split('-')[0]);
+                                            } else {
+                                                statVal = parseFloat(statValStr);
+                                            }
+                                            if (!isNaN(statVal)) score = Math.max(score, statVal);
+                                        }
+                                    }
+                                }
+
+                                if ((option.league === 'NFL' || option.league === 'CFB') && (option.statType === 'TOUCHDOWNS' || option.statType === 'ANYTIME_TD')) {
+                                    if (statCat.athletes) {
+                                        for (const a of statCat.athletes) {
+                                            if (String(a.athlete?.id) === String(option.playerId)) {
+                                                const passTdIdx = (statCat.keys || []).indexOf('passingTouchdowns');
+                                                const rushTdIdx = (statCat.keys || []).indexOf('rushingTouchdowns');
+                                                const recTdIdx = (statCat.keys || []).indexOf('receivingTouchdowns');
+                                                
+                                                if (passTdIdx !== -1) score += (parseFloat(a.stats[passTdIdx]) || 0);
+                                                if (rushTdIdx !== -1) score += (parseFloat(a.stats[rushTdIdx]) || 0);
+                                                if (recTdIdx !== -1) score += (parseFloat(a.stats[recTdIdx]) || 0);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return { score, status };
+                } catch (e) {
+                    console.error('Error fetching stat for prop', option.gameId, e);
+                    return { score: 0, status: 'STATUS_SCHEDULED' };
+                }
+            };
+
+            const aRes = await fetchStat(optionA);
+            let bRes = { score: 0, status: 'STATUS_SCHEDULED' };
+            
+            if (isSoloProp) {
+                // For solo props, B is just the static line
+                bRes.score = data.metadata?.targetLine || 0.5;
+                bRes.status = aRes.status;
+            } else {
+                bRes = await fetchStat(optionB);
+            }
+
+            if (aRes.score > aScore) aScore = aRes.score;
+            if (bRes.score !== bScore) bScore = bRes.score;
+            if (aRes.status !== 'STATUS_SCHEDULED') aStatus = aRes.status;
+            if (bRes.status !== 'STATUS_SCHEDULED') bStatus = bRes.status;
+
+            let newStatus = data.status;
+            if (aStatus === 'STATUS_IN_PROGRESS' || bStatus === 'STATUS_IN_PROGRESS') {
+                newStatus = 'STATUS_IN_PROGRESS';
+            }
+            if (aStatus === 'STATUS_FINAL' && bStatus === 'STATUS_FINAL') {
+                newStatus = 'STATUS_FINAL';
+            }
+            if (aStatus === 'STATUS_POSTPONED' || bStatus === 'STATUS_POSTPONED') {
+                newStatus = 'STATUS_POSTPONED';
+            }
+
+            const updateData: any = {
+                'metadata.optionAStatus': aStatus,
+                'metadata.optionBStatus': bStatus,
+                'awayTeam.score': aScore,
+                'homeTeam.score': bScore,
+                status: newStatus,
+                statusDesc: newStatus === 'STATUS_FINAL' ? 'Final' : (newStatus === 'STATUS_IN_PROGRESS' ? 'In Progress' : data.statusDesc),
+                updatedAt: Date.now()
+            };
+
+            batch.update(propDoc.ref, updateData);
+            opCount++;
+
+            if (newStatus === 'STATUS_FINAL' && data.status !== 'STATUS_FINAL') {
+                matchupsToGrade.push({ ...data, ...updateData, id: propDoc.id, gameId: propDoc.id });
+                matchupsToSyncToPickem.push({ ...data, ...updateData, id: propDoc.id, gameId: propDoc.id });
+            } else if (newStatus !== data.status || aScore !== data.awayTeam?.score || bScore !== data.homeTeam?.score) {
+                matchupsToSyncToPickem.push({ ...data, ...updateData, id: propDoc.id, gameId: propDoc.id });
+            }
+
+            if (opCount >= 450) {
+                await batch.commit();
+                batch = adminDb.batch();
+                opCount = 0;
+            }
+        }
+
+        if (opCount > 0) {
+            await batch.commit();
+        }
+    } catch (e) {
+        console.error('Error in processActivePlayerProps', e);
+    }
 }

@@ -330,6 +330,18 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
 
   const processedGameIds = new Set<string>();
   const parsedMatchups: any[] = [];
+  
+  let rplOddsData: any[] = [];
+  if (league === 'RPL' && !scoreboardOnly && process.env.ODDS_API_KEY) {
+      try {
+          const res = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_russia_premier_league/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
+          if (res.ok) {
+              rplOddsData = await res.json();
+          }
+      } catch (err) {
+          console.error("Failed to fetch RPL odds from Odds API:", err);
+      }
+  }
 
   if (league === 'CFL') {
     const apiKey = process.env.ODDS_API_KEY;
@@ -742,8 +754,30 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 const spread = extractLine(spreadRaw);
                 const network = competition.geoBroadcasts?.[0]?.media?.shortName || "N/A";
                 let active = true;
-                const mlHome = competition.odds?.[0]?.moneyline?.home?.close?.odds || competition.odds?.[0]?.moneyline?.home?.open?.odds;
-                const mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
+                let mlHome = competition.odds?.[0]?.moneyline?.home?.close?.odds || competition.odds?.[0]?.moneyline?.home?.open?.odds;
+                let mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
+                
+                // If RPL, try to pull odds from Odds API prefetch
+                if (league === 'RPL' && !scoreboardOnly && rplOddsData.length > 0) {
+                    const normalizeName = (name) => name ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, "").trim() : "";
+                    const oEvent = rplOddsData.find((o) => {
+                        const oH = normalizeName(o.home_team);
+                        const oA = normalizeName(o.away_team);
+                        const yH = normalizeName(homeName);
+                        const yA = normalizeName(awayName);
+                        return (oH.includes(yH) || yH.includes(oH)) && (oA.includes(yA) || yA.includes(oA));
+                    });
+                    if (oEvent) {
+                        const bm = oEvent.bookmakers?.[0]; // or draftkings if we preferred
+                        if (bm) {
+                            const h2h = bm.markets?.find((m) => m.key === 'h2h');
+                            if (h2h) {
+                                mlHome = h2h.outcomes?.find((o) => normalizeName(o.name).includes(normalizeName(homeName)) || normalizeName(homeName).includes(normalizeName(o.name)))?.price?.toString() || mlHome;
+                                mlAway = h2h.outcomes?.find((o) => normalizeName(o.name).includes(normalizeName(awayName)) || normalizeName(awayName).includes(normalizeName(o.name)))?.price?.toString() || mlAway;
+                            }
+                        }
+                    }
+                }
                 let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
                 if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[league] !== undefined) {
                   threshold = Math.abs(scraperConfig.sportOverrides[league]);
@@ -1005,6 +1039,11 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                     active = false;
                   }
                 }
+                
+                if ((league === 'ATP' || league === 'WTA' || league === 'RPL') && !mlHome && !mlAway) {
+                  active = false;
+                }
+
                 let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
                 if (isNaN(homeScore)) homeScore = 0;
                 let awayScore = parseFloat(away.score !== undefined && away.score !== null && away.score !== "" ? away.score : "0");

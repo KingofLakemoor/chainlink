@@ -259,7 +259,7 @@ export default function PickEmCampaignDetail() {
           batch.set(docRef, {
             campaignId: id,
             week: selectedWeek,
-            gameId: m.gameId,
+            gameId: String(m.gameId),
             title: m.title,
             startTime: m.startTime,
             status: m.status,

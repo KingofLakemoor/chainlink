@@ -140,6 +140,15 @@ export default function LeaderboardsPage() {
         });
 
         const chainsMap = new Map();
+        if (chainsRes.ok) {
+            const chainsData = await chainsRes.json();
+            const chainsList = chainsData.chains || [];
+            chainsList.forEach((chain: any) => {
+                const userId = chain.id.replace('_current', '');
+                chainsMap.set(userId, chain);
+            });
+        }
+        
         const items = shopItemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setInventoryItems(items);
 

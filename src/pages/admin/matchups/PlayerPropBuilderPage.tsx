@@ -314,13 +314,15 @@ export default function PlayerPropBuilderPage() {
             },
             awayTeam: {
               id: formData.propType === 'OVER_UNDER' ? 'over' : 'yes',
-              name: formData.propType === 'OVER_UNDER' ? `Over ${formData.targetLine}` : 'Yes',
+              name: formData.propType === 'OVER_UNDER' ? `Over ${formData.targetLine}` : optionA.playerName,
               image: optionA.playerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(optionA.playerName)}&background=random`,
               score: 0
             },
             metadata: {
               isPropMatchup: true,
               isSoloProp: true,
+              isYesOnly: formData.propType === 'YES_ONLY',
+              yesOnlyLabel: formData.propType === 'YES_ONLY' ? formData.statTypeA.replace(/_/g, ' ') : undefined,
               propType: formData.propType,
               targetLine: parseFloat(formData.targetLine) || 0.5,
               timeframe: formData.timeframe,

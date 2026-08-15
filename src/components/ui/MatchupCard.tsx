@@ -113,7 +113,7 @@ export const MatchupCard = React.memo(function MatchupCard({
   };
 
   return (
-    <div id={`matchup-card-${m.gameId}`} key={isMyPick ? `my-pick-${m.gameId}` : m.gameId} className={cn("bg-[#131415] border border-[#27272a] hover:border-zinc-700 rounded-xl overflow-hidden transition-colors relative group")} style={glowStyle}>
+    <div id={`matchup-card-${m.gameId}`} key={isMyPick ? `my-pick-${m.gameId}` : m.gameId} className={cn("bg-[#131415] border border-[#27272a] hover:border-zinc-700 rounded-xl overflow-hidden transition-colors relative group flex flex-col h-full")} style={glowStyle}>
       {/* Header info */}
       <div className="bg-[#112316] px-4 py-2 border-b border-[#27272a] flex justify-between items-center bg-gradient-to-r from-[#0f2c16] to-[#121212]">
         <div className="flex items-center gap-2 font-bold text-sm text-zinc-200 tracking-tight">
@@ -129,11 +129,11 @@ export const MatchupCard = React.memo(function MatchupCard({
       </div>
 
       {/* Matchup content */}
-      <div className="p-3 sm:p-5">
+      <div className="p-3 sm:p-5 flex-1 flex flex-col">
         <div className="text-base font-bold text-zinc-100 mb-6">
           {m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title}
         </div>
-
+        <div className="flex-1 flex flex-col justify-center">
         {m.metadata?.isYesOnly ? (
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 sm:gap-4 flex-1">
@@ -164,12 +164,12 @@ export const MatchupCard = React.memo(function MatchupCard({
           <div className="flex flex-col items-center gap-2 flex-shrink-0">
              <button
                disabled={isPickDisabled && !isQueueState}
-               onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, { id: 'OVER', name: m.metadata?.yesOnlyLabel || 'YES', image: m.awayTeam.image })}
-               className={cn("w-20 h-16 sm:w-28 sm:h-20 rounded-xl border flex flex-col items-center justify-center p-2 transition-all", pickData?.pick?.id === 'OVER' ? 'border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] bg-[#1a1a1a] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] bg-[#1a1a1a] opacity-80 cursor-pointer' : 'border-[#3f3f46] bg-[#1a1a1a] cursor-default opacity-50')))}
+               onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, { id: m.awayTeam.id || 'yes', name: m.metadata?.yesOnlyLabel || 'YES', image: m.awayTeam.image })}
+               className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex flex-col items-center justify-center p-2 transition-all", (pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes') ? 'border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] bg-[#1a1a1a] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] bg-[#1a1a1a] opacity-80 cursor-pointer' : 'border-[#3f3f46] bg-[#1a1a1a] cursor-default opacity-50')))}
              >
-                <span className={cn("text-base sm:text-lg font-black tracking-widest", pickData?.pick?.id === 'OVER' ? "text-[#22c55e]" : "text-zinc-300")}>YES</span>
+                <span className={cn("text-base sm:text-lg font-black tracking-widest", (pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes') ? "text-[#22c55e]" : "text-zinc-300")}>YES</span>
              </button>
-             {pickData?.pick?.id === 'OVER' && (
+             {(pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes') && (
                <div className="text-[10px] font-bold text-[#22c55e] uppercase tracking-wider">
                  Selected
                </div>
@@ -376,6 +376,7 @@ export const MatchupCard = React.memo(function MatchupCard({
            </div>
         </div>
         )}
+        </div>
       </div>
       {/* Footer */}
       {sharingMatchupId === m.gameId ? (

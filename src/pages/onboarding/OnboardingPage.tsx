@@ -125,10 +125,12 @@ export default function OnboardingPage() {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
               className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
               placeholder="e.g. chainmaster99"
               required
+              minLength={3}
+              maxLength={20}
             />
             <p className="text-xs text-zinc-500 mt-2">
               This will be your public identifier. You can change it later in settings.

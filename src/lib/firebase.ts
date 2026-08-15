@@ -83,9 +83,6 @@ export const initFirebase = async () => {
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
-const discordProvider = new OAuthProvider('discord.com');
-discordProvider.addScope('identify');
-discordProvider.addScope('email');
 
 const ensureUserProfile = async (user: User, username?: string, referrerId?: string) => {
   // Check if user exists, if not create default profile
@@ -154,10 +151,6 @@ const handlePendingCredential = async (user: User) => {
       let cred = null;
       if (parsed.providerId === 'google.com') {
         cred = GoogleAuthProvider.credential(parsed.idToken, parsed.accessToken);
-      } else if (parsed.providerId === 'discord.com') {
-        // Use OAuthProvider.credentialFromJSON if available in the type definitions,
-        // otherwise we cast to any since we know it exists in the implementation.
-        cred = (OAuthProvider as any).credentialFromJSON(parsed);
       }
       if (cred) {
         await linkWithCredential(user, cred);
@@ -221,54 +214,6 @@ export const signupWithEmail = async (email: string, pass: string, username: str
   }
 };
 
-export const loginWithDiscord = async () => {
-  if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
-    window.dispatchEvent(new Event('mock-login'));
-    return;
-  }
-  try {
-    const userCredential = await signInWithPopup(auth, discordProvider);
-    if (userCredential && userCredential.user) {
-      const referrerId = localStorage.getItem('chainlink_referrer_id') || undefined;
-      await ensureUserProfile(userCredential.user, undefined, referrerId);
-      await handlePendingCredential(userCredential.user);
-      if (referrerId) localStorage.removeItem('chainlink_referrer_id');
-    }
-  } catch (error: any) {
-    if (error.code === 'auth/account-exists-with-different-credential') {
-      const pendingCred = OAuthProvider.credentialFromError(error);
-      if (pendingCred) {
-        sessionStorage.setItem('pendingCred', JSON.stringify(pendingCred.toJSON()));
-      }
-      const email = error.customData?.email;
-      if (email) {
-        let methods: string[] = [];
-        try {
-          methods = await fetchSignInMethodsForEmail(auth, email);
-        } catch (e) {}
-        if (methods.includes('password')) {
-          throw new Error(`An account already exists with ${email}. Please sign in using your Email/Password to link accounts.`);
-        }
-        if (methods.includes('google.com')) {
-          throw new Error(`An account already exists with ${email}. Please sign in with Google to link accounts.`);
-        }
-      }
-      throw new Error('An account already exists with different credentials. Please sign in using the original method to link accounts.');
-    }
-    if (error.code === 'auth/popup-closed-by-user') {
-      console.warn('Popup closed by user.');
-      return;
-    }
-    console.warn('Popup login failed, falling back to redirect', error);
-    try {
-      await signInWithRedirect(auth, discordProvider);
-    } catch (redirectError: any) {
-      console.error('Redirect login failed', redirectError);
-      throw redirectError;
-    }
-  }
-};
-
 export const loginWithGoogle = async () => {
   if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
     window.dispatchEvent(new Event('mock-login'));
@@ -297,8 +242,7 @@ export const loginWithGoogle = async () => {
         if (methods.includes('password')) {
           throw new Error(`An account already exists with ${email}. Please sign in using your Email/Password to link accounts.`);
         }
-        // Since we are logging in with Google, the collision might be with Discord
-        throw new Error(`An account already exists with ${email}. Please sign in using the original method to link accounts.`);
+                throw new Error(`An account already exists with ${email}. Please sign in using the original method to link accounts.`);
       }
       throw new Error('An account already exists with different credentials. Please sign in using the original method to link accounts.');
     }

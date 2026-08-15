@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth-context';
 import { FirebaseImage } from './components/ui/FirebaseImage';
-import { loginWithGoogle, loginWithDiscord, loginWithEmail, signupWithEmail, logout, db, auth } from './lib/firebase';
+import { loginWithGoogle, loginWithEmail, signupWithEmail, logout, db, auth } from './lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { Button } from './components/ui/button';
 import { SidebarProgress } from './components/SidebarProgress';
@@ -186,6 +186,16 @@ function Landing() {
 
     try {
       if (isSignUp) {
+        // Check username availability first
+        if (username.length < 3) throw new Error("Username must be at least 3 characters.");
+        if (username.length > 20) throw new Error("Username must be less than 20 characters.");
+        if (!/^[a-zA-Z0-9_]+$/.test(username)) throw new Error("Username can only contain letters, numbers, and underscores.");
+        
+        const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}`);
+        if (res.ok) {
+           const data = await res.json();
+           if (data.exists) throw new Error("Username is already taken.");
+        }
         await signupWithEmail(email, password, username, referrerId);
       } else {
         await loginWithEmail(email, password);
@@ -249,7 +259,7 @@ function Landing() {
             <span className="text-sm">💡</span>
             <div>
               <p className="font-bold uppercase tracking-wide text-cyan-200 mb-0.5">Iframe Sandbox Alert</p>
-              <p className="leading-relaxed">Google Sign-In popups and redirect authentication are restricted inside the preview frame by browser security policies. Please <strong>open this app in a new tab</strong> (click the "Open in new tab" icon in the top right of the preview) to use Google/Discord sign-in, or use Email SignUp below!</p>
+              <p className="leading-relaxed">Google Sign-In popups and redirect authentication are restricted inside the preview frame by browser security policies. Please <strong>open this app in a new tab</strong> (click the "Open in new tab" icon in the top right of the preview) to use Google sign-in, or use Email SignUp below!</p>
             </div>
           </div>
         )}
@@ -268,10 +278,12 @@ function Landing() {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                   className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
                   placeholder="cooluser123"
                   required={isSignUp}
+                  minLength={3}
+                  maxLength={20}
                 />
               </div>
             )}
@@ -308,6 +320,7 @@ function Landing() {
                 className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
                 placeholder="••••••••"
                 required
+                minLength={6}
               />
             </div>
 
@@ -330,15 +343,19 @@ function Landing() {
             variant="outline"
             size="lg"
             className="w-full h-12 border-[#3f3f46] hover:bg-zinc-800/50 flex items-center justify-center gap-2"
+            disabled={isLoading}
             onClick={async () => {
               if (referrerId) {
                 // Store in local storage temporarily before redirect
                 localStorage.setItem('chainlink_referrer_id', referrerId);
               }
+              setError('');
+              setIsLoading(true);
               try {
                 await loginWithGoogle();
               } catch (e: any) {
                 setError(e.message || 'An error occurred during Google sign in.');
+                setIsLoading(false);
               }
             }}
           >
@@ -351,25 +368,7 @@ function Landing() {
             Continue with Google
           </Button>
 
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full h-12 border-[#3f3f46] hover:bg-zinc-800/50 flex items-center justify-center gap-2 mt-3"
-            onClick={async () => {
-              if (referrerId) {
-                // Store in local storage temporarily before redirect
-                localStorage.setItem('chainlink_referrer_id', referrerId);
-              }
-              try {
-                await loginWithDiscord();
-              } catch (e: any) {
-                setError(e.message || 'An error occurred during Discord sign in.');
-              }
-            }}
-          >
-            <FaDiscord className="w-5 h-5 text-[#5865F2]" />
-            Continue with Discord
-          </Button>
+          
 
           <p className="text-center text-sm text-zinc-400 mt-2">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}

@@ -44,7 +44,7 @@ const validateAuth = async (req: express.Request, res: express.Response, next: e
 
 
 
-apiRouter.get("/users/check-username", validateAuth, async (req, res) => {
+apiRouter.get("/users/check-username", async (req, res) => {
   try {
     const { username } = req.query;
     if (!username || typeof username !== 'string') {

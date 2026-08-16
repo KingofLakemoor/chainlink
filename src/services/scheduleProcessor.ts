@@ -20,8 +20,14 @@ async function processDependentProps(adminDb: any, gameId: string): Promise<void
         let opCount = 0;
 
         for (const propDoc of uniqueProps) {
-            batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', updatedAt: Date.now() });
-            opCount++;
+            let hasValidPicks = false;
+            
+            // First check if there are ANY picks (including graded ones for Yes Only props)
+            // Actually just check if it has picks overall
+            const allPicksSnap = await adminDb.collection('picks')
+                .where('matchupId', '==', propDoc.id)
+                .limit(1)
+                .get();
 
             const pendingPicksSnap = await adminDb.collection('picks')
                 .where('matchupId', '==', propDoc.id)
@@ -36,6 +42,9 @@ async function processDependentProps(adminDb: any, gameId: string): Promise<void
                     .orderBy('createdAt', 'asc')
                     .get();
                 const pickIndex = userPicksSnap.docs.findIndex(doc => doc.id === pickDoc.id);
+                if (pickIndex === 0) {
+                    hasValidPicks = true;
+                }
                 if (pickIndex > 0) {
                     batch.delete(pickDoc.ref);
                     opCount++;
@@ -67,12 +76,19 @@ async function processDependentProps(adminDb: any, gameId: string): Promise<void
                     });
                     opCount++;
                 }
+            }
 
-                if (opCount >= 450) {
+            if (hasValidPicks || !allPicksSnap.empty) {
+                batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', updatedAt: Date.now() });
+            } else {
+                batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', abandoned: true, active: false, updatedAt: Date.now() });
+            }
+            opCount++;
+
+            if (opCount >= 450) {
                     await batch.commit();
                     batch = adminDb.batch();
                     opCount = 0;
-                }
             }
         }
 
@@ -582,9 +598,12 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                          }
                       }
 
-                      if (existingData.metadata?.period) {
-                          // Quarter-specific props are not supported currently because ESPN plays endpoint lacks participant IDs and relies on raw text parsing.
-                          // Fallback to full game stats.
+                      if (summaryData.header?.competitions?.[0]?.status?.period) {
+                          const fetchedPeriod = summaryData.header.competitions[0].status.period;
+                          const currentPeriod = existingData.metadata?.period || 0;
+                          if (fetchedPeriod > currentPeriod) {
+                              existingData.metadata = { ...existingData.metadata, period: fetchedPeriod };
+                          }
                       }
 
                       if (summaryData.boxscore && summaryData.boxscore.players) {

@@ -1,91 +1,31 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/App.tsx', 'utf8');
+const path = './src/components/ui/MatchupCard.tsx';
+let content = fs.readFileSync(path, 'utf8');
 
-// Password minLength
-code = code.replace(
-`                placeholder="••••••••"
-                required
-              />`,
-`                placeholder="••••••••"
-                required
-                minLength={6}
-              />`
+content = content.replace(
+  "mCounts?: { total: number; away: number; home: number };\n  sponsors: any[];",
+  "mCounts?: { total: number; away: number; home: number };\n  globalActivePicksCount?: number;\n  sponsors: any[];"
 );
 
-// Username sanitization and lengths
-code = code.replace(
-`                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
-                  placeholder="cooluser123"
-                  required={isSignUp}
-                />`,
-`                  onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                  className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
-                  placeholder="cooluser123"
-                  required={isSignUp}
-                  minLength={3}
-                  maxLength={20}
-                />`
+content = content.replace(
+  "mCounts = { total: 0, away: 0, home: 0 },\n  sponsors,",
+  "mCounts = { total: 0, away: 0, home: 0 },\n  globalActivePicksCount,\n  sponsors,"
 );
 
-// Google OAuth Loading
-code = code.replace(
-`            onClick={async () => {
-              if (referrerId) {
-                // Store in local storage temporarily before redirect
-                localStorage.setItem('chainlink_referrer_id', referrerId);
-              }
-              try {
-                await loginWithGoogle();
-              } catch (e: any) {
-                setError(e.message || 'An error occurred during Google sign in.');
-              }
-            }}`,
-`            disabled={isLoading}
-            onClick={async () => {
-              if (referrerId) {
-                // Store in local storage temporarily before redirect
-                localStorage.setItem('chainlink_referrer_id', referrerId);
-              }
-              setError('');
-              setIsLoading(true);
-              try {
-                await loginWithGoogle();
-              } catch (e: any) {
-                setError(e.message || 'An error occurred during Google sign in.');
-                setIsLoading(false);
-              }
-            }}`
-);
+const oldPctCalc = `  const awayHotPct = mCounts.total > 0 ? Math.round(((mCounts.away || 0) / mCounts.total) * 100) : 0;
+  const homeHotPct = mCounts.total > 0 ? Math.round(((mCounts.home || 0) / mCounts.total) * 100) : 0;`;
 
-// Discord OAuth Loading
-code = code.replace(
-`            onClick={async () => {
-              if (referrerId) {
-                // Store in local storage temporarily before redirect
-                localStorage.setItem('chainlink_referrer_id', referrerId);
-              }
-              try {
-                await loginWithDiscord();
-              } catch (e: any) {
-                setError(e.message || 'An error occurred during Discord sign in.');
-              }
-            }}`,
-`            disabled={isLoading}
-            onClick={async () => {
-              if (referrerId) {
-                // Store in local storage temporarily before redirect
-                localStorage.setItem('chainlink_referrer_id', referrerId);
-              }
-              setError('');
-              setIsLoading(true);
-              try {
-                await loginWithDiscord();
-              } catch (e: any) {
-                setError(e.message || 'An error occurred during Discord sign in.');
-                setIsLoading(false);
-              }
-            }}`
-);
+const newPctCalc = `  const totalPicksForCalc = globalActivePicksCount && globalActivePicksCount > 0 ? globalActivePicksCount : mCounts.total;
+  const awayHotPct = totalPicksForCalc > 0 ? Math.round(((mCounts.away || 0) / totalPicksForCalc) * 100) : 0;
+  const homeHotPct = totalPicksForCalc > 0 ? Math.round(((mCounts.home || 0) / totalPicksForCalc) * 100) : 0;
 
-fs.writeFileSync('src/App.tsx', code);
+  const getHotBarClass = (pct: number) => {
+    if (pct >= 50) return "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]";
+    if (pct >= 25) return "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
+    if (pct > 0) return "bg-blue-500";
+    return "bg-zinc-700";
+  };`;
+
+content = content.replace(oldPctCalc, newPctCalc);
+
+fs.writeFileSync(path, content);

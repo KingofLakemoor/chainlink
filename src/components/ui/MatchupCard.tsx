@@ -12,6 +12,7 @@ interface MatchupCardProps {
   profile?: any;
   hasActivePickAnywhere: boolean | any[];
   mCounts?: { total: number; away: number; home: number };
+  globalActivePicksCount?: number;
   sponsors: any[];
   onMakePick: (matchup: any, team: any) => void;
   onCancelPick: (matchup: any) => void;
@@ -29,6 +30,7 @@ export const MatchupCard = React.memo(function MatchupCard({
   profile,
   hasActivePickAnywhere,
   mCounts = { total: 0, away: 0, home: 0 },
+  globalActivePicksCount,
   sponsors,
   onMakePick,
   onCancelPick,
@@ -47,8 +49,16 @@ export const MatchupCard = React.memo(function MatchupCard({
 
   const isPickDisabled = !user || hasPicked || activePicksCount >= (activeProfile?.premium ? 2 : 1);
   const isQueueState = !hasPicked && activeProfile?.premium && activePicksCount === 1;
-  const awayHotPct = mCounts.total > 0 ? Math.round(((mCounts.away || 0) / mCounts.total) * 100) : 0;
-  const homeHotPct = mCounts.total > 0 ? Math.round(((mCounts.home || 0) / mCounts.total) * 100) : 0;
+  const totalPicksForCalc = globalActivePicksCount && globalActivePicksCount > 0 ? globalActivePicksCount : mCounts.total;
+  const awayHotPct = totalPicksForCalc > 0 ? Math.round(((mCounts.away || 0) / totalPicksForCalc) * 100) : 0;
+  const homeHotPct = totalPicksForCalc > 0 ? Math.round(((mCounts.home || 0) / totalPicksForCalc) * 100) : 0;
+
+  const getHotBarClass = (pct: number) => {
+    if (pct >= 50) return "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]";
+    if (pct >= 25) return "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
+    if (pct > 0) return "bg-blue-500";
+    return "bg-zinc-700";
+  };
   const isScheduled = m.status === 'STATUS_SCHEDULED' && (!m.metadata?.homeLinescores || m.metadata?.homeLinescores.length === 0) && (!m.metadata?.awayLinescores || m.metadata?.awayLinescores.length === 0) && (m.homeTeam.score === 0 && m.awayTeam.score === 0);
 
   const hasMoneyline = m.metadata?.mlAway !== undefined && m.metadata?.mlHome !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlHome !== null && m.metadata?.mlAway !== "" && m.metadata?.mlHome !== "";
@@ -165,15 +175,25 @@ export const MatchupCard = React.memo(function MatchupCard({
              <button
                disabled={isPickDisabled && !isQueueState}
                onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, { id: m.awayTeam.id || 'yes', name: m.metadata?.yesOnlyLabel || 'YES', image: m.awayTeam.image })}
-               className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex flex-col items-center justify-center p-2 transition-all", (pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes') ? 'border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] bg-[#1a1a1a] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] bg-[#1a1a1a] opacity-80 cursor-pointer' : 'border-[#3f3f46] bg-[#1a1a1a] cursor-default opacity-50')))}
+               className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex flex-col items-center justify-center p-2 transition-all", (pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes' || pickData?.pick?.id === m.awayTeam.id) ? 'border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] bg-[#1a1a1a] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] bg-[#1a1a1a] opacity-80 cursor-pointer' : 'border-[#3f3f46] bg-[#1a1a1a] cursor-default opacity-50')))}
              >
-                <span className={cn("text-base sm:text-lg font-black tracking-widest", (pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes') ? "text-[#22c55e]" : "text-zinc-300")}>YES</span>
+                <span className={cn("text-base sm:text-lg font-black tracking-widest", (pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes' || pickData?.pick?.id === m.awayTeam.id) ? "text-[#22c55e]" : "text-zinc-300")}>YES</span>
              </button>
-             {(pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes') && (
+             {(pickData?.pick?.id === 'OVER' || pickData?.pick?.id === 'yes' || pickData?.pick?.id === m.awayTeam.id) && (
                <div className="text-[10px] font-bold text-[#22c55e] uppercase tracking-wider">
                  Selected
                </div>
              )}
+             <div className="w-full mt-1 flex flex-col items-center relative">
+               <div className="w-16 sm:w-20 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-start shadow-sm border border-zinc-800/50">
+                 <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${Math.max(awayHotPct, awayHotPct > 0 ? 5 : 0)}%` }}></div>
+               </div>
+               {awayHotPct >= 50 && (
+                 <div className="absolute top-2 w-full flex justify-center">
+                   <div className="text-[10px] font-bold text-red-500 flex items-center justify-center tracking-wider gap-0.5 drop-shadow-md">Hot <span className="text-xs">🔥</span></div>
+                 </div>
+               )}
+             </div>
           </div>
         </div>
       ) : (
@@ -231,12 +251,12 @@ export const MatchupCard = React.memo(function MatchupCard({
                 <div className="flex items-center justify-center gap-2 w-[100px] sm:w-[140px]">
                   <div className="flex-1 flex justify-end">
                      <div className="w-12 h-1.5 bg-zinc-800 rounded-full overflow-hidden flex justify-end">
-                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${awayHotPct}%` }}></div>
+                       <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${Math.max(awayHotPct, awayHotPct > 0 ? 5 : 0)}%` }}></div>
                      </div>
                   </div>
                   <div className="flex-1 flex justify-start">
                      <div className="w-12 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${homeHotPct}%` }}></div>
+                       <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(homeHotPct))} style={{ width: `${Math.max(homeHotPct, homeHotPct > 0 ? 5 : 0)}%` }}></div>
                      </div>
                   </div>
                 </div>
@@ -264,7 +284,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                     {mCounts.total > 0 && (
                       <div className="w-full flex flex-col items-center relative -mt-0.5">
                         <div className="w-10 sm:w-12 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-end shadow-sm">
-                           <div className={cn("h-full rounded-full transition-all duration-500", awayHotPct >= 50 ? "bg-gradient-to-l from-red-500 to-red-500" : "bg-zinc-700")} style={{ width: `${awayHotPct}%` }}></div>
+                           <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${Math.max(awayHotPct, awayHotPct > 0 ? 5 : 0)}%` }}></div>
                         </div>
                         {awayHotPct >= 50 && (
                            <div className="absolute top-2 w-full flex justify-center">
@@ -313,7 +333,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                     {mCounts.total > 0 && (
                       <div className="w-full flex flex-col items-center relative -mt-0.5">
                         <div className="w-10 sm:w-12 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-start shadow-sm">
-                           <div className={cn("h-full rounded-full transition-all duration-500", homeHotPct >= 50 ? "bg-gradient-to-r from-red-500 to-red-500" : "bg-zinc-700")} style={{ width: `${homeHotPct}%` }}></div>
+                           <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(homeHotPct))} style={{ width: `${Math.max(homeHotPct, homeHotPct > 0 ? 5 : 0)}%` }}></div>
                         </div>
                         {homeHotPct >= 50 && (
                            <div className="absolute top-2 w-full flex justify-center">

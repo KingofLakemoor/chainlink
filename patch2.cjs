@@ -1,19 +1,25 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/pages/onboarding/OnboardingPage.tsx', 'utf8');
+const path = './src/components/ui/MatchupCard.tsx';
+let content = fs.readFileSync(path, 'utf8');
 
-code = code.replace(
-`              onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
-              placeholder="e.g. chainmaster99"
-              required
-            />`,
-`              onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-              className="w-full bg-[#1a1a1a] border border-[#3f3f46] rounded-lg px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 focus:border-[#22c55e]"
-              placeholder="e.g. chainmaster99"
-              required
-              minLength={3}
-              maxLength={20}
-            />`
+content = content.replace(
+  'className="h-full bg-blue-500 rounded-full" style={{ width: `${awayHotPct}%` }}',
+  'className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${awayHotPct}%` }}'
 );
 
-fs.writeFileSync('src/pages/onboarding/OnboardingPage.tsx', code);
+content = content.replace(
+  'className="h-full bg-blue-500 rounded-full" style={{ width: `${homeHotPct}%` }}',
+  'className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(homeHotPct))} style={{ width: `${homeHotPct}%` }}'
+);
+
+content = content.replace(
+  'className={cn("h-full rounded-full transition-all duration-500", awayHotPct >= 50 ? "bg-gradient-to-l from-red-500 to-red-500" : "bg-zinc-700")} style={{ width: `${awayHotPct}%` }}',
+  'className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${awayHotPct}%` }}'
+);
+
+content = content.replace(
+  'className={cn("h-full rounded-full transition-all duration-500", homeHotPct >= 50 ? "bg-gradient-to-r from-red-500 to-red-500" : "bg-zinc-700")} style={{ width: `${homeHotPct}%` }}',
+  'className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(homeHotPct))} style={{ width: `${homeHotPct}%` }}'
+);
+
+fs.writeFileSync(path, content);

@@ -15,7 +15,7 @@ export type PropStatType =
     // MLB
     | 'STRIKEOUTS' | 'HITS' | 'HOME_RUNS'
     // NFL / CFB
-    | 'PASSING_YARDS' | 'RUSHING_YARDS' | 'RECEIVING_YARDS' | 'TOUCHDOWNS'
+    | 'PASSING_YARDS' | 'RUSHING_YARDS' | 'RECEIVING_YARDS' | 'TOUCHDOWNS' | 'PASSING_TOUCHDOWNS'
     // NBA
     | 'POINTS' | 'REBOUNDS' | 'ASSISTS' | 'THREES';
 
@@ -158,9 +158,11 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
                 if (config.statType === 'RUSHING_YARDS' && statGroup.name === 'rushing') targetIdx = labels.findIndex((l: string) => l === 'YDS');
                 if (config.statType === 'RECEIVING_YARDS' && statGroup.name === 'receiving') targetIdx = labels.findIndex((l: string) => l === 'YDS');
                 if (config.statType === 'TOUCHDOWNS') {
-                    if (statGroup.name === 'passing') targetIdx = labels.findIndex((l: string) => l === 'TD');
                     if (statGroup.name === 'rushing') targetIdx = labels.findIndex((l: string) => l === 'TD');
                     if (statGroup.name === 'receiving') targetIdx = labels.findIndex((l: string) => l === 'TD');
+                }
+                if (config.statType === 'PASSING_TOUCHDOWNS') {
+                    if (statGroup.name === 'passing') targetIdx = labels.findIndex((l: string) => l === 'TD');
                 }
 
                 if (targetIdx !== -1) {
@@ -168,8 +170,8 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
                     if (athleteStat && athleteStat.stats && athleteStat.stats[targetIdx] !== undefined) {
                         const val = parseFloat(athleteStat.stats[targetIdx]);
                         if (!isNaN(val)) {
-                            // If stat is TOUCHDOWNS, sum them across rushing/receiving/passing
-                            if (config.statType === 'TOUCHDOWNS') {
+                            // If stat is TOUCHDOWNS or PASSING_TOUCHDOWNS, sum them if multiple groups (though usually not for passing)
+                            if (config.statType === 'TOUCHDOWNS' || config.statType === 'PASSING_TOUCHDOWNS') {
                                 foundStatValue = (foundStatValue || 0) + val;
                             } else {
                                 return val;
@@ -222,19 +224,45 @@ export async function updateAllProps() {
             
             if (valueA !== null || valueB !== null) {
                 // Determine if both games are final
-                const statusA = await fetchGameStatus(adminDb, m.metadata.optionA);
-                const statusB = m.metadata.optionB ? await fetchGameStatus(adminDb, m.metadata.optionB) : statusA;
+                const statusA = await fetchGameStatus(adminDb, m.metadata.optionA, m.metadata.timeframe);
+                const statusB = m.metadata.optionB ? await fetchGameStatus(adminDb, m.metadata.optionB, m.metadata.timeframe) : statusA;
                 
                 let newStatus = 'STATUS_IN_PROGRESS';
                 let statusDesc = 'In Progress';
                 
                 // If one game hasn't started, its status will be IN_PROGRESS or SCHEDULED (from fetchGameStatus default)
                 // Let's ensure we only mark FINAL if BOTH are FINAL
-                if (statusA.status === 'STATUS_FINAL' && statusB.status === 'STATUS_FINAL') {
+                const isFinalForTimeframe = (statusObj: GameStatus, timeF: PropTimeframe, lg: string) => {
+                    if (statusObj.status === 'STATUS_FINAL') return true;
+                    if (!statusObj.period || !timeF || timeF === 'FULL_GAME') return false;
+                    
+                    const desc = (statusObj.detail || "").toLowerCase();
+
+                    if (timeF === 'FIRST_QUARTER') {
+                        if (statusObj.period > 1) return true;
+                        if (statusObj.period === 1 && (desc.includes('end of') || desc.includes('end 1') || desc.includes('end of 1st') || desc.includes('halftime'))) return true;
+                        return false;
+                    } else if (timeF === 'FIRST_HALF') {
+                        if (lg === 'MLB' || lg === 'CBASE') {
+                            if (statusObj.period > 5) return true;
+                            if (statusObj.period === 5 && (desc.includes('end of') || desc.includes('end 5') || desc.includes('end of 5th') || desc.includes('mid 6'))) return true;
+                            return false;
+                        }
+                        if (statusObj.period > 2) return true;
+                        if (statusObj.period === 2 && (desc.includes('end of') || desc.includes('halftime') || desc.includes('end 2') || desc.includes('end of 2nd') || desc.includes('end of half'))) return true;
+                        return false;
+                    }
+                    return false;
+                };
+
+                const isAFinal = isFinalForTimeframe(statusA, m.metadata.timeframe, m.metadata.optionA.league);
+                const isBFinal = m.metadata.optionB ? isFinalForTimeframe(statusB, m.metadata.timeframe, m.metadata.optionB.league) : isAFinal;
+
+                if (isAFinal && isBFinal) {
                     newStatus = 'STATUS_FINAL';
                     statusDesc = 'Final';
                 } else {
-                    if (m.metadata.optionA.gameId === m.metadata.optionB.gameId) {
+                    if (!m.metadata.optionB || m.metadata.optionA.gameId === m.metadata.optionB.gameId) {
                          statusDesc = statusA.detail || 'In Progress';
                     } else {
                          let farthest = statusA;
@@ -270,8 +298,8 @@ export async function updateAllProps() {
                     currentScoreB = valueB;
                 }
                 
-                if (m.metadata.isSinglePlayerProp && m.type === 'OVER_UNDER') {
-                     const ou = m.metadata.overUnder || 0;
+                if ((m.metadata.isSinglePlayerProp || m.metadata.isSoloProp) && (m.type === 'OVER_UNDER' || m.metadata.isYesOnly)) {
+                     const ou = m.metadata.overUnder || m.metadata.targetLine || 0;
                      // If the prop is Yes Only, and it hit the mark, grade it immediately
                      if (currentScoreA > ou && newStatus !== 'STATUS_FINAL' && m.metadata.isYesOnly) {
                           newStatus = 'STATUS_FINAL';
@@ -303,7 +331,15 @@ export async function updateAllProps() {
                 }
             } else if (m.startTime && Date.now() >= m.startTime && m.status === 'STATUS_SCHEDULED') {
                 // If games have started by time but boxscore is not ready, update status to lock the prop
-                batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS' });
+                const picksSnap = await adminDb.collection('picks')
+                    .where('matchupId', '==', doc.id)
+                    .limit(1)
+                    .get();
+                if (picksSnap.empty) {
+                    batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS', abandoned: true, active: false });
+                } else {
+                    batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS' });
+                }
                 count++;
                 batchCount++;
                 if (batchCount >= 490) {
@@ -336,7 +372,7 @@ interface GameStatus {
     period?: number;
 }
 
-async function fetchGameStatus(adminDb: any, config: PropAthleteConfig): Promise<GameStatus> {
+async function fetchGameStatus(adminDb: any, config: PropAthleteConfig, timeframe?: PropTimeframe): Promise<GameStatus> {
     try {
         let data;
         if (gameStatusCache.has(config.gameId)) {
@@ -369,7 +405,7 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig): Promise
             return {
                 status: data.status === 'STATUS_FINAL' ? 'STATUS_FINAL' : 'STATUS_IN_PROGRESS',
                 detail: data.statusDesc || 'In Progress',
-                period: 0
+                period: data.metadata?.period || 0
             };
         }
     } catch (e) {

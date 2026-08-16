@@ -600,7 +600,18 @@ export default function PickEmPage() {
                         <div className="flex gap-2 items-center flex-wrap">
                           {participant.picks && participant.picks.filter((p: any) => p.week === selectedWeek).map((pick: any) => {
                             const matchup = matchups.find((m: any) => m.id === pick.matchupId);
-                            if (!matchup || matchup.status === 'STATUS_SCHEDULED') return null;
+                            if (!matchup) return null;
+                            
+                            const isMyPick = participant.uid === user?.uid;
+                            const isRevealed = matchup.status !== 'STATUS_SCHEDULED';
+                            
+                            if (!isRevealed && !isMyPick) {
+                                return (
+                                  <div key={pick.id} className="w-8 h-8 rounded-full border-2 border-zinc-600 overflow-hidden bg-zinc-800 flex items-center justify-center flex-shrink-0" title="Pick Hidden (Game not started)">
+                                    <span className="text-zinc-400 font-bold text-xs">?</span>
+                                  </div>
+                                );
+                            }
 
                             let imageUrl = '';
                             let altText = '';

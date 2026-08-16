@@ -117,7 +117,11 @@ export default function PlayDashboard() {
       }
 
       if (matchup) {
-        if (matchup.type === 'OVER_UNDER') {
+        if (matchup.metadata?.isYesOnly) {
+           if (p.pick?.id === 'OVER' || p.pick?.id === 'yes' || p.pick?.id === matchup.awayTeam?.id) {
+             counts[p.matchupId].away += 1;
+           }
+        } else if (matchup.type === 'OVER_UNDER') {
           if (p.pick?.id === 'OVER') counts[p.matchupId].away += 1;
           else if (p.pick?.id === 'UNDER') counts[p.matchupId].home += 1;
         } else {
@@ -367,6 +371,7 @@ export default function PlayDashboard() {
               pickData={userPicks[activeMatchup.gameId]}
               hasActivePickAnywhere={Object.values(userPicks).filter((p: any) => p.status === 'PENDING')}
               mCounts={matchupPickCounts[activeMatchup.gameId]}
+              globalActivePicksCount={globalUpcomingPicks.length}
               sponsors={sponsors}
               onMakePick={handleMakePick}
               onCancelPick={handleCancelPick}
@@ -449,6 +454,7 @@ export default function PlayDashboard() {
                 pickData={userPicks[m.gameId]}
                 hasActivePickAnywhere={Object.values(userPicks).filter((p: any) => p.status === 'PENDING')}
                 mCounts={matchupPickCounts[m.gameId]}
+                globalActivePicksCount={globalUpcomingPicks.length}
                 sponsors={sponsors}
                 onMakePick={handleMakePick}
                 onCancelPick={handleCancelPick}

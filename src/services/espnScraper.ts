@@ -79,6 +79,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     dates = specificDates;
   } else {
     const today = new Date();
+    const twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
     const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const theDayAfterTomorrow = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
@@ -88,7 +89,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       const [month, day, year] = str.split("/");
       return `${year}${month}${day}`;
     };
-    dates = [yesterday, today, tomorrow, theDayAfterTomorrow].map(formatESTDate);
+    dates = [twoDaysAgo, yesterday, today, tomorrow, theDayAfterTomorrow].map(formatESTDate);
   }
 
 
@@ -477,7 +478,8 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
              },
              cost: 0,
              metadata: {
-                 network: "N/A",
+                 period: 0,
+                         network: "N/A",
                  overUnder,
                  spread,
                  mlHome,
@@ -725,6 +727,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                      },
                      cost: 0,
                      metadata: {
+                         period: comp.status?.period || 0,
                          network: comp.geoBroadcasts?.[0]?.media?.shortName || "N/A",
                          overUnder: extractLine(comp.odds?.[0]?.overUnder),
                          mlHome: parseInt(comp.odds?.[0]?.moneyline?.home?.close?.odds || comp.odds?.[0]?.moneyline?.home?.open?.odds || "0", 10) || null,
@@ -929,6 +932,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
              },
              cost: 0,
              metadata: {
+               period: competition?.status?.period || 0,
                network,
                overUnder,
                spread,
@@ -1136,6 +1140,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
              },
              cost: 0,
              metadata: {
+               period: competition?.status?.period || 0,
                network,
                overUnder,
                spread,

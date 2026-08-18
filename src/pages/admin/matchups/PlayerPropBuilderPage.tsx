@@ -95,11 +95,15 @@ function PlayerSelector({ label, onSelect }: { label: string, onSelect: (data: a
       const config = LEAGUES[league];
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.path}/teams/${selectedTeamId}/roster`);
       const data = await res.json();
-      let roster = [];
-      if (data.athletes && data.athletes[0] && data.athletes[0].items) {
-        roster = data.athletes[0].items;
-      } else if (data.athletes) {
-        roster = data.athletes;
+      let roster: any[] = [];
+      if (data.athletes) {
+        data.athletes.forEach((item: any) => {
+          if (item.items && Array.isArray(item.items)) {
+            roster.push(...item.items);
+          } else if (item.id || item.uid) {
+            roster.push(item);
+          }
+        });
       }
       setPlayers(roster);
     } catch (e) {

@@ -567,7 +567,16 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
           //   }
           // }
 
-          const newTitle = existingData.hasCustomTitle ? existingData.title : scrapedMatchup.title;
+          let newTitle = existingData.hasCustomTitle ? existingData.title : scrapedMatchup.title;
+          let newlyCustomizedTitle = false;
+          // If we are auto-converting this game to SPREAD and it wasn't SPREAD before, 
+          // mimic the manual behavior of appending ' - ATS'
+          if (existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD') {
+              const awayName = scrapedMatchup.awayTeam?.name || 'Away';
+              const homeName = scrapedMatchup.homeTeam?.name || 'Home';
+              newTitle = `${awayName} @ ${homeName} - ATS`;
+              newlyCustomizedTitle = true;
+          }
 
           let homeScore = existingData.type === 'STATS' ? (existingData.homeTeam?.score ?? 0) : (scrapedMatchup.homeTeam?.score ?? existingData.homeTeam?.score ?? 0);
           let awayScore = existingData.type === 'STATS' ? (existingData.awayTeam?.score ?? 0) : (scrapedMatchup.awayTeam?.score ?? existingData.awayTeam?.score ?? 0);
@@ -689,15 +698,18 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               (scrapedMatchup.metadata?.mlAway !== undefined && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway) ||
               (scrapedMatchup.metadata?.homeLinescores !== undefined && JSON.stringify(existingData.metadata?.homeLinescores) !== JSON.stringify(scrapedMatchup.metadata?.homeLinescores)) ||
               (scrapedMatchup.metadata?.awayLinescores !== undefined && JSON.stringify(existingData.metadata?.awayLinescores) !== JSON.stringify(scrapedMatchup.metadata?.awayLinescores)) ||
-              (existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread);
+              (existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread) ||
+              (existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
 
           if (needsUpdate || existingDoc.id !== gameId) {
             const updateData: any = {
               ...existingData,
               abandoned: (existingData.abandoned === true && !isProtected) ? true : false,
               title: newTitle,
+              hasCustomTitle: newlyCustomizedTitle ? true : existingData.hasCustomTitle,
               league: scrapedMatchup.league,
-              active: (existingData.abandoned === true && !isProtected) ? false : (isProtected ? true : finalActive),
+              type: (existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type,
+              active: (existingData.abandoned === true && !isProtected) ? false : finalActive,
               status: newStatus,
               statusDesc: newStatusDesc,
               startTime: scrapedMatchup.startTime,
@@ -741,6 +753,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               abandoned: updateData.abandoned,
               title: updateData.title,
               league: updateData.league,
+              type: updateData.type,
               active: updateData.active,
               status: updateData.status,
               statusDesc: updateData.statusDesc,
@@ -1094,20 +1107,34 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               if (!matchup) continue;
 
               // Sync standard matchup score and status into the pickem matchup
-              const updateData = {
+              const updateData: any = {
                 status: matchup.status,
                 statusDesc: matchup.statusDesc,
                 'homeTeam.score': matchup.homeTeam?.score ?? 0,
                 'awayTeam.score': matchup.awayTeam?.score ?? 0,
+                title: matchup.title,
                 updatedAt: Date.now()
               };
 
-              const isStatusOrScoreChanged = pData.status !== updateData.status ||
+              let needsUpdate = false;
+              if (pData.status !== updateData.status ||
                   pData.statusDesc !== updateData.statusDesc ||
                   pData.homeTeam?.score !== updateData['homeTeam.score'] ||
-                  pData.awayTeam?.score !== updateData['awayTeam.score'];
+                  pData.awayTeam?.score !== updateData['awayTeam.score'] ||
+                  pData.title !== updateData.title) {
+                  needsUpdate = true;
+              }
 
-              if (isStatusOrScoreChanged) {
+              if (pData.type === 'STANDARD' && matchup.type === 'SPREAD') {
+                  updateData.type = 'SPREAD';
+                  updateData['metadata.spread'] = matchup.metadata?.spread || null;
+                  needsUpdate = true;
+              } else if (pData.type === 'SPREAD' && matchup.type === 'SPREAD' && pData.metadata?.spread !== matchup.metadata?.spread) {
+                  updateData['metadata.spread'] = matchup.metadata?.spread || null;
+                  needsUpdate = true;
+              }
+
+              if (needsUpdate) {
                 pickemBatch.update(doc.ref, updateData);
                 pickemOpCount++;
 
@@ -1119,7 +1146,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               }
 
               if (updateData.status === 'STATUS_FINAL' || updateData.status === 'STATUS_POSTPONED') {
-                if (isStatusOrScoreChanged) {
+                if (needsUpdate) {
                   pickemMatchupsToGrade.push({
                     ...pData,
                     status: matchup.status,
@@ -1239,6 +1266,7 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
                                     else if (option.statType === 'RUSHING_YARDS') keyIndex = (statCat.keys || []).indexOf('rushingYards');
                                     else if (option.statType === 'RECEIVING_YARDS') keyIndex = (statCat.keys || []).indexOf('receivingYards');
                                     else if (option.statType === 'INTERCEPTIONS') keyIndex = (statCat.keys || []).indexOf('interceptions');
+                                    else if (option.statType === 'PASSING_TOUCHDOWNS') keyIndex = (statCat.keys || []).indexOf('passingTouchdowns');
                                 } else if (option.league === 'NBA') {
                                     if (option.statType === 'POINTS') keyIndex = (statCat.keys || []).indexOf('points');
                                     else if (option.statType === 'REBOUNDS') keyIndex = (statCat.keys || []).indexOf('rebounds');
@@ -1269,11 +1297,9 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
                                     if (statCat.athletes) {
                                         for (const a of statCat.athletes) {
                                             if (String(a.athlete?.id) === String(option.playerId)) {
-                                                const passTdIdx = (statCat.keys || []).indexOf('passingTouchdowns');
                                                 const rushTdIdx = (statCat.keys || []).indexOf('rushingTouchdowns');
                                                 const recTdIdx = (statCat.keys || []).indexOf('receivingTouchdowns');
                                                 
-                                                if (passTdIdx !== -1) score += (parseFloat(a.stats[passTdIdx]) || 0);
                                                 if (rushTdIdx !== -1) score += (parseFloat(a.stats[rushTdIdx]) || 0);
                                                 if (recTdIdx !== -1) score += (parseFloat(a.stats[recTdIdx]) || 0);
                                             }

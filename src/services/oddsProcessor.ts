@@ -30,20 +30,28 @@ function namesMatch(name1: string, name2: string) {
   const n2 = normalizeName(name2);
   
   if (n1 === n2) return true;
+  if (n1.includes(n2) || n2.includes(n1)) return true;
   
   const p1 = n1.split(' ');
   const p2 = n2.split(' ');
   
-  const last1 = p1[p1.length - 1];
-  const last2 = p2[p2.length - 1];
+  const sig1 = p1.filter(w => w.length > 2);
+  const sig2 = p2.filter(w => w.length > 2);
   
-  if (last1 === last2 && last1.length > 2) {
-    const first1 = p1[0];
-    const first2 = p2[0];
-    if (first1[0] === first2[0]) {
-      return true;
+  const sharedSig = sig1.filter(w => sig2.includes(w));
+  if (sharedSig.length === 0) return false;
+  if (sharedSig.length >= 2) return true;
+  
+  const unshared1 = p1.filter(w => !sharedSig.includes(w));
+  const unshared2 = p2.filter(w => !sharedSig.includes(w));
+  
+  for (const w1 of unshared1) {
+    for (const w2 of unshared2) {
+      if (w1[0] === w2[0]) return true;
+      if (w1.length > 2 && w2.length > 2 && (w1.includes(w2) || w2.includes(w1))) return true;
     }
   }
+  
   return false;
 }
 

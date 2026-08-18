@@ -89,7 +89,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       const [month, day, year] = str.split("/");
       return `${year}${month}${day}`;
     };
-    dates = [twoDaysAgo, yesterday, today, tomorrow, theDayAfterTomorrow].map(formatESTDate);
+    if (league === 'NFL' || league === 'CFB') { for (let i = -2; i <= 21; i++) { dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000))); } } else { dates = [twoDaysAgo, yesterday, today, tomorrow, theDayAfterTomorrow].map(formatESTDate); }
   }
 
 
@@ -482,8 +482,8 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                          network: "N/A",
                  overUnder,
                  spread,
-                 mlHome,
-                 mlAway,
+                 mlHome: (mlHome && !isNaN(parseInt(mlHome, 10))) ? parseInt(mlHome, 10) : null,
+                 mlAway: (mlAway && !isNaN(parseInt(mlAway, 10))) ? parseInt(mlAway, 10) : null,
                  homeLinescores: null,
                  awayLinescores: null
              }
@@ -936,8 +936,8 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                network,
                overUnder,
                spread,
-               mlHome: mlHome ? parseInt(mlHome, 10) : null,
-               mlAway: mlAway ? parseInt(mlAway, 10) : null,
+               mlHome: (mlHome && !isNaN(parseInt(mlHome, 10))) ? parseInt(mlHome, 10) : null,
+               mlAway: (mlAway && !isNaN(parseInt(mlAway, 10))) ? parseInt(mlAway, 10) : null,
                homeLinescores: home.linescores || null,
                awayLinescores: away.linescores || null
              }
@@ -1047,6 +1047,25 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                 if ((league === 'ATP' || league === 'WTA' || league === 'RPL') && !mlHome && !mlAway) {
                   active = false;
                 }
+                
+                if (league === "NFL" || league === "CFB") {
+                  const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
+                  const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
+                  if (isNaN(mlHNum) || isNaN(mlANum)) {
+                    active = false;
+                  }
+                }
+
+                let matchupType = "SCORE";
+                if (!active && (league === "NFL" || league === "CFB")) {
+                  if (spread !== null) {
+                    const spreadNum = parseFloat(spread);
+                    if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
+                      active = true;
+                      matchupType = "SPREAD";
+                    }
+                  }
+                }
 
                 let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
                 if (isNaN(homeScore)) homeScore = 0;
@@ -1122,7 +1141,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
              featured: false,
              title: `${away.team.name} @ ${home.team.name}`,
              league,
-             type: "SCORE",
+             type: matchupType,
              status: finalStatus,
              statusDesc: finalStatusDesc,
              gameId: gameId,
@@ -1144,8 +1163,8 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                network,
                overUnder,
                spread,
-               mlHome: mlHome ? parseInt(mlHome, 10) : null,
-               mlAway: mlAway ? parseInt(mlAway, 10) : null,
+               mlHome: (mlHome && !isNaN(parseInt(mlHome, 10))) ? parseInt(mlHome, 10) : null,
+               mlAway: (mlAway && !isNaN(parseInt(mlAway, 10))) ? parseInt(mlAway, 10) : null,
                              homeLinescores: home.linescores || null,
                awayLinescores: away.linescores || null
              }

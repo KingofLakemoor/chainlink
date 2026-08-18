@@ -199,6 +199,10 @@ service cloud.firestore {
     match /linkTransactions/{txId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /notifications/{notificationId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /systemSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+    
+    match /orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
 
           }
 }

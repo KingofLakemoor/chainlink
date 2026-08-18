@@ -35,6 +35,9 @@ export default function PickEmCampaignDetail() {
   const [startDateStr, setStartDateStr] = useState('');
   const [endDateStr, setEndDateStr] = useState('');
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
+  const [weekSettings, setWeekSettings] = useState<Record<string, any>>({});
+  const [weekGamesBeginDateStr, setWeekGamesBeginDateStr] = useState('');
+  const [weekEndDateStr, setWeekEndDateStr] = useState('');
 
 
   const fetchCampaign = async () => {
@@ -47,6 +50,7 @@ export default function PickEmCampaignDetail() {
         setCampaign({ id: docSnap.id, ...data });
         setSelectedWeek(data.currentWeek || 1);
         setTotalWeeks(data.totalWeeks || 18);
+        setWeekSettings(data.weekSettings || {});
 
         setThemePrimaryColor(data.theme?.primaryColor || '#22c55e');
         setThemeTitle(data.theme?.title || '');
@@ -103,6 +107,21 @@ export default function PickEmCampaignDetail() {
   useEffect(() => {
     if (campaign && selectedWeek) {
       fetchMatchups(selectedWeek);
+      
+      const ws = campaign.weekSettings || {};
+      const currentWS = ws[selectedWeek] || {};
+      if (currentWS.gamesBeginDate) {
+         const d = new Date(currentWS.gamesBeginDate);
+         setWeekGamesBeginDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+      } else {
+         setWeekGamesBeginDateStr('');
+      }
+      if (currentWS.endDate) {
+         const d = new Date(currentWS.endDate);
+         setWeekEndDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+      } else {
+         setWeekEndDateStr('');
+      }
     }
   }, [campaign, selectedWeek]);
 
@@ -126,6 +145,13 @@ export default function PickEmCampaignDetail() {
         startDate: visibleDateStr ? new Date(visibleDateStr).getTime() || campaign.visibleDate || Date.now() : campaign.visibleDate || Date.now(),
         endDate: endDateStr ? new Date(endDateStr).getTime() || campaign.endDate || Date.now() : campaign.endDate || Date.now(),
 
+      weekSettings: {
+        ...(campaign.weekSettings || {}),
+        [selectedWeek]: {
+          gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
+          endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
+        }
+      },
       theme: {
         primaryColor: themePrimaryColor,
         title: themeTitle,
@@ -199,7 +225,23 @@ export default function PickEmCampaignDetail() {
       let batchCount = 0;
 
       for (const lg of leaguesToSync) {
-        const res = await scrapeLeagueSchedules(lg, false);
+        const ws = campaign.weekSettings?.[selectedWeek] || {};
+        const effectiveBeginDate = ws.gamesBeginDate || campaign.gamesBeginDate;
+        const effectiveEndDate = ws.endDate || campaign.endDate;
+        let specificDates: string[] | undefined = undefined;
+
+        if (effectiveBeginDate && effectiveEndDate) {
+           specificDates = [];
+           let curr = new Date(effectiveBeginDate);
+           const end = new Date(effectiveEndDate);
+           while (curr <= end) {
+              const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+              const [month, day, year] = str.split("/");
+              specificDates.push(`${year}${month}${day}`);
+              curr = new Date(curr.getTime() + 86400000);
+           }
+        }
+        const res = await scrapeLeagueSchedules(lg, false, specificDates);
         console.log('API returned games:', res.data?.length);
         if (res.data) res.data.forEach(m => console.log('Game', m.title, new Date(m.startTime).toLocaleString(), m.startTime, 'vs bounds:', campaign.gamesBeginDate, campaign.endDate));
         if (!res.data || res.data.length === 0) {
@@ -208,11 +250,11 @@ export default function PickEmCampaignDetail() {
         }
 
         for (const m of res.data) {
-          console.log('Game', m.title, new Date(m.startTime).toLocaleString(), 'vs bounds:', campaign.gamesBeginDate ? new Date(campaign.gamesBeginDate).toLocaleString() : null, campaign.endDate ? new Date(campaign.endDate).toLocaleString() : null);
-          if (campaign.gamesBeginDate && m.startTime < campaign.gamesBeginDate) {
+          console.log('Game', m.title, new Date(m.startTime).toLocaleString(), 'vs bounds:', effectiveBeginDate ? new Date(effectiveBeginDate).toLocaleString() : null, effectiveEndDate ? new Date(effectiveEndDate).toLocaleString() : null);
+          if (effectiveBeginDate && m.startTime < effectiveBeginDate) {
             continue;
           }
-          if (campaign.endDate && m.startTime > campaign.endDate) {
+          if (effectiveEndDate && m.startTime > effectiveEndDate) {
             continue;
           }
 
@@ -290,7 +332,7 @@ export default function PickEmCampaignDetail() {
         alert(`Synced ${count} matchups successfully across ${leaguesToSync.length} league(s)!`);
         await fetchMatchups(selectedWeek);
       } else {
-        alert(`No games found. They may have been filtered out by date bounds (Games Begin: ${campaign.gamesBeginDate ? new Date(campaign.gamesBeginDate).toLocaleString() : 'N/A'}, End: ${campaign.endDate ? new Date(campaign.endDate).toLocaleString() : 'N/A'}).`);
+        alert(`No games found. They may have been filtered out by week date bounds.`);
       }
     } catch (err) {
       console.error(err);

@@ -157,7 +157,7 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
                 if (config.statType === 'PASSING_YARDS' && statGroup.name === 'passing') targetIdx = labels.findIndex((l: string) => l === 'YDS');
                 if (config.statType === 'RUSHING_YARDS' && statGroup.name === 'rushing') targetIdx = labels.findIndex((l: string) => l === 'YDS');
                 if (config.statType === 'RECEIVING_YARDS' && statGroup.name === 'receiving') targetIdx = labels.findIndex((l: string) => l === 'YDS');
-                if (config.statType === 'TOUCHDOWNS') {
+                if (config.statType === 'TOUCHDOWNS' || config.statType === 'ANYTIME_TD') {
                     if (statGroup.name === 'rushing') targetIdx = labels.findIndex((l: string) => l === 'TD');
                     if (statGroup.name === 'receiving') targetIdx = labels.findIndex((l: string) => l === 'TD');
                 }
@@ -171,7 +171,7 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
                         const val = parseFloat(athleteStat.stats[targetIdx]);
                         if (!isNaN(val)) {
                             // If stat is TOUCHDOWNS or PASSING_TOUCHDOWNS, sum them if multiple groups (though usually not for passing)
-                            if (config.statType === 'TOUCHDOWNS' || config.statType === 'PASSING_TOUCHDOWNS') {
+                            if (config.statType === 'TOUCHDOWNS' || config.statType === 'PASSING_TOUCHDOWNS' || config.statType === 'ANYTIME_TD') {
                                 foundStatValue = (foundStatValue || 0) + val;
                             } else {
                                 return val;

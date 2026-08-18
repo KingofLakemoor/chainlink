@@ -5,7 +5,7 @@ import { collection, getDocs, doc, query, where, setDoc, getDoc, deleteDoc, docu
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle, Star } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export default function PickEmPage() {
@@ -608,7 +608,7 @@ export default function PickEmPage() {
                             if (!isRevealed && !isMyPick) {
                                 return (
                                   <div key={pick.id} className="w-8 h-8 rounded-full border-2 border-zinc-600 overflow-hidden bg-zinc-800 flex items-center justify-center flex-shrink-0" title="Pick Hidden (Game not started)">
-                                    <span className="text-zinc-400 font-bold text-xs">?</span>
+                                    <HelpCircle className="w-4 h-4 text-zinc-400" />
                                   </div>
                                 );
                             }

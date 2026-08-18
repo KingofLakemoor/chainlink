@@ -173,8 +173,8 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
   const estDate = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
   const year = new Date(estDate).getFullYear();
   switch (league) {
-    case "NFL": return [`https://cdn.espn.com/core/nfl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
-    case "NBA": return [`https://cdn.espn.com/core/nba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "NFL": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/nfl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "NBA": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/nba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "NBASL": return dates.flatMap(date => [
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${date}`,
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-sacramento/scoreboard?dates=${date}`,

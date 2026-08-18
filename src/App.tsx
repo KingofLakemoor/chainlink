@@ -40,6 +40,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
        let active = false;
        snap.forEach(doc => {
           const c = doc.data();
+          if (c.isArchived) return; // Skip archived campaigns
           const startToCheck = c.visibleDate || c.startDate;
           if (!startToCheck || !c.endDate) active = true; // Legacy
           else if (now >= startToCheck && now <= c.endDate) active = true;

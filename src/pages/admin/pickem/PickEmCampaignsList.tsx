@@ -4,7 +4,8 @@ import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
-import { Edit, Trash2, Plus } from 'lucide-react';
+import { Edit, Trash2, Plus, Archive, ArchiveRestore } from 'lucide-react';
+import { updateDoc } from 'firebase/firestore';
 
 export default function PickEmCampaignsList() {
   const navigate = useNavigate();
@@ -56,6 +57,7 @@ export default function PickEmCampaignsList() {
               <tr>
                 <th className="px-4 py-3 font-medium">Actions</th>
                 <th className="px-4 py-3 font-medium">Name</th>
+<th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">League</th>
                 <th className="px-4 py-3 font-medium">Current Week</th>
               </tr>
@@ -76,6 +78,15 @@ export default function PickEmCampaignsList() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        title={camp.isArchived ? "Unarchive" : "Archive"}
+                        className="h-8 w-8 text-zinc-400 hover:text-yellow-400 hover:bg-yellow-400/10"
+                        onClick={() => handleToggleArchive(camp.id, !!camp.isArchived)}
+                      >
+                        {camp.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
                         onClick={() => handleDelete(camp.id)}
                       >
@@ -84,6 +95,13 @@ export default function PickEmCampaignsList() {
                     </div>
                   </td>
                   <td className="px-4 py-3 font-medium text-zinc-200">{camp.name}</td>
+<td className="px-4 py-3">
+  {camp.isArchived ? (
+    <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 rounded text-xs font-medium border border-yellow-500/20">Archived</span>
+  ) : (
+    <span className="px-2 py-1 bg-green-500/10 text-green-500 rounded text-xs font-medium border border-green-500/20">Active</span>
+  )}
+</td>
                   <td className="px-4 py-3 text-zinc-400">{camp.league}</td>
                   <td className="px-4 py-3 text-zinc-400">{camp.currentWeek || 1}</td>
                 </tr>

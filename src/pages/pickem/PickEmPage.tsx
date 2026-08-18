@@ -45,6 +45,7 @@ export default function PickEmPage() {
       try {
         const snap = await getDocs(collection(db, 'pickemCampaigns'));
         let camps = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        camps = camps.filter(c => !c.isArchived);
 
         const now = Date.now();
         camps = camps.filter((c: any) => {
@@ -229,7 +230,7 @@ export default function PickEmPage() {
     if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
 
     try {
-      const pickId = `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
+      const pickId = userPicks[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
       const pickRef = doc(db, 'pickemPicks', pickId);
       await deleteDoc(pickRef);
       setUserPicks(prev => {
@@ -237,9 +238,13 @@ export default function PickEmPage() {
         delete next[matchup.id];
         return next;
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      console.log('Failed to clear pick');
+      if (err.message && err.message.includes("Missing or insufficient permissions")) {
+         alert('Missing Permissions: Your Firebase project needs delete permissions for pickemPicks.\n\nGo to Firebase Console -> Firestore -> Rules and ensure you have:\n\nmatch /pickemPicks/{pickId} {\n  allow read, write, delete: if request.auth != null;\n}');
+      } else {
+         alert('Failed to clear pick: ' + (err.message || String(err)));
+      }
     }
   };
 

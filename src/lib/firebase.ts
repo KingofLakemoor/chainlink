@@ -1,7 +1,7 @@
 import { getMessaging, getToken, deleteToken } from 'firebase/messaging';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider, linkWithCredential, AuthCredential, signInWithRedirect, signInWithPopup, getRedirectResult, signOut, Auth, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, fetchSignInMethodsForEmail, sendPasswordResetEmail } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, Firestore, arrayRemove } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, doc, getDoc, setDoc, updateDoc, increment, Firestore, arrayRemove, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -68,7 +68,15 @@ export const initFirebase = async () => {
 
   try {
     const databaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
-    db = getFirestore(app, databaseId);
+    // Explicitly initialize Firestore to handle offline cache issues gracefully (like the "client is offline" error)
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+      }, databaseId);
+    } catch (innerErr: any) {
+      // If initializeFirestore fails (already initialized), fallback to getFirestore
+      db = getFirestore(app, databaseId);
+    }
   } catch (e) {
     console.error("Firestore initialization failed:", e);
   }

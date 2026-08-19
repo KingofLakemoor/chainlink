@@ -165,7 +165,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       case "ATP": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard?dates=${date}`);
       case "WTA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard?dates=${date}`);
       case "CRICKET": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/cricket/21266/scoreboard?dates=${date}&limit=300`);
-      case "NWSL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/nwsl.1/scoreboard?dates=${date}`);
+      case "NWSL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.nwsl/scoreboard?dates=${date}`);
       default: throw new Error(`Unsupported league: ${league}`);
     }
   }
@@ -183,7 +183,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-orlando/scoreboard?dates=${date}`,
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-golden-state/scoreboard?dates=${date}`
     ]);
-    case "NHL": return [`https://cdn.espn.com/core/nhl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "NHL": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/nhl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
     case "LLWS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/llb/scoreboard?dates=${date}`);
     case "MLS": return [
@@ -212,9 +212,9 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard?dates=${date}`),
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard?dates=${date}`)
       ];
-    case "CFB": return [`https://cdn.espn.com/core/college-football/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
-    case "CBASE": return [`https://cdn.espn.com/core/college-baseball/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
-    case "WNBA": return [`https://cdn.espn.com/core/wnba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "CFB": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/college-football/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "CBASE": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/college-baseball/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "WNBA": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/wnba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
     case "CRICKET": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/cricket/21266/scoreboard?dates=${date}`);
     case "NWSL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.nwsl/scoreboard?dates=${date}`);
     default: throw new Error(`Unsupported league: ${league}`);
@@ -596,6 +596,8 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
 
                   const homeName = homeCompetitor?.athlete?.displayName || homeCompetitor?.team?.displayName || homeCompetitor?.team?.name || "";
                   const awayName = awayCompetitor?.athlete?.displayName || awayCompetitor?.team?.displayName || awayCompetitor?.team?.name || "";
+                  const homeShortName = homeCompetitor?.athlete?.shortName || homeCompetitor?.team?.shortDisplayName || homeCompetitor?.team?.name || homeName;
+                  const awayShortName = awayCompetitor?.athlete?.shortName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || awayName;
 
                   if ((league as any) !== "FIFA" && (homeName.includes("TBD") || awayName.includes("TBD"))) continue;
 
@@ -716,12 +718,14 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                      homeTeam: {
                          id: String(homeCompetitor.id),
                          name: homeName || "Home Team",
+                         shortName: homeShortName || "Home",
                          image: (league as any === "CRICKET" ? MLC_LOGOS[String(homeCompetitor.id)] : undefined) || homeCompetitor.team?.logo || "/logo.png",
                          score: homeScore
                      },
                      awayTeam: {
                          id: String(awayCompetitor.id),
                          name: awayName || "Away Team",
+                         shortName: awayShortName || "Away",
                          image: (league as any === "CRICKET" ? MLC_LOGOS[String(awayCompetitor.id)] : undefined) || awayCompetitor.team?.logo || "/logo.png",
                          score: awayScore
                      },
@@ -747,6 +751,8 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 if (!home || !away) continue;
                 const homeName = home.team?.displayName || home.team?.name || "Home Team";
                 const awayName = away.team?.displayName || away.team?.name || "Away Team";
+                const homeShortName = home.team?.shortDisplayName || home.team?.name || homeName;
+                const awayShortName = away.team?.shortDisplayName || away.team?.name || awayName;
                 if (league !== "FIFA" && (homeName.includes("TBD") || awayName.includes("TBD"))) continue;
                 let gameTime = new Date(competition.date).getTime();
                 const overUnderRaw = competition.odds?.[0]?.overUnder;
@@ -921,12 +927,14 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
              homeTeam: {
                id: String(home.id),
                name: homeName,
+               shortName: homeShortName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(home.id)] : undefined) || home.team.logo || "/logo.png",
                score: homeScore
              },
              awayTeam: {
                id: String(away.id),
                name: awayName,
+               shortName: awayShortName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(away.id)] : undefined) || away.team.logo || "/logo.png",
                score: awayScore
              },
@@ -1004,6 +1012,8 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                 if (!home || !away) continue;
                 const homeName = home.team?.displayName || home.team?.name || "Home Team";
                 const awayName = away.team?.displayName || away.team?.name || "Away Team";
+                const homeShortName = home.team?.shortDisplayName || home.team?.name || homeName;
+                const awayShortName = away.team?.shortDisplayName || away.team?.name || awayName;
                 if (league !== "FIFA" && (homeName.includes("TBD") || awayName.includes("TBD"))) continue;
                 const gameId = String(competition.id || event.id);
                 let gameTime = new Date(competition.date).getTime();
@@ -1148,12 +1158,14 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
              homeTeam: {
                id: String(home.id),
                name: homeName,
+               shortName: homeShortName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(home.id)] : undefined) || home.team.logo || "/logo.png",
                score: homeScore
              },
              awayTeam: {
                id: String(away.id),
                name: awayName,
+               shortName: awayShortName,
                image: (league as any === "CRICKET" ? MLC_LOGOS[String(away.id)] : undefined) || away.team.logo || "/logo.png",
                score: awayScore
              },

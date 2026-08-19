@@ -199,7 +199,7 @@ export const MatchupCard = React.memo(function MatchupCard({
       ) : (
         <div className="flex items-center justify-between">
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'OVER' : (m.awayTeam.shortName || m.awayTeam.name)}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}
@@ -348,7 +348,7 @@ export const MatchupCard = React.memo(function MatchupCard({
            </div>
 
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'UNDER' : `@${m.homeTeam.name}`}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'UNDER' : `@${m.homeTeam.shortName || m.homeTeam.name}`}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}

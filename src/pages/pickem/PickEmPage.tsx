@@ -345,9 +345,15 @@ export default function PickEmPage() {
             onChange={e => setSelectedWeek(Number(e.target.value))}
             className="bg-[#121212] border border-zinc-800 rounded-xl px-4 py-3 text-white text-lg font-medium"
           >
-            {[...Array(selectedCampaign?.totalWeeks || 18)].map((_, i) => (
-              <option key={i+1} value={i+1}>Week {i+1}</option>
-            ))}
+            {[...Array(selectedCampaign?.totalWeeks || 18)].map((_, i) => {
+              const weekNum = i + 1;
+              const customLabel = selectedCampaign?.weekSettings?.[weekNum]?.label;
+              return (
+                <option key={weekNum} value={weekNum}>
+                  {customLabel ? customLabel : `Week ${weekNum}`}
+                </option>
+              );
+            })}
           </select>
         </div>
 

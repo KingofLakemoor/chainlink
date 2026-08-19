@@ -28,6 +28,10 @@ export default function PickEmCampaignsList() {
     fetchData();
   }, []);
 
+  const handleToggleArchive = async (id: string, isArchived: boolean) => {
+    await updateDoc(doc(db, "pickemCampaigns", id), { isArchived: !isArchived });
+    fetchData();
+  };
   const handleDelete = async (id: string) => {
     
     await deleteDoc(doc(db, 'pickemCampaigns', id));

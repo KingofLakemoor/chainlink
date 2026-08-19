@@ -37,6 +37,7 @@ export default function PickEmCampaignDetail() {
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
   const [weekSettings, setWeekSettings] = useState<Record<string, any>>({});
   const [weekGamesBeginDateStr, setWeekGamesBeginDateStr] = useState('');
+  const [weekLabel, setWeekLabel] = useState('');
   const [weekEndDateStr, setWeekEndDateStr] = useState('');
 
 
@@ -110,6 +111,7 @@ export default function PickEmCampaignDetail() {
       
       const ws = campaign.weekSettings || {};
       const currentWS = ws[selectedWeek] || {};
+      setWeekLabel(currentWS.label || '');
       if (currentWS.gamesBeginDate) {
          const d = new Date(currentWS.gamesBeginDate);
          setWeekGamesBeginDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
@@ -140,14 +142,15 @@ export default function PickEmCampaignDetail() {
       await updateDoc(doc(db, 'pickemCampaigns', id), {
         currentWeek: selectedWeek,
         totalWeeks: totalWeeks,
-        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() || campaign.visibleDate || Date.now() : campaign.visibleDate || Date.now(),
-        gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() || campaign.gamesBeginDate || Date.now() : campaign.gamesBeginDate || Date.now(),
-        startDate: visibleDateStr ? new Date(visibleDateStr).getTime() || campaign.visibleDate || Date.now() : campaign.visibleDate || Date.now(),
-        endDate: endDateStr ? new Date(endDateStr).getTime() || campaign.endDate || Date.now() : campaign.endDate || Date.now(),
+        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
+        gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
+        startDate: startDateStr ? new Date(startDateStr).getTime() : null,
+        endDate: endDateStr ? new Date(endDateStr).getTime() : null,
 
       weekSettings: {
         ...(campaign.weekSettings || {}),
         [selectedWeek]: {
+          label: weekLabel,
           gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
           endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
         }
@@ -172,10 +175,10 @@ export default function PickEmCampaignDetail() {
         ...prev, 
         currentWeek: selectedWeek, 
         totalWeeks, 
-        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() || prev.visibleDate || Date.now() : prev.visibleDate || Date.now(),
-        gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() || prev.gamesBeginDate || Date.now() : prev.gamesBeginDate || Date.now(),
-        startDate: visibleDateStr ? new Date(visibleDateStr).getTime() || prev.visibleDate || Date.now() : prev.visibleDate || Date.now(),
-        endDate: endDateStr ? new Date(endDateStr).getTime() || prev.endDate || Date.now() : prev.endDate || Date.now(),
+        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
+        gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
+        startDate: startDateStr ? new Date(startDateStr).getTime() : null,
+        endDate: endDateStr ? new Date(endDateStr).getTime() : null,
         weekSettings: updatedWeekSettings,
         theme: { primaryColor: themePrimaryColor, title: themeTitle, subtitle: themeSubtitle, logoUrl: finalLogoUrl } 
       }));
@@ -244,19 +247,30 @@ export default function PickEmCampaignDetail() {
 
       for (const lg of leaguesToSync) {
         const ws = campaign.weekSettings?.[selectedWeek] || {};
-        const effectiveBeginDate = ws.gamesBeginDate || campaign.gamesBeginDate;
-        const effectiveEndDate = ws.endDate || campaign.endDate;
+        let effectiveBeginDate = ws.gamesBeginDate || campaign.gamesBeginDate;
+        let effectiveEndDate = ws.endDate || campaign.endDate;
+
+        // Smart defaults: if only one boundary is provided, construct a 14-day window
+        if (effectiveBeginDate && !effectiveEndDate) {
+            effectiveEndDate = effectiveBeginDate + (14 * 86400000);
+        } else if (!effectiveBeginDate && effectiveEndDate) {
+            effectiveBeginDate = effectiveEndDate - (14 * 86400000);
+        }
+
         let specificDates: string[] | undefined = undefined;
 
         if (effectiveBeginDate && effectiveEndDate) {
            specificDates = [];
            let curr = new Date(effectiveBeginDate);
            const end = new Date(effectiveEndDate);
-           while (curr <= end) {
+           let days = 0;
+           // Cap at 35 days (5 weeks) to avoid massive ESPN API requests
+           while (curr <= end && days <= 35) {
               const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
               const [month, day, year] = str.split("/");
               specificDates.push(`${year}${month}${day}`);
               curr = new Date(curr.getTime() + 86400000);
+              days++;
            }
         }
         const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
@@ -509,16 +523,30 @@ export default function PickEmCampaignDetail() {
                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
                 className="bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
               >
-                {[...Array(totalWeeks)].map((_, i) => (
-                  <option key={i+1} value={i+1}>Week {i+1}</option>
-                ))}
+                {[...Array(totalWeeks)].map((_, i) => {
+                  const w = i + 1;
+                  const lbl = campaign?.weekSettings?.[w]?.label;
+                  return (
+                    <option key={w} value={w}>{lbl ? `Week ${w} (${lbl})` : `Week ${w}`}</option>
+                  );
+                })}
               </select>
             </div>
             <Button onClick={updateCurrentWeek} variant="secondary">Update Campaign</Button>
           </div>
           <div className="flex flex-wrap items-end gap-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Sync Start Boundary (Optional)</label>
+              <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Display Label (Optional)</label>
+              <input
+                type="text"
+                value={weekLabel}
+                onChange={e => setWeekLabel(e.target.value)}
+                placeholder="e.g. Preseason Week 2"
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm mb-4"
+              />
+            </div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Sync Start Boundary (Optional)</label>
               <input
                 type="datetime-local"
                 value={weekGamesBeginDateStr}
@@ -656,7 +684,7 @@ export default function PickEmCampaignDetail() {
 
       <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden shadow-xl">
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-[#18181A]">
-          <h3 className="font-bold text-lg capitalize">Week {selectedWeek} Matchups ({matchups.length})</h3>
+          <h3 className="font-bold text-lg capitalize">{campaign?.weekSettings?.[selectedWeek]?.label || `Week ${selectedWeek}`} Matchups ({matchups.length})</h3>
           
           <div className="flex items-center gap-2">
             <Button onClick={() => setShowPropModal(true)} size="sm" variant="outline" className="gap-2 text-white bg-zinc-800 hover:bg-zinc-700">

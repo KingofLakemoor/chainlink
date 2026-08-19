@@ -1,0 +1,172 @@
+{
+  "id": "401896651",
+  "uid": "s:1~l:2~e:401896651",
+  "date": "2026-08-19T17:00Z",
+  "name": "Leon NCA at Santiago DOM",
+  "shortName": "NCA @ DOM",
+  "season": {
+    "year": 2026,
+    "type": 3,
+    "slug": "post-season"
+  },
+  "competitions": [
+    {
+      "id": "401896651",
+      "uid": "s:1~l:2~e:401896651~c:401896651",
+      "date": "2026-08-19T17:00Z",
+      "attendance": 0,
+      "timeValid": true,
+      "neutralSite": true,
+      "conferenceCompetition": false,
+      "playByPlayAvailable": false,
+      "recent": true,
+      "wasSuspended": false,
+      "competitors": [
+        {
+          "id": "1063",
+          "uid": "s:1~l:2~t:1063",
+          "type": "team",
+          "order": 0,
+          "homeAway": "home",
+          "winner": false,
+          "team": {
+            "id": "1063",
+            "uid": "s:1~l:2~t:1063",
+            "location": "Santiago DOM",
+            "name": "Santiago DOM",
+            "abbreviation": "DOM",
+            "displayName": "Santiago DOM",
+            "shortDisplayName": "Santiago DOM",
+            "isActive": true,
+            "links": [],
+            "logo": "https://a.espncdn.com/i/teamlogos/countries/500/DOM.png"
+          },
+          "score": "1",
+          "statistics": [],
+          "hits": 5,
+          "errors": 0,
+          "records": [
+            {
+              "name": "overall",
+              "abbreviation": "Ytd",
+              "type": "total",
+              "summary": "0-1"
+            }
+          ]
+        },
+        {
+          "id": "129783",
+          "uid": "s:1~l:2~t:129783",
+          "type": "team",
+          "order": 1,
+          "homeAway": "away",
+          "winner": true,
+          "team": {
+            "id": "129783",
+            "uid": "s:1~l:2~t:129783",
+            "location": "Leon NCA",
+            "name": "Leon NCA",
+            "abbreviation": "NCA",
+            "displayName": "Leon NCA",
+            "shortDisplayName": "Leon NCA",
+            "isActive": true,
+            "links": [],
+            "logo": "https://a.espncdn.com/i/teamlogos/countries/500/NCA.png"
+          },
+          "score": "2",
+          "statistics": [],
+          "hits": 4,
+          "errors": 0,
+          "records": [
+            {
+              "name": "overall",
+              "abbreviation": "Ytd",
+              "type": "total",
+              "summary": "1-0"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        {
+          "type": "event",
+          "headline": "Little League Baseball World Series - Opening Round"
+        }
+      ],
+      "status": {
+        "period": 6,
+        "type": {
+          "id": "3",
+          "name": "STATUS_FINAL",
+          "state": "post",
+          "completed": true,
+          "description": "Final",
+          "detail": "Final",
+          "shortDetail": "Final",
+          "altDetail": "Final"
+        }
+      },
+      "broadcasts": [
+        {
+          "market": "national",
+          "names": [
+            "ESPN"
+          ]
+        }
+      ],
+      "format": {
+        "regulation": {
+          "periods": 6
+        }
+      },
+      "startDate": "2026-08-19T17:00Z",
+      "broadcast": "ESPN",
+      "geoBroadcasts": [
+        {
+          "type": {
+            "id": "1",
+            "shortName": "TV"
+          },
+          "market": {
+            "id": "1",
+            "type": "National"
+          },
+          "media": {
+            "shortName": "ESPN",
+            "logo": "https://a.espncdn.com/guid/335fd2d2-97b9-336b-81ee-573eb6bdcffc/logos/default.png",
+            "darkLogo": ""
+          },
+          "lang": "en",
+          "region": "us"
+        }
+      ],
+      "highlights": []
+    }
+  ],
+  "links": [
+    {
+      "rel": [
+        "highlights",
+        "desktop"
+      ],
+      "href": "https://www.espn.com/little-league-world-series/video/_/id/401896651",
+      "text": "Highlights",
+      "shortText": "Highlights",
+      "isExternal": false,
+      "isPremium": false
+    }
+  ],
+  "status": {
+    "period": 6,
+    "type": {
+      "id": "3",
+      "name": "STATUS_FINAL",
+      "state": "post",
+      "completed": true,
+      "description": "Final",
+      "detail": "Final",
+      "shortDetail": "Final",
+      "altDetail": "Final"
+    }
+  }
+}

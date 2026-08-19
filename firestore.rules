@@ -48,7 +48,8 @@ service cloud.firestore {
     // squads
     match /squads/{squadId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin(); // Managed primarily via backend or admin
+      allow create, update: if isAdmin() && (!incoming().keys().hasAny(['description']) || (incoming().description is string && incoming().description.size() <= 2000));
+      allow delete: if isAdmin();
     }
 
     // matchups
@@ -63,28 +64,45 @@ service cloud.firestore {
         return data.keys().hasAll(['userId', 'matchupId', 'pickId', 'status', 'active', 'createdAt', 'updatedAt']) &&
                data.userId is string && data.matchupId is string &&
                data.status in ['PENDING', 'WIN', 'LOSS', 'PUSH'] &&
-               data.active is bool;
+               data.active is bool &&
+               (!data.keys().hasAny(['pick']) || data.pick is map || data.pick is string) &&
+               (!data.keys().hasAny(['links']) || (data.links is number && data.links >= 0)) &&
+               (!data.keys().hasAny(['wager']) || (data.wager is number && data.wager >= 0));
       }
       
       allow read: if isSignedIn();
       allow create: if (
-        isSignedIn() && isValidPick(incoming()) && 
-         incoming().userId == request.auth.uid &&
-        exists(/databases/$(database)/documents/matchups/$(incoming().matchupId))
+        isSignedIn() && isValidPick(incoming()) &&
+        incoming().userId == request.auth.uid &&
+        exists(/databases/$(database)/documents/matchups/$(incoming().matchupId)) &&
+        get(/databases/$(database)/documents/matchups/$(incoming().matchupId)).data.startTime > request.time.toMillis() &&
+        incoming().createdAt >= request.time.toMillis() - 300000 &&
+        incoming().createdAt <= request.time.toMillis() + 300000
       );
-                    
+                          
       allow update: if (
         isSignedIn() && isValidPick(incoming()) && (
           isAdmin() ||
           (
             request.auth.uid == existing().userId &&
             incoming().diff(existing()).affectedKeys().hasOnly(['pick', 'active', 'updatedAt']) &&
-            existing().status == 'PENDING'
+            existing().status == 'PENDING' &&
+            get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.startTime > request.time.toMillis()
+          )
+        )
+      );
+      
+      allow delete: if (
+        isSignedIn() && (
+          isAdmin() ||
+          (
+            request.auth.uid == existing().userId &&
+            get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.startTime > request.time.toMillis()
           )
         )
       );
     }
-
+    
     // chains
     match /chains/{chainId} {
       allow read: if isSignedIn();
@@ -99,7 +117,8 @@ service cloud.firestore {
     }
     match /pickemMatchups/{matchupId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() && !incoming().keys().hasAny(['isSecret']);
+      allow delete: if isAdmin();
     }
     match /pickemParticipants/{participantId} {
       allow read: if isSignedIn();
@@ -107,9 +126,12 @@ service cloud.firestore {
     }
     match /pickemPicks/{pickId} {
       allow read: if isSignedIn() && (resource == null || existing().participantId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().participantId == request.auth.uid;
-      allow update: if isSignedIn() && existing().participantId == request.auth.uid && incoming().participantId == request.auth.uid;
-      allow delete: if isSignedIn() && existing().participantId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().participantId == request.auth.uid &&
+          get(/databases/$(database)/documents/pickemMatchups/$(incoming().matchupId)).data.startTime > request.time.toMillis();
+      allow update: if isSignedIn() && existing().participantId == request.auth.uid && incoming().participantId == request.auth.uid &&
+          get(/databases/$(database)/documents/pickemMatchups/$(existing().matchupId)).data.startTime > request.time.toMillis();
+      allow delete: if isSignedIn() && existing().participantId == request.auth.uid &&
+          get(/databases/$(database)/documents/pickemMatchups/$(existing().matchupId)).data.startTime > request.time.toMillis();
     }
 
     // achievements

@@ -17,6 +17,10 @@ service cloud.firestore {
       allow read, write: if false; 
     }
 
+    match /system_errors/{errorId} {
+      allow read, write: if true;
+    }
+
     // users
     match /users/{userId} {
       function isValidUser(data) {
@@ -271,9 +275,6 @@ service cloud.firestore {
     }
 
           
-    match /system_errors/{errorId} {
-      allow create: if true;
-      allow read, update, delete: if isAdmin();
-    }
+
   }
 }

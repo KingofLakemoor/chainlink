@@ -75,7 +75,14 @@ service cloud.firestore {
         isSignedIn() && isValidPick(incoming()) &&
         incoming().userId == request.auth.uid &&
         exists(/databases/$(database)/documents/matchups/$(incoming().matchupId)) &&
-        get(/databases/$(database)/documents/matchups/$(incoming().matchupId)).data.startTime > request.time.toMillis() &&
+        (
+          get(/databases/$(database)/documents/matchups/$(incoming().matchupId)).data.status == 'STATUS_SCHEDULED' &&
+          (
+            get(/databases/$(database)/documents/matchups/$(incoming().matchupId)).data.get('startTime', 0) == null ||
+            get(/databases/$(database)/documents/matchups/$(incoming().matchupId)).data.get('startTime', 0) == 0 ||
+            get(/databases/$(database)/documents/matchups/$(incoming().matchupId)).data.get('startTime', 0) > request.time.toMillis()
+          )
+        ) &&
         incoming().createdAt >= request.time.toMillis() - 300000 &&
         incoming().createdAt <= request.time.toMillis() + 300000
       );
@@ -84,10 +91,21 @@ service cloud.firestore {
         isSignedIn() && isValidPick(incoming()) && (
           isAdmin() ||
           (
-            request.auth.uid == existing().userId &&
+            (resource == null || request.auth.uid == existing().get('userId', '')) &&
             incoming().diff(existing()).affectedKeys().hasOnly(['pick', 'active', 'updatedAt']) &&
             existing().status == 'PENDING' &&
-            get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.startTime > request.time.toMillis()
+            (
+            resource == null || (
+              existing().get('matchupId', '') != '' &&
+              exists(/databases/$(database)/documents/matchups/$(existing().matchupId)) &&
+              get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.status == 'STATUS_SCHEDULED' &&
+              (
+                get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.get('startTime', 0) == null ||
+                get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.get('startTime', 0) == 0 ||
+                get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.get('startTime', 0) > request.time.toMillis()
+              )
+            )
+          )
           )
         )
       );
@@ -96,8 +114,19 @@ service cloud.firestore {
         isSignedIn() && (
           isAdmin() ||
           (
-            request.auth.uid == existing().userId &&
-            get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.startTime > request.time.toMillis()
+            (resource == null || request.auth.uid == existing().get('userId', '')) &&
+            (
+            resource == null || (
+              existing().get('matchupId', '') != '' &&
+              exists(/databases/$(database)/documents/matchups/$(existing().matchupId)) &&
+              get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.status == 'STATUS_SCHEDULED' &&
+              (
+                get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.get('startTime', 0) == null ||
+                get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.get('startTime', 0) == 0 ||
+                get(/databases/$(database)/documents/matchups/$(existing().matchupId)).data.get('startTime', 0) > request.time.toMillis()
+              )
+            )
+          )
           )
         )
       );
@@ -125,13 +154,26 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin(); // Server maintained
     }
     match /pickemPicks/{pickId} {
+      function isMatchupOpen(mId) {
+        return mId != null && mId != '' &&
+               exists(/databases/$(database)/documents/pickemMatchups/$(mId)) &&
+               get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.status == 'STATUS_SCHEDULED' &&
+               (
+                 get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) == null ||
+                 get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) == 0 ||
+                 get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) > request.time.toMillis()
+               );
+      }
       allow read: if isSignedIn() && (resource == null || existing().participantId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().participantId == request.auth.uid &&
-          get(/databases/$(database)/documents/pickemMatchups/$(incoming().matchupId)).data.startTime > request.time.toMillis();
-      allow update: if isSignedIn() && existing().participantId == request.auth.uid && incoming().participantId == request.auth.uid &&
-          get(/databases/$(database)/documents/pickemMatchups/$(existing().matchupId)).data.startTime > request.time.toMillis();
-      allow delete: if isSignedIn() && existing().participantId == request.auth.uid &&
-          get(/databases/$(database)/documents/pickemMatchups/$(existing().matchupId)).data.startTime > request.time.toMillis();
+      allow create: if isSignedIn() && incoming().participantId == request.auth.uid && isMatchupOpen(incoming().matchupId);
+      allow update: if isSignedIn() && (
+        resource == null || 
+        (existing().get('participantId', '') == request.auth.uid && incoming().get('participantId', '') == request.auth.uid && isMatchupOpen(existing().get('matchupId', '')))
+      );
+      allow delete: if isSignedIn() && (
+        resource == null || 
+        (existing().get('participantId', '') == request.auth.uid && isMatchupOpen(existing().get('matchupId', '')))
+      );
     }
 
     // achievements
@@ -228,5 +270,10 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-          }
+          
+    match /system_errors/{errorId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+  }
 }

@@ -10,6 +10,9 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initFirebase } from './lib/firebase.ts';
+import { logError } from './lib/errorLogger';
+import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
+
 
 // Suppress known React warnings from Recharts about non-boolean attributes passed to SVG elements
 const originalConsoleError = console.error;
@@ -20,10 +23,21 @@ console.error = (...args) => {
   originalConsoleError(...args);
 };
 
+
+// Catch unhandled runtime errors
+window.addEventListener('error', (event) => {
+  logError('Global Window Error', event.error || event.message);
+});
+
+// Catch unhandled async promises (e.g., silent try/catch omissions)
+window.addEventListener('unhandledrejection', (event) => {
+  logError('Unhandled Promise Rejection', event.reason);
+});
+
 initFirebase().catch(e => console.error("Firebase init failed", e)).then(() => {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
-      <App />
+      <GlobalErrorBoundary><App /></GlobalErrorBoundary>
     </StrictMode>,
   );
 });

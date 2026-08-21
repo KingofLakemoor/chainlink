@@ -86,7 +86,7 @@ export const DashboardPick = React.memo(function DashboardPick({ activePick, act
                 <FirebaseImage src={activeMatchup.awayTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-20 h-20 object-contain flex items-center justify-center rounded-full border border-zinc-700 bg-zinc-900" alt={activeMatchup.awayTeam.name} loading="lazy" />
                 <div className="flex flex-col items-center text-center">
                   <span className="text-base font-black text-[#22c55e] tracking-widest">{activeMatchup.metadata?.yesOnlyLabel || 'YES'}</span>
-                  <span className="text-xs font-semibold text-zinc-200 mt-1">{activeMatchup.awayTeam.name}</span>
+                  <span className="text-xs font-semibold text-zinc-200 mt-1">{activeMatchup.awayTeam.shortName || activeMatchup.awayTeam.name}</span>
                 </div>
                 {activePick?.pick?.id === 'OVER' && <span className="text-xs bg-green-500 text-green-950 px-2 py-0.5 rounded font-bold mt-1">YOUR PICK</span>}
               </div>
@@ -94,8 +94,8 @@ export const DashboardPick = React.memo(function DashboardPick({ activePick, act
           ) : (
             <div className="flex items-center justify-center gap-8 w-full">
               <div className={cn("flex flex-col items-center gap-3 p-4 rounded-xl border relative", activePick?.pick?.id === (activeMatchup.type === 'OVER_UNDER' ? 'OVER' : activeMatchup.awayTeam.id) ? 'border-green-500 bg-green-500/10' : 'border-zinc-800 opacity-50')}>
-                <FirebaseImage src={activeMatchup.type === 'OVER_UNDER' ? '/images/over.png' : activeMatchup.awayTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-16 h-16 object-contain flex items-center justify-center" alt={activeMatchup.type === 'OVER_UNDER' ? 'OVER' : activeMatchup.awayTeam.name} loading="lazy" />
-                <span className="text-sm font-bold text-zinc-200">{activeMatchup.type === 'OVER_UNDER' ? 'OVER' : activeMatchup.awayTeam.name}</span>
+                <FirebaseImage src={activeMatchup.type === 'OVER_UNDER' ? '/images/over.png' : activeMatchup.awayTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-16 h-16 object-contain flex items-center justify-center" alt={activeMatchup.type === 'OVER_UNDER' ? 'OVER' : (activeMatchup.awayTeam.shortName || activeMatchup.awayTeam.name)} loading="lazy" />
+                <span className="text-sm font-bold text-zinc-200">{activeMatchup.type === 'OVER_UNDER' ? 'OVER' : (activeMatchup.awayTeam.shortName || activeMatchup.awayTeam.name)}</span>
                 {activePick?.pick?.id === (activeMatchup.type === 'OVER_UNDER' ? 'OVER' : activeMatchup.awayTeam.id) && <span className="text-xs bg-green-500 text-green-950 px-2 py-0.5 rounded font-bold mt-1">YOUR PICK</span>}
                 {activeMatchup.type === 'SPREAD' && activeMatchup.metadata?.spread !== undefined && (
                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
@@ -115,8 +115,8 @@ export const DashboardPick = React.memo(function DashboardPick({ activePick, act
               </div>
               <div className="text-zinc-500 font-bold text-xl">VS</div>
               <div className={cn("flex flex-col items-center gap-3 p-4 rounded-xl border relative", activePick?.pick?.id === (activeMatchup.type === 'OVER_UNDER' ? 'UNDER' : activeMatchup.homeTeam.id) ? 'border-green-500 bg-green-500/10' : 'border-zinc-800 opacity-50')}>
-                <FirebaseImage src={activeMatchup.type === 'OVER_UNDER' ? '/images/under.png' : activeMatchup.homeTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-16 h-16 object-contain flex items-center justify-center" alt={activeMatchup.type === 'OVER_UNDER' ? 'UNDER' : activeMatchup.homeTeam.name} loading="lazy" />
-                <span className="text-sm font-bold text-zinc-200">{activeMatchup.type === 'OVER_UNDER' ? 'UNDER' : activeMatchup.homeTeam.name}</span>
+                <FirebaseImage src={activeMatchup.type === 'OVER_UNDER' ? '/images/under.png' : activeMatchup.homeTeam.image} fallback={activeMatchup.league === 'SCRIPTLESS' ? '/images/scriptless.png' : undefined} fallbackIcon={activeMatchup.league === 'SCRIPTLESS' ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} className="w-16 h-16 object-contain flex items-center justify-center" alt={activeMatchup.type === 'OVER_UNDER' ? 'UNDER' : (activeMatchup.homeTeam.shortName || activeMatchup.homeTeam.name)} loading="lazy" />
+                <span className="text-sm font-bold text-zinc-200">{activeMatchup.type === 'OVER_UNDER' ? 'UNDER' : (activeMatchup.homeTeam.shortName || activeMatchup.homeTeam.name)}</span>
                 {activePick?.pick?.id === (activeMatchup.type === 'OVER_UNDER' ? 'UNDER' : activeMatchup.homeTeam.id) && <span className="text-xs bg-green-500 text-green-950 px-2 py-0.5 rounded font-bold mt-1">YOUR PICK</span>}
                 {activeMatchup.type === 'SPREAD' && activeMatchup.metadata?.spread !== undefined && (
                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">

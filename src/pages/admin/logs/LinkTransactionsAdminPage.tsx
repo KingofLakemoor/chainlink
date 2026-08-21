@@ -29,7 +29,7 @@ export default function LinkTransactionsAdminPage() {
       }
       
       const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const docs = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
       
       if (loadMore) {
         setLogs(prev => [...prev, ...docs]);

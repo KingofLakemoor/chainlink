@@ -44,6 +44,7 @@ const ADMIN_MENU_SECTIONS = [
           { id: 'users-links', label: 'Manage Links', path: '/admin/users/links' },
           { id: 'logs-transactions', label: 'Link Transactions', path: '/admin/logs/transactions' },
           { id: 'logs-orders', label: 'Merch Orders', path: '/admin/logs/orders' },
+          { id: 'logs-errors', label: 'System Errors', path: '/admin/logs/errors' },
           { id: 'users-referrals', label: 'Referrals', path: '/admin/referrals' },
         ]
       },

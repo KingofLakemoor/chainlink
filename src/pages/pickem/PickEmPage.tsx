@@ -461,7 +461,7 @@ export default function PickEmPage() {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : (m.awayTeam.shortName || m.awayTeam.name)} className="w-8 h-8 object-contain" loading="lazy" />
                             {profile?.premium && isAwayFavorite && m.type !== 'OVER_UNDER' && (
                               <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
                                 <Star className="w-2.5 h-2.5 text-white fill-current" />
@@ -469,7 +469,7 @@ export default function PickEmPage() {
                             )}
                           </div>
                           <div className="flex flex-row items-baseline gap-2">
-                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name}</span>
+                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : (m.awayTeam.shortName || m.awayTeam.name)}</span>
                             {isSpread && !isSpreadPendingLock && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `-${spread}` : `+${Math.abs(spread)}`}</span>
                             )}
@@ -508,7 +508,7 @@ export default function PickEmPage() {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name} className="w-8 h-8 object-contain" loading="lazy" />
+                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : (m.homeTeam.shortName || m.homeTeam.name)} className="w-8 h-8 object-contain" loading="lazy" />
                             {profile?.premium && isHomeFavorite && m.type !== 'OVER_UNDER' && (
                               <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
                                 <Star className="w-2.5 h-2.5 text-white fill-current" />
@@ -516,7 +516,7 @@ export default function PickEmPage() {
                             )}
                           </div>
                           <div className="flex flex-row items-baseline gap-2">
-                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name}</span>
+                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : (m.homeTeam.shortName || m.homeTeam.name)}</span>
                             {isSpread && !isSpreadPendingLock && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `+${spread}` : `-${Math.abs(spread)}`}</span>
                             )}

@@ -68,15 +68,7 @@ export const initFirebase = async () => {
 
   try {
     const databaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
-    // Explicitly initialize Firestore to handle offline cache issues gracefully (like the "client is offline" error)
-    try {
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
-      }, databaseId);
-    } catch (innerErr: any) {
-      // If initializeFirestore fails (already initialized), fallback to getFirestore
-      db = getFirestore(app, databaseId);
-    }
+    db = getFirestore(app, databaseId);
   } catch (e) {
     console.error("Firestore initialization failed:", e);
   }

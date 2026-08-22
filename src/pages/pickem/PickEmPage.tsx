@@ -1,11 +1,12 @@
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
+import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { collection, getDocs, doc, query, where, setDoc, getDoc, deleteDoc, documentId } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export default function PickEmPage() {
@@ -321,7 +322,15 @@ export default function PickEmPage() {
           )}
           {title}
         </h1>
-        <p className="text-zinc-400 text-lg">{subtitle}</p>
+        <p className="text-zinc-400 text-lg mb-4">{subtitle}</p>
+        
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-200 text-sm max-w-3xl mt-6">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-amber-400">Note on Spreads</p>
+            <p>NFL and CFB spreads lock for the week on <strong>Thursday morning at 2 AM AZ Time</strong>. Please verify your picks before the lock to ensure the spread didn't shift on you.</p>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -461,7 +470,7 @@ export default function PickEmPage() {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : (m.awayTeam.shortName || m.awayTeam.name)} className="w-8 h-8 object-contain" loading="lazy" />
+                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : getTeamShortName(m, false)} className="w-8 h-8 object-contain" loading="lazy" />
                             {profile?.premium && isAwayFavorite && m.type !== 'OVER_UNDER' && (
                               <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
                                 <Star className="w-2.5 h-2.5 text-white fill-current" />
@@ -469,7 +478,7 @@ export default function PickEmPage() {
                             )}
                           </div>
                           <div className="flex flex-row items-baseline gap-2">
-                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : (m.awayTeam.shortName || m.awayTeam.name)}</span>
+                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : getTeamShortName(m, false)}</span>
                             {isSpread && !isSpreadPendingLock && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `-${spread}` : `+${Math.abs(spread)}`}</span>
                             )}
@@ -508,7 +517,7 @@ export default function PickEmPage() {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : (m.homeTeam.shortName || m.homeTeam.name)} className="w-8 h-8 object-contain" loading="lazy" />
+                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : getTeamShortName(m, true)} className="w-8 h-8 object-contain" loading="lazy" />
                             {profile?.premium && isHomeFavorite && m.type !== 'OVER_UNDER' && (
                               <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
                                 <Star className="w-2.5 h-2.5 text-white fill-current" />
@@ -516,7 +525,7 @@ export default function PickEmPage() {
                             )}
                           </div>
                           <div className="flex flex-row items-baseline gap-2">
-                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : (m.homeTeam.shortName || m.homeTeam.name)}</span>
+                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : getTeamShortName(m, true)}</span>
                             {isSpread && !isSpreadPendingLock && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `+${spread}` : `-${Math.abs(spread)}`}</span>
                             )}

@@ -656,14 +656,8 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
               if (hasPicks) {
                 finalActive = true;
-              } else if (existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null) {
-                if ((scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL')) {
-                  finalActive = true;
-                } else if (scrapedMatchup.metadata?.mlHome === null && scrapedMatchup.metadata?.mlAway === null) {
-                  finalActive = false;
-                } else {
-                  finalActive = true;
-                }
+              } else if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL') {
+                finalActive = true;
               } else {
                 finalActive = false;
               }

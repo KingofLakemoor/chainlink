@@ -30,7 +30,9 @@ export default function PlayDashboard() {
     let unsubMatchups = () => {};
 
     const setupMatchups = () => {
-      unsubMatchups = onSnapshot(collection(db, 'matchups'), (snap) => {
+      // Significantly reduce reads by only fetching non-final matches
+      const q = query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']));
+      unsubMatchups = onSnapshot(q, (snap) => {
         if (snap.empty) {
           setAllFetchedMatchups([]);
         } else {
@@ -349,7 +351,25 @@ export default function PlayDashboard() {
     .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
   const activePick: any = activePicks[0];
   const queuedPick: any = activePicks[1];
-  const activeMatchup = activePick ? allFetchedMatchups.find(m => m.gameId === activePick.matchupId) : null;
+  
+  // We need to ensure we have the matchup for the active pick, even if it dropped from the real-time query above (e.g. became STATUS_FINAL before the backend resolved the pick)
+  const [fallbackActiveMatchup, setFallbackActiveMatchup] = useState<any>(null);
+  
+  useEffect(() => {
+     if (activePick) {
+         // if it's already in allFetchedMatchups, we don't strictly need to fetch it, but just in case it drops:
+         const unsub = onSnapshot(doc(db, 'matchups', activePick.matchupId), (docSnap) => {
+             if (docSnap.exists()) {
+                 setFallbackActiveMatchup({ id: docSnap.id, ...docSnap.data() });
+             }
+         });
+         return () => unsub();
+     } else {
+         setFallbackActiveMatchup(null);
+     }
+  }, [activePick?.matchupId]);
+
+  const activeMatchup = activePick ? (allFetchedMatchups.find(m => m.gameId === activePick.matchupId) || fallbackActiveMatchup) : null;
   // We don't filter out queuedPick from available matchups below because the instructions say we should just display it underneath My Pick,
   // but let's check if the queued matchup should be filtered out from the main list.
   // Normally the activePick is filtered out. We should probably filter out both activePick and queuedPick.

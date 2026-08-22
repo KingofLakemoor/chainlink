@@ -63,9 +63,12 @@ export default function Link4Page() {
   const [isSelectingPick, setIsSelectingPick] = useState(false);
   const [allMatchups, setAllMatchups] = useState<any[]>([]);
   const [sponsors, setSponsors] = useState<any[]>([]);
+  const [fallbackMatchups, setFallbackMatchups] = useState<any[]>([]);
 
   useEffect(() => {
-    const unsubMatchups = onSnapshot(collection(db, 'matchups'), (snap) => {
+    // Significantly reduce reads by only fetching non-final matches
+    const q = query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']));
+    const unsubMatchups = onSnapshot(q, (snap) => {
       const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllMatchups(matchups);
     }, (error) => {
@@ -134,6 +137,20 @@ export default function Link4Page() {
 
   useEffect(() => {
     if (!user || !activeSegmentId) return;
+
+    // Listen to specific matchups for the user's picks in case they drop from the active query
+    let unsubFallbackMatchups = () => {};
+    const setupFallbackMatchups = (pickDataPicks: any[]) => {
+       const matchupIds = pickDataPicks.map(p => p.id.replace('pick-', '')).filter(Boolean);
+       if (matchupIds.length > 0) {
+           const fallbackQ = query(collection(db, 'matchups'), where('gameId', 'in', matchupIds));
+           unsubFallbackMatchups = onSnapshot(fallbackQ, (snap) => {
+               setFallbackMatchups(snap.docs.map(d => ({id: d.id, ...d.data()})));
+           });
+       } else {
+           setFallbackMatchups([]);
+       }
+    };
 
     // Fetch user's picks if they exist
     const fetchUserPicks = async () => {
@@ -217,7 +234,7 @@ export default function Link4Page() {
 
            const rawPicks = Array.isArray(userPickData.picks) ? userPickData.picks : (userPickData.picks ? Object.values(userPickData.picks) : []);
            const processedPicks = rawPicks.map((pick: any) => {
-              const pickMatchup = allMatchups.find(m => m.gameId === pick.id.replace('pick-', ''));
+              const pickMatchup = allMatchups.find(m => m.gameId === pick.id.replace('pick-', '')) || fallbackMatchups.find(m => m.gameId === pick.id.replace('pick-', ''));
               let status = pick.status || 'PENDING';
 
               // If backend hasn't graded it yet, do a local calculation for display
@@ -291,7 +308,7 @@ export default function Link4Page() {
                  if (pick.score !== undefined && pick.score !== null && pick.score !== 0) {
                     potentialScore += pick.score;
                  } else {
-                    const pickMatchup = allMatchups.find(m => m.gameId === pick.id.replace('pick-', ''));
+                    const pickMatchup = allMatchups.find(m => m.gameId === pick.id.replace('pick-', '')) || fallbackMatchups.find(m => m.gameId === pick.id.replace('pick-', ''));
                     if (pickMatchup) {
                        const pickedHome = pick.name === pickMatchup.homeTeam.name;
                        let ml = pickedHome ? pickMatchup.metadata?.mlHome : pickMatchup.metadata?.mlAway;
@@ -338,7 +355,7 @@ export default function Link4Page() {
     });
 
     return () => unsubPicks();
-  }, [activeSegmentId, allMatchups, user]);
+  }, [activeSegmentId, allMatchups, fallbackMatchups, user]);
 
   useEffect(() => {
     if (!endTime) return;

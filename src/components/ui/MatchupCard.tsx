@@ -1,3 +1,4 @@
+import { getTeamShortName } from "../../lib/teamUtils";
 import React from 'react';
 import { Trophy, Link2, X, Star } from 'lucide-react';
 import { cn, formatUpcomingTime } from '../../lib/utils';
@@ -141,7 +142,7 @@ export const MatchupCard = React.memo(function MatchupCard({
       {/* Matchup content */}
       <div className="p-3 sm:p-5 flex-1 flex flex-col">
         <div className="text-base font-bold text-zinc-100 mb-6">
-          {m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title}
+          {(m.league === 'NFL' && m.type === 'SPREAD' && m.metadata?.spread !== undefined && !m.title.includes('ATS')) ? `${m.title} - ATS` : (m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title)}
         </div>
         <div className="flex-1 flex flex-col justify-center">
         {m.metadata?.isYesOnly ? (
@@ -199,7 +200,7 @@ export const MatchupCard = React.memo(function MatchupCard({
       ) : (
         <div className="flex items-center justify-between">
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'OVER' : (m.awayTeam.shortName || m.awayTeam.name)}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'OVER' : getTeamShortName(m, false)}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}
@@ -348,7 +349,7 @@ export const MatchupCard = React.memo(function MatchupCard({
            </div>
 
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'UNDER' : `@${m.homeTeam.shortName || m.homeTeam.name}`}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'UNDER' : `@${getTeamShortName(m, true)}`}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}

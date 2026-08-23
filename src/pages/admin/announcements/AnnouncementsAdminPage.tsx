@@ -29,7 +29,7 @@ export default function AnnouncementsAdminPage() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(100));
       const snap = await getDocs(q);
       setAnnouncements(snap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement)));
     } catch (e) {

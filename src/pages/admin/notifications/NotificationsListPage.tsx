@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, orderBy, limit, where, documentId } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
@@ -15,16 +15,25 @@ export default function NotificationsListPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch users for mapping targetUserId to username
-      const usersSnap = await getDocs(collection(db, 'users'));
-      const mapping: Record<string, string> = {};
-      usersSnap.docs.forEach(d => {
-        mapping[d.id] = d.data().username || d.data().email || d.id;
-      });
-      setUserMap(mapping);
+      const snap = await getDocs(query(collection(db, 'notifications'), orderBy('scheduledTime', 'desc'), limit(100)));
+      const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      setNotifications(notifs);
 
-      const snap = await getDocs(collection(db, 'notifications'));
-      setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const targetUids = [...new Set(notifs.filter(n => n.targetUserId).map(n => n.targetUserId))];
+      const mapping: Record<string, string> = {};
+      
+      const chunkArray = (arr: any[], size: number): any[][] => arr.length ? [arr.slice(0, size), ...chunkArray(arr.slice(size), size)] : [];
+      if (targetUids.length > 0) {
+        const userChunks = chunkArray(targetUids, 30);
+        for (const chunk of userChunks) {
+           const uSnap = await getDocs(query(collection(db, 'users'), where(documentId(), 'in', chunk)));
+           uSnap.forEach(doc => {
+              const u = doc.data();
+              mapping[doc.id] = u.username || u.email || doc.id;
+           });
+        }
+      }
+      setUserMap(mapping);
     } catch (e) {
       console.error(e);
     } finally {

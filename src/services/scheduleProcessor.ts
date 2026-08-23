@@ -153,7 +153,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
       // Gather pickem match IDs to force activity
       const pickemMatchupIds = new Set<string>();
       try {
-          const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').get();
+          const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
           for (const doc of pickemMatchupsSnap.docs) {
               const gameId = doc.data().gameId;
               if (gameId) pickemMatchupIds.add(String(gameId));
@@ -467,6 +467,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                 const updateData: any = {
                   ...data,
                   status: newStatus,
+
                   statusDesc: newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming',
                   active: isProtected ? true : newActive,
                   abandoned: isProtected ? false : newAbandoned,
@@ -914,9 +915,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               scrapedMatchup.status === 'STATUS_FINAL' ||
               scrapedMatchup.status === 'STATUS_POSTPONED') {
             active = false;
-            if (scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET' && scrapedMatchup.league !== 'RPL') {
-              abandoned = true;
-            }
+            abandoned = true;
           }
 
           if (bracketMatchIds.has(gameId) || pickemMatchupIds.has(gameId)) {

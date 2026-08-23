@@ -12,7 +12,7 @@ export default function PremiumStatusAdminPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(100));
       const snap = await getDocs(q);
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {

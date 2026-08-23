@@ -2,7 +2,7 @@ import { FirebaseImage } from "../../components/ui/FirebaseImage";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { Link2, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -29,7 +29,7 @@ export default function MyPicksPage() {
              { id: '3', status: 'PENDING', updatedAt: Date.now() - 2 * 60 * 60 * 1000, matchupId: 'mock-2', pick: { id: 'teamC', name: 'Spartak Moscow', image: 'https://via.placeholder.com/150' } },
            ]);
         } else {
-          const q = query(collection(db, 'picks'), where('userId', '==', user.uid));
+          const q = query(collection(db, 'picks'), where('userId', '==', user.uid), orderBy('updatedAt', 'desc'), limit(100));
           const snap = await getDocs(q);
           const fetchedPicks = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) }));
           setPicks(fetchedPicks);
@@ -57,7 +57,7 @@ export default function MyPicksPage() {
     const fetchMatchupsForPicks = async () => {
         try {
             const uniqueMatchupIds = Array.from(new Set(picks.map(p => p.matchupId))).filter(Boolean);
-            const fetchedMatchups = [];
+            const fetchedMatchups: any[] = [];
             for (let i = 0; i < uniqueMatchupIds.length; i += 30) {
                 const chunk = uniqueMatchupIds.slice(i, i + 30);
                 const q = query(collection(db, 'matchups'), where('gameId', 'in', chunk));
@@ -80,7 +80,7 @@ export default function MyPicksPage() {
         const q = query(collection(db, 'matchups'), where('gameId', 'in', pendingIds.slice(0, 30)));
         unsub = onSnapshot(q, (snap) => {
             if (!snap.empty && isMounted) {
-                const updatedMatchups = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                const updatedMatchups = snap.docs.map(d => ({id: d.id, ...d.data()} as any));
                 setMatchups(prev => {
                     const newMatchups = [...prev];
                     updatedMatchups.forEach(um => {

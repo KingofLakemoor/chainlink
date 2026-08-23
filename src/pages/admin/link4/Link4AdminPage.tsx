@@ -225,8 +225,8 @@ export default function Link4AdminPage() {
     setIsSyncing(true);
     setSyncStatus(null);
     try {
-      // 1. Get all picked matchups to exclude them from updates
-      const picksSnap = await getDocs(collection(db, 'link4Picks'));
+      // 1. Get recent picked matchups to exclude them from updates (bounded to avoid downloading the whole database)
+      const picksSnap = await getDocs(query(collection(db, 'link4Picks'), orderBy('createdAt', 'desc'), limit(1000)));
       const pickedGameIds = new Set<string>();
       picksSnap.docs.forEach(d => {
          const data = d.data();

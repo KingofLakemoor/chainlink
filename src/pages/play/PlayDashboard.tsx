@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
-import { collection, query, where, onSnapshot, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, setDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
@@ -51,7 +51,8 @@ export default function PlayDashboard() {
 
     const setupPicksListeners = () => {
       if (user) {
-        const q = query(collection(db, 'picks'), where('userId', '==', user.uid));
+        // Bound the user picks to recent history (50 picks) to prevent unbounded growth
+        const q = query(collection(db, 'picks'), where('userId', '==', user.uid), orderBy('updatedAt', 'desc'), limit(50));
         unsubPicks = onSnapshot(q, (pickSnap) => {
           const picksInfo: Record<string, any> = {};
           pickSnap.docs.forEach(d => {
@@ -63,14 +64,15 @@ export default function PlayDashboard() {
           handleFirestoreError(error, OperationType.LIST, `picks/user/${user.uid}`);
         });
 
-        // Fetch all pending picks for global hot rating
-        const globalQ = query(collection(db, 'picks'), where('status', '==', 'PENDING'));
-        unsubGlobalPicks = onSnapshot(globalQ, (globalPickSnap) => {
+        // Fetch a bounded sample for global hot rating to avoid fetching the entire database
+        const globalQ = query(collection(db, 'picks'), where('status', '==', 'PENDING'), limit(200));
+        getDocs(globalQ).then(globalPickSnap => {
           const allUpcomingPicks = globalPickSnap.docs.map(d => d.data());
           setGlobalUpcomingPicks(allUpcomingPicks);
-        }, (error) => {
+        }).catch(error => {
           handleFirestoreError(error, OperationType.LIST, 'picks/pending');
         });
+        unsubGlobalPicks = () => {};
       } else {
         setUserPicks({});
         setGlobalUpcomingPicks([]);
@@ -153,7 +155,7 @@ export default function PlayDashboard() {
 
     const filtered = allFetchedMatchups.filter((m: any) => {
       if (m.abandoned) return false;
-      if (m.active === false) return false;
+      if (m.status === 'STATUS_SCHEDULED' && m.active === false) return false;
 
       const isFinal = m.status === 'STATUS_FINAL' || m.statusDesc?.toLowerCase().includes('final');
       const isLive = m.status !== 'STATUS_SCHEDULED' && !isFinal && m.status !== 'STATUS_POSTPONED' && m.status !== 'STATUS_CANCELED';
@@ -164,8 +166,13 @@ export default function PlayDashboard() {
       }
 
       if (!((isLive || isUpcoming) && !isFinal)) return false;
-
+      
       if (filterType === 'available' && (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime))) return false;
+
+      if (m.type === 'MONEYLINE' && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null) && (m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
+          return false;
+      }
+      
       if (filterType === 'chain' && !m.featured) return false;
 
       if (selectedSport === 'FOOTBALL' && !['NFL', 'CFB', 'CFL'].includes(m.league)) return false;

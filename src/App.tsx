@@ -34,8 +34,8 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
   useEffect(() => {
     if (!user) return;
     
-    // Check for active PickEm
-    const pickemUnsub = onSnapshot(collection(db, 'pickemCampaigns'), (snap) => {
+    // Check for active PickEm using getDocs instead of a global websocket listener to save massive reads
+    getDocs(collection(db, 'pickemCampaigns')).then((snap) => {
        const now = Date.now();
        let active = false;
        snap.forEach(doc => {
@@ -46,9 +46,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
           else if (now >= startToCheck && now <= c.endDate) active = true;
        });
        setHasActivePickEm(active);
-    }, () => {});
-
-    return () => pickemUnsub();
+    }).catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -58,7 +56,8 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
     const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
     const q = query(collection(db, 'link4Segments'), where('endTime', '>', twelveHoursAgo));
     
-    const link4Unsub = onSnapshot(q, (snap) => {
+    // Use getDocs instead of a global websocket listener to save resources
+    getDocs(q).then((snap) => {
         let active = false;
         snap.forEach(doc => {
             const seg = doc.data();
@@ -67,9 +66,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
             }
         });
         setHasActiveLink4(active);
-    }, () => {});
-    
-    return () => link4Unsub();
+    }).catch(() => {});
   }, [user]);
 
   const NavItem = ({ icon: Icon, label, path, showBadge = false }: { icon: any, label: string, path: string, showBadge?: boolean }) => {

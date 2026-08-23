@@ -24,7 +24,8 @@ export function startAutoSyncJob() {
       });
 
       // Ensure any league in an active Link4 Segment is synced
-      const link4SegmentsSnap = await adminDb.collection('link4Segments').get();
+      // Only fetch recent segments to avoid downloading years of history
+      const link4SegmentsSnap = await adminDb.collection('link4Segments').orderBy('endTime', 'desc').limit(10).get();
       const nowMs = Date.now();
       link4SegmentsSnap.docs.forEach(doc => {
           const seg = doc.data();

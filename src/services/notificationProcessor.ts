@@ -66,13 +66,31 @@ async function processSingleNotification(notifId: string, notifData: any) {
         }
       });
     } else if (audience === 'GLOBAL') {
-      const usersSnap = await adminDb!.collection('users').where('fcmTokens', '!=', []).get();
-      usersSnap.forEach(u => {
-        const tokens = u.data().fcmTokens;
-        if (Array.isArray(tokens)) {
-          targetTokens.push(...tokens);
+      // Use pagination to avoid downloading the entire user database into memory simultaneously
+      let lastDoc: any = null;
+      let hasMore = true;
+      
+      while (hasMore) {
+        let q = adminDb!.collection('users').orderBy('__name__').limit(500);
+        if (lastDoc) {
+          q = q.startAfter(lastDoc);
         }
-      });
+        
+        const usersSnap = await q.get();
+        if (usersSnap.empty) {
+          hasMore = false;
+          break;
+        }
+        
+        lastDoc = usersSnap.docs[usersSnap.docs.length - 1];
+        
+        usersSnap.docs.forEach(u => {
+          const tokens = u.data().fcmTokens;
+          if (Array.isArray(tokens) && tokens.length > 0) {
+            targetTokens.push(...tokens);
+          }
+        });
+      }
     }
     
     targetTokens = [...new Set(targetTokens)];

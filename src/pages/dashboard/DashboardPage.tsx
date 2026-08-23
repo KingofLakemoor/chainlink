@@ -7,14 +7,14 @@ import { ShoppingCart, Trophy, Link2, Coins, ChevronRight, Mail, Calendar,  } fr
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { db } from '../../lib/firebase';
-import { collection, getDocs, query, where, documentId, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, documentId, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { DashboardPick, DashboardPickSkeleton } from '../../components/dashboard/dashboard-pick';
 
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../../components/ui/titles';
 export default function DashboardPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, chain } = useAuth();
   const [picks, setPicks] = React.useState<any[]>([]);
   const [inventoryItems, setInventoryItems] = React.useState<any[]>([]);
   const [allFetchedMatchups, setAllFetchedMatchups] = React.useState<any[]>([]);
@@ -48,7 +48,7 @@ export default function DashboardPage() {
           return;
         }
 
-        const q = query(collection(db, 'picks'), where('userId', '==', user.uid));
+        const q = query(collection(db, 'picks'), where('userId', '==', user.uid), where('status', '==', 'PENDING'), limit(1));
         const snap = await getDocs(q);
         const fetchedPicks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPicks(fetchedPicks);
@@ -129,40 +129,7 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const currentMonthStats = React.useMemo(() => {
-    if (!picks || picks.length === 0) return { wins: 0, losses: 0, pushes: 0, longestWinChain: 0, longestLossChain: 0, currentChain: 0 };
-
-    const sortedPicks = [...picks].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    let stats = { wins: 0, losses: 0, pushes: 0, longestWinChain: 0, longestLossChain: 0, currentChain: 0 };
-    let currentChain = 0;
-
-    sortedPicks.forEach(pick => {
-      if (pick.status === 'PENDING') return;
-
-      const date = new Date(pick.updatedAt || Date.now());
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-      if (monthKey === currentMonthKey) {
-        if (pick.status === 'WIN') {
-          stats.wins += 1;
-          currentChain = currentChain < 0 ? 1 : currentChain + 1;
-          stats.longestWinChain = Math.max(stats.longestWinChain, currentChain);
-        } else if (pick.status === 'LOSS') {
-          stats.losses += 1;
-          currentChain = currentChain > 0 ? -1 : (currentChain === 0 ? -1 : currentChain - 1);
-          stats.longestLossChain = Math.max(stats.longestLossChain, Math.abs(currentChain));
-        } else if (pick.status === 'PUSH') {
-          stats.pushes += 1;
-        }
-        stats.currentChain = currentChain;
-      }
-    });
-
-    return stats;
-  }, [picks]);
+  
 
   const equippedBannerItem = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.PROFILE_BANNER);
   const equippedBannerImage = equippedBannerItem?.image;
@@ -292,20 +259,20 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-2 gap-4">
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Wins</span>
-                          <span className="text-2xl font-bold text-green-500">{isNaN(currentMonthStats.wins) ? 0 : currentMonthStats.wins}</span>
+                          <span className="text-2xl font-bold text-green-500">{isNaN((profile?.stats?.wins || 0)) ? 0 : (profile?.stats?.wins || 0)}</span>
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Losses</span>
-                          <span className="text-2xl font-bold text-red-500">{isNaN(currentMonthStats.losses) ? 0 : currentMonthStats.losses}</span>
+                          <span className="text-2xl font-bold text-red-500">{isNaN((profile?.stats?.losses || 0)) ? 0 : (profile?.stats?.losses || 0)}</span>
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Pushes</span>
-                          <span className="text-2xl font-bold text-zinc-300">{isNaN(currentMonthStats.pushes) ? 0 : currentMonthStats.pushes}</span>
+                          <span className="text-2xl font-bold text-zinc-300">{isNaN((profile?.stats?.pushes || 0)) ? 0 : (profile?.stats?.pushes || 0)}</span>
                       </div>
                       <div className="bg-[#18181a] rounded-xl p-4 border border-zinc-800 flex flex-col items-center">
                           <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Chain</span>
-                          <span className={cn("text-2xl font-bold", currentMonthStats.currentChain > 0 ? "text-green-500" : currentMonthStats.currentChain < 0 ? "text-red-500" : "text-zinc-500")}>
-                             {currentMonthStats.currentChain > 0 ? `W${currentMonthStats.currentChain}` : currentMonthStats.currentChain < 0 ? `L${Math.abs(currentMonthStats.currentChain)}` : '-'}
+                          <span className={cn("text-2xl font-bold", (chain?.chain || 0) > 0 ? "text-green-500" : (chain?.chain || 0) < 0 ? "text-red-500" : "text-zinc-500")}>
+                             {(chain?.chain || 0) > 0 ? `W${chain?.chain || 0}` : (chain?.chain || 0) < 0 ? `L${Math.abs(chain?.chain || 0)}` : '-'}
                           </span>
                       </div>
                   </div>

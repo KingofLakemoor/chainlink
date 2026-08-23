@@ -13,7 +13,7 @@ export default function OrdersAdminPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(100));
       const snap = await getDocs(q);
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setOrders(docs);

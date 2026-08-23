@@ -178,7 +178,7 @@ export default function ProfilePage() {
           return;
         }
 
-        const q = query(collection(db, 'picks'), where('userId', '==', user.uid));
+        const q = query(collection(db, 'picks'), where('userId', '==', user.uid), orderBy('updatedAt', 'desc'), limit(300));
         const snap = await getDocs(q);
         const fetchedPicks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPicks(fetchedPicks);

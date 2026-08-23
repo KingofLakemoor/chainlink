@@ -190,7 +190,10 @@ export default function Link4Page() {
 
     // Listen to all picks for this segment to calculate the leaderboard
     if (!user) return;
-    const unsubPicks = onSnapshot(query(collection(db, 'link4Picks'), where('segmentId', '==', activeSegmentId)), async (snap) => {
+    const fetchLeaderboard = async () => {
+        try {
+            const snap = await getDocs(query(collection(db, 'link4Picks'), where('segmentId', '==', activeSegmentId)));
+            
         const allUserPicks = snap.docs.map(d => d.data());
 
         // Wait for allMatchups to be ready
@@ -349,12 +352,11 @@ export default function Link4Page() {
            return b.score - a.score;
         });
         setLeaderboardData(leaderboardEntries);
-
-    }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, `link4Picks/${activeSegmentId}`);
-    });
-
-    return () => unsubPicks();
+        } catch (error) {
+            handleFirestoreError(error as any, OperationType.LIST, `link4Picks/${activeSegmentId}`);
+        }
+    };
+    fetchLeaderboard();
   }, [activeSegmentId, allMatchups, fallbackMatchups, user]);
 
   useEffect(() => {

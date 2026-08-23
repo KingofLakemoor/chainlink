@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Link } from 'react-router-dom';
 import { Search, Trash2, Edit } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function AdminPicksPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const q = filterPending ? query(collection(db, 'picks'), where('status', '==', 'PENDING')) : collection(db, 'picks');
+      const q = filterPending ? query(collection(db, 'picks'), where('status', '==', 'PENDING'), limit(1000)) : query(collection(db, 'picks'), limit(1000));
       const snap = await getDocs(q);
 
       const rawPicks = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));

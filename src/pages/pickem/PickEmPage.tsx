@@ -149,9 +149,11 @@ export default function PickEmPage() {
 
       setLeaderboardLoading(true);
       try {
+        // Limited to recent picks to prevent O(N) client-side memory lockups
         const pQuery = query(
           collection(db, 'pickemPicks'),
-          where('campaignId', '==', selectedCampaign.id)
+          where('campaignId', '==', selectedCampaign.id),
+          limit(3000)
         );
         const pSnap = await getDocs(pQuery);
 

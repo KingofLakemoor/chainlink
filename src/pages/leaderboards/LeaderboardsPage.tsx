@@ -90,26 +90,35 @@ export default function LeaderboardsPage() {
 
         const token = await auth.currentUser?.getIdToken();
 
-        const [usersRes, chainsRes, pendingPicksSnap, shopItemsSnap] = await Promise.all([
+        const [usersRes, chainsRes, shopItemsSnap] = await Promise.all([
            fetch('/api/users/public', {
               headers: { 'Authorization': `Bearer ${token}` }
            }),
            fetch('/api/chains', {
               headers: { 'Authorization': `Bearer ${token}` }
            }),
-           getDocs(query(collection(db, 'picks'), where('status', '==', 'PENDING'))),
            getDocs(collection(db, 'shopItems'))
         ]);
 
         if (!usersRes.ok) throw new Error("Failed to fetch leaderboard data");
         const usersData = await usersRes.json();
         const usersList = usersData.users || [];
+        
+        const topUserIds = usersList.map((u: any) => u.id);
+        const pendingPicks: any[] = [];
+        if (topUserIds.length > 0) {
+            const chunkArray = (arr: any[], size: number) => arr.length ? [arr.slice(0, size), ...chunkArray(arr.slice(size), size)] : [];
+            const userChunks = chunkArray(topUserIds, 30);
+            for (const chunk of userChunks) {
+                const pickSnap = await getDocs(query(collection(db, 'picks'), where('userId', 'in', chunk), where('status', '==', 'PENDING')));
+                pickSnap.docs.forEach(d => pendingPicks.push(d.data()));
+            }
+        }
 
         const userPicksMap = new Map<string, any[]>();
         const pendingMatchupIds = new Set<string>();
 
-        pendingPicksSnap.docs.forEach(doc => {
-            const pick = doc.data() as any;
+        pendingPicks.forEach(pick => {
             if (!userPicksMap.has(pick.userId)) {
                 userPicksMap.set(pick.userId, []);
             }

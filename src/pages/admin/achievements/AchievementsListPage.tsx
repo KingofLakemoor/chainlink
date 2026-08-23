@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
@@ -18,7 +18,7 @@ export default function AchievementsListPage() {
       const achSnap = await getDocs(collection(db, 'achievements'));
       setAchievements(achSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-      const userSnap = await getDocs(collection(db, 'users'));
+      const userSnap = await getDocs(query(collection(db, 'users'), limit(500)));
       setUsers(userSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);

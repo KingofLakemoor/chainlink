@@ -1,54 +1,9 @@
-import cron from 'node-cron';
-import admin from 'firebase-admin';
+import fs from 'fs';
+let content = fs.readFileSync('src/services/monthlyRollover.ts', 'utf8');
 
-export function startMonthlyRolloverJob() {
-  // Run on the 1st of every month at 00:00 (midnight)
-  cron.schedule('0 0 1 * *', async () => {
-    console.log('Initiating automated monthly rollover...');
-    try {
-      const adminDb = admin.firestore();
-      const date = new Date();
-      // We want to process the rollover for the month that just ended.
-      // So if it's Aug 1, we are rolling over July.
-      date.setMonth(date.getMonth() - 1);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      const rolloverLockRef = adminDb.collection('systemSettings').doc('monthlyRollover');
-      
-      let alreadyRun = false;
-      await adminDb.runTransaction(async (t) => {
-        const doc = await t.get(rolloverLockRef);
-        if (doc.exists) {
-          const data = doc.data();
-          if (data && data.lastRolloverMonth === monthKey) {
-            console.log(`Monthly rollover for ${monthKey} was already completed.`);
-            alreadyRun = true;
-            return;
-          }
-        }
-        
-        // Lock it
-        t.set(rolloverLockRef, { lastRolloverMonth: monthKey, timestamp: Date.now() }, { merge: true });
-      });
+const regex = /export async function executeRollover\([\s\S]*\}\n?$/;
 
-      if (alreadyRun) {
-        return;
-      }
-
-      // Execute Rollover logic
-      // We can refactor the logic from apiRouter.ts or just duplicate it here for the cron.
-      // Let's call a shared function or duplicate it for safety.
-      await executeRollover(adminDb, monthKey);
-      
-    } catch (e) {
-      console.error('Error during automated monthly rollover:', e);
-    }
-  }, {
-    timezone: "America/Los_Angeles" // Assuming Club 602 is PST/PDT based on typical users, or we can use UTC.
-  });
-}
-
-export async function executeRollover(adminDb: FirebaseFirestore.Firestore, monthKeyToArchive: string) {
+const newExecute = `export async function executeRollover(adminDb: FirebaseFirestore.Firestore, monthKeyToArchive: string) {
     let topCurrentChain: any = null;
     let topWins: any = null;
     let topBestChain: any = null;
@@ -148,16 +103,16 @@ export async function executeRollover(adminDb: FirebaseFirestore.Firestore, mont
     
     // Create notification
     const lines = [];
-    if (topCurrentChain) lines.push(`🔥 Longest Active Chain: ${topCurrentChain.username} (${topCurrentChain.currentChain < 0 ? 'L' + Math.abs(topCurrentChain.currentChain) : 'W' + topCurrentChain.currentChain})`);
-    if (topBestChain) lines.push(`🏆 Best Monthly Chain: ${topBestChain.username} (W${topBestChain.bestChain})`);
-    if (topWins) lines.push(`🥇 Most Wins: ${topWins.username} (${topWins.wins} Wins)`);
-    if (topWinRate) lines.push(`🎯 Best Win %: ${topWinRate.username} (${topWinRate.winRate.toFixed(1)}%)`);
+    if (topCurrentChain) lines.push(\`🔥 Longest Active Chain: \${topCurrentChain.username} (\${topCurrentChain.currentChain < 0 ? 'L' + Math.abs(topCurrentChain.currentChain) : 'W' + topCurrentChain.currentChain})\`);
+    if (topBestChain) lines.push(\`🏆 Best Monthly Chain: \${topBestChain.username} (W\${topBestChain.bestChain})\`);
+    if (topWins) lines.push(\`🥇 Most Wins: \${topWins.username} (\${topWins.wins} Wins)\`);
+    if (topWinRate) lines.push(\`🎯 Best Win %: \${topWinRate.username} (\${topWinRate.winRate.toFixed(1)}%)\`);
     
-    const notifBody = lines.length > 0 ? lines.join('\n') : 'No stats for this month.';
+    const notifBody = lines.length > 0 ? lines.join('\\n') : 'No stats for this month.';
     const globalNotifRef = adminDb.collection('notifications').doc();
     await globalNotifRef.set({
       title: 'Monthly Winners! 🏅',
-      body: `The month has concluded! Here are the winners:\n\n${notifBody}`,
+      body: \`The month has concluded! Here are the winners:\\n\\n\${notifBody}\`,
       audience: 'GLOBAL',
       status: 'PENDING',
       scheduledTime: Date.now(),
@@ -166,3 +121,8 @@ export async function executeRollover(adminDb: FirebaseFirestore.Firestore, mont
 
     console.log('Automated monthly rollover completed successfully.');
 }
+`;
+
+content = content.replace(regex, newExecute);
+fs.writeFileSync('src/services/monthlyRollover.ts', content);
+console.log("Patched monthlyRollover.ts");

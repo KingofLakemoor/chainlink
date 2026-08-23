@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, limit, orderBy } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Search } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function UserCosmeticsAdminPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(collection(db, 'users'));
+      const snap = await getDocs(query(collection(db, 'users'), limit(200)));
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
@@ -58,6 +58,9 @@ export default function UserCosmeticsAdminPage() {
   return (
     <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-xl overflow-hidden p-6">
       <h2 className="text-xl font-bold mb-4">User Cosmetics Administration</h2>
+      <p className="text-xs text-yellow-500 mb-4 bg-yellow-500/10 p-2 rounded border border-yellow-500/20">
+        Viewing top 200 users to prevent unbounded database reads.
+      </p>
 
       {!selectedUser ? (
         <>

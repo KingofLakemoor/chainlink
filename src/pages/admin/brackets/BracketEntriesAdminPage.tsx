@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { ArrowLeft, Loader2, Trophy } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
@@ -22,7 +22,7 @@ export default function BracketEntriesAdminPage() {
           setBracket({ id: bDoc.id, ...bDoc.data() });
         }
 
-        const pQuery = query(collection(db, 'bracketGamePredictions'), where('bracketId', '==', id));
+        const pQuery = query(collection(db, 'bracketGamePredictions'), where('bracketId', '==', id), limit(100));
         const pSnap = await getDocs(pQuery);
         
         const userPromises = pSnap.docs.map(async (d) => {
@@ -74,10 +74,15 @@ export default function BracketEntriesAdminPage() {
         <Button variant="ghost" onClick={() => navigate('/admin/brackets')} className="text-zinc-400">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
         </Button>
-        <h1 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-yellow-500" />
-          {bracket.name} Entries ({entries.length})
-        </h1>
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+            <Trophy className="w-6 h-6 text-yellow-500" />
+            {bracket.name} Entries ({entries.length})
+          </h1>
+          <span className="text-xs text-yellow-500 mt-1 bg-yellow-500/10 px-2 py-1 rounded w-max border border-yellow-500/20">
+            Limited to 100 recent entries to save costs and prevent N+1 queries.
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

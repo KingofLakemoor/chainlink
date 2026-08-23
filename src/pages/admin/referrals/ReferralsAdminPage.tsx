@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../../lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, limit } from 'firebase/firestore';
 import { Share2 } from 'lucide-react';
 
 interface User {
@@ -18,7 +18,7 @@ export default function ReferralsAdminPage() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const snap = await getDocs(collection(db, 'users'));
+        const snap = await getDocs(query(collection(db, 'users'), limit(500)));
         const usersList: User[] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as User);
         setUsers(usersList);
       } catch (err) {
@@ -86,7 +86,7 @@ export default function ReferralsAdminPage() {
 
       <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6">
          {usersWithReferrals.length === 0 ? (
-            <p className="text-zinc-500">No referral chains found.</p>
+            <p className="text-zinc-500">No referral chains found (limited to 500 recent users to save costs).</p>
          ) : (
             <div className="space-y-8">
                {rootUsers.map(rootUser => (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, limit, orderBy } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
@@ -15,7 +15,7 @@ export default function PickEmCampaignsList() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(collection(db, 'pickemCampaigns'));
+      const snap = await getDocs(query(collection(db, 'pickemCampaigns'), limit(100)));
       setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);

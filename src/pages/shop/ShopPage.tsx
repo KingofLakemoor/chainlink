@@ -506,6 +506,7 @@ export default function ShopPage() {
                     <li><strong>Claim 10 Links</strong> daily in the Shop</li>
                     <li><strong>Queue future picks</strong> automatically</li>
                     <li>Exclusive <strong>Advanced Metrics</strong> tracking</li>
+                    <li><strong>Track line movement</strong> directly on matchup cards</li>
                     <li>Access to <strong>Pro-exclusive shop items</strong></li>
                     <li>A special <strong>Pro Only cosmetic set</strong> every month</li>
                     <li>Full access to <strong><a href="https://scriptless.club602.com/premium" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-300">ScriptLess Premium</a></strong></li>

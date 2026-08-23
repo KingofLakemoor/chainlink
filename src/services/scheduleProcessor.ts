@@ -473,10 +473,12 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                   abandoned: isProtected ? false : newAbandoned,
                   homeTeam: {
                       ...data.homeTeam,
+                      ...scrapedMatchup.homeTeam,
                       score: homeScore
                   },
                   awayTeam: {
                       ...data.awayTeam,
+                      ...scrapedMatchup.awayTeam,
                       score: awayScore
                   },
                   metadata: {
@@ -562,7 +564,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
           // Removed continue check for abandoned games so that their scores still update.
           // This is necessary because they might be part of a Pick'em or Link4 campaign.
-          // if (existingData.abandoned && scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET' && scrapedMatchup.league !== 'RPL') {
+          // if (existingData.abandoned && scrapedMatchup.scrapedMatchup.league !== 'ATP' && scrapedMatchup.league !== 'WTA' && scrapedMatchup.league !== 'CRICKET' && scrapedMatchup.league !== 'RPL' && scrapedMatchup.league !== 'TUR') {
           //   if (existingData.status !== 'STATUS_SCHEDULED') {
           //     continue;
           //   }
@@ -657,7 +659,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
               if (hasPicks) {
                 finalActive = true;
-              } else if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL') {
+              } else if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL' || scrapedMatchup.league === 'TUR' || scrapedMatchup.league === 'ARG' || scrapedMatchup.league === 'BRA' || scrapedMatchup.league === 'LMX') {
                 finalActive = true;
               } else {
                 finalActive = false;
@@ -755,10 +757,12 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               startTime: updateData.startTime,
               'homeTeam.id': updateData.homeTeam.id,
               'homeTeam.name': updateData.homeTeam.name,
+              'homeTeam.shortName': updateData.homeTeam.shortName || updateData.homeTeam.name,
               'homeTeam.image': updateData.homeTeam.image,
               'homeTeam.score': updateData.homeTeam.score,
               'awayTeam.id': updateData.awayTeam.id,
               'awayTeam.name': updateData.awayTeam.name,
+              'awayTeam.shortName': updateData.awayTeam.shortName || updateData.awayTeam.name,
               'awayTeam.image': updateData.awayTeam.image,
               'awayTeam.score': updateData.awayTeam.score,
               'metadata.overUnder': updateData.metadata.overUnder,
@@ -930,7 +934,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
             updatedAt: Date.now(),
             createdAt: Date.now()
           };
-          if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL') {
+          if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL' || scrapedMatchup.league === 'TUR' || scrapedMatchup.league === 'ARG' || scrapedMatchup.league === 'BRA' || scrapedMatchup.league === 'LMX') {
             newMatchupData.link4Excluded = true;
           }
 
@@ -958,7 +962,7 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
         const gamesToCheck = [];
         for (const [gameId, doc] of existingMap.entries()) {
             const data = doc.data();
-            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET' && data.league !== 'RPL') {
+            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET' && data.league !== 'RPL' && data.league !== 'TUR' && data.league !== 'ARG' && data.league !== 'BRA' && data.league !== 'LMX' && data.league !== 'NWSL') {
                 gamesToCheck.push({ gameId, doc, data });
             }
         }

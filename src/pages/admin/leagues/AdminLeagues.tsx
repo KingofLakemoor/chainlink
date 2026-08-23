@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/button";
 export function AdminLeagues() {
   const [leagues, setLeagues] = useState<{ id: string, active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
-  const ALL_LEAGUES = ["PROP", "SCRIPTLESS", "MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "CFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET"];
+  const ALL_LEAGUES = ["PROP", "SCRIPTLESS", "MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET"];
 
   const fetchLeagues = async () => {
     setLoading(true);

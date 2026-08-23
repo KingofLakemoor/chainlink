@@ -108,7 +108,7 @@ export async function syncTennisOdds() {
       return { success: true, message: 'No scheduled tennis matches in DB.' };
     }
     
-    const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const dbMatchups: any[] = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     let updatedCount = 0;
     const batch = adminDb.batch();
     let batchCount = 0;
@@ -212,7 +212,7 @@ export async function syncTennisOdds() {
     }
     
     // Mark any unmatched ATP/WTA matchups as inactive
-    for (const match of dbMatchups) {
+    for (const match of dbMatchups as any[]) {
        if (!matchedIds.has(match.id) && (match as any).active === true) {
            // Check if anyone has already picked this before making it inactive
            const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
@@ -246,123 +246,137 @@ export async function syncTennisOdds() {
 }
 
 
+
 export async function syncSoccerOdds() {
   const adminDb = getAdminDb();
   if (!adminDb) return { success: false, error: 'No admin db' };
   const apiKey = process.env.ODDS_API_KEY;
   if (!apiKey) return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
 
+  const leaguesToSync = [
+    { espn: 'RPL', oddsApi: 'soccer_russia_premier_league' },
+    { espn: 'TUR', oddsApi: 'soccer_turkey_super_league' },
+    { espn: 'ARG', oddsApi: 'soccer_argentina_primera_division' },
+    { espn: 'BRA', oddsApi: 'soccer_brazil_campeonato' },
+    { espn: 'LMX', oddsApi: 'soccer_mexico_ligamx' }
+  ];
+
+  let totalUpdated = 0;
+
   try {
     const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
-    let threshold = 300;
+    let scraperConfig: any = {};
+    let baseThreshold = 300;
     if (scraperSnap.exists) {
-       const scraperConfig = scraperSnap.data();
-       threshold = Math.abs(scraperConfig.maxMoneylineOdds ?? 300);
-       if (scraperConfig.sportOverrides && scraperConfig.sportOverrides['RPL'] !== undefined) {
-          threshold = Math.abs(scraperConfig.sportOverrides['RPL']);
-       }
+       scraperConfig = scraperSnap.data();
+       baseThreshold = Math.abs(scraperConfig.maxMoneylineOdds ?? 300);
     }
 
-    const matchupsSnap = await adminDb.collection('matchups')
-      .where('status', '==', 'STATUS_SCHEDULED')
-      .where('league', '==', 'RPL')
-      .get();
-      
-    if (matchupsSnap.empty) return { success: true, message: 'No scheduled RPL matches in DB.' };
-    const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    for (const l of leaguesToSync) {
+        let threshold = baseThreshold;
+        if (scraperConfig.sportOverrides && scraperConfig.sportOverrides[l.espn] !== undefined) {
+            threshold = Math.abs(scraperConfig.sportOverrides[l.espn]);
+        }
 
-    const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_russia_premier_league/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
-    if (!oddsRes.ok) return { success: false, error: 'Failed to fetch RPL odds' };
-    const oddsData: any = await oddsRes.json();
+        const matchupsSnap = await adminDb.collection('matchups')
+          .where('status', '==', 'STATUS_SCHEDULED')
+          .where('league', '==', l.espn)
+          .get();
+             
+        if (matchupsSnap.empty) continue;
+        const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    let updatedCount = 0;
-    const batch = adminDb.batch();
-    let batchCount = 0;
-    const matchedIds = new Set<string>();
+        const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
+        if (!oddsRes.ok) continue;
+        const oddsData: any[] = (await oddsRes.json()) as any[];
 
-    for (const event of oddsData) {
-       const homeTeamName = event.home_team;
-       const awayTeamName = event.away_team;
-       
-       const bookmaker = event.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
-       if (!bookmaker) continue;
-       
-       const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
-       if (!h2hMarket || !h2hMarket.outcomes) continue;
-       
-       const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName);
-       const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName);
-       if (!homeOutcome || !awayOutcome) continue;
+        const batch = adminDb.batch();
+        let batchCount = 0;
+        const matchedIds = new Set();
 
-       const mlHome = homeOutcome.price;
-       const mlAway = awayOutcome.price;
+        for (const event of oddsData) {
+           const homeTeamName = event.home_team;
+           const awayTeamName = event.away_team;
+              
+           const bookmaker = event.bookmakers?.find((b) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
+           if (!bookmaker) continue;
+              
+           const h2hMarket = bookmaker.markets?.find((m) => m.key === 'h2h');
+           if (!h2hMarket || !h2hMarket.outcomes) continue;
+              
+           const homeOutcome = h2hMarket.outcomes.find((o) => o.name === homeTeamName);
+           const awayOutcome = h2hMarket.outcomes.find((o) => o.name === awayTeamName);
+           if (!homeOutcome || !awayOutcome) continue;
 
-       const match = dbMatchups.find((m: any) => {
-          if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
-          const espnHome = m.homeTeam.name;
-          const espnAway = m.awayTeam.name;
-          if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) return true;
-          if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) return true;
-          return false;
-       });
+           const mlHome = homeOutcome.price;
+           const mlAway = awayOutcome.price;
 
-       if (match) {
-          matchedIds.add(match.id);
-          let finalMlHome = mlHome;
-          let finalMlAway = mlAway;
-          if (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName)) {
-              finalMlHome = mlAway;
-              finalMlAway = mlHome;
-          }
-          const matchRef = adminDb.collection('matchups').doc(match.id);
-          const finalMlHomeNum = parseInt(finalMlHome, 10);
-          const finalMlAwayNum = parseInt(finalMlAway, 10);
-          let active = true;
-          if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
-              active = false;
-          } else {
-              if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
-              if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
-          }
-          
-          if (!active) {
-              const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-              if (!picksSnap.empty) active = true;
-          }
+           const match = dbMatchups.find((m: any) => {
+              if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
+              const espnHome = m.homeTeam.name;
+              const espnAway = m.awayTeam.name;
+              if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) return true;
+              if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) return true;
+              return false;
+           });
 
-          batch.update(matchRef, {
-            'metadata.mlHome': finalMlHome,
-            'metadata.mlAway': finalMlAway,
-            'active': active,
-            'updatedAt': Date.now()
-          });
-          updatedCount++;
-          batchCount++;
-          
-          if (batchCount === 490) {
-             await batch.commit();
-             batchCount = 0;
-          }
-       }
-    }
+           if (match) {
+              matchedIds.add(match.id);
+              let finalMlHome = mlHome;
+              let finalMlAway = mlAway;
+              if (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName)) {
+                  finalMlHome = mlAway;
+                  finalMlAway = mlHome;
+              }
+              const matchRef = adminDb.collection('matchups').doc(match.id);
+              const finalMlHomeNum = parseInt(finalMlHome, 10);
+              const finalMlAwayNum = parseInt(finalMlAway, 10);
+              let active = true;
+              if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
+                  active = false;
+              } else {
+                  if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
+                  if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
+              }
+                 
+              if (!active) {
+                  const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+                  if (!picksSnap.empty) active = true;
+              }
 
-    for (const match of dbMatchups) {
-       if (!matchedIds.has(match.id) && (match as any).active === true) {
-           const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-           if (!picksSnap.empty) continue;
-           const matchRef = adminDb.collection('matchups').doc(match.id);
-           batch.update(matchRef, { 'active': false, 'updatedAt': Date.now() });
-           batchCount++;
-           if (batchCount === 490) { await batch.commit(); batchCount = 0; }
-       }
+              batch.update(matchRef, {
+                'metadata.mlHome': finalMlHome,
+                'metadata.mlAway': finalMlAway,
+                'active': active,
+                'updatedAt': Date.now()
+              });
+              totalUpdated++;
+              batchCount++;
+                 
+              if (batchCount === 490) {
+                 await batch.commit();
+                 batchCount = 0;
+              }
+           }
+        }
+
+        for (const match of dbMatchups) {
+           if (!matchedIds.has(match.id) && (match as any).active === true) {
+               const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+               if (!picksSnap.empty) continue;
+               const matchRef = adminDb.collection('matchups').doc(match.id);
+               batch.update(matchRef, { 'active': false, 'updatedAt': Date.now() });
+               batchCount++;
+               if (batchCount === 490) { await batch.commit(); batchCount = 0; }
+           }
+        }
+           
+        if (batchCount > 0) await batch.commit();
     }
     
-    if (batchCount > 0) await batch.commit();
-    console.log(`[OddsProcessor] Successfully updated ${updatedCount} RPL matchups with third-party odds.`);
-    return { success: true, updatedCount };
-
+    return { success: true, updated: totalUpdated };
   } catch (err: any) {
-    console.error("[OddsProcessor] RPL odds processing error:", err);
+    console.error('Error syncing soccer odds', err);
     return { success: false, error: err.message };
   }
 }

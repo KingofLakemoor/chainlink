@@ -1,6 +1,6 @@
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy , limit } from "firebase/firestore";
 import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Search, Link2 } from 'lucide-react';

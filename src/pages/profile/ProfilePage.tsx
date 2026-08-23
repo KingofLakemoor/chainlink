@@ -6,7 +6,7 @@ import { Trophy, Coins, Calendar, Mail, CheckCircle2, XCircle, MinusCircle, BarC
 import { format } from 'date-fns';
 import { auth, db } from '../../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { collection, getDocs, orderBy, query, where, documentId, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, where, documentId, doc, updateDoc , limit } from "firebase/firestore";
 import { Modal } from '../../components/ui/modal';
 import { Input } from '../../components/ui/input';
 import { Link } from 'react-router-dom';

@@ -22,8 +22,7 @@ const leagueIconMap: Record<string, string> = {
   CSL: '⚽',
   WNBA: '🏀',
   NBASL: '🏀',
-  CFL: '🏈',
-  LMX: '⚽',
+    LMX: '⚽',
   ARG: '⚽',
   BRA: '⚽',
 };

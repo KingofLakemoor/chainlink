@@ -39,11 +39,11 @@ export const formatUpcomingTime = (timestamp: number) => {
 export const getSportFromLeague = (league: string): string => {
   if (["NBA", "WNBA", "MBB", "WBB", "NBASL"].includes(league))
     return "basketball";
-  if (["NFL", "COLLEGE-FOOTBALL", "UFL", "CFB", "CFL"].includes(league)) return "football";
+  if (["NFL", "COLLEGE-FOOTBALL", "UFL", "CFB"].includes(league)) return "football";
   if (["MLB",
   "LLWS", "LLWS", "CBASE"].includes(league)) return "baseball";
   if (["NHL"].includes(league)) return "hockey";
-  if (["MLS", "NWSL", "EPL", "RPL", "CFL", "LMX", "ARG", "BRA", "CSL", "TUR", "FRIENDLY", "FIFA", "FRA", "CHN"].includes(league)) return "soccer";
+  if (["MLS", "NWSL", "EPL", "RPL", "LMX", "ARG", "BRA", "CSL", "TUR", "FRIENDLY", "FIFA", "FRA", "CHN"].includes(league)) return "soccer";
   if (["PLL"].includes(league)) return "lacrosse";
 
   return "other";
@@ -81,7 +81,6 @@ export const ACTIVE_LEAGUES: string[] = [
   "FRIENDLY",
   "CSL",
   "RPL",
-  "CFL",
   "LMX",
   "ARG",
   "BRA",

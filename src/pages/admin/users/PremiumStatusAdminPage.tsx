@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, orderBy , limit } from "firebase/firestore";
 import { db } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Search, Diamond } from 'lucide-react';

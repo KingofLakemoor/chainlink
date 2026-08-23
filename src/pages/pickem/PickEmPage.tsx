@@ -2,7 +2,7 @@ import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, getDocs, doc, query, where, setDoc, getDoc, deleteDoc, documentId } from 'firebase/firestore';
+import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';

@@ -1,6 +1,6 @@
 import { ScriptLessPayload } from '../types/scriptless.js';
 
-export const SUPPORTED_LEAGUES = ["NFL", "NBA", "NBASL", "NHL", "MLB", "LLWS", "MLS", "EPL", "MBB", "WBB", "NWSL", "CFB", "CBASE", "ATP", "WTA", "WNBA", "PGA", "FIFA", "FRA", "TUR", "RPL", "CHN", "CFL", "LMX", "ARG", "BRA", "CRICKET", "SCRIPTLESS"] as const;
+export const SUPPORTED_LEAGUES = ["NFL", "NBA", "NBASL", "NHL", "MLB", "LLWS", "MLS", "EPL", "MBB", "WBB", "NWSL", "CFB", "CBASE", "ATP", "WTA", "WNBA", "PGA", "FIFA", "FRA", "TUR", "RPL", "CHN", "LMX", "ARG", "BRA", "CRICKET", "SCRIPTLESS"] as const;
 
 export type League = typeof SUPPORTED_LEAGUES[number] | string;
 
@@ -143,8 +143,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       case "TUR": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/tur.1/scoreboard?dates=${date}`);
       case "RPL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard?dates=${date}`);
       case "CHN": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/chn.1/scoreboard?dates=${date}`);
-      case "CFL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/cfl/scoreboard?dates=${date}`);
-      case "LMX": return [
+            case "LMX": return [
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard?dates=${date}`),
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
       ];
@@ -196,8 +195,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     case "TUR": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/tur.1/scoreboard?dates=${date}`);
     case "RPL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard?dates=${date}`);
     case "CHN": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/chn.1/scoreboard?dates=${date}`);
-    case "CFL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/cfl/scoreboard?dates=${date}`);
-    case "LMX": return [
+        case "LMX": return [
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard?dates=${date}`),
         ...dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.leagues.cup/scoreboard?dates=${date}`)
       ];
@@ -272,7 +270,7 @@ export async function fetchScheduleData(endpoint: string, league: League, isScor
   }
 
   // For scoreboards or leagues already using scoreboard
-  if (league === "MBB" || league === "WBB" || league === "PGA" || league === "CBASE" || league === "ATP" || league === "WTA" || league === "FIFA" || league === "CRICKET" || league === "MLB" || league === "NBASL" || league === "LMX" || league === "ARG" || league === "BRA" || league === "CFL" || isScoreboardOnly || endpoint.includes('scoreboard')) {
+  if (league === "MBB" || league === "WBB" || league === "PGA" || league === "CBASE" || league === "ATP" || league === "WTA" || league === "FIFA" || league === "CRICKET" || league === "MLB" || league === "NBASL" || league === "LMX" || league === "ARG" || league === "BRA" || isScoreboardOnly || endpoint.includes('scoreboard')) {
     const seenGameIds = new Set<string>();
     const uniqueEvents = [];
 
@@ -332,174 +330,25 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
   const processedGameIds = new Set<string>();
   const parsedMatchups: any[] = [];
   
-  let rplOddsData: any[] = [];
-  if (league === 'RPL' && !scoreboardOnly && process.env.ODDS_API_KEY) {
+  let oddsApiData: any[] = [];
+  if (['RPL', 'TUR', 'ARG', 'BRA', 'LMX'].includes(league as string) && !scoreboardOnly && process.env.ODDS_API_KEY) {
+      let sportKey = 'soccer_russia_premier_league';
+      if (league === 'TUR') sportKey = 'soccer_turkey_super_league';
+      else if (league === 'ARG') sportKey = 'soccer_argentina_primera_division';
+      else if (league === 'BRA') sportKey = 'soccer_brazil_campeonato';
+      else if (league === 'LMX') sportKey = 'soccer_mexico_ligamx';
       try {
-          const res = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_russia_premier_league/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
+          const res = await fetch(`https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
           if (res.ok) {
-              rplOddsData = await res.json();
+              oddsApiData = await res.json();
           }
       } catch (err) {
-          console.error("Failed to fetch RPL odds from Odds API:", err);
+          console.error(`Failed to fetch ${league} odds from Odds API:`, err);
       }
   }
 
-  if (league === 'CFL') {
-    const apiKey = process.env.ODDS_API_KEY;
-    if (!apiKey) {
-      response.error = "ODDS_API_KEY missing for CFL";
-      return response;
-    }
-    
-    try {
-      let oddsData = [];
-      if (!scoreboardOnly) {
-          const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/americanfootball_cfl/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
-          if (oddsRes.ok) oddsData = await oddsRes.json();
-      }
-      
-      let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
-      if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides['CFL'] !== undefined) {
-         threshold = Math.abs(scraperConfig.sportOverrides['CFL']);
-      }
 
-      // We use Yahoo Sports for CFL scores/schedules because it is free
-      const dates = [];
-      if (specificDates && specificDates.length > 0) {
-          for (const d of specificDates) {
-             dates.push(d.substring(0,4) + '-' + d.substring(4,6) + '-' + d.substring(6,8));
-          }
-      } else {
-          const now = new Date();
-          for (let i = -3; i <= 5; i++) {
-             dates.push(new Date(now.getTime() + i*86400000).toISOString().split('T')[0]);
-          }
-      }
-      
-      for (const date of dates) {
-        const yahooRes = await fetch(`https://api-secure.sports.yahoo.com/v1/editorial/s/scoreboard?leagues=cfl&date=${date}`);
-        if (!yahooRes.ok) continue;
-        const d = await yahooRes.json();
-        const games = d.service?.scoreboard?.games;
-        if (!games) continue;
-        
-        for (const k in games) {
-           const g = games[k];
-           if (processedGameIds.has(g.gameid)) continue;
-           processedGameIds.add(g.gameid);
-           
-           const homeTeamName = d.service.scoreboard.teams[g.home_team_id]?.full_name || "Home Team";
-           const awayTeamName = d.service.scoreboard.teams[g.away_team_id]?.full_name || "Away Team";
-           
-           let homeScore = parseInt(g.total_home_points, 10) || 0;
-           let awayScore = parseInt(g.total_away_points, 10) || 0;
-           
-           let finalStatus = "STATUS_SCHEDULED";
-           let finalStatusDesc = "Upcoming";
-           if (g.status_type === 'status.type.final') {
-              finalStatus = "STATUS_FINAL";
-              finalStatusDesc = "Final";
-           } else if (g.status_type !== 'status.type.pregame' && g.status_type !== 'status.type.postponed') {
-              finalStatus = "STATUS_IN_PROGRESS";
-              finalStatusDesc = "In Progress";
-           } else if (g.status_type === 'status.type.postponed') {
-              finalStatus = "STATUS_POSTPONED";
-              finalStatusDesc = "Postponed";
-           }
-           
-           // Match team names loosely if odds exist
-           const normalizeName = (name) => name ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, "").trim() : "";
-           
-           const oddsEvent = oddsData.find((o: any) => {
-               const oHome = normalizeName(o.home_team);
-               const oAway = normalizeName(o.away_team);
-               const yHome = normalizeName(homeTeamName);
-               const yAway = normalizeName(awayTeamName);
-               return (oHome.includes(yHome) || yHome.includes(oHome)) && (oAway.includes(yAway) || yAway.includes(oAway));
-           });
-         
-         let mlHome = scoreboardOnly ? undefined : null;
-         let mlAway = scoreboardOnly ? undefined : null;
-         let spread = scoreboardOnly ? undefined : null;
-         let overUnder = scoreboardOnly ? undefined : null;
-         
-         if (oddsEvent) {
-             const bookmaker = oddsEvent.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || oddsEvent.bookmakers?.[0];
-             if (bookmaker) {
-                 const h2h = bookmaker.markets?.find((m: any) => m.key === 'h2h');
-                 if (h2h) {
-                     mlHome = h2h.outcomes?.find((o: any) => normalizeName(o.name).includes(normalizeName(homeTeamName)) || normalizeName(homeTeamName).includes(normalizeName(o.name)))?.price || null;
-                     mlAway = h2h.outcomes?.find((o: any) => normalizeName(o.name).includes(normalizeName(awayTeamName)) || normalizeName(awayTeamName).includes(normalizeName(o.name)))?.price || null;
-                 }
-                 const spreads = bookmaker.markets?.find((m: any) => m.key === 'spreads');
-                 if (spreads) {
-                     const hs = spreads.outcomes?.find((o: any) => normalizeName(o.name).includes(normalizeName(homeTeamName)) || normalizeName(homeTeamName).includes(normalizeName(o.name)));
-                     if (hs && hs.point !== undefined) spread = (hs.point > 0 ? "+" : "") + hs.point;
-                 }
-                 const totals = bookmaker.markets?.find((m: any) => m.key === 'totals');
-                 if (totals) {
-                     const over = totals.outcomes?.find((o: any) => o.name.toLowerCase() === 'over');
-                     if (over && over.point !== undefined) overUnder = "O/U " + over.point;
-                 }
-             }
-         }
-         
-         let active = true;
-         if (mlHome) {
-             const h = parseInt(mlHome, 10);
-             if (!isNaN(h) && (h <= -threshold || h >= threshold)) active = false;
-         }
-         if (mlAway) {
-             const a = parseInt(mlAway, 10);
-             if (!isNaN(a) && (a <= -threshold || a >= threshold)) active = false;
-         }
-         
-         parsedMatchups.push({
-             startTime: new Date(g.start_time).getTime(),
-             active,
-             featured: false,
-             title: `${awayTeamName} @ ${homeTeamName}`,
-             league: 'CFL',
-             type: "SCORE",
-             status: finalStatus,
-             statusDesc: finalStatusDesc,
-             gameId: g.gameid,
-             homeTeam: {
-                 id: homeTeamName,
-                 name: homeTeamName,
-                 image: d.service.scoreboard.teams[g.home_team_id]?.sportacularLogo?.[0]?.url || "/logo.png",
-                 score: homeScore
-             },
-             awayTeam: {
-                 id: awayTeamName,
-                 name: awayTeamName,
-                 image: d.service.scoreboard.teams[g.away_team_id]?.sportacularLogo?.[0]?.url || "/logo.png",
-                 score: awayScore
-             },
-             cost: 0,
-             metadata: {
-                 period: 0,
-                         network: "N/A",
-                 overUnder,
-                 spread,
-                 mlHome: (mlHome && !isNaN(parseInt(mlHome, 10))) ? parseInt(mlHome, 10) : null,
-                 mlAway: (mlAway && !isNaN(parseInt(mlAway, 10))) ? parseInt(mlAway, 10) : null,
-                 homeLinescores: null,
-                 awayLinescores: null
-             }
-         });
-        }
-      }
-      
-      response.data = parsedMatchups;
-      response.gamesOnSchedule = parsedMatchups.length;
-      return response;
-      
-    } catch (err: any) {
-      response.error = err.message;
-      return response;
-    }
-  }
+  
 
   const scheduleDataPromises = endpoints.map(async (endpoint) => {
     try {
@@ -684,7 +533,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   }
                   
                   // Force tennis to inactive by default, oddsProcessor will activate them if valid odds exist
-                  if (league === 'ATP' || league === 'WTA' || league === 'RPL') {
+                  if (league === 'ATP' || league === 'WTA' || league === 'RPL' || league === 'TUR') {
                       isActive = false;
                   } else {
                       let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
@@ -767,9 +616,9 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 let mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
                 
                 // If RPL, try to pull odds from Odds API prefetch
-                if (league === 'RPL' && !scoreboardOnly && rplOddsData.length > 0) {
+                if (['RPL', 'TUR', 'ARG', 'BRA', 'LMX'].includes(league as string) && !scoreboardOnly && oddsApiData.length > 0) {
                     const normalizeName = (name) => name ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, "").trim() : "";
-                    const oEvent = rplOddsData.find((o) => {
+                    const oEvent = oddsApiData.find((o) => {
                         const oH = normalizeName(o.home_team);
                         const oA = normalizeName(o.away_team);
                         const yH = normalizeName(homeName);
@@ -814,7 +663,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   }
                 }
                 
-                if ((league === 'ATP' || league === 'WTA' || league === 'RPL') && !mlHome && !mlAway) {
+                if (['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'].includes(league as string) && !mlHome && !mlAway) {
                   active = false;
                 }
                 
@@ -986,8 +835,7 @@ export function getScoreboardUrl(league: string): string | null {
         TUR: "https://site.api.espn.com/apis/site/v2/sports/soccer/tur.1/scoreboard",
         RPL: "https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard",
         CHN: "https://site.api.espn.com/apis/site/v2/sports/soccer/chn.1/scoreboard",
-        CFL: "https://site.api.espn.com/apis/site/v2/sports/football/cfl/scoreboard",
-        LMX: "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard",
+                LMX: "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard",
         ARG: "https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard",
         BRA: "https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard",
         CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard",
@@ -1054,7 +902,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                   }
                 }
                 
-                if ((league === 'ATP' || league === 'WTA' || league === 'RPL') && !mlHome && !mlAway) {
+                if (['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'].includes(league as string) && !mlHome && !mlAway) {
                   active = false;
                 }
                 

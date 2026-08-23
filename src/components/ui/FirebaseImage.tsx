@@ -2,6 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
 import { app } from '../../lib/firebase';
 
+
+function optimizeEspnUrl(url: string) {
+    if (!url) return url;
+    if (url.includes('a.espncdn.com/i/teamlogos/') && !url.includes('combiner/i')) {
+        try {
+            const urlObj = new URL(url);
+            return `https://a.espncdn.com/combiner/i?img=${urlObj.pathname}&h=150&w=150`;
+        } catch(e) {
+            return url;
+        }
+    }
+    return url;
+}
+
+
+
 export interface FirebaseImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   fallback?: string;
@@ -10,9 +26,14 @@ export interface FirebaseImageProps extends React.ImgHTMLAttributes<HTMLImageEle
 
 export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: FirebaseImageProps) {
   // If the src is not a gs:// URL, we can render it immediately.
-  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(
-    (src && !src.startsWith('gs://')) ? (src.startsWith('/contestants/') ? 'https://scriptless.club602.com' + src : src) : fallback || undefined
-  );
+  
+  const getInitialSrc = (s: string) => {
+      if (!s) return fallback || undefined;
+      if (s.startsWith('gs://')) return undefined;
+      if (s.startsWith('/contestants/')) return 'https://scriptless.club602.com' + s;
+      return optimizeEspnUrl(s);
+  };
+  const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(getInitialSrc(src));
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
@@ -46,7 +67,7 @@ export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: Firebas
         }
       } else {
         if (isMounted) {
-          setResolvedSrc(src.startsWith('/contestants/') ? 'https://scriptless.club602.com' + src : src);
+          setResolvedSrc(optimizeEspnUrl(src.startsWith('/contestants/') ? 'https://scriptless.club602.com' + src : src));
         }
       }
     }

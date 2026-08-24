@@ -2,7 +2,7 @@ import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId } from 'firebase/firestore';
+import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
@@ -38,6 +38,7 @@ export default function PickEmPage() {
   const [loading, setLoading] = useState(true);
   const [matchupsLoading, setMatchupsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'matchups' | 'leaderboard'>('matchups');
+  const [leaderboardView, setLeaderboardView] = useState<'season' | 'week'>('season');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
@@ -278,10 +279,6 @@ export default function PickEmPage() {
     if (isEliminated && selectedCampaign?.format === 'SURVIVOR') return;
     if (!user || !selectedCampaign) return;
     if (isEliminated && selectedCampaign.format === 'SURVIVOR') return;
-    if (selectedCampaign.format === 'SURVIVOR' && usedTeams.has(teamId)) {
-       alert('You have already picked this team in a previous week!');
-       return;
-    }
     if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
 
     try {

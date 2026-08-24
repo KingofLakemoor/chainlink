@@ -121,7 +121,7 @@ export async function gradeSinglePickemMatchup(matchup: any) {
       pointsEarned = 0;
     } else if (pickData.pick?.teamId === winnerId) {
       pickStatus = 'WIN';
-      pointsEarned = 1; // Assuming 1 point per correct pick
+      pointsEarned = pickData.confidence || 1; // Handle confidence points
     }
 
     try {

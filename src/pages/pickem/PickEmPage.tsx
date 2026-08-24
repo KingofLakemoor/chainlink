@@ -6,7 +6,7 @@ import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDo
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export default function PickEmPage() {
@@ -40,6 +40,10 @@ export default function PickEmPage() {
   const [activeTab, setActiveTab] = useState<'matchups' | 'leaderboard'>('matchups');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [isParticipant, setIsParticipant] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [isEliminated, setIsEliminated] = useState(false);
+  const [usedTeams, setUsedTeams] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -91,6 +95,11 @@ export default function PickEmPage() {
         if (initialCampaign) {
           setSelectedCampaign(initialCampaign);
           setSelectedWeek(initialCampaign.currentWeek || 1);
+        if (user && initialCampaign) {
+            const pairId = `${initialCampaign.id}_${user.uid}`;
+            const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
+            setIsParticipant(docRef.exists());
+        }
         }
       } catch (err) {
         console.error(err);
@@ -100,6 +109,26 @@ export default function PickEmPage() {
     };
     fetchCampaigns();
   }, []);
+
+  
+  const handleJoinCampaign = async () => {
+    if (!user || !selectedCampaign) return;
+    setJoining(true);
+    try {
+      const pairId = `${selectedCampaign.id}_${user.uid}`;
+      await setDoc(doc(db, 'pickemParticipants', pairId), {
+        campaignId: selectedCampaign.id,
+        participantId: user.uid,
+        joinedAt: Date.now()
+      });
+      setIsParticipant(true);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to join campaign.');
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const fetchMatchupsAndPicks = async (campaignId: string, week: number) => {
     setMatchupsLoading(true);
@@ -167,6 +196,7 @@ export default function PickEmPage() {
           }
 
           participantStats[pId].picks.push(pick);
+          if (leaderboardView === 'week' && pick.week !== selectedWeek) return;
 
           if (pick.status === 'WIN') {
             participantStats[pId].wins += 1;
@@ -226,10 +256,32 @@ export default function PickEmPage() {
     };
 
     fetchLeaderboard();
-  }, [selectedCampaign, activeTab]);
+  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek]);
+
+  
+  const handleTiebreakerChange = async (matchup: any, total: number) => {
+    if (!user || !selectedCampaign || isNaN(total)) return;
+    try {
+      const pickId = userPicks[matchup.id]?.id;
+      if (!pickId) return;
+      await updateDoc(doc(db, 'pickemPicks', pickId), { tiebreakerTotal: total });
+      setUserPicks(prev => ({
+        ...prev,
+        [matchup.id]: { ...prev[matchup.id], tiebreakerTotal: total }
+      }));
+    } catch (e) {
+      console.error("Failed to update tiebreaker", e);
+    }
+  };
 
   const handleClearPick = async (matchup: any) => {
+    if (isEliminated && selectedCampaign?.format === 'SURVIVOR') return;
     if (!user || !selectedCampaign) return;
+    if (isEliminated && selectedCampaign.format === 'SURVIVOR') return;
+    if (selectedCampaign.format === 'SURVIVOR' && usedTeams.has(teamId)) {
+       alert('You have already picked this team in a previous week!');
+       return;
+    }
     if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
 
     try {
@@ -335,21 +387,32 @@ export default function PickEmPage() {
         </div>
       </div>
 
+            {selectedCampaign && !isParticipant && (
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center max-w-2xl mx-auto my-12">
+           <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
+           <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
+           <p className="text-zinc-400 text-lg mb-8">You have been invited to join this Pick'em campaign. Click below to enter the league and make your picks.</p>
+           <Button size="lg" onClick={handleJoinCampaign} disabled={joining}>{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
+        </div>
+      )}
+      {selectedCampaign && isParticipant && (
+        <>
+      
+      {isEliminated && selectedCampaign?.format === 'SURVIVOR' && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-center font-medium mb-6">
+           <AlertTriangle className="w-6 h-6 mx-auto mb-2" />
+           You have been eliminated from this Survivor campaign due to an incorrect pick. Better luck next year!
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div className="flex flex-col md:flex-row gap-4">
-          <select
-            value={selectedCampaign?.id || ''}
-            onChange={e => {
-              const camp = campaigns.find(c => c.id === e.target.value);
-              setSelectedCampaign(camp);
-              setSelectedWeek(camp?.currentWeek || 1);
-            }}
-            className="bg-[#121212] border border-zinc-800 rounded-xl px-4 py-3 text-white text-lg font-medium min-w-[250px]"
-          >
-            {campaigns.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          
+          <Button variant="ghost" onClick={() => window.history.back()} className="text-zinc-400 hover:text-white">
+            <ChevronRight className="w-5 h-5 rotate-180 mr-1" />
+            Back to Pick'em Dashboard
+          </Button>
+
 
           <select
             value={selectedWeek}
@@ -460,8 +523,9 @@ export default function PickEmPage() {
                       )}
 
                       <button
-                        onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)}
-                        disabled={isLocked}
+onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)}
+disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id))}
+
                         className={`p-3 rounded-lg border text-left flex items-center justify-between transition-colors
                           ${pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)
                             ? '' // dynamic styles below
@@ -495,6 +559,7 @@ export default function PickEmPage() {
                                );
                             })()}
                           </div>
+                          {(selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)) && <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">USED</span>}
                         </div>
                         {pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) && (() => {
                           const style = getPickStyle(pick, isLocked);
@@ -507,8 +572,9 @@ export default function PickEmPage() {
                       {m.type === 'PROP' ? <div className="text-center text-xs text-zinc-600 font-bold uppercase">VS</div> : <div className="text-center text-xs text-zinc-600 font-bold uppercase">@</div>}
 
                       <button
-                        onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)}
-                        disabled={isLocked}
+onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)}
+disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id))}
+
                         className={`p-3 rounded-lg border text-left flex items-center justify-between transition-colors
                           ${pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)
                             ? '' // dynamic styles below
@@ -542,6 +608,7 @@ export default function PickEmPage() {
                                );
                             })()}
                           </div>
+                          {(selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)) && <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">USED</span>}
                         </div>
                         {pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) && (() => {
                           const style = getPickStyle(pick, isLocked);
@@ -550,6 +617,48 @@ export default function PickEmPage() {
                           return <IconComponent className="w-5 h-5" style={{ color: style.color }} />;
                         })()}
                       </button>
+
+                      
+                      {m.isTiebreaker && pick && (
+                        <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                           <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">Tiebreaker Matchup</label>
+                           <p className="text-zinc-400 text-sm mb-2">Predict the total combined score for this game.</p>
+                           <input
+                             type="number"
+                             min="0"
+                             placeholder="Total Score (e.g. 45)"
+                             value={pick.tiebreakerTotal || ''}
+                             onChange={(e) => handleTiebreakerChange(m, parseInt(e.target.value) || 0)}
+                             disabled={isLocked}
+                             className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white disabled:opacity-50"
+                           />
+                        </div>
+                      )}
+
+                      
+                      {selectedCampaign?.format === 'CONFIDENCE' && pick && (
+                        <div className="mt-4 p-3 bg-[#18181A] border border-zinc-800 rounded-lg">
+                           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Confidence Points</label>
+                           <p className="text-zinc-500 text-sm mb-2">Assign points to this pick (e.g. 1 to 10)</p>
+                           <input
+                             type="number"
+                             min="1"
+                             placeholder="Points"
+                             value={pick.confidence || ''}
+                             onChange={async (e) => {
+                               const conf = parseInt(e.target.value) || 1;
+                               if (!userPicks[m.id]?.id) return;
+                               await updateDoc(doc(db, 'pickemPicks', userPicks[m.id].id), { confidence: conf, pointsEarned: conf });
+                               setUserPicks(prev => ({
+                                 ...prev,
+                                 [m.id]: { ...prev[m.id], confidence: conf }
+                               }));
+                             }}
+                             disabled={isLocked}
+                             className="w-full bg-[#121212] border border-zinc-700 rounded-lg px-4 py-2 text-white disabled:opacity-50"
+                           />
+                        </div>
+                      )}
 
                       {pick && !isLocked && (
                         <button
@@ -569,7 +678,26 @@ export default function PickEmPage() {
       )}
 
       {activeTab === 'leaderboard' && (
-        <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden">
+        
+          <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-[#18181A]">
+            <h3 className="font-bold text-lg text-white">Leaderboard</h3>
+            <div className="flex bg-zinc-800 rounded-lg p-1">
+              <button
+                onClick={() => setLeaderboardView('season')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${leaderboardView === 'season' ? 'bg-[#121212] text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
+              >
+                Season
+              </button>
+              <button
+                onClick={() => setLeaderboardView('week')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${leaderboardView === 'week' ? 'bg-[#121212] text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
+              >
+                Week {selectedWeek}
+              </button>
+            </div>
+          </div>
+
           {leaderboardLoading ? (
             <div className="p-12 text-center text-zinc-500 font-medium">Loading leaderboard...</div>
           ) : leaderboardData.length === 0 ? (
@@ -586,6 +714,7 @@ export default function PickEmPage() {
                     <th className="px-6 py-4 font-medium">Participant</th>
                     <th className="px-6 py-4 font-medium text-center">Points</th>
                     <th className="px-6 py-4 font-medium text-center">W-L-P</th>
+                    <th className="px-6 py-4 font-medium text-center">Tiebreaker</th>
                     <th className="px-6 py-4 font-medium text-left">Week {selectedWeek} Picks</th>
                   </tr>
                 </thead>
@@ -617,6 +746,9 @@ export default function PickEmPage() {
                       </td>
                       <td className="px-6 py-4 text-center text-zinc-400 font-mono">
                         {isNaN(participant.wins) ? 0 : String(participant.wins)}-{isNaN(participant.losses) ? 0 : String(participant.losses)}-{isNaN(participant.pushes) ? 0 : String(participant.pushes)}
+                      </td>
+                      <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
+                         {participant.picks?.find((p: any) => p.tiebreakerTotal !== undefined)?.tiebreakerTotal || '-'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
@@ -664,6 +796,8 @@ export default function PickEmPage() {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

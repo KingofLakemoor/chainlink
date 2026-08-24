@@ -20,5 +20,6 @@ export async function logError(context: string, error: any) {
   } catch (e) {
     // Failsafe: If the database write itself fails, we must output to console.
     console.error('Failed to log error to Firestore', e);
+    console.error(`[ORIGINAL ERROR] [${context}]`, error);
   }
 }

@@ -33,17 +33,28 @@ export class ErrorBoundary extends Component<Props, State> {
       const reloaded = sessionStorage.getItem('chunk_error_reloaded');
       if (!reloaded) {
         sessionStorage.setItem('chunk_error_reloaded', 'true');
+        const doReload = () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set('nocache', Date.now().toString());
+          window.location.href = url.toString();
+        };
+        
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then((registrations) => {
             for (let registration of registrations) {
               registration.unregister();
             }
-            window.location.reload();
-          }).catch(() => {
-            window.location.reload();
-          });
+            if (window.caches) {
+              caches.keys().then((names) => {
+                for (let name of names) caches.delete(name);
+                doReload();
+              }).catch(doReload);
+            } else {
+              doReload();
+            }
+          }).catch(doReload);
         } else {
-          window.location.reload();
+          doReload();
         }
         return;
       }

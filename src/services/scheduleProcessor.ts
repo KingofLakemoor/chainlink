@@ -1,3 +1,12 @@
+
+const resolveImage = (existingImage: string | undefined, scrapedImage: string | undefined) => {
+    if (!scrapedImage || scrapedImage === '/logo.png') return existingImage || scrapedImage;
+    if (scrapedImage.includes('usa.png') && existingImage && !existingImage.includes('usa.png') && existingImage !== '/logo.png') {
+        return existingImage;
+    }
+    return scrapedImage || existingImage;
+};
+
 import { adminDb } from '../lib/firebase-admin.js';
 
 async function processDependentProps(adminDb: any, gameId: string): Promise<void> {
@@ -683,10 +692,12 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
               existingData.title !== newTitle ||
               existingData.league !== scrapedMatchup.league ||
               existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name ||
-              existingData.homeTeam?.image !== scrapedMatchup.homeTeam?.image ||
+              existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName ||
+              existingData.homeTeam?.image !== resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image) ||
               existingData.homeTeam?.id !== scrapedMatchup.homeTeam?.id ||
               existingData.awayTeam?.name !== scrapedMatchup.awayTeam?.name ||
-              existingData.awayTeam?.image !== scrapedMatchup.awayTeam?.image ||
+              existingData.awayTeam?.shortName !== scrapedMatchup.awayTeam?.shortName ||
+              existingData.awayTeam?.image !== resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image) ||
               existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id ||
               existingData.active !== finalActive ||
               (existingData.abandoned !== false && !existingData.abandoned) ||
@@ -714,14 +725,16 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
                   ...(existingData.homeTeam || {}),
                   id: existingData.type === 'STATS' ? existingData.homeTeam?.id : (scrapedMatchup.homeTeam?.id || existingData.homeTeam?.id),
                   name: existingData.type === 'STATS' ? existingData.homeTeam?.name : (scrapedMatchup.homeTeam?.name || existingData.homeTeam?.name),
-                  image: existingData.type === 'STATS' ? existingData.homeTeam?.image : (scrapedMatchup.homeTeam?.image || existingData.homeTeam?.image),
+                  shortName: existingData.type === 'STATS' ? existingData.homeTeam?.shortName : (scrapedMatchup.homeTeam?.shortName || existingData.homeTeam?.shortName),
+                  image: existingData.type === 'STATS' ? existingData.homeTeam?.image : resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image),
                   score: homeScore
               },
               awayTeam: {
                   ...(existingData.awayTeam || {}),
                   id: existingData.type === 'STATS' ? existingData.awayTeam?.id : (scrapedMatchup.awayTeam?.id || existingData.awayTeam?.id),
                   name: existingData.type === 'STATS' ? existingData.awayTeam?.name : (scrapedMatchup.awayTeam?.name || existingData.awayTeam?.name),
-                  image: existingData.type === 'STATS' ? existingData.awayTeam?.image : (scrapedMatchup.awayTeam?.image || existingData.awayTeam?.image),
+                  shortName: existingData.type === 'STATS' ? existingData.awayTeam?.shortName : (scrapedMatchup.awayTeam?.shortName || existingData.awayTeam?.shortName),
+                  image: existingData.type === 'STATS' ? existingData.awayTeam?.image : resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image),
                   score: awayScore
               },
               metadata: {

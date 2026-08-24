@@ -10,6 +10,7 @@ import { apiRouter } from './src/apiRouter.js';
 import { startNotificationListener } from './src/services/notificationProcessor.js';
 import { startMonthlyRolloverJob } from './src/services/monthlyRollover.js';
 import { startAutoSyncJob } from './src/services/autoSync.js';
+import { startPickemRemindersJob } from './src/services/pickemReminders.js';
 
 async function startServer() {
   const app = express();
@@ -180,6 +181,7 @@ async function startServer() {
     startNotificationListener();
     startMonthlyRolloverJob();
     startAutoSyncJob();
+    startPickemRemindersJob();
   });
 }
 

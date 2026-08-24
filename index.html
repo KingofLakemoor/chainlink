@@ -26,6 +26,31 @@
     <link rel="manifest" href="/manifest.json" />
 
   <script>
+    window.addEventListener('vite:preloadError', function(e) {
+      var reloaded = sessionStorage.getItem('chunk_error_reloaded_html');
+      if (!reloaded) {
+        sessionStorage.setItem('chunk_error_reloaded_html', 'true');
+        var doReload = function() {
+          var url = new URL(window.location.href);
+          url.searchParams.set('nocache', new Date().getTime());
+          window.location.href = url.toString();
+        };
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (var i = 0; i < registrations.length; i++) {
+              registrations[i].unregister();
+            }
+            caches.keys().then(function(names) {
+              for (let name of names) caches.delete(name);
+              doReload();
+            });
+          }).catch(doReload);
+        } else {
+          doReload();
+        }
+      }
+    });
+    
     window.addEventListener('error', function(e) {
       if (e.target && (e.target.nodeName === 'SCRIPT' || e.target.nodeName === 'LINK')) {
         var reloaded = sessionStorage.getItem('chunk_error_reloaded_html');
@@ -57,8 +82,35 @@
       }
     }, true);
     window.addEventListener('unhandledrejection', function(e) {
+      var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+      if (msg.indexOf('dynamically imported module') !== -1 || msg.indexOf('Loading chunk') !== -1) {
+        var reloaded = sessionStorage.getItem('chunk_error_reloaded_html');
+        if (!reloaded) {
+          sessionStorage.setItem('chunk_error_reloaded_html', 'true');
+          var doReload = function() {
+            var url = new URL(window.location.href);
+            url.searchParams.set('nocache', new Date().getTime());
+            window.location.href = url.toString();
+          };
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+              caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+                doReload();
+              });
+            }).catch(doReload);
+          } else {
+            doReload();
+          }
+        }
+        return;
+      }
+      
       if (document.getElementById('root') && document.getElementById('root').innerHTML === '') {
-        document.getElementById('root').innerHTML = '<div style="background:#18181b;color:white;padding:20px;font-family:sans-serif;"><h3>Unhandled Promise Rejection</h3><p>' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p></div>';
+        document.getElementById('root').innerHTML = '<div style="background:#18181b;color:white;padding:20px;font-family:sans-serif;"><h3>Unhandled Promise Rejection</h3><p>' + msg + '</p></div>';
       }
     });
   </script>

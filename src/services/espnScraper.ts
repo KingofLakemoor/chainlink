@@ -439,8 +439,13 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                       awayCompetitor = b;
                       homeCompetitor = a;
                   } else {
-                      awayCompetitor = a;
-                      homeCompetitor = b;
+                      if ((league as any) === 'LLWS') {
+                          awayCompetitor = b;
+                          homeCompetitor = a;
+                      } else {
+                          awayCompetitor = a;
+                          homeCompetitor = b;
+                      }
                   }
 
                   const homeName = homeCompetitor?.athlete?.displayName || homeCompetitor?.team?.displayName || homeCompetitor?.team?.name || "";

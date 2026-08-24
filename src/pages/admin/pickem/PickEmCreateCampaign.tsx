@@ -12,6 +12,7 @@ export default function PickEmCreateCampaign() {
   const [name, setName] = useState('');
   const [leagues, setLeagues] = useState<string[]>(['CFB']);
   const [defaultMatchType, setDefaultMatchType] = useState('STANDARD');
+  const [format, setFormat] = useState('STANDARD');
   const [pickLimit, setPickLimit] = useState<number>(0);
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,8 @@ export default function PickEmCreateCampaign() {
   const [themeTitle, setThemeTitle] = useState('');
   const [themeSubtitle, setThemeSubtitle] = useState('');
   const [themeLogoFile, setThemeLogoFile] = useState<File | null>(null);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
   const [themeLogoUrl, setThemeLogoUrl] = useState('');
 
   const [visibleDateStr, setVisibleDateStr] = useState(() => {
@@ -89,6 +92,8 @@ export default function PickEmCreateCampaign() {
           logoUrl: finalLogoUrl,
         },
         currentWeek: 1,
+        isPrivate,
+        joinCode: isPrivate ? joinCode : '',
         entryFee: 0,
         createdAt: Date.now()
       });
@@ -165,7 +170,20 @@ export default function PickEmCreateCampaign() {
 
 
 
-                    <div>
+          
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Campaign Format</label>
+            <select
+              value={format}
+              onChange={e => setFormat(e.target.value)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+            >
+              <option value="STANDARD">Standard</option>
+              <option value="SURVIVOR">Survivor Mode (One pick/week, lose = eliminated)</option>
+              <option value="CONFIDENCE">Confidence Points</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks in Campaign</label>
             <input
               type="number"
@@ -214,6 +232,32 @@ export default function PickEmCreateCampaign() {
             </div>
           </div>
 
+                    <div className="pt-6 border-t border-zinc-800">
+            <h3 className="text-lg font-medium text-white mb-4">Access Settings</h3>
+            <div className="space-y-4">
+              <label className="flex items-center gap-2 cursor-pointer text-white">
+                  <input
+                    type="checkbox"
+                    checked={isPrivate}
+                    onChange={(e) => setIsPrivate(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e] focus:ring-[#22c55e]"
+                  />
+                  Private Campaign
+              </label>
+              {isPrivate && (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">Join Code</label>
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value)}
+                    placeholder="Enter a secret code to join"
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
           {/* Theme Settings */}
           <div className="pt-6 border-t border-zinc-800">
             <h3 className="text-lg font-medium text-white mb-4">White Label / Theme Settings</h3>

@@ -17,8 +17,22 @@ service cloud.firestore {
       allow read, write: if false; 
     }
 
+
+    match /link_transactions/{txId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isSignedIn();
+    }
+    match /orders/{orderId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isSignedIn();
+    }
+    match /globalQuiz/{quizId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin();
+    }
     match /system_errors/{errorId} {
-      allow read, write: if true;
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
     // users

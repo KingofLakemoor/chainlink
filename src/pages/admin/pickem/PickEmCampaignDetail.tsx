@@ -28,6 +28,8 @@ export default function PickEmCampaignDetail() {
   const [themeTitle, setThemeTitle] = useState('');
   const [themeSubtitle, setThemeSubtitle] = useState('');
   const [themeLogoFile, setThemeLogoFile] = useState<File | null>(null);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
   const [themeLogoUrl, setThemeLogoUrl] = useState('');
 
   const [visibleDateStr, setVisibleDateStr] = useState('');
@@ -375,6 +377,19 @@ export default function PickEmCampaignDetail() {
   };
 
 
+  
+  const handleToggleTiebreaker = async (matchupId: string, currentVal: boolean) => {
+    try {
+      await updateDoc(doc(db, "pickemMatchups", matchupId), {
+        isTiebreaker: !currentVal
+      });
+      setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, isTiebreaker: !currentVal } : m));
+    } catch (err) {
+      console.error(err);
+      console.log("Failed to toggle tiebreaker");
+    }
+  };
+
   const handleToggleSpread = async (matchupId: string, currentType: string) => {
     try {
       const newType = currentType === "SPREAD" ? "STANDARD" : "SPREAD";
@@ -615,6 +630,32 @@ export default function PickEmCampaignDetail() {
             </div>
           </div>
 
+                    <div className="pt-6 border-t border-zinc-800">
+            <h3 className="text-lg font-medium text-white mb-4">Access Settings</h3>
+            <div className="space-y-4">
+              <label className="flex items-center gap-2 cursor-pointer text-white">
+                  <input
+                    type="checkbox"
+                    checked={isPrivate}
+                    onChange={(e) => setIsPrivate(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e] focus:ring-[#22c55e]"
+                  />
+                  Private Campaign
+              </label>
+              {isPrivate && (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1">Join Code</label>
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value)}
+                    placeholder="Enter a secret code to join"
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
           {/* Theme Settings */}
           <div className="pt-6 border-t border-zinc-800 w-full mt-6 col-span-2">
             <h3 className="text-lg font-medium text-white mb-4">White Label / Theme Settings</h3>
@@ -712,6 +753,7 @@ export default function PickEmCampaignDetail() {
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Start Time</th>
                   <th className="px-4 py-3 font-medium text-center">Type</th>
+                  <th className="px-4 py-3 font-medium text-center">Tiebreaker</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
@@ -729,6 +771,15 @@ export default function PickEmCampaignDetail() {
                         {m.type === "SPREAD" ? "ATS" : "STD"}
                       </button>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleToggleTiebreaker(m.id, !!m.isTiebreaker)}
+                        className={`px-2 py-1 text-xs rounded-md font-bold ${m.isTiebreaker ? "bg-amber-500/20 text-amber-500 border border-amber-500/30" : "bg-zinc-800 text-zinc-400 border border-zinc-700"}`}
+                      >
+                        {m.isTiebreaker ? "YES" : "NO"}
+                      </button>
+                    </td>
+
                     <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                       <button onClick={() => handleGradeMatchup(m)} className="text-blue-500/70 hover:text-blue-500 p-2" title="Grade Matchup">
                          Grade

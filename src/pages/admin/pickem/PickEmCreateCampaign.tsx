@@ -15,6 +15,7 @@ export default function PickEmCreateCampaign() {
   const [format, setFormat] = useState('STANDARD');
   const [pickLimit, setPickLimit] = useState<number>(0);
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
+  const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
   const [themePrimaryColor, setThemePrimaryColor] = useState('#22c55e');
@@ -182,6 +183,13 @@ export default function PickEmCreateCampaign() {
               <option value="SURVIVOR">Survivor Mode (One pick/week, lose = eliminated)</option>
               <option value="CONFIDENCE">Confidence Points</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Enable Tiebreaker Features</label>
+            <div className="flex items-center gap-2 mt-2 mb-4">
+              <input type="checkbox" checked={useTiebreaker} onChange={e => setUseTiebreaker(e.target.checked)} className="w-5 h-5" />
+              <span className="text-zinc-300">Allow users to enter total points prediction for tiebreaker games</span>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks in Campaign</label>

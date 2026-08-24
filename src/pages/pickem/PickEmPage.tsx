@@ -237,12 +237,34 @@ export default function PickEmPage() {
             }
           }));
 
-          const formattedLeaderboard = participantIds.map(uid => ({
-             uid,
-             name: usersMap[uid]?.username || usersMap[uid]?.displayName || 'Unknown User',
-             avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
-             ...participantStats[uid]
-          })).sort((a, b) => b.points - a.points); // Sort by points descending
+          const formattedLeaderboard = participantIds.map(uid => {
+             let tbDistance = Infinity;
+             if (selectedCampaign?.useTiebreaker) {
+                // Find user's tiebreaker pick for this week (or globally if season view, but usually calculated per week)
+                // For simplicity, find the closest tiebreaker distance among all their picks that were tiebreakers
+                participantStats[uid].picks.forEach(p => {
+                    const m = matchups.find(m => m.id === p.matchupId);
+                    if (m && m.isTiebreaker && m.status === 'STATUS_FINAL' && p.tiebreakerTotal > 0) {
+                        const actualTotal = (m.homeScore || 0) + (m.awayScore || 0);
+                        const dist = Math.abs(p.tiebreakerTotal - actualTotal);
+                        if (dist < tbDistance) tbDistance = dist;
+                    }
+                });
+             }
+             return {
+                 uid,
+                 name: usersMap[uid]?.username || usersMap[uid]?.displayName || 'Unknown User',
+                 avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
+                 tbDistance,
+                 ...participantStats[uid]
+             };
+          }).sort((a, b) => {
+              if (b.points !== a.points) return b.points - a.points; // Sort by points
+              if (selectedCampaign?.useTiebreaker) {
+                  return a.tbDistance - b.tbDistance; // Lower distance wins
+              }
+              return 0;
+          });
 
           setLeaderboardData(formattedLeaderboard);
         } else {
@@ -257,7 +279,7 @@ export default function PickEmPage() {
     };
 
     fetchLeaderboard();
-  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek]);
+  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups]);
 
   
   const handleTiebreakerChange = async (matchup: any, total: number) => {
@@ -458,14 +480,47 @@ export default function PickEmPage() {
 
       {activeTab === 'matchups' && (
         <>
-          {selectedCampaign?.pickLimit > 0 && (
+          {(() => {
+             if (selectedCampaign?.format === 'CONFIDENCE') {
+                const confidences = Object.values(userPicks).map(p => p.confidence).filter(c => c !== undefined && c !== null && c > 0);
+                const uniqueConfidences = new Set(confidences);
+                const duplicates = confidences.filter((item, index) => confidences.indexOf(item) !== index);
+                const maxPoints = selectedCampaign.pickLimit > 0 ? selectedCampaign.pickLimit : matchups.length;
+                
+                const isMissing = uniqueConfidences.size < maxPoints;
+                const hasDuplicates = duplicates.length > 0;
+                
+                if (hasDuplicates) {
+                   return (
+                      <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-4">
+                         <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0 mt-1" />
+                         <div>
+                            <h3 className="text-red-400 font-bold">Invalid Confidence Points</h3>
+                            <p className="text-red-400/80 text-sm mt-1">You have assigned the same confidence value to multiple games. Each pick must have a unique point value between 1 and {maxPoints}. Please fix the duplicate values: {Array.from(new Set(duplicates)).join(', ')}</p>
+                         </div>
+                      </div>
+                   );
+                }
+             }
+             return null;
+          })()}
+          {selectedCampaign && (
             <div className="mb-6 p-4 bg-[#18181A] border border-zinc-800 rounded-xl flex items-center justify-between">
                <div>
-                  <h3 className="text-white font-bold">Weekly Pick Limit</h3>
-                  <p className="text-sm text-zinc-400">You can make up to {selectedCampaign.pickLimit} picks for this campaign per week.</p>
+                  <div className="flex items-center gap-2">
+                     <h3 className="text-white font-bold">{selectedCampaign.pickLimit > 0 ? "Weekly Pick Limit" : "Weekly Picks"}</h3>
+                     <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-500 px-2 py-0.5 rounded border border-green-500/20">
+                       <CheckCircle className="w-3 h-3" /> Auto-saved
+                     </span>
+                  </div>
+                  <p className="text-sm text-zinc-400">
+                     {selectedCampaign.pickLimit > 0 
+                        ? `You can make up to ${selectedCampaign.pickLimit} picks for this campaign per week.`
+                        : "Picks are saved automatically as you make them. Make sure you don't miss any games!"}
+                  </p>
                </div>
                <div className="text-2xl font-black" style={{ color: primaryColor }}>
-                 {Object.keys(userPicks).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit}</span>
+                 {Object.keys(userPicks).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit > 0 ? selectedCampaign.pickLimit : matchups.length}</span>
                </div>
             </div>
           )}
@@ -745,7 +800,15 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                         {isNaN(participant.wins) ? 0 : String(participant.wins)}-{isNaN(participant.losses) ? 0 : String(participant.losses)}-{isNaN(participant.pushes) ? 0 : String(participant.pushes)}
                       </td>
                       <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
-                         {participant.picks?.find((p: any) => p.tiebreakerTotal !== undefined)?.tiebreakerTotal || '-'}
+                        {(() => {
+                          const tbPick = participant.picks?.find((p: any) => p.tiebreakerTotal !== undefined);
+                          if (!tbPick) return '-';
+                          const tbMatchup = matchups.find((m: any) => m.id === tbPick.matchupId);
+                          const isLocked = tbMatchup && tbMatchup.startTime && Date.now() >= tbMatchup.startTime;
+                          const isSelf = participant.uid === user?.uid;
+                          if (isLocked || isSelf) return tbPick.tiebreakerTotal;
+                          return <span title="Hidden until kickoff" className="flex items-center justify-center opacity-50"><Lock className="w-4 h-4 inline" /></span>;
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">

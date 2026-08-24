@@ -6,7 +6,7 @@ export async function logError(context: string, error: any) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : '';
     
-    await addDoc(collection(db, 'system_errors'), {
+    if (db) await addDoc(collection(db, 'system_errors'), {
       context,
       message: errorMsg,
       stack,

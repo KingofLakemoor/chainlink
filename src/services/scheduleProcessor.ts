@@ -117,7 +117,7 @@ import { League, LeagueResponse, scrapeLeagueSchedules } from './espnScraper.js'
 export { scrapeLeagueSchedules } from './espnScraper.js';
 import { gradeBrackets } from './bracketGrader.js';
 
-export async function syncLeagueSchedules(league: League, scoreboardOnly: boolean = false, specificDates?: string[]): Promise<LeagueResponse> {
+export async function syncLeagueSchedules(league: League, scoreboardOnly: boolean = false, specificDates?: string[], preloadedBracketMatchIds?: Set<string>, preloadedPickemMatchupIds?: Set<string>): Promise<LeagueResponse> {
   let scraperConfig: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> } | undefined = undefined;
   if (adminDb) {
     try {
@@ -144,31 +144,35 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
       }
 
       // Gather bracket match IDs to force activity
-      const bracketMatchIds = new Set<string>();
-      try {
-        const bracketsSnap = await adminDb.collection('brackets').where('status', 'in', ['OPEN', 'LOCKED', 'ACTIVE']).get();
-        for (const doc of bracketsSnap.docs) {
-          const bData = doc.data();
-          if (bData.matchIds) {
-            Object.values(bData.matchIds).forEach(id => {
-               if (id) bracketMatchIds.add(String(id));
-            });
+      const bracketMatchIds = preloadedBracketMatchIds || new Set<string>();
+      if (!preloadedBracketMatchIds) {
+          try {
+            const bracketsSnap = await adminDb.collection('brackets').where('status', 'in', ['OPEN', 'LOCKED', 'ACTIVE']).get();
+            for (const doc of bracketsSnap.docs) {
+              const bData = doc.data();
+              if (bData.matchIds) {
+                Object.values(bData.matchIds).forEach(id => {
+                   if (id) bracketMatchIds.add(String(id));
+                });
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching bracket match IDs", err);
           }
-        }
-      } catch (err) {
-        console.error("Error fetching bracket match IDs", err);
       }
 
       // Gather pickem match IDs to force activity
-      const pickemMatchupIds = new Set<string>();
-      try {
-          const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
-          for (const doc of pickemMatchupsSnap.docs) {
-              const gameId = doc.data().gameId;
-              if (gameId) pickemMatchupIds.add(String(gameId));
+      const pickemMatchupIds = preloadedPickemMatchupIds || new Set<string>();
+      if (!preloadedPickemMatchupIds) {
+          try {
+              const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
+              for (const doc of pickemMatchupsSnap.docs) {
+                  const gameId = doc.data().gameId;
+                  if (gameId) pickemMatchupIds.add(String(gameId));
+              }
+          } catch (err) {
+              console.error("Error fetching pickem match IDs", err);
           }
-      } catch (err) {
-          console.error("Error fetching pickem match IDs", err);
       }
 
       const existingMap = new Map<string, any>();

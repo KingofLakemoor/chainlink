@@ -318,15 +318,34 @@ export async function updateAllProps() {
                      else updateData['metadata.winningSide'] = 'PUSH';
                 }
                 
-                batch.update(doc.ref, updateData);
-                count++;
-                batchCount++;
-                if (batchCount >= 490) {
-                    await batch.commit();
-                    batch = adminDb.batch();
-                    batchCount = 0;
+                
+                let needsUpdate = false;
+                for (const key of Object.keys(updateData)) {
+                    if (key === 'metadata.winningSide') {
+                        if (m.metadata?.winningSide !== updateData[key]) needsUpdate = true;
+                    } else if (key === 'awayTeam.score') {
+                        if (m.awayTeam?.score !== updateData[key]) needsUpdate = true;
+                    } else if (key === 'homeTeam.score') {
+                        if (m.homeTeam?.score !== updateData[key]) needsUpdate = true;
+                    } else {
+                        if (m[key] !== updateData[key]) needsUpdate = true;
+                    }
                 }
-                if (newStatus === 'STATUS_FINAL') {
+
+                if (needsUpdate) {
+                    batch.update(doc.ref, updateData);
+                    count++;
+                    batchCount++;
+                    
+                    if (batchCount >= 490) {
+                        await batch.commit();
+                        batch = adminDb.batch();
+                        batchCount = 0;
+                    }
+                }
+                
+                // Only push to grader if it JUST finished, or if it changed to final while we updated
+                if (newStatus === 'STATUS_FINAL' && m.status !== 'STATUS_FINAL') {
                     matchupsToGrade.push({ id: doc.id, ...m, status: 'STATUS_FINAL', statusDesc: 'Final', homeTeam: { ...m.homeTeam, score: currentScoreB }, awayTeam: { ...m.awayTeam, score: currentScoreA } });
                 }
             } else if (m.startTime && Date.now() >= m.startTime && m.status === 'STATUS_SCHEDULED') {

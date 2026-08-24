@@ -42,17 +42,3 @@ initFirebase().catch(e => console.error("Firebase init failed", e)).then(() => {
   );
 });
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-    for(let registration of registrations) {
-      registration.update();
-    }
-  });
-  
-  // Hard cache clear if we detect the query param
-  if (window.location.search.includes('nocache')) {
-    caches.keys().then(function(names) {
-      for (let name of names) caches.delete(name);
-    });
-  }
-}

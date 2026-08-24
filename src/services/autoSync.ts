@@ -3,12 +3,15 @@ import { syncLeagueSchedules } from './scheduleProcessor.js';
 import { updateAllProps } from './propGrader.js';
 
 let syncInterval: NodeJS.Timeout | null = null;
+let loopCount = 0;
 
 export function startAutoSyncJob() {
   if (syncInterval) return;
   
   // Run every 2 minutes
   const runSync = async () => {
+    const isFullSync = loopCount % 5 === 0;
+    loopCount++;
     try {
       console.log("[AutoSync] Starting background schedule sync...");
       if (!adminDb) return;
@@ -36,12 +39,26 @@ export function startAutoSyncJob() {
           }
       });
 
-      // Ensure any league with manually activated games on the main board is synced
-      const activeMatchupsSnap = await adminDb.collection('matchups').where('active', '==', true).get();
-      activeMatchupsSnap.docs.forEach(doc => {
-          const m = doc.data();
-          if (m.league) activeLeaguesSet.add(m.league);
-      });
+      // Fetch Pickem & Bracket match IDs ONCE to save reads, and ONLY on full syncs to save thousands of reads
+      const bracketMatchIds = new Set<string>();
+      const pickemMatchupIds = new Set<string>();
+      if (isFullSync) {
+          try {
+            const bracketsSnap = await adminDb.collection('brackets').where('status', 'in', ['OPEN', 'LOCKED', 'ACTIVE']).get();
+            for (const doc of bracketsSnap.docs) {
+              const bData = doc.data();
+              if (bData.matchIds) Object.values(bData.matchIds).forEach(id => { if (id) bracketMatchIds.add(String(id)); });
+            }
+          } catch(e) {}
+          
+          try {
+              const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
+              for (const doc of pickemMatchupsSnap.docs) {
+                  const gameId = doc.data().gameId;
+                  if (gameId) pickemMatchupIds.add(String(gameId));
+              }
+          } catch(e) {}
+      }
       
       const activeLeagues = Array.from(activeLeaguesSet);
       
@@ -54,7 +71,7 @@ export function startAutoSyncJob() {
              if (league === 'Argentina' || league === 'Liga Profesional') league = 'ARG';
              if (league === 'Brazil' || league === 'Serie A' || league === 'Campeonato Brasileiro') league = 'BRA';
              
-             await syncLeagueSchedules(league, false);
+             await syncLeagueSchedules(league, !isFullSync, undefined, bracketMatchIds, pickemMatchupIds);
            } catch (err: any) {
              console.error(`[AutoSync] Error syncing ${league}: ${err.message}`);
            }

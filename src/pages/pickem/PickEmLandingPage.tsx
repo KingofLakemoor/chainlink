@@ -203,15 +203,21 @@ export default function PickEmLandingPage() {
                     {details && details.matchups.length > 0 && (
                       <div className="p-6 bg-[#18181A] flex-1 flex flex-col justify-center">
                         <div className="flex flex-wrap gap-2 mb-2">
-                           {details.matchups.map((m) => {
-                             const pick = details.picks.find(p => p.matchupId === m.id);
+                           {Array.from({ length: c.pickLimit || totalGames }).map((_, i) => {
+                             const pick = details.picks[i];
                              if (!pick) {
                                return (
-                                 <div key={m.id} className="w-10 h-10 rounded-full border-2 border-zinc-800 bg-[#121212] flex items-center justify-center flex-shrink-0" title={`${getTeamShortName(m, false)} @ ${getTeamShortName(m, true)}`}>
-                                 </div>
+                                 <div key={`empty-${i}`} className="w-10 h-10 rounded-full border-2 border-zinc-800 bg-[#121212] flex-shrink-0" />
                                );
                              }
                              
+                             const m = details.matchups.find(matchup => matchup.id === pick.matchupId);
+                             if (!m) {
+                               return (
+                                 <div key={`empty-${i}`} className="w-10 h-10 rounded-full border-2 border-zinc-800 bg-[#121212] flex-shrink-0" />
+                               );
+                             }
+
                              let imageUrl = '';
                              let altText = '';
                              if (m.type === 'OVER_UNDER') {
@@ -221,11 +227,9 @@ export default function PickEmLandingPage() {
                                  imageUrl = pick.pick.teamId === m.awayTeam.id ? m.awayTeam.image : m.homeTeam.image;
                                  altText = pick.pick.teamId === m.awayTeam.id ? m.awayTeam.name : m.homeTeam.name;
                              }
-
                              let borderColorClass = 'border-[#22c55e]';
                              if (pick.status === 'WIN') borderColorClass = 'border-green-500 ring-2 ring-green-500/20';
                              else if (pick.status === 'LOSS') borderColorClass = 'border-red-500 opacity-50';
-
                              return (
                                <div key={m.id} className={`w-10 h-10 rounded-full border-2 overflow-hidden bg-zinc-900 flex-shrink-0 ${borderColorClass}`} title={`${altText} ${pick.status !== 'PENDING' ? '- '+pick.status : ''}`}>
                                  <FirebaseImage src={imageUrl} alt={altText} className="w-full h-full object-contain p-1" />

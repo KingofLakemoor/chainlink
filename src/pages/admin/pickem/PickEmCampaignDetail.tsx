@@ -37,6 +37,7 @@ export default function PickEmCampaignDetail() {
   const [startDateStr, setStartDateStr] = useState('');
   const [endDateStr, setEndDateStr] = useState('');
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
+  const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
   const [weekSettings, setWeekSettings] = useState<Record<string, any>>({});
   const [weekGamesBeginDateStr, setWeekGamesBeginDateStr] = useState('');
   const [weekLabel, setWeekLabel] = useState('');
@@ -53,6 +54,7 @@ export default function PickEmCampaignDetail() {
         setCampaign({ id: docSnap.id, ...data });
         setSelectedWeek(data.currentWeek || 1);
         setTotalWeeks(data.totalWeeks || 18);
+        setUseTiebreaker(data.useTiebreaker || false);
         setWeekSettings(data.weekSettings || {});
 
         setThemePrimaryColor(data.theme?.primaryColor || '#22c55e');
@@ -176,7 +178,8 @@ export default function PickEmCampaignDetail() {
       setCampaign(prev => ({ 
         ...prev, 
         currentWeek: selectedWeek, 
-        totalWeeks, 
+        totalWeeks,
+        useTiebreaker, 
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
@@ -606,6 +609,13 @@ export default function PickEmCampaignDetail() {
                   onChange={e => setGamesBeginDateStr(e.target.value)}
                   className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Enable Tiebreaker Features</label>
+                <div className="flex items-center gap-2 mt-2 mb-4">
+                  <input type="checkbox" checked={useTiebreaker} onChange={e => setUseTiebreaker(e.target.checked)} className="w-5 h-5" />
+                  <span className="text-zinc-300">Allow users to enter total points prediction for tiebreaker games</span>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks</label>

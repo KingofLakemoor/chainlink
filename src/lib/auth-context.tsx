@@ -9,9 +9,16 @@ interface AuthContextType {
   profile: any | null;
   chain: any | null;
   loading: boolean;
+  updateProfileState: (partialProfile: Record<string, any>) => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, profile: null, chain: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  profile: null,
+  chain: null,
+  loading: true,
+  updateProfileState: () => {},
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -154,8 +161,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  const updateProfileState = (partialProfile: Record<string, any>) => {
+    setProfile((prev: any) => (prev ? { ...prev, ...partialProfile } : partialProfile));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, chain, loading }}>
+    <AuthContext.Provider value={{ user, profile, chain, loading, updateProfileState }}>
       {children}
     </AuthContext.Provider>
   );

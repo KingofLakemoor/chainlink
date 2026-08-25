@@ -434,8 +434,8 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  if (profile?.needsOnboarding && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" />;
+  if (profile?.needsOnboarding === true && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
   }
 
   const pageTitle = {
@@ -490,12 +490,12 @@ function PrivateRoute({ children, allowOnboarding = false }: { children: React.R
   if (loading) return null;
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
   // Force onboarding if they need it and they aren't already on the onboarding page
-  if (profile?.needsOnboarding && !allowOnboarding) {
-    return <Navigate to="/onboarding" />;
+  if (profile?.needsOnboarding === true && !allowOnboarding) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;

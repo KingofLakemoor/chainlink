@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '../../components/ui/button';
 import { Link2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function OnboardingPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfileState } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
@@ -17,7 +17,7 @@ export default function OnboardingPage() {
   // If they somehow get here without needing onboarding, redirect to dashboard
   React.useEffect(() => {
     if (profile && profile.needsOnboarding === false) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [profile, navigate]);
 
@@ -53,7 +53,7 @@ export default function OnboardingPage() {
       // 2. Uniqueness check (case-insensitive)
       const usernameLower = username.toLowerCase();
 
-      const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}`, {
+      const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}&excludeUid=${encodeURIComponent(user.uid)}`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`
         }
@@ -67,20 +67,23 @@ export default function OnboardingPage() {
         throw new Error("Username is already taken.");
       }
 
-      // 3. Update Firestore profile
+      // 3. Update Firestore profile atomically (setDoc with merge: true)
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
+      const updatePayload = {
         username: username,
         usernameLower: usernameLower,
-        needsOnboarding: false
-      });
+        needsOnboarding: false,
+        updatedAt: Date.now()
+      };
+      await setDoc(userRef, updatePayload, { merge: true });
+
+      // Optimistically update AuthContext profile state to prevent race conditions in route guards
+      updateProfileState(updatePayload);
 
       setSuccess('Username successfully set!');
 
-      // Navigate to dashboard shortly after success
-      setTimeout(() => {
-        navigate('/');
-      }, 1000);
+      // Navigate immediately to dashboard without delayed timeouts
+      navigate('/', { replace: true });
 
     } catch (err: any) {
       setError(err.message || 'Failed to update username.');

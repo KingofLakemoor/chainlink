@@ -4,6 +4,8 @@ import { updateAllProps } from './propGrader.js';
 
 let syncInterval: NodeJS.Timeout | null = null;
 let loopCount = 0;
+let cachedBracketMatchIds = new Set<string>();
+let cachedPickemMatchupIds = new Set<string>();
 
 export function startAutoSyncJob() {
   if (syncInterval) return;
@@ -16,14 +18,20 @@ export function startAutoSyncJob() {
       console.log("[AutoSync] Starting background schedule sync...");
       if (!adminDb) return;
       const activeLeaguesSnap = await adminDb.collection('leagueSettings').where('active', '==', true).get();
-      const activeLeaguesSet = new Set(activeLeaguesSnap.docs.map(doc => doc.id));
+      const activeLeaguesSet = new Set<string>();
+      const leagueSettingsMap = new Map<string, any>();
+
+      activeLeaguesSnap.docs.forEach(doc => {
+        activeLeaguesSet.add(doc.id);
+        leagueSettingsMap.set(doc.id, doc.data());
+      });
 
       // Also ensure any league actively used in a PickEm Campaign is synced
       const pickemCampaignsSnap = await adminDb.collection('pickemCampaigns').where('archived', '!=', true).get();
       pickemCampaignsSnap.docs.forEach(doc => {
           const c = doc.data();
           if (c.league) activeLeaguesSet.add(c.league);
-          if (c.leagues) c.leagues.forEach(l => activeLeaguesSet.add(l));
+          if (c.leagues) c.leagues.forEach((l: string) => activeLeaguesSet.add(l));
       });
 
       // Ensure any league in an active Link4 Segment is synced
@@ -35,12 +43,11 @@ export function startAutoSyncJob() {
           const endMs = new Date(seg.endTime).getTime();
           // If the segment hasn't ended yet (plus 1 day buffer for scoring), sync its sports
           if (endMs + (24 * 60 * 60 * 1000) > nowMs && seg.allowedSports) {
-              seg.allowedSports.forEach(l => activeLeaguesSet.add(l));
+              seg.allowedSports.forEach((l: string) => activeLeaguesSet.add(l));
           }
       });
 
-      // Fetch Pickem & Bracket match IDs ONCE to save reads, and ONLY on full syncs to save thousands of reads
-            // ALWAYS sync leagues that have games currently in progress, to ensure they don't get stuck forever if a league is deactivated
+      // ALWAYS sync leagues that have games currently in progress, to ensure they don't get stuck forever if a league is deactivated
       try {
           const inProgressSnap = await adminDb.collection('matchups').where('status', 'in', ['STATUS_IN_PROGRESS', 'STATUS_DELAYED']).get();
           inProgressSnap.docs.forEach(doc => {
@@ -48,23 +55,26 @@ export function startAutoSyncJob() {
           });
       } catch (e) {}
 
-      const bracketMatchIds = new Set<string>();
-      const pickemMatchupIds = new Set<string>();
-      if (isFullSync) {
+      // Fetch Pickem & Bracket match IDs ONCE on full syncs and cache them across runs
+      if (isFullSync || cachedBracketMatchIds.size === 0) {
           try {
+            const newBracketMatchIds = new Set<string>();
             const bracketsSnap = await adminDb.collection('brackets').where('status', 'in', ['OPEN', 'LOCKED', 'ACTIVE']).get();
             for (const doc of bracketsSnap.docs) {
               const bData = doc.data();
-              if (bData.matchIds) Object.values(bData.matchIds).forEach(id => { if (id) bracketMatchIds.add(String(id)); });
+              if (bData.matchIds) Object.values(bData.matchIds).forEach(id => { if (id) newBracketMatchIds.add(String(id)); });
             }
+            cachedBracketMatchIds = newBracketMatchIds;
           } catch(e) {}
           
           try {
+              const newPickemMatchupIds = new Set<string>();
               const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
               for (const doc of pickemMatchupsSnap.docs) {
                   const gameId = doc.data().gameId;
-                  if (gameId) pickemMatchupIds.add(String(gameId));
+                  if (gameId) newPickemMatchupIds.add(String(gameId));
               }
+              cachedPickemMatchupIds = newPickemMatchupIds;
           } catch(e) {}
       }
       
@@ -79,7 +89,14 @@ export function startAutoSyncJob() {
              if (league === 'Argentina' || league === 'Liga Profesional') league = 'ARG';
              if (league === 'Brazil' || league === 'Serie A' || league === 'Campeonato Brasileiro') league = 'BRA';
              
-             await syncLeagueSchedules(league, !isFullSync, undefined, bracketMatchIds, pickemMatchupIds);
+             await syncLeagueSchedules(
+               league as any,
+               !isFullSync,
+               undefined,
+               cachedBracketMatchIds,
+               cachedPickemMatchupIds,
+               leagueSettingsMap.get(league)
+             );
            } catch (err: any) {
              console.error(`[AutoSync] Error syncing ${league}: ${err.message}`);
            }

@@ -7,12 +7,23 @@ import { Button } from '../../components/ui/button';
 import { Link2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function OnboardingPage() {
-  const { user, profile, updateProfileState } = useAuth();
+  const { user, profile, loading, updateProfileState } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-suggest a initial clean username from user profile/display name/email
+  React.useEffect(() => {
+    if (!username && (user || profile)) {
+      const rawCandidate = user?.displayName || profile?.name || user?.email?.split('@')[0] || '';
+      const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+      if (sanitized.length >= 3) {
+        setUsername(sanitized);
+      }
+    }
+  }, [user, profile]);
 
   // If they somehow get here without needing onboarding, redirect to dashboard
   React.useEffect(() => {
@@ -20,6 +31,14 @@ export default function OnboardingPage() {
       navigate('/', { replace: true });
     }
   }, [profile, navigate]);
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+        <div className="text-zinc-400 font-medium">Loading session...</div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

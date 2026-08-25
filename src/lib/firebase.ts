@@ -92,7 +92,7 @@ const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
 
-const ensureUserProfile = async (user: User, username?: string, referrerId?: string) => {
+export const ensureUserProfile = async (user: User, username?: string, referrerId?: string) => {
   // Check if user exists, if not create default profile
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);

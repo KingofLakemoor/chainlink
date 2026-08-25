@@ -520,6 +520,15 @@ const HallOfFamePage = React.lazy(() => import('./pages/leaderboards/HallOfFameP
 
 function GlobalEffects() {
   useNotifications();
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const refParam = params.get('ref');
+      if (refParam) {
+        localStorage.setItem('chainlink_referrer_id', refParam);
+      }
+    }
+  }, []);
   return null;
 }
 

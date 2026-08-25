@@ -174,6 +174,45 @@ export default function PickEmPage() {
   }, [selectedCampaign, selectedWeek, user]);
 
   useEffect(() => {
+    const fetchSurvivorState = async () => {
+      if (!user || !selectedCampaign || selectedCampaign.format !== 'SURVIVOR') {
+        setUsedTeams(new Set());
+        setIsEliminated(false);
+        return;
+      }
+
+      try {
+        const pQuery = query(
+          collection(db, 'pickemPicks'),
+          where('campaignId', '==', selectedCampaign.id),
+          where('participantId', '==', user.uid)
+        );
+        const pSnap = await getDocs(pQuery);
+
+        const used = new Set<string>();
+        let eliminated = false;
+
+        pSnap.docs.forEach(d => {
+          const data = d.data();
+          if (data.week !== selectedWeek && data.pick?.teamId) {
+            used.add(data.pick.teamId);
+          }
+          if (data.status === 'LOSS') {
+            eliminated = true;
+          }
+        });
+
+        setUsedTeams(used);
+        setIsEliminated(eliminated);
+      } catch (err) {
+        console.error("Failed to fetch survivor state:", err);
+      }
+    };
+
+    fetchSurvivorState();
+  }, [user, selectedCampaign, selectedWeek]);
+
+  useEffect(() => {
     const fetchLeaderboard = async () => {
       if (!selectedCampaign || activeTab !== 'leaderboard') return;
 
@@ -216,16 +255,17 @@ export default function PickEmPage() {
           const usersMap: Record<string, any> = {};
 
           // Fetch public user profiles via API endpoint to avoid permission denied errors
-          const token = await auth.currentUser?.getIdToken();
+          const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+          const headers: Record<string, string> = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
           const chunkedUids = [];
           for (let i = 0; i < participantIds.length; i += 50) {
             chunkedUids.push(participantIds.slice(i, i + 50));
           }
 
           await Promise.all(chunkedUids.map(async (chunk) => {
-            const res = await fetch(`/api/users/public?uids=${chunk.join(',')}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`/api/users/public?uids=${chunk.join(',')}`, { headers });
             if (res.ok) {
               const data = await res.json();
               const usersList = data.users || [];
@@ -284,21 +324,23 @@ export default function PickEmPage() {
   
   const handleTiebreakerChange = async (matchup: any, total: number) => {
     if (!user || !selectedCampaign || isNaN(total)) return;
+    const pickId = userPicks[matchup.id]?.id;
+
+    setUserPicks(prev => ({
+      ...prev,
+      [matchup.id]: { ...prev[matchup.id], tiebreakerTotal: total }
+    }));
+
+    if (!pickId) return;
+
     try {
-      const pickId = userPicks[matchup.id]?.id;
-      if (!pickId) return;
       await updateDoc(doc(db, 'pickemPicks', pickId), { tiebreakerTotal: total });
-      setUserPicks(prev => ({
-        ...prev,
-        [matchup.id]: { ...prev[matchup.id], tiebreakerTotal: total }
-      }));
     } catch (e) {
       console.error("Failed to update tiebreaker", e);
     }
   };
 
   const handleClearPick = async (matchup: any) => {
-    if (isEliminated && selectedCampaign?.format === 'SURVIVOR') return;
     if (!user || !selectedCampaign) return;
     if (isEliminated && selectedCampaign.format === 'SURVIVOR') return;
     if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;

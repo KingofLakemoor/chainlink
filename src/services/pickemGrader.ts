@@ -110,8 +110,13 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     return;
   }
 
+  const now = Date.now();
+  let batch = adminDb.batch();
+  let opCount = 0;
+
   for (const pickDoc of pendingPicksSnap.docs) {
     const pickData = pickDoc.data();
+    if (pickData.status !== 'PENDING') continue;
 
     let pickStatus = 'LOSS';
     let pointsEarned = 0;
@@ -124,23 +129,21 @@ export async function gradeSinglePickemMatchup(matchup: any) {
       pointsEarned = pickData.confidence || 1; // Handle confidence points
     }
 
-    try {
-      await adminDb.runTransaction(async (transaction: any) => {
-        const pickRefGet = await transaction.get(pickDoc.ref);
-        if (!pickRefGet.exists || pickRefGet.data()?.status !== 'PENDING') {
-           console.warn(`[PickemGrader] Pick ${pickDoc.id} is no longer PENDING or does not exist. Skipping.`);
-           return;
-        }
+    batch.update(pickDoc.ref, {
+      status: pickStatus,
+      pointsEarned,
+      updatedAt: now
+    });
 
-        transaction.update(pickDoc.ref, {
-          status: pickStatus,
-          pointsEarned,
-          updatedAt: Date.now()
-        });
-      });
-
-    } catch (err) {
-      console.error(`[PickemGrader] Failed to grade pickem pick ${pickDoc.id}:`, err);
+    opCount++;
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = adminDb.batch();
+      opCount = 0;
     }
+  }
+
+  if (opCount > 0) {
+    await batch.commit();
   }
 }

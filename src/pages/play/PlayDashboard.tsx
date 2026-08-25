@@ -78,19 +78,20 @@ export default function PlayDashboard() {
         setGlobalUpcomingPicks([]);
       }
 
-      // Fetch active sponsors
+      // Fetch active sponsors once via getDocs to reduce persistent snapshot reads
       const sponsorsQ = query(collection(db, 'sponsors'), where('active', '==', true));
-      unsubSponsors = onSnapshot(sponsorsQ, (snap) => {
+      getDocs(sponsorsQ).then((snap) => {
         if (!snap.empty) {
           const activeSponsors = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           setSponsors(activeSponsors);
         } else {
           setSponsors([]);
         }
-      }, (error) => {
+      }).catch((error) => {
         console.warn("Sponsors list is currently unavailable:", error);
         setSponsors([]);
       });
+      unsubSponsors = () => {};
     };
 
     setupMatchups();
@@ -364,7 +365,12 @@ export default function PlayDashboard() {
   
   useEffect(() => {
      if (activePick) {
-         // if it's already in allFetchedMatchups, we don't strictly need to fetch it, but just in case it drops:
+         // If it's already in allFetchedMatchups, skip subscribing to avoid duplicate snapshot listener reads
+         const existsInFetched = allFetchedMatchups.some(m => m.gameId === activePick.matchupId || m.id === activePick.matchupId);
+         if (existsInFetched) {
+             setFallbackActiveMatchup(null);
+             return;
+         }
          const unsub = onSnapshot(doc(db, 'matchups', activePick.matchupId), (docSnap) => {
              if (docSnap.exists()) {
                  setFallbackActiveMatchup({ id: docSnap.id, ...docSnap.data() });
@@ -374,7 +380,7 @@ export default function PlayDashboard() {
      } else {
          setFallbackActiveMatchup(null);
      }
-  }, [activePick?.matchupId]);
+  }, [activePick?.matchupId, allFetchedMatchups]);
 
   const activeMatchup = activePick ? (allFetchedMatchups.find(m => m.gameId === activePick.matchupId) || fallbackActiveMatchup) : null;
   // We don't filter out queuedPick from available matchups below because the instructions say we should just display it underneath My Pick,

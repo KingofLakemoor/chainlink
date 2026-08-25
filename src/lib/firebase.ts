@@ -97,10 +97,15 @@ export const ensureUserProfile = async (user: User, username?: string, referrerI
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
   if (!userSnap.exists()) {
-    const resolvedUsername = username || 'User' + Math.floor(Math.random() * 1000000);
+    const rawCandidate = username || user.displayName || user.email?.split('@')[0] || '';
+    const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+    const resolvedUsername = sanitized.length >= 3 ? sanitized : 'User' + Math.floor(Math.random() * 1000000);
+    const nameCandidate = (user.displayName || user.email?.split('@')[0] || 'Anonymous').slice(0, 100);
+    const emailCandidate = (user.email || '').slice(0, 200);
+
     const defaultData: any = {
-      email: user.email,
-      name: user.displayName || 'Anonymous',
+      email: emailCandidate,
+      name: nameCandidate,
       username: resolvedUsername,
       usernameLower: resolvedUsername.toLowerCase(),
       image: user.photoURL || '',

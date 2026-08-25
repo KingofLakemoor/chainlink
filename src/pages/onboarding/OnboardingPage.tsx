@@ -50,7 +50,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (!user || !profile) {
+    if (!user) {
       setError('You must be logged in to set a username.');
       return;
     }
@@ -72,21 +72,33 @@ export default function OnboardingPage() {
       // 2. Uniqueness check (case-insensitive)
       const usernameLower = username.toLowerCase();
 
-      const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}&excludeUid=${encodeURIComponent(user.uid)}`, {
-        headers: {
-          'Authorization': `Bearer ${await user.getIdToken()}`
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}&excludeUid=${encodeURIComponent(user.uid)}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
+        });
+
+        if (res.ok) {
+          const checkData = await res.json();
+          if (checkData.exists) {
+            throw new Error("Username is already taken.");
+          }
         }
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to check username availability.");
-      }
-      const checkData = await res.json();
-      if (checkData.exists) {
-        throw new Error("Username is already taken.");
+      } catch (checkErr: any) {
+        if (checkErr.message === "Username is already taken.") {
+          throw checkErr;
+        }
+        console.warn("Skipped remote username check due to error:", checkErr);
       }
 
-      // 3. Update Firestore profile atomically (setDoc with merge: true)
+      // 3. Ensure base user profile document exists before updating
+      const referrerId = typeof window !== 'undefined' ? (localStorage.getItem('chainlink_referrer_id') || undefined) : undefined;
+      const { ensureUserProfile } = await import('../../lib/firebase');
+      await ensureUserProfile(user, username, referrerId);
+
+      // 4. Update Firestore profile atomically (setDoc with merge: true)
       const userRef = doc(db, 'users', user.uid);
       const updatePayload = {
         username: username,

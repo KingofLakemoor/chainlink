@@ -46,12 +46,19 @@ const validateAuth = async (req: express.Request, res: express.Response, next: e
 
 apiRouter.get("/users/check-username", async (req, res) => {
   try {
-    const { username } = req.query;
+    const { username, excludeUid } = req.query;
     if (!username || typeof username !== 'string') {
       return res.json({ exists: false });
     }
-    const snap = await adminDb.collection('users').where('usernameLower', '==', username.toLowerCase()).limit(1).get();
-    return res.json({ exists: !snap.empty });
+    const snap = await adminDb.collection('users').where('usernameLower', '==', username.toLowerCase()).get();
+    if (snap.empty) {
+      return res.json({ exists: false });
+    }
+    if (excludeUid && typeof excludeUid === 'string') {
+      const isOtherUser = snap.docs.some(doc => doc.id !== excludeUid);
+      return res.json({ exists: isOtherUser });
+    }
+    return res.json({ exists: true });
   } catch (error) {
     console.error('Error checking username', error);
     return res.status(500).json({ error: 'Internal server error' });

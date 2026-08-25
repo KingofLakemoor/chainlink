@@ -2,24 +2,43 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '../../components/ui/button';
 import { Link2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function OnboardingPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading, updateProfileState } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Auto-suggest a initial clean username from user profile/display name/email
+  React.useEffect(() => {
+    if (!username && (user || profile)) {
+      const rawCandidate = user?.displayName || profile?.name || user?.email?.split('@')[0] || '';
+      const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+      if (sanitized.length >= 3) {
+        setUsername(sanitized);
+      }
+    }
+  }, [user, profile]);
+
   // If they somehow get here without needing onboarding, redirect to dashboard
   React.useEffect(() => {
     if (profile && profile.needsOnboarding === false) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [profile, navigate]);
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+        <div className="text-zinc-400 font-medium">Loading session...</div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +72,7 @@ export default function OnboardingPage() {
       // 2. Uniqueness check (case-insensitive)
       const usernameLower = username.toLowerCase();
 
-      const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}`, {
+      const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(username)}&excludeUid=${encodeURIComponent(user.uid)}`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`
         }
@@ -67,20 +86,23 @@ export default function OnboardingPage() {
         throw new Error("Username is already taken.");
       }
 
-      // 3. Update Firestore profile
+      // 3. Update Firestore profile atomically (setDoc with merge: true)
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
+      const updatePayload = {
         username: username,
         usernameLower: usernameLower,
-        needsOnboarding: false
-      });
+        needsOnboarding: false,
+        updatedAt: Date.now()
+      };
+      await setDoc(userRef, updatePayload, { merge: true });
+
+      // Optimistically update AuthContext profile state to prevent race conditions in route guards
+      updateProfileState(updatePayload);
 
       setSuccess('Username successfully set!');
 
-      // Navigate to dashboard shortly after success
-      setTimeout(() => {
-        navigate('/');
-      }, 1000);
+      // Navigate immediately to dashboard without delayed timeouts
+      navigate('/', { replace: true });
 
     } catch (err: any) {
       setError(err.message || 'Failed to update username.');

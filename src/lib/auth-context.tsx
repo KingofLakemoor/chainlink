@@ -2,16 +2,23 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './firebase-error';
-import { auth, db, handleAuthRedirect } from './firebase';
+import { auth, db, handleAuthRedirect, ensureUserProfile } from './firebase';
 
 interface AuthContextType {
   user: User | null;
   profile: any | null;
   chain: any | null;
   loading: boolean;
+  updateProfileState: (partialProfile: Record<string, any>) => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, profile: null, chain: null, loading: true });
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  profile: null,
+  chain: null,
+  loading: true,
+  updateProfileState: () => {},
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -113,7 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (import.meta.env.DEV && user.uid === 'mock-user-123') {
         // preserve the mock profile
       } else {
-        setProfile(null);
+        // Automatically ensure user profile creation if user document is missing in Firestore
+        try {
+          const referrerId = typeof window !== 'undefined' ? (localStorage.getItem('chainlink_referrer_id') || undefined) : undefined;
+          await ensureUserProfile(user, undefined, referrerId);
+        } catch (err) {
+          console.error("Failed to auto-create missing user profile:", err);
+          setProfile(null);
+        }
       }
       setLoading(false);
     }, (error) => {
@@ -154,8 +168,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  const updateProfileState = (partialProfile: Record<string, any>) => {
+    setProfile((prev: any) => (prev ? { ...prev, ...partialProfile } : partialProfile));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, chain, loading }}>
+    <AuthContext.Provider value={{ user, profile, chain, loading, updateProfileState }}>
       {children}
     </AuthContext.Provider>
   );

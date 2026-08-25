@@ -113,20 +113,21 @@ export default function DashboardPage() {
   }, [user]);
 
   React.useEffect(() => {
-    const unsubSponsors = onSnapshot(query(collection(db, 'sponsors'), where('active', '==', true)), (snap) => {
-      if (!snap.empty) {
-        setSponsors(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } else {
+    // Fetch active sponsors once via getDocs to reduce persistent snapshot reads
+    const fetchSponsors = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'sponsors'), where('active', '==', true)));
+        if (!snap.empty) {
+          setSponsors(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } else {
+          setSponsors([]);
+        }
+      } catch (error) {
+        console.warn("Sponsors list is currently unavailable:", error);
         setSponsors([]);
       }
-    }, (error) => {
-      console.warn("Sponsors list is currently unavailable:", error);
-      setSponsors([]);
-    });
-
-    return () => {
-      unsubSponsors();
     };
+    fetchSponsors();
   }, []);
 
   
@@ -146,7 +147,7 @@ export default function DashboardPage() {
   const activePick = picks.find(p => p.status === 'PENDING');
   
   React.useEffect(() => {
-    if (activePick) {
+    if (activePick?.matchupId) {
         const q = query(collection(db, 'matchups'), where('gameId', '==', activePick.matchupId));
         const unsub = onSnapshot(q, (snap) => {
             if (!snap.empty) {
@@ -159,7 +160,7 @@ export default function DashboardPage() {
     } else {
         setAllFetchedMatchups([]);
     }
-  }, [activePick]);
+  }, [activePick?.matchupId]);
 
   const activeMatchup = activePick ? allFetchedMatchups.find(m => m.gameId === activePick.matchupId) : null;
 

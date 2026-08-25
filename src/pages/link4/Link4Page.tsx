@@ -75,16 +75,15 @@ export default function Link4Page() {
       handleFirestoreError(error, OperationType.LIST, 'matchups');
     });
 
-    const unsubSponsors = onSnapshot(collection(db, 'sponsors'), (snap) => {
+    getDocs(collection(db, 'sponsors')).then((snap) => {
         setSponsors(snap.docs.map(doc => ({id: doc.id, ...doc.data()})));
-    }, (error) => {
+    }).catch((error) => {
       console.warn("Sponsors list is currently unavailable:", error);
       setSponsors([]);
     });
 
     return () => {
       unsubMatchups();
-      unsubSponsors();
     };
   }, []);
 

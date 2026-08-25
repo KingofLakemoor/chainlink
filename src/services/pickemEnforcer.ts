@@ -23,35 +23,37 @@ export function startPickemEnforcerJob() {
          if (campaign.format === 'SURVIVOR') expectedLimit = 1;
          if (!expectedLimit || expectedLimit <= 0) continue; // No limit to enforce
          
-         // Find all participants
-         const participantsSnap = await adminDb.collection('pickemParticipants')
+         // Fetch all picks for this campaign and week in a single query
+         const picksSnap = await adminDb.collection('pickemPicks')
             .where('campaignId', '==', campaignDoc.id)
+            .where('week', '==', campaign.currentWeek)
             .get();
-            
-         for (const pDoc of participantsSnap.docs) {
-            const pData = pDoc.data();
+
+         if (picksSnap.empty) continue;
+
+         // Group picks by participantId
+         const picksByParticipant = new Map<string, any[]>();
+         for (const pDoc of picksSnap.docs) {
+            const pData: any = { id: pDoc.id, ...pDoc.data() };
             const pId = pData.participantId;
-            
-            // Get all picks for this user for the current week
-            const picksSnap = await adminDb.collection('pickemPicks')
-               .where('campaignId', '==', campaignDoc.id)
-               .where('participantId', '==', pId)
-               .where('week', '==', campaign.currentWeek)
-               .get();
+            if (!pId) continue;
+            if (!picksByParticipant.has(pId)) {
+               picksByParticipant.set(pId, []);
+            }
+            picksByParticipant.get(pId)!.push(pData);
+         }
+
+         for (const [pId, userPicks] of picksByParticipant.entries()) {
+            if (userPicks.length > expectedLimit) {
+               console.warn(`[PickemEnforcer] User ${pId} exceeded limit for campaign ${campaignDoc.id}. Has ${userPicks.length}, allowed ${expectedLimit}.`);
                
-            if (picksSnap.size > expectedLimit) {
-               console.warn(`[PickemEnforcer] User ${pId} exceeded limit for campaign ${campaignDoc.id}. Has ${picksSnap.size}, allowed ${expectedLimit}.`);
-               
-               // Get all picks and sort by creation date
-               const allPicks: any[] = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-               allPicks.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+               // Sort by creation date ascending
+               userPicks.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
                
                // Delete the most recent ones that exceed the limit
-               const picksToDelete = allPicks.slice(expectedLimit);
+               const picksToDelete = userPicks.slice(expectedLimit);
                
                for (const p of picksToDelete) {
-                  // Make sure the game hasn't started yet! If it has, we can't delete it safely.
-                  // (Though if they cheated, maybe we should, but for safety we only delete pending unlocked ones)
                   let canDelete = true;
                   if (p.matchupId) {
                      const mDoc = await adminDb.collection('pickemMatchups').doc(p.matchupId).get();

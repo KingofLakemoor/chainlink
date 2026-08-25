@@ -21,7 +21,6 @@ export function startPickemRemindersJob() {
          if (!campaign.currentWeek) continue;
          
          // Find the earliest game in this week for this campaign
-         // We do this by looking at pickemMatchups
          const matchupsSnap = await adminDb.collection('pickemMatchups')
             .where('campaignId', '==', campaignDoc.id)
             .where('week', '==', campaign.currentWeek)
@@ -37,8 +36,6 @@ export function startPickemRemindersJob() {
          
          if (earliestStart === Infinity) continue;
          
-         // If we are within 12 hours of the first game locking, and haven't sent a reminder yet...
-         // Actually, let's just do within 12 and 11 hours to prevent spam, or track it in a separate collection.
          const timeUntilLock = earliestStart - now;
          
          if (timeUntilLock > 0 && timeUntilLock <= twelveHoursMs && timeUntilLock > (twelveHoursMs - 60 * 60 * 1000)) {
@@ -46,42 +43,56 @@ export function startPickemRemindersJob() {
             const participantsSnap = await adminDb.collection('pickemParticipants')
                .where('campaignId', '==', campaignDoc.id)
                .get();
-               
+
+            if (participantsSnap.empty) continue;
+
+            // Fetch ALL picks for this campaign week in ONE query
+            const picksSnap = await adminDb.collection('pickemPicks')
+               .where('campaignId', '==', campaignDoc.id)
+               .where('week', '==', campaign.currentWeek)
+               .get();
+
+            const pickCountByParticipant = new Map<string, number>();
+            picksSnap.docs.forEach(pDoc => {
+               const pId = pDoc.data().participantId;
+               if (pId) {
+                  pickCountByParticipant.set(pId, (pickCountByParticipant.get(pId) || 0) + 1);
+               }
+            });
+
+            // Fetch ALL deduplication notifications for this campaign & week in ONE query
+            const prefix = `pickem_remind_${campaignDoc.id}_w${campaign.currentWeek}_`;
+            const notifSnap = await adminDb.collection('notifications')
+               .where('dedupeId', '>=', prefix)
+               .where('dedupeId', '<=', prefix + '\uf8ff')
+               .get();
+            const sentUserIds = new Set(notifSnap.docs.map(d => d.data().userId || d.data().targetUserId));
+
+            let expectedLimit = campaign.pickLimit;
+            if (campaign.format === 'SURVIVOR') expectedLimit = 1;
+
+            if (!expectedLimit || expectedLimit <= 0) continue;
+
             for (const pDoc of participantsSnap.docs) {
                const pData = pDoc.data();
                const pId = pData.participantId;
+               if (!pId || sentUserIds.has(pId)) continue;
                
-               // Check their picks
-               const picksSnap = await adminDb.collection('pickemPicks')
-                  .where('campaignId', '==', campaignDoc.id)
-                  .where('participantId', '==', pId)
-                  .where('week', '==', campaign.currentWeek)
-                  .get();
-                  
-               let expectedLimit = campaign.pickLimit;
-               if (campaign.format === 'SURVIVOR') expectedLimit = 1;
+               const userPickCount = pickCountByParticipant.get(pId) || 0;
                
-               if (expectedLimit > 0 && picksSnap.size < expectedLimit) {
-                  const missing = expectedLimit - picksSnap.size;
-                  
-                  // Check if we already sent this notification (to prevent spam within the 1-hour window)
+               if (userPickCount < expectedLimit) {
+                  const missing = expectedLimit - userPickCount;
                   const dedupeId = `pickem_remind_${campaignDoc.id}_w${campaign.currentWeek}_${pId}`;
-                  const notifSnap = await adminDb.collection('notifications')
-                     .where('dedupeId', '==', dedupeId)
-                     .limit(1)
-                     .get();
-                     
-                  if (notifSnap.empty) {
-                     await adminDb.collection('notifications').add({
-                        userId: pId,
-                        title: `Missing Picks: ${campaign.name}`,
-                        message: `You still have ${missing} pick${missing > 1 ? 's' : ''} to make for Week ${campaign.currentWeek}! Games lock soon.`,
-                        link: `/pickem/${campaignDoc.id}`,
-                        read: false,
-                        createdAt: Date.now(),
-                        dedupeId: dedupeId
-                     });
-                  }
+
+                  await adminDb.collection('notifications').add({
+                     userId: pId,
+                     title: `Missing Picks: ${campaign.name}`,
+                     message: `You still have ${missing} pick${missing > 1 ? 's' : ''} to make for Week ${campaign.currentWeek}! Games lock soon.`,
+                     link: `/pickem/${campaignDoc.id}`,
+                     read: false,
+                     createdAt: Date.now(),
+                     dedupeId: dedupeId
+                  });
                }
             }
          }

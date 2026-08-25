@@ -117,7 +117,14 @@ import { League, LeagueResponse, scrapeLeagueSchedules } from './espnScraper.js'
 export { scrapeLeagueSchedules } from './espnScraper.js';
 import { gradeBrackets } from './bracketGrader.js';
 
-export async function syncLeagueSchedules(league: League, scoreboardOnly: boolean = false, specificDates?: string[], preloadedBracketMatchIds?: Set<string>, preloadedPickemMatchupIds?: Set<string>): Promise<LeagueResponse> {
+export async function syncLeagueSchedules(
+  league: League,
+  scoreboardOnly: boolean = false,
+  specificDates?: string[],
+  preloadedBracketMatchIds?: Set<string>,
+  preloadedPickemMatchupIds?: Set<string>,
+  preloadedLeagueSettings?: { active?: boolean }
+): Promise<LeagueResponse> {
   let scraperConfig: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> } | undefined = undefined;
   if (adminDb) {
     try {
@@ -134,12 +141,18 @@ export async function syncLeagueSchedules(league: League, scoreboardOnly: boolea
 
   if (response.data && response.data.length > 0 && adminDb) {
     try {
-      const leagueSettingsSnap = await adminDb.collection('leagueSettings').doc(league).get();
       let defaultActive = true;
-      if (leagueSettingsSnap.exists) {
-        const settings = leagueSettingsSnap.data();
-        if (settings && typeof settings.active === 'boolean') {
-          defaultActive = settings.active;
+      if (preloadedLeagueSettings !== undefined) {
+        if (typeof preloadedLeagueSettings.active === 'boolean') {
+          defaultActive = preloadedLeagueSettings.active;
+        }
+      } else {
+        const leagueSettingsSnap = await adminDb.collection('leagueSettings').doc(league).get();
+        if (leagueSettingsSnap.exists) {
+          const settings = leagueSettingsSnap.data();
+          if (settings && typeof settings.active === 'boolean') {
+            defaultActive = settings.active;
+          }
         }
       }
 

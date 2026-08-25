@@ -40,6 +40,14 @@ export function startAutoSyncJob() {
       });
 
       // Fetch Pickem & Bracket match IDs ONCE to save reads, and ONLY on full syncs to save thousands of reads
+            // ALWAYS sync leagues that have games currently in progress, to ensure they don't get stuck forever if a league is deactivated
+      try {
+          const inProgressSnap = await adminDb.collection('matchups').where('status', 'in', ['STATUS_IN_PROGRESS', 'STATUS_DELAYED']).get();
+          inProgressSnap.docs.forEach(doc => {
+              if (doc.data().league) activeLeaguesSet.add(doc.data().league);
+          });
+      } catch (e) {}
+
       const bracketMatchIds = new Set<string>();
       const pickemMatchupIds = new Set<string>();
       if (isFullSync) {

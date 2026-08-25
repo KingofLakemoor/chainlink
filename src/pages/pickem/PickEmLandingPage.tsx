@@ -4,7 +4,8 @@ import { collection, getDocs, query, where, setDoc, doc, getDoc } from 'firebase
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
+import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { cn } from '../../lib/utils';
 import { getTeamShortName } from '../../lib/teamUtils';
@@ -252,6 +253,8 @@ export default function PickEmLandingPage() {
       {activeTab === 'join' && (
         <div className="space-y-8">
           
+          <CharityBanner />
+
           <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6">
             <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <Lock className="w-5 h-5 text-zinc-400" /> Join Private League

@@ -1,3 +1,4 @@
+import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDo
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export default function PickEmPage() {
@@ -449,11 +450,15 @@ export default function PickEmPage() {
       </div>
 
             {selectedCampaign && !isParticipant && (
-        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center max-w-2xl mx-auto my-12">
-           <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
-           <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
-           <p className="text-zinc-400 text-lg mb-8">You have been invited to join this Pick'em campaign. Click below to enter the league and make your picks.</p>
-           <Button size="lg" onClick={handleJoinCampaign} disabled={joining}>{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
+        <div className="max-w-3xl mx-auto my-12 space-y-6">
+          <CharityBanner />
+
+          <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center relative z-10 shadow-xl">
+             <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
+             <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
+             <p className="text-zinc-400 text-lg mb-8">Once you have made your donation, click below to enter the league and make your picks.</p>
+             <Button size="lg" onClick={handleJoinCampaign} disabled={joining} className="px-10 h-12 text-lg font-bold">{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
+          </div>
         </div>
       )}
       {selectedCampaign && isParticipant && (

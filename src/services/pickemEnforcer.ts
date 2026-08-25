@@ -52,16 +52,28 @@ export function startPickemEnforcerJob() {
                
                // Delete the most recent ones that exceed the limit
                const picksToDelete = userPicks.slice(expectedLimit);
+
+               // Collect matchup IDs to batch fetch
+               const matchupIds = Array.from(new Set(picksToDelete.map(p => p.matchupId).filter(Boolean)));
+               const matchupMap = new Map<string, any>();
+
+               if (matchupIds.length > 0) {
+                 // Firestore 'in' query supports up to 30 items
+                 for (let i = 0; i < matchupIds.length; i += 30) {
+                   const chunk = matchupIds.slice(i, i + 30);
+                   const mSnap = await adminDb.collection('pickemMatchups')
+                     .where('__name__', 'in', chunk)
+                     .get();
+                   mSnap.docs.forEach(d => matchupMap.set(d.id, d.data()));
+                 }
+               }
                
                for (const p of picksToDelete) {
                   let canDelete = true;
-                  if (p.matchupId) {
-                     const mDoc = await adminDb.collection('pickemMatchups').doc(p.matchupId).get();
-                     if (mDoc.exists) {
-                        const mData = mDoc.data();
-                        if (mData && mData.startTime && mData.startTime <= now) {
-                           canDelete = false; // Locked game
-                        }
+                  if (p.matchupId && matchupMap.has(p.matchupId)) {
+                     const mData = matchupMap.get(p.matchupId);
+                     if (mData && mData.startTime && mData.startTime <= now) {
+                        canDelete = false; // Locked game
                      }
                   }
                   

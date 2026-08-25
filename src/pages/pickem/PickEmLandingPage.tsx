@@ -44,22 +44,25 @@ export default function PickEmLandingPage() {
         const joinedIds = new Set(partSnap.docs.map(d => d.data().campaignId));
         setJoinedCampaignIds(joinedIds);
         
-        // For joined campaigns, fetch current week matchups and picks to show status
+        // For joined campaigns, fetch current week matchups and picks in parallel to show status
         const details: Record<string, { matchups: any[], picks: any[] }> = {};
-        for (const cid of Array.from(joinedIds)) {
+        const joinedCids = Array.from(joinedIds);
+
+        await Promise.all(joinedCids.map(async (cid) => {
           const camp = camps.find(c => c.id === cid);
-          if (camp) {
-             const mQuery = query(collection(db, 'pickemMatchups'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek || 1));
-             const mSnap = await getDocs(mQuery);
-             const matchups = mSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).sort((a,b) => a.startTime - b.startTime);
-             
-             const pQuery = query(collection(db, 'pickemPicks'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek || 1), where('participantId', '==', user.uid));
-             const pSnap = await getDocs(pQuery);
-             const picks = pSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-             
-             details[cid] = { matchups, picks };
-          }
-        }
+          if (!camp) return;
+
+          const mQuery = query(collection(db, 'pickemMatchups'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek || 1));
+          const pQuery = query(collection(db, 'pickemPicks'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek || 1), where('participantId', '==', user.uid));
+
+          const [mSnap, pSnap] = await Promise.all([getDocs(mQuery), getDocs(pQuery)]);
+
+          const matchups = mSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).sort((a, b) => a.startTime - b.startTime);
+          const picks = pSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+
+          details[cid] = { matchups, picks };
+        }));
+
         setCampaignDetails(details);
 
       } catch (err) {

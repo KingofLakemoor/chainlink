@@ -489,7 +489,7 @@ export async function syncLeagueSchedules(
                   data.abandoned !== newAbandoned ||
                   isMetadataChanged;
 
-              if (needsUpdate) {
+              if (needsUpdate) { console.log("QUICK UPDATING:", gameId, "conds:", JSON.stringify({ ab: (data.abandoned === true && isProtected), st: data.status !== newStatus, stD: data.statusDesc !== (newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming'), hSc: data.homeTeam?.score !== homeScore, aSc: data.awayTeam?.score !== awayScore, act: data.active !== newActive, ab2: data.abandoned !== newAbandoned, meta: isMetadataChanged }));
                 const updateData: any = {
                   ...data,
                   status: newStatus,
@@ -708,25 +708,25 @@ export async function syncLeagueSchedules(
               existingData.awayTeam?.score !== awayScore ||
               existingData.title !== newTitle ||
               existingData.league !== scrapedMatchup.league ||
-              existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name ||
-              existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName ||
-              existingData.homeTeam?.image !== resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image) ||
-              existingData.homeTeam?.id !== scrapedMatchup.homeTeam?.id ||
-              existingData.awayTeam?.name !== scrapedMatchup.awayTeam?.name ||
-              existingData.awayTeam?.shortName !== scrapedMatchup.awayTeam?.shortName ||
-              existingData.awayTeam?.image !== resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image) ||
-              existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id ||
+              (existingData.type !== 'STATS' && existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name) ||
+              (existingData.type !== 'STATS' && existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName) ||
+              (existingData.type !== 'STATS' && existingData.homeTeam?.image !== resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image)) ||
+              (existingData.type !== 'STATS' && existingData.homeTeam?.id !== scrapedMatchup.homeTeam?.id) ||
+              (existingData.type !== 'STATS' && existingData.awayTeam?.name !== scrapedMatchup.awayTeam?.name) ||
+              (existingData.type !== 'STATS' && existingData.awayTeam?.shortName !== scrapedMatchup.awayTeam?.shortName) ||
+              (existingData.type !== 'STATS' && existingData.awayTeam?.image !== resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image)) ||
+              (existingData.type !== 'STATS' && existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id) ||
               existingData.active !== finalActive ||
               (existingData.abandoned !== false && !existingData.abandoned) ||
-              (scrapedMatchup.metadata?.overUnder !== undefined && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
-              (scrapedMatchup.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
-              (scrapedMatchup.metadata?.mlAway !== undefined && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway) ||
+              (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
+              (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
+              (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway) ||
               (scrapedMatchup.metadata?.homeLinescores !== undefined && JSON.stringify(existingData.metadata?.homeLinescores) !== JSON.stringify(scrapedMatchup.metadata?.homeLinescores)) ||
               (scrapedMatchup.metadata?.awayLinescores !== undefined && JSON.stringify(existingData.metadata?.awayLinescores) !== JSON.stringify(scrapedMatchup.metadata?.awayLinescores)) ||
-              (existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread) ||
+              (existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread) ||
               (existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
 
-          if (needsUpdate || existingDoc.id !== gameId) {
+          if (needsUpdate || existingDoc.id !== gameId) { console.log("UPDATING:", gameId, "needsUpdate:", needsUpdate, "cond:", JSON.stringify({ c_ab: (existingData.abandoned === true && isProtected), c_status: existingData.status !== newStatus, c_statusDesc: existingData.statusDesc !== newStatusDesc, c_st: existingData.startTime !== scrapedMatchup.startTime, c_hs: existingData.homeTeam?.score !== homeScore, c_as: existingData.awayTeam?.score !== awayScore, c_title: existingData.title !== newTitle, c_league: existingData.league !== scrapedMatchup.league, c_hn: existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name, c_hsn: existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName, c_hi: existingData.homeTeam?.image !== resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image), c_hid: existingData.homeTeam?.id !== scrapedMatchup.homeTeam?.id, c_an: existingData.awayTeam?.name !== scrapedMatchup.awayTeam?.name, c_asn: existingData.awayTeam?.shortName !== scrapedMatchup.awayTeam?.shortName, c_ai: existingData.awayTeam?.image !== resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image), c_aid: existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id, c_act: existingData.active !== finalActive, c_ab2: (existingData.abandoned !== false && !existingData.abandoned), c_ou: (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder), c_mlh: (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome), c_mla: (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway), c_hl: (scrapedMatchup.metadata?.homeLinescores !== undefined && JSON.stringify(existingData.metadata?.homeLinescores) !== JSON.stringify(scrapedMatchup.metadata?.homeLinescores)), c_al: (scrapedMatchup.metadata?.awayLinescores !== undefined && JSON.stringify(existingData.metadata?.awayLinescores) !== JSON.stringify(scrapedMatchup.metadata?.awayLinescores)), c_spread1: (existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread), c_spread2: (existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') }));
             const updateData: any = {
               ...existingData,
               abandoned: (existingData.abandoned === true && !isProtected) ? true : false,
@@ -1161,7 +1161,7 @@ export async function syncLeagueSchedules(
                   needsUpdate = true;
               }
 
-              if (needsUpdate) {
+              if (needsUpdate) { console.log("QUICK UPDATING:", gameId, "conds:", JSON.stringify({ ab: (data.abandoned === true && isProtected), st: data.status !== newStatus, stD: data.statusDesc !== (newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming'), hSc: data.homeTeam?.score !== homeScore, aSc: data.awayTeam?.score !== awayScore, act: data.active !== newActive, ab2: data.abandoned !== newAbandoned, meta: isMetadataChanged }));
                 pickemBatch.update(doc.ref, updateData);
                 pickemOpCount++;
 
@@ -1173,7 +1173,7 @@ export async function syncLeagueSchedules(
               }
 
               if (updateData.status === 'STATUS_FINAL' || updateData.status === 'STATUS_POSTPONED') {
-                if (needsUpdate) {
+                if (needsUpdate) { console.log("QUICK UPDATING:", gameId, "conds:", JSON.stringify({ ab: (data.abandoned === true && isProtected), st: data.status !== newStatus, stD: data.statusDesc !== (newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming'), hSc: data.homeTeam?.score !== homeScore, aSc: data.awayTeam?.score !== awayScore, act: data.active !== newActive, ab2: data.abandoned !== newAbandoned, meta: isMetadataChanged }));
                   pickemMatchupsToGrade.push({
                     ...pData,
                     status: matchup.status,

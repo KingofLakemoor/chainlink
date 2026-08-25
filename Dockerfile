@@ -13,7 +13,8 @@ COPY . .
 # Build the Vite/Express app
 RUN npm run build
 
-# Expose port 3000 (Cloud Run will route traffic here)
+# Expose port 8080 (Cloud Run default) and 3000
+EXPOSE 8080
 EXPOSE 3000
 
 # Start the compiled Express server

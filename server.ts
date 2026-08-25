@@ -16,10 +16,11 @@ import { startPickemEnforcerJob } from './src/services/pickemEnforcer.js';
 async function startServer() {
   const app = express();
   const isProduction = process.env.NODE_ENV === "production" || process.env.NODE_ENV === "prod" || (process.argv[1] && (process.argv[1].endsWith("server.cjs") || process.argv[1].includes("dist")));
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   const allowedOrigins = [
     'http://localhost:3000',
+    'http://localhost:8080',
     'https://chainlink-2-72590.firebaseapp.com',
     'https://chainlink.club602.com',
     'https://ChainLink.club602.com',

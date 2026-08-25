@@ -562,7 +562,7 @@ export default function PickEmPage() {
                   </p>
                </div>
                <div className="text-2xl font-black" style={{ color: primaryColor }}>
-                 {Object.keys(userPicks).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit > 0 ? selectedCampaign.pickLimit : matchups.length}</span>
+                 {Object.keys(userPicks).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit > 0 ? Math.min(selectedCampaign.pickLimit, matchups.length) : matchups.length}</span>
                </div>
             </div>
           )}

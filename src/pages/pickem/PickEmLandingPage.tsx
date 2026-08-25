@@ -172,8 +172,7 @@ export default function PickEmLandingPage() {
                 const details = campaignDetails[c.id];
                 const totalGames = details?.matchups.length || 0;
                 const picksMade = details?.picks.length || 0;
-                const limit = c.pickLimit || totalGames;
-                const picksRemaining = limit > 0 ? limit - picksMade : 0;
+                const allowedPicks = (c.pickLimit && c.pickLimit > 0) ? Math.min(c.pickLimit, totalGames) : totalGames;
                 
                 return (
                   <div key={c.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col transition-transform hover:border-zinc-700 cursor-pointer" onClick={() => navigate(`/pickem/${c.id}`)}>
@@ -193,9 +192,9 @@ export default function PickEmLandingPage() {
                       </div>
                       
                       <div className="flex items-center justify-between text-sm">
-                        <span className={picksMade >= (c.pickLimit || totalGames) ? "text-green-500 font-semibold flex items-center gap-1" : "text-amber-500 font-semibold flex items-center gap-1"}>
-                          {picksMade >= (c.pickLimit || totalGames) ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                          {picksMade} / {c.pickLimit || totalGames} Picks In
+                        <span className={picksMade >= allowedPicks ? "text-green-500 font-semibold flex items-center gap-1" : "text-amber-500 font-semibold flex items-center gap-1"}>
+                          {picksMade >= allowedPicks ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          {picksMade} / {allowedPicks} Picks In
                         </span>
                         <span className="text-zinc-500 flex items-center gap-1 hover:text-white transition-colors">
                           View & Edit <ChevronRight className="w-4 h-4" />
@@ -206,7 +205,7 @@ export default function PickEmLandingPage() {
                     {details && details.matchups.length > 0 && (
                       <div className="p-6 bg-[#18181A] flex-1 flex flex-col justify-center">
                         <div className="flex flex-wrap gap-2 mb-2">
-                           {Array.from({ length: c.pickLimit || totalGames }).map((_, i) => {
+                           {Array.from({ length: allowedPicks }).map((_, i) => {
                              const pick = details.picks[i];
                              if (!pick) {
                                return (

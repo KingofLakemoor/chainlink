@@ -10,74 +10,82 @@ export let auth: Auth;
 export let db: Firestore;
 export let storage: FirebaseStorage;
 
+let initPromise: Promise<void> | null = null;
+
 export const initFirebase = async () => {
-  let dynamicConfig: any = { ...firebaseConfig };
-  
-  // Set to true to force the production app to use the AI Studio project's database
-  // Set to false to allow Firebase Hosting to inject the config for chainlink-2-72590
-  const FORCE_STATIC_CONFIG = false; 
+  if (initPromise) return initPromise;
 
-  if (!FORCE_STATIC_CONFIG) {
-    try {
-      const res = await fetch('/__/firebase/init.json');
-      if (res.ok) {
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const initJson = await res.json();
-          dynamicConfig = { ...dynamicConfig, ...initJson };
+  initPromise = (async () => {
+    let dynamicConfig: any = { ...firebaseConfig };
+
+    // Set to true to force the production app to use the AI Studio project's database
+    // Set to false to allow Firebase Hosting to inject the config for chainlink-2-72590
+    const FORCE_STATIC_CONFIG = false;
+
+    if (!FORCE_STATIC_CONFIG && typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch('/__/firebase/init.json');
+        if (res.ok) {
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const initJson = await res.json();
+            dynamicConfig = { ...dynamicConfig, ...initJson };
+          }
         }
+      } catch (e) {
+        console.warn('Could not fetch dynamic firebase init config, using local environment variables.');
       }
+    }
+
+    const customProjectId = import.meta.env?.VITE_FIREBASE_PROJECT_ID || dynamicConfig.projectId;
+    const isCustomProject = customProjectId && customProjectId !== firebaseConfig.projectId;
+
+    let finalAuthDomain = import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || dynamicConfig.authDomain;
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1');
+      const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
+      if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
+        // Use current domain as authDomain to bypass third-party cookie restrictions
+        // This is supported when deploying to Firebase App Hosting or Firebase Hosting
+        finalAuthDomain = hostname;
+      }
+    }
+
+    const finalConfig = {
+      ...dynamicConfig,
+      apiKey: (import.meta.env?.VITE_FIREBASE_API_KEY || dynamicConfig.apiKey || '').trim(),
+      authDomain: finalAuthDomain,
+      projectId: customProjectId,
+      storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || dynamicConfig.storageBucket,
+      messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || dynamicConfig.messagingSenderId,
+      appId: import.meta.env?.VITE_FIREBASE_APP_ID || dynamicConfig.appId,
+      measurementId: import.meta.env?.VITE_FIREBASE_MEASUREMENT_ID || dynamicConfig.measurementId
+    };
+
+    app = initializeApp(finalConfig);
+
+    try {
+      auth = getAuth(app);
     } catch (e) {
-      console.warn('Could not fetch dynamic firebase init config, using local environment variables.');
+      console.error("Firebase Auth initialization failed:", e);
     }
-  }
 
-  const customProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || dynamicConfig.projectId;
-  const isCustomProject = customProjectId && customProjectId !== firebaseConfig.projectId;
-  
-  let finalAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || dynamicConfig.authDomain;
-  if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname.includes('127.0.0.1');
-    const isPreview = hostname.endsWith('.run.app') || hostname.includes('aistudio') || hostname.includes('google');
-    if (hostname && !isLocal && !isPreview && hostname.includes('.')) {
-      // Use current domain as authDomain to bypass third-party cookie restrictions
-      // This is supported when deploying to Firebase App Hosting or Firebase Hosting
-      finalAuthDomain = hostname;
+    try {
+      const databaseId = import.meta.env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
+      db = getFirestore(app, databaseId);
+    } catch (e) {
+      console.error("Firestore initialization failed:", e);
     }
-  }
 
-  const finalConfig = {
-    ...dynamicConfig,
-    apiKey: (import.meta.env.VITE_FIREBASE_API_KEY || dynamicConfig.apiKey || '').trim(),
-    authDomain: finalAuthDomain,
-    projectId: customProjectId,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || dynamicConfig.storageBucket,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || dynamicConfig.messagingSenderId,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || dynamicConfig.appId,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || dynamicConfig.measurementId
-  };
+    try {
+      storage = getStorage(app);
+    } catch (e) {
+      console.error("Storage initialization failed:", e);
+    }
+  })();
 
-  app = initializeApp(finalConfig);
-  
-  try {
-    auth = getAuth(app);
-  } catch (e) {
-    console.error("Firebase Auth initialization failed:", e);
-  }
-
-  try {
-    const databaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
-    db = getFirestore(app, databaseId);
-  } catch (e) {
-    console.error("Firestore initialization failed:", e);
-  }
-
-  try {
-    storage = getStorage(app);
-  } catch (e) {
-    console.error("Storage initialization failed:", e);
-  }
+  return initPromise;
 };
 
 const provider = new GoogleAuthProvider();
@@ -164,7 +172,7 @@ const handlePendingCredential = async (user: User) => {
 };
 
 export const loginWithEmail = async (email: string, pass: string) => {
-  if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
+  if (import.meta.env?.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
     window.dispatchEvent(new Event('mock-login'));
     return;
   }
@@ -190,7 +198,7 @@ export const loginWithEmail = async (email: string, pass: string) => {
 };
 
 export const signupWithEmail = async (email: string, pass: string, username: string, referrerId?: string) => {
-  if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
+  if (import.meta.env?.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
     window.dispatchEvent(new CustomEvent('mock-login', { detail: { email, username, referrerId } }));
     return;
   }
@@ -215,7 +223,7 @@ export const signupWithEmail = async (email: string, pass: string, username: str
 };
 
 export const loginWithGoogle = async () => {
-  if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
+  if (import.meta.env?.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
     window.dispatchEvent(new Event('mock-login'));
     return;
   }
@@ -275,7 +283,7 @@ export const handleAuthRedirect = async () => {
 };
 
 export const logout = async () => {
-  if (import.meta.env.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
+  if (import.meta.env?.DEV && (!app.options.apiKey || app.options.apiKey === 'MY_FIREBASE_API_KEY')) {
     window.dispatchEvent(new Event('mock-logout'));
     return;
   }

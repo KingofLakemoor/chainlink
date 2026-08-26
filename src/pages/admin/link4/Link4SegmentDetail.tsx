@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, updateDoc, writeBatch, where } from "firebase/firestore";
-import { db } from '../../../lib/firebase';
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Loader2, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react';
-import { SUPPORTED_LEAGUES, scrapeLeagueSchedules } from '../../../services/espnScraper';
 
 export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: string, onBack: () => void }) {
   const [segment, setSegment] = useState<any>(null);
@@ -64,94 +63,26 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
 
     setMatchupsLoading(true);
     try {
-      let count = 0;
-      let batch = writeBatch(db);
-      let batchCount = 0;
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/link4/sync-matchups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ segmentId })
+      });
 
-      for (const lg of leaguesToSync) {
-        let effectiveBeginDate = segment.startTime ? new Date(segment.startTime).getTime() : undefined;
-        let effectiveEndDate = segment.endTime ? new Date(segment.endTime).getTime() : undefined;
-
-        if (effectiveBeginDate && !effectiveEndDate) {
-            effectiveEndDate = effectiveBeginDate + (14 * 86400000);
-        } else if (!effectiveBeginDate && effectiveEndDate) {
-            effectiveBeginDate = effectiveEndDate - (14 * 86400000);
-        }
-
-        let specificDates: string[] | undefined = undefined;
-        if (effectiveBeginDate && effectiveEndDate) {
-           specificDates = [];
-           let curr = new Date(effectiveBeginDate);
-           const end = new Date(effectiveEndDate);
-           let days = 0;
-           // Cap at 35 days (5 weeks)
-           while (curr <= end && days <= 35) {
-              const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
-              const [month, day, year] = str.split("/");
-              specificDates.push(`${year}${month}${day}`);
-              curr = new Date(curr.getTime() + 86400000);
-              days++;
-           }
-        }
-
-        const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
-        console.log('API returned games:', res.data?.length);
-        if (res.data) res.data.forEach(m => console.log('Game', m.title, new Date(m.startTime).toLocaleString(), m.startTime, 'vs bounds:', effectiveBeginDate, effectiveEndDate));
-        if (!res.data || res.data.length === 0) {
-          console.log('No data returned for', lg);
-          continue;
-        }
-
-        for (const m of res.data) {
-          // Verify it fits in the time window (using segment startTime/endTime)
-          if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
-          if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
-          
-          const link4MatchupId = `${segmentId}_${m.gameId}`;
-          const docRef = doc(db, 'link4Matchups', link4MatchupId);
-
-          const metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : null;
-          const homeTeamToSave = m.homeTeam ? JSON.parse(JSON.stringify(m.homeTeam)) : null;
-          const awayTeamToSave = m.awayTeam ? JSON.parse(JSON.stringify(m.awayTeam)) : null;
-
-          batch.set(docRef, {
-            segmentId: segmentId,
-            gameId: String(m.gameId),
-            title: m.title || `${m.awayTeam?.name} @ ${m.homeTeam?.name}`,
-            startTime: m.startTime,
-            status: m.status,
-            statusDesc: m.statusDesc,
-            homeTeam: homeTeamToSave,
-            awayTeam: awayTeamToSave,
-            league: m.league,
-            type: 'STANDARD',
-            metadata: metadataToSave,
-            updatedAt: Date.now()
-          }, { merge: true });
-
-          count++;
-          batchCount++;
-          if (batchCount >= 400) {
-            await batch.commit();
-            batch = writeBatch(db);
-            batchCount = 0;
-          }
-        }
-      }
-
-      if (batchCount > 0) {
-        await batch.commit();
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to sync matchups');
       }
 
       fetchMatchups();
-      alert(`Synced ${count} matchups successfully for Link4! (Total processed from API: ${batchCount + count})`);
+      alert(`Synced ${data.count ?? 0} matchups successfully for Link4!`);
     } catch (err: any) {
       console.error(err);
-      if (err.message && err.message.includes("Missing or insufficient permissions")) {
-        alert('Missing Permissions: Your user account lacks Admin privileges, or Firestore security rules need update.\n\nEnsure your user profile in Firestore has `role: "ADMIN"` and rule permissions allow write to link4Matchups.');
-      } else {
-        alert('Failed to sync matchups: ' + (err.message || String(err)));
-      }
+      alert('Failed to sync matchups: ' + (err.message || String(err)));
     } finally {
       setMatchupsLoading(false);
     }
@@ -159,11 +90,25 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
 
   const handleDeleteMatchup = async (matchupId: string) => {
     try {
-      await deleteDoc(doc(db, 'link4Matchups', matchupId));
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/link4/delete-matchup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ matchupId })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete matchup');
+      }
+
       setMatchups(prev => prev.filter(m => m.id !== matchupId));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to remove matchup');
+      alert('Failed to remove matchup: ' + (err.message || String(err)));
     }
   };
 

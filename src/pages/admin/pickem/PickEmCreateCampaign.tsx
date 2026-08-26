@@ -150,6 +150,17 @@ export default function PickEmCreateCampaign() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Entry Fee / Buy In (Links)</label>
+            <input
+              type="number"
+              min="0"
+              value={entryFee}
+              onChange={e => setEntryFee(parseInt(e.target.value) || 0)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Weekly Pick Limit (0 for unlimited)</label>
             <input
               type="number"

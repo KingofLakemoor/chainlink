@@ -827,6 +827,38 @@ export default function Link4Page() {
 
         {/* Leaderboard Section */}
         <div className="bg-[#1a1a1a] border border-[#27272a] rounded-xl p-6 md:p-8 mt-8">
+          {/* Prize Pool Summary Banner */}
+          {(() => {
+            const totalEntries = leaderboardData.length;
+            const totalPot = totalEntries * segmentCost;
+            const winnerPayout = Math.floor(totalPot * 0.65);
+            return (
+              <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 md:p-6 mb-6">
+                <div className="flex items-center gap-2 mb-3 text-yellow-500 font-bold text-sm uppercase tracking-wider">
+                  <Trophy className="w-5 h-5" /> Prize Pool & Payout Breakdown
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div className="bg-[#18181A] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">Entry Fee</span>
+                    <span className="text-lg font-bold text-white">{segmentCost} Links</span>
+                  </div>
+                  <div className="bg-[#18181A] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">Total Entries</span>
+                    <span className="text-lg font-bold text-white">{totalEntries}</span>
+                  </div>
+                  <div className="bg-[#18181A] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">Total Pot</span>
+                    <span className="text-lg font-bold text-white">{totalPot} Links</span>
+                  </div>
+                  <div className="bg-green-500/10 border border-green-500/30 p-3 rounded-lg">
+                    <span className="text-xs text-green-400 font-bold block mb-1">1st Place Winner (65%)</span>
+                    <span className="text-lg font-black text-green-400">{winnerPayout} Links</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex items-center gap-2 mb-6">
             <Trophy className="w-5 h-5 text-yellow-500" />
             <h2 className="text-xl font-bold text-white">Leaderboard</h2>

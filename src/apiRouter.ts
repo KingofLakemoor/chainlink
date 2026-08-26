@@ -6,7 +6,7 @@ import { adminAuth, adminDb, adminMessaging } from './lib/firebase-admin.js';
 import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleProcessor.js';
 import { gradeMatchups } from './services/grader.js';
 import { gradeLink4Matchups, payoutLink4Segment } from './services/link4Grader.js';
-import { gradePickemMatchups } from './services/pickemGrader.js';
+import { gradePickemMatchups, payoutPickemCampaign } from './services/pickemGrader.js';
 import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds } from './services/oddsProcessor.js';
@@ -386,6 +386,86 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   } catch (e: any) {
     console.error("Create checkout session error:", e.message, e);
     require('fs').appendFileSync('stripe-errors.log', new Date().toISOString() + " - " + e.message + "\n");
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
+  try {
+    const { campaignId } = req.body;
+    await payoutPickemCampaign(campaignId);
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error('Pickem payout error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { campaignId, joinCode } = req.body;
+
+    if (!campaignId) {
+      return res.status(400).json({ success: false, error: "Missing campaignId" });
+    }
+
+    await adminDb.runTransaction(async (transaction: any) => {
+      const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
+      const campaignDoc = await transaction.get(campaignRef);
+
+      if (!campaignDoc.exists) throw new Error("Campaign not found");
+      const campaignData = campaignDoc.data();
+
+      if (campaignData.isPrivate) {
+        if (!joinCode || joinCode.trim().toLowerCase() !== (campaignData.joinCode || '').trim().toLowerCase()) {
+          throw new Error("Invalid join code for this private campaign.");
+        }
+      }
+
+      const pairId = `${campaignId}_${uid}`;
+      const participantRef = adminDb.collection('pickemParticipants').doc(pairId);
+      const participantDoc = await transaction.get(participantRef);
+
+      if (participantDoc.exists) {
+        return; // Already joined
+      }
+
+      const userRef = adminDb.collection('users').doc(uid);
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists) throw new Error("User not found");
+
+      const userData = userDoc.data();
+      const entryFee = campaignData.entryFee || 0;
+      const currentLinks = userData.links || 0;
+
+      if (entryFee > 0 && currentLinks < entryFee) {
+        throw new Error(`Not enough links. Joining this campaign requires ${entryFee} links.`);
+      }
+
+      if (entryFee > 0) {
+        transaction.update(userRef, { links: currentLinks - entryFee });
+        const logRef = adminDb.collection('linkTransactions').doc();
+        transaction.set(logRef, {
+          userId: uid,
+          username: userData.username || userData.name || 'Unknown User',
+          type: 'PICKEM_ENTRY',
+          amount: -entryFee,
+          description: `Entry fee for Pick 'Em campaign: ${campaignData.name || campaignId}`,
+          createdAt: Date.now()
+        });
+      }
+
+      transaction.set(participantRef, {
+        campaignId,
+        participantId: uid,
+        joinedAt: Date.now()
+      });
+    });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("Pickem join error:", e.message, e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

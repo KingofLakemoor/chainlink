@@ -158,7 +158,7 @@ export async function payoutLink4Segment(segmentId: string) {
     }
 
     const totalPot = allPicks.length * segmentCost;
-    const payoutAmount = Math.floor(totalPot * 0.60);
+    const payoutAmount = Math.floor(totalPot * 0.65);
 
     // Find the winner
     let highestScore = -Infinity;

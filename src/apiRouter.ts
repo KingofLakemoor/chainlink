@@ -390,6 +390,126 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => {
+  try {
+    const { segmentId } = req.body;
+    if (!segmentId) {
+      return res.status(400).json({ success: false, error: "Missing segmentId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const segmentDoc = await adminDb.collection('link4Segments').doc(segmentId).get();
+    if (!segmentDoc.exists) {
+      return res.status(404).json({ success: false, error: "Segment not found" });
+    }
+
+    const segment = segmentDoc.data()!;
+    const leaguesToSync = segment.allowedSports && segment.allowedSports.length > 0
+      ? segment.allowedSports
+      : [];
+
+    if (leaguesToSync.length === 0) {
+      return res.status(400).json({ success: false, error: "No sports configured for this segment." });
+    }
+
+    let count = 0;
+    let batch = adminDb.batch();
+    let batchCount = 0;
+
+    for (const lg of leaguesToSync) {
+      let effectiveBeginDate = segment.startTime ? new Date(segment.startTime).getTime() : undefined;
+      let effectiveEndDate = segment.endTime ? new Date(segment.endTime).getTime() : undefined;
+
+      if (effectiveBeginDate && !effectiveEndDate) {
+        effectiveEndDate = effectiveBeginDate + (14 * 86400000);
+      } else if (!effectiveBeginDate && effectiveEndDate) {
+        effectiveBeginDate = effectiveEndDate - (14 * 86400000);
+      }
+
+      let specificDates: string[] | undefined = undefined;
+      if (effectiveBeginDate && effectiveEndDate) {
+        specificDates = [];
+        let curr = new Date(effectiveBeginDate);
+        const end = new Date(effectiveEndDate);
+        let days = 0;
+        // Cap at 35 days (5 weeks)
+        while (curr <= end && days <= 35) {
+          const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+          const [month, day, year] = str.split("/");
+          specificDates.push(`${year}${month}${day}`);
+          curr = new Date(curr.getTime() + 86400000);
+          days++;
+        }
+      }
+
+      const resScrape = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
+      if (!resScrape.data || resScrape.data.length === 0) {
+        continue;
+      }
+
+      for (const m of resScrape.data) {
+        if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
+        if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+
+        const link4MatchupId = `${segmentId}_${m.gameId}`;
+        const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);
+
+        const metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : null;
+        const homeTeamToSave = m.homeTeam ? JSON.parse(JSON.stringify(m.homeTeam)) : null;
+        const awayTeamToSave = m.awayTeam ? JSON.parse(JSON.stringify(m.awayTeam)) : null;
+
+        batch.set(docRef, {
+          segmentId: segmentId,
+          gameId: String(m.gameId),
+          title: m.title || `${m.awayTeam?.name} @ ${m.homeTeam?.name}`,
+          startTime: m.startTime,
+          status: m.status,
+          statusDesc: m.statusDesc,
+          homeTeam: homeTeamToSave,
+          awayTeam: awayTeamToSave,
+          league: m.league,
+          type: 'STANDARD',
+          metadata: metadataToSave,
+          updatedAt: Date.now()
+        }, { merge: true });
+
+        count++;
+        batchCount++;
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = adminDb.batch();
+          batchCount = 0;
+        }
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    res.json({ success: true, count });
+  } catch (e: any) {
+    console.error('Link4 sync matchups error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/link4/delete-matchup", validateAdmin, async (req, res) => {
+  try {
+    const { matchupId } = req.body;
+    if (!matchupId) {
+      return res.status(400).json({ success: false, error: "Missing matchupId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    await adminDb.collection('link4Matchups').doc(matchupId).delete();
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error('Link4 delete matchup error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
   try {
     const { campaignId } = req.body;

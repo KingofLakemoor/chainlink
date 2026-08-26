@@ -475,18 +475,6 @@ export default function Link4Page() {
       }
     }
 
-    if (startTime && m.startTime) {
-      if (new Date(m.startTime).getTime() < new Date(startTime).getTime()) {
-        return false;
-      }
-    }
-
-    if (endTime && m.startTime) {
-      if (new Date(m.startTime).getTime() > new Date(endTime).getTime()) {
-        return false;
-      }
-    }
-
     return true;
   }).sort((a, b) => {
     const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;

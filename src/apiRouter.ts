@@ -428,18 +428,19 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
 
       let specificDates: string[] | undefined = undefined;
       if (effectiveBeginDate && effectiveEndDate) {
-        specificDates = [];
-        let curr = new Date(effectiveBeginDate);
-        const end = new Date(effectiveEndDate);
+        const startDay = new Date(effectiveBeginDate - 86400000);
+        const endDay = new Date(effectiveEndDate + 86400000);
+        let curr = new Date(startDay);
         let days = 0;
-        // Cap at 35 days (5 weeks)
-        while (curr <= end && days <= 35) {
+        const dateSet = new Set<string>();
+        while (curr <= endDay && days <= 40) {
           const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
           const [month, day, year] = str.split("/");
-          specificDates.push(`${year}${month}${day}`);
+          dateSet.add(`${year}${month}${day}`);
           curr = new Date(curr.getTime() + 86400000);
           days++;
         }
+        specificDates = Array.from(dateSet);
       }
 
       const resScrape = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
@@ -447,9 +448,13 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         continue;
       }
 
+      // Buffer start/end filter by 12 hours to account for timezone shifts and game schedule padding
+      const filterBegin = effectiveBeginDate ? effectiveBeginDate - (12 * 3600 * 1000) : undefined;
+      const filterEnd = effectiveEndDate ? effectiveEndDate + (12 * 3600 * 1000) : undefined;
+
       for (const m of resScrape.data) {
-        if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
-        if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+        if (filterBegin && m.startTime < filterBegin) continue;
+        if (filterEnd && m.startTime > filterEnd) continue;
 
         const link4MatchupId = `${segmentId}_${m.gameId}`;
         const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);

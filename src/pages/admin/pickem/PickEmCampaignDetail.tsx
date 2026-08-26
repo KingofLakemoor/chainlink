@@ -60,6 +60,8 @@ export default function PickEmCampaignDetail() {
         setHasWeekZero(data.hasWeekZero || false);
         setUseTiebreaker(data.useTiebreaker || false);
         setEntryFee(data.entryFee || 0);
+        setIsPrivate(data.isPrivate || false);
+        setJoinCode(data.joinCode || '');
         setWeekSettings(data.weekSettings || {});
 
         setThemePrimaryColor(data.theme?.primaryColor || '#22c55e');
@@ -155,6 +157,8 @@ export default function PickEmCampaignDetail() {
         hasWeekZero: hasWeekZero,
         useTiebreaker: useTiebreaker,
         entryFee: entryFee,
+        isPrivate: isPrivate,
+        joinCode: isPrivate ? joinCode : '',
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
@@ -193,6 +197,9 @@ export default function PickEmCampaignDetail() {
         totalWeeks,
         hasWeekZero,
         useTiebreaker, 
+        entryFee,
+        isPrivate,
+        joinCode: isPrivate ? joinCode : '',
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,

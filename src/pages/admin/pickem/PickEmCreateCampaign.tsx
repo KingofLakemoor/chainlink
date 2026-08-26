@@ -82,6 +82,8 @@ export default function PickEmCreateCampaign() {
         pickLimit: pickLimit,
         totalWeeks: totalWeeks,
         hasWeekZero: hasWeekZero,
+        useTiebreaker: useTiebreaker,
+        format: format,
         type: 'STANDARD',
         defaultMatchType,
         scoringType: 'WIN_LOSS',

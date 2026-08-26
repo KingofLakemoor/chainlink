@@ -51,6 +51,30 @@ function filterSyncedMatchups(matchups: any[], effectiveBeginDate?: number, effe
   });
 }
 
+function mergeMatchupsByGameId(matchupsToProcess: any[]): any[] {
+  const processedGameIds = new Map<string, any>();
+
+  for (const m of matchupsToProcess) {
+    const gameIdStr = String(m.gameId);
+    if (!gameIdStr || gameIdStr === 'undefined') continue;
+
+    if (!processedGameIds.has(gameIdStr)) {
+      processedGameIds.set(gameIdStr, m);
+    } else {
+      const existing = processedGameIds.get(gameIdStr);
+      const hasExistingML = existing.metadata?.mlHome !== undefined && existing.metadata?.mlHome !== null;
+      const hasNewML = m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null;
+      if (!hasExistingML && hasNewML) {
+        processedGameIds.set(gameIdStr, { ...existing, ...m, metadata: { ...existing.metadata, ...m.metadata } });
+      } else {
+        processedGameIds.set(gameIdStr, { ...m, ...existing, metadata: { ...m.metadata, ...existing.metadata } });
+      }
+    }
+  }
+
+  return Array.from(processedGameIds.values());
+}
+
 describe('Link4 sync logic', () => {
   it('normalizes metadata correctly', () => {
     const res1 = normalizeLink4Metadata({ mlHome: -150, mlAway: 130 });
@@ -86,5 +110,17 @@ describe('Link4 sync logic', () => {
 
     const filtered = filterSyncedMatchups(testMatchups, startSegment, endSegment);
     expect(filtered.map(m => m.id)).toEqual([1, 2, 3]);
+  });
+
+  it('merges duplicate matchups and preserves odds metadata', () => {
+    const testMatchups = [
+      { gameId: '401', league: 'COLLEGE_FOOTBALL', title: 'Game 1', metadata: {} },
+      { gameId: '401', league: 'COLLEGE_FOOTBALL', title: 'Game 1 Scraped', metadata: { mlHome: -150, mlAway: 130 } }
+    ];
+
+    const merged = mergeMatchupsByGameId(testMatchups);
+    expect(merged.length).toBe(1);
+    expect(merged[0].gameId).toBe('401');
+    expect(merged[0].metadata).toEqual({ mlHome: -150, mlAway: 130 });
   });
 });

@@ -90,7 +90,7 @@ export default function PickEmLandingPage() {
     const cleanCode = joinCode.trim();
 
     // Find campaign with this code in loaded campaigns first
-    let targetCampaignId = campaigns.find(c => c.isPrivate && c.joinCode && c.joinCode.trim().toLowerCase() === cleanCode.toLowerCase())?.id;
+    let targetCampaignId = campaigns.find(c => c.joinCode && c.joinCode.trim().toLowerCase() === cleanCode.toLowerCase())?.id;
 
     // If not found in loaded campaigns, query Firestore for any unarchived private campaign matching joinCode
     if (!targetCampaignId) {
@@ -98,7 +98,7 @@ export default function PickEmLandingPage() {
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
         const matchedDoc = campSnap.docs.find(d => {
           const data = d.data();
-          return !data.isArchived && data.isPrivate && data.joinCode && data.joinCode.trim().toLowerCase() === cleanCode.toLowerCase();
+          return !data.isArchived && data.joinCode && data.joinCode.trim().toLowerCase() === cleanCode.toLowerCase();
         });
         if (matchedDoc) {
           targetCampaignId = matchedDoc.id;

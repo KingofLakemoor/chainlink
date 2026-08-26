@@ -655,7 +655,7 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
 
     if (!campaignId && cleanJoinCode) {
       const matchSnap = await adminDb.collection('pickemCampaigns')
-        .where('isPrivate', '==', true)
+        
         .get();
       const matched = matchSnap.docs.find(d => {
         const data = d.data();

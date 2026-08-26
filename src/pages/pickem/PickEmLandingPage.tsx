@@ -250,9 +250,10 @@ export default function PickEmLandingPage() {
                                  imageUrl = pick.pick.teamId === m.awayTeam.id ? m.awayTeam.image : m.homeTeam.image;
                                  altText = pick.pick.teamId === m.awayTeam.id ? m.awayTeam.name : m.homeTeam.name;
                              }
-                             let borderColorClass = 'border-[#22c55e]';
+                             let borderColorClass = 'border-zinc-500';
                              if (pick.status === 'WIN') borderColorClass = 'border-green-500 ring-2 ring-green-500/20';
                              else if (pick.status === 'LOSS') borderColorClass = 'border-red-500 opacity-50';
+                             else if (pick.status === 'PUSH') borderColorClass = 'border-zinc-400';
                              return (
                                <div key={m.id} className={`w-10 h-10 rounded-full border-2 overflow-hidden bg-zinc-900 flex-shrink-0 ${borderColorClass}`} title={`${altText} ${pick.status !== 'PENDING' ? '- '+pick.status : ''}`}>
                                  <FirebaseImage src={imageUrl} alt={altText} className="w-full h-full object-contain p-1" />

@@ -147,7 +147,11 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
       alert(`Synced ${count} matchups successfully for Link4! (Total processed from API: ${batchCount + count})`);
     } catch (err: any) {
       console.error(err);
-      alert('Failed to sync matchups: ' + (err.message || String(err)));
+      if (err.message && err.message.includes("Missing or insufficient permissions")) {
+        alert('Missing Permissions: Your user account lacks Admin privileges, or Firestore security rules need update.\n\nEnsure your user profile in Firestore has `role: "ADMIN"` and rule permissions allow write to link4Matchups.');
+      } else {
+        alert('Failed to sync matchups: ' + (err.message || String(err)));
+      }
     } finally {
       setMatchupsLoading(false);
     }

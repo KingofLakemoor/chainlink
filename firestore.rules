@@ -280,6 +280,7 @@ service cloud.firestore {
     match /leagueSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
     match /link4Picks/{pickId} { allow read: if isSignedIn(); allow write: if isSignedIn() && (incoming().userId == request.auth.uid || (existing() != null && existing().userId == request.auth.uid)); }
     match /link4Segments/{segmentId} { allow read: if true; allow write: if isAdmin(); }
+    match /link4Matchups/{matchupId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /linkTransactions/{txId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /notifications/{notificationId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /systemSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }

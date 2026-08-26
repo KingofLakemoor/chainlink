@@ -403,7 +403,8 @@ apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
     let count = 0;
 
     for (const m of matchups) {
-      const gameIdStr = String(m.gameId || m.id);
+      const rawId = String(m.gameId || m.id || '');
+      const gameIdStr = rawId.replace(new RegExp(`^${segmentId}_`), '');
       if (!gameIdStr) continue;
 
       const link4MatchupId = `${segmentId}_${gameIdStr}`;
@@ -469,12 +470,25 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
     }
 
     const segment = segmentDoc.data()!;
-    const leaguesToSync = segment.allowedSports && segment.allowedSports.length > 0
+    let leaguesToSync = segment.allowedSports && segment.allowedSports.length > 0
       ? segment.allowedSports
       : [];
 
     if (leaguesToSync.length === 0) {
-      return res.status(400).json({ success: false, error: "No sports configured for this segment." });
+      const nameLower = (segment.name || '').toLowerCase();
+      if (nameLower.includes('college football') || nameLower.includes('cfb') || nameLower.includes('ncaa football')) {
+        leaguesToSync = ['CFB'];
+      } else if (nameLower.includes('nfl')) {
+        leaguesToSync = ['NFL'];
+      } else if (nameLower.includes('nba')) {
+        leaguesToSync = ['NBA'];
+      } else if (nameLower.includes('mlb')) {
+        leaguesToSync = ['MLB'];
+      } else if (nameLower.includes('nhl')) {
+        leaguesToSync = ['NHL'];
+      } else {
+        leaguesToSync = ['CFB', 'NFL', 'MLB', 'NBA', 'NHL'];
+      }
     }
 
     let count = 0;
@@ -493,12 +507,13 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
 
       let specificDates: string[] | undefined = undefined;
       if (effectiveBeginDate && effectiveEndDate) {
-        const startDay = new Date(effectiveBeginDate - 86400000);
-        const endDay = new Date(effectiveEndDate + 86400000);
+        // Expand date range to +/- 7 days around segment bounds so games across the week are pulled
+        const startDay = new Date(effectiveBeginDate - 7 * 86400000);
+        const endDay = new Date(effectiveEndDate + 7 * 86400000);
         let curr = new Date(startDay);
         let days = 0;
         const dateSet = new Set<string>();
-        while (curr <= endDay && days <= 40) {
+        while (curr <= endDay && days <= 60) {
           const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
           const [month, day, year] = str.split("/");
           dateSet.add(`${year}${month}${day}`);
@@ -508,9 +523,9 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         specificDates = Array.from(dateSet);
       }
 
-      // Buffer start/end filter by 12 hours to account for timezone shifts and game schedule padding
-      const filterBegin = effectiveBeginDate ? effectiveBeginDate - (12 * 3600 * 1000) : undefined;
-      const filterEnd = effectiveEndDate ? effectiveEndDate + (12 * 3600 * 1000) : undefined;
+      // Buffer start/end filter by 7 days so games occurring during the segment week are not cut off
+      const filterBegin = effectiveBeginDate ? effectiveBeginDate - (7 * 24 * 3600 * 1000) : undefined;
+      const filterEnd = effectiveEndDate ? effectiveEndDate + (7 * 24 * 3600 * 1000) : undefined;
 
       // 1. Scrape live ESPN schedules
       const matchupsToProcess: any[] = [];

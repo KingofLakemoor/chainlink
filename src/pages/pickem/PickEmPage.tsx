@@ -47,6 +47,22 @@ export default function PickEmPage() {
   const [joining, setJoining] = useState(false);
   const [isEliminated, setIsEliminated] = useState(false);
   const [usedTeams, setUsedTeams] = useState<Set<string>>(new Set());
+  const [charityProgress, setCharityProgress] = useState<{ pot: number } | null>(null);
+
+  useEffect(() => {
+    const fetchCharityProgress = async () => {
+      try {
+        const res = await fetch('/api/charity/progress');
+        if (res.ok) {
+          const data = await res.json();
+          setCharityProgress(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch charity progress for leaderboard banner", err);
+      }
+    };
+    fetchCharityProgress();
+  }, []);
 
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -808,8 +824,51 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
           <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden">
           {/* Prize Pool Summary Banner */}
           {(() => {
+            const isYesDayCampaign = selectedCampaign?.isCharity ||
+              selectedCampaign?.id === 'charity' ||
+              selectedCampaign?.name === 'YES Day Walk for Autism 2026';
+
             const entryFee = selectedCampaign?.entryFee || 0;
             const totalEntries = leaderboardData.length;
+
+            if (isYesDayCampaign) {
+              const potAmount = charityProgress ? charityProgress.pot : 0;
+              const formattedPot = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(potAmount);
+
+              return (
+                <div className="p-4 md:p-6 border-b border-zinc-800 bg-[#18181A]">
+                  <div className="flex items-center gap-2 mb-3 text-yellow-500 font-bold text-sm uppercase tracking-wider">
+                    <Trophy className="w-5 h-5" /> Campaign Prize Pool & Payout Breakdown
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-4">
+                    <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                      <span className="text-xs text-zinc-500 font-medium block mb-1">Entry Fee</span>
+                      <span className="text-base font-bold text-white">Donation</span>
+                    </div>
+                    <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                      <span className="text-xs text-zinc-500 font-medium block mb-1">Total Entries</span>
+                      <span className="text-base font-bold text-white">{totalEntries}</span>
+                    </div>
+                    <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                      <span className="text-xs text-zinc-500 font-medium block mb-1">1st Place Cash Prize (100% to 1st)</span>
+                      <span className="text-base font-bold text-green-400">{formattedPot}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#121212] border border-zinc-800 p-4 rounded-lg text-left">
+                    <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider block mb-2 text-yellow-500">
+                      1st Place Additional Prizes:
+                    </span>
+                    <ul className="space-y-1 text-sm text-zinc-200 list-disc list-inside">
+                      <li>The full Pick 'Em cash prize pot (100% to first: <strong className="text-green-400">{formattedPot}</strong>)</li>
+                      <li>A 602 West Neon Tee</li>
+                      <li>An exclusive Yes Day 2026 cosmetics pack on ChainLink and ScriptLess</li>
+                    </ul>
+                  </div>
+                </div>
+              );
+            }
+
             const totalPot = totalEntries * entryFee;
             const firstPayout = Math.floor(totalPot * 0.45);
             const secondPayout = Math.floor(totalPot * 0.15);

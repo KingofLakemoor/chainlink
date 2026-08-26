@@ -15,6 +15,7 @@ export default function PickEmCreateCampaign() {
   const [format, setFormat] = useState('STANDARD');
   const [pickLimit, setPickLimit] = useState<number>(0);
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
+  const [hasWeekZero, setHasWeekZero] = useState<boolean>(false);
   const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
 
@@ -79,6 +80,7 @@ export default function PickEmCreateCampaign() {
         leagues: leagues,
         pickLimit: pickLimit,
         totalWeeks: totalWeeks,
+        hasWeekZero: hasWeekZero,
         type: 'STANDARD',
         defaultMatchType,
         scoringType: 'WIN_LOSS',
@@ -92,7 +94,7 @@ export default function PickEmCreateCampaign() {
           subtitle: themeSubtitle,
           logoUrl: finalLogoUrl,
         },
-        currentWeek: 1,
+        currentWeek: hasWeekZero ? 0 : 1,
         isPrivate,
         joinCode: isPrivate ? joinCode : '',
         entryFee: 0,
@@ -166,6 +168,7 @@ export default function PickEmCreateCampaign() {
             >
               <option value="STANDARD">Standard (Moneyline)</option>
               <option value="SPREAD">Against the Spread (ATS)</option>
+              <option value="BOTH">Moneyline/ATS (Use Spread if available)</option>
             </select>
           </div>
 

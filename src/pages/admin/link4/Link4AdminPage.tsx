@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, getDocs, setDoc, deleteDoc, query, orderBy, writeBatch, where , limit } from "firebase/firestore";
 import { db, auth } from '../../../lib/firebase';
 import { SUPPORTED_LEAGUES, scrapeLeagueSchedules } from '../../../services/espnScraper';
+import Link4SegmentDetail from './Link4SegmentDetail';
 
 interface Link4SegmentTheme {
   primaryColor: string;
@@ -28,6 +29,7 @@ const SPORTS = SUPPORTED_LEAGUES.map(league => ({ id: league, label: league }));
 
 export default function Link4AdminPage() {
   const [segments, setSegments] = useState<Link4Segment[]>([]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
 
@@ -355,6 +357,10 @@ export default function Link4AdminPage() {
     );
   }
 
+  if (selectedSegmentId) {
+    return <Link4SegmentDetail segmentId={selectedSegmentId} onBack={() => setSelectedSegmentId(null)} />;
+  }
+
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
@@ -585,6 +591,13 @@ export default function Link4AdminPage() {
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedSegmentId(segment.id)}
+                          className="p-1.5 text-zinc-400 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+                          title="Manage Matchups"
+                        >
+                          <Calendar className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

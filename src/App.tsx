@@ -121,7 +121,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
         <NavItem icon={Layers} label="Pick'em" path="/pickem" showBadge={hasActivePickEm} />
                 <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
         <NavItem icon={ShoppingCart} label="Link Shop" path="/shop" />
-        {hasActiveLink4 && <NavItem icon={Grid} label="Link4" path="/link4" showBadge={true} isShimmer={true} />}
+        {hasActiveLink4 && <NavItem icon={Grid} label="Link4" path="/link4" showBadge={false} isShimmer={true} />}
         <NavItem icon={HelpCircle} label="Help & Rules" path="/help" />
 
         {profile?.role === "ADMIN" && (

@@ -60,8 +60,8 @@ export default function PickEmLandingPage() {
           const camp = camps.find(c => c.id === cid);
           if (!camp) return;
 
-          const mQuery = query(collection(db, 'pickemMatchups'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek || 1));
-          const pQuery = query(collection(db, 'pickemPicks'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek || 1), where('participantId', '==', user.uid));
+          const mQuery = query(collection(db, 'pickemMatchups'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek ?? 1));
+          const pQuery = query(collection(db, 'pickemPicks'), where('campaignId', '==', cid), where('week', '==', camp.currentWeek ?? 1), where('participantId', '==', user.uid));
 
           const [mSnap, pSnap] = await Promise.all([getDocs(mQuery), getDocs(pQuery)]);
 
@@ -195,7 +195,7 @@ export default function PickEmLandingPage() {
                         )}
                         <div>
                           <h3 className="text-xl font-bold text-white leading-tight">{c.theme?.title || c.name}</h3>
-                          <p className="text-sm text-zinc-400 mt-1">Week {c.currentWeek || 1}</p>
+                          <p className="text-sm text-zinc-400 mt-1">Week {c.currentWeek ?? 1}</p>
                         </div>
                       </div>
                       
@@ -311,7 +311,7 @@ export default function PickEmLandingPage() {
                       <div className="grid grid-cols-2 gap-4 text-sm mb-6">
                         <div className="bg-[#18181A] p-3 rounded-lg">
                           <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Format</span>
-                          <span className="text-white font-medium">{c.defaultMatchType === 'SPREAD' ? 'ATS' : 'Moneyline'}</span>
+                          <span className="text-white font-medium">{c.defaultMatchType === 'SPREAD' ? 'ATS' : c.defaultMatchType === 'BOTH' ? 'Moneyline/ATS' : 'Moneyline'}</span>
                         </div>
                         <div className="bg-[#18181A] p-3 rounded-lg">
                           <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Weekly Picks</span>
@@ -343,7 +343,7 @@ export default function PickEmLandingPage() {
                 )}
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-1">{selectedPublicCamp.theme?.title || selectedPublicCamp.name}</h3>
-                  <p className="text-sm text-[#22c55e] font-semibold">{selectedPublicCamp.leagues?.join(', ')} • Week {selectedPublicCamp.currentWeek || 1}</p>
+                  <p className="text-sm text-[#22c55e] font-semibold">{selectedPublicCamp.leagues?.join(', ')} • Week {selectedPublicCamp.currentWeek ?? 1}</p>
                 </div>
               </div>
             </div>
@@ -354,7 +354,7 @@ export default function PickEmLandingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#18181A] border border-zinc-800/50 p-4 rounded-xl">
                   <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Match Type</span>
-                  <span className="text-white font-medium text-lg">{selectedPublicCamp.defaultMatchType === 'SPREAD' ? 'Against the Spread' : 'Moneyline (Straight Up)'}</span>
+                  <span className="text-white font-medium text-lg">{selectedPublicCamp.defaultMatchType === 'SPREAD' ? 'Against the Spread' : selectedPublicCamp.defaultMatchType === 'BOTH' ? 'Moneyline / ATS' : 'Moneyline (Straight Up)'}</span>
                 </div>
                 <div className="bg-[#18181A] border border-zinc-800/50 p-4 rounded-xl">
                   <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Pick Limit</span>
@@ -362,7 +362,7 @@ export default function PickEmLandingPage() {
                 </div>
                 <div className="bg-[#18181A] border border-zinc-800/50 p-4 rounded-xl">
                   <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Duration</span>
-                  <span className="text-white font-medium text-lg">{selectedPublicCamp.totalWeeks || 1} Weeks</span>
+                  <span className="text-white font-medium text-lg">{selectedPublicCamp.hasWeekZero ? (selectedPublicCamp.totalWeeks || 1) + 1 : (selectedPublicCamp.totalWeeks || 1)} Weeks</span>
                 </div>
                 <div className="bg-[#18181A] border border-zinc-800/50 p-4 rounded-xl">
                   <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Entry Fee</span>

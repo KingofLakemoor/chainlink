@@ -70,20 +70,21 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
         if (data.exists) throw new Error("Username is already taken.");
       }
 
-      const currentToken = await requestNotificationPermission();
-      let fcmTokens = profile?.fcmTokens || [];
-      if (notificationsEnabled && currentToken && !fcmTokens.includes(currentToken)) {
-        fcmTokens.push(currentToken);
-      } else if (!notificationsEnabled) {
-        fcmTokens = [];
+      if (notificationsEnabled) {
+        await requestNotificationPermission(user.uid, profile);
       }
-
-      await updateDoc(userRef, {
+      
+      const updateData: any = {
         username: newUsername.trim(),
         name: newName.trim(),
-        notificationsEnabled,
-        fcmTokens
-      });
+        notificationsEnabled
+      };
+      
+      if (!notificationsEnabled) {
+        updateData.fcmTokens = [];
+      }
+
+      await updateDoc(userRef, updateData);
 
       setSettingsMessage({ type: 'success', text: 'Profile updated successfully.' });
     } catch (err: any) {
@@ -123,7 +124,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Settings & Inventory" size="xl">
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="space-y-8 h-[70vh] overflow-y-auto custom-scrollbar pr-2">
         
         {/* Inventory Section */}

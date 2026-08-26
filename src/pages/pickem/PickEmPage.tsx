@@ -97,7 +97,7 @@ export default function PickEmPage() {
 
         if (initialCampaign) {
           setSelectedCampaign(initialCampaign);
-          setSelectedWeek(initialCampaign.currentWeek || 1);
+          setSelectedWeek(initialCampaign.currentWeek !== undefined ? initialCampaign.currentWeek : 1);
         if (user && initialCampaign) {
             const pairId = `${initialCampaign.id}_${user.uid}`;
             const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
@@ -490,9 +490,14 @@ export default function PickEmPage() {
             onChange={e => setSelectedWeek(Number(e.target.value))}
             className="bg-[#121212] border border-zinc-800 rounded-xl px-4 py-3 text-white text-lg font-medium"
           >
-            {[...Array(selectedCampaign?.totalWeeks || 18)].map((_, i) => {
-              const weekNum = i + 1;
-              const customLabel = selectedCampaign?.weekSettings?.[weekNum]?.label;
+            {[...Array(selectedCampaign?.hasWeekZero ? (selectedCampaign?.totalWeeks || 18) + 1 : (selectedCampaign?.totalWeeks || 18))].map((_, i) => {
+              const weekNum = selectedCampaign?.hasWeekZero ? i : i + 1;
+              const ws = selectedCampaign?.weekSettings?.[weekNum];
+              const customLabel = ws?.label;
+              const isVisible = ws?.isVisible !== false;
+              
+              if (!isVisible && profile?.role !== 'ADMIN') return null;
+              
               return (
                 <option key={weekNum} value={weekNum}>
                   {customLabel ? customLabel : `Week ${weekNum}`}
@@ -532,6 +537,13 @@ export default function PickEmPage() {
 
       {activeTab === 'matchups' && (
         <>
+          {(selectedCampaign?.weekSettings?.[selectedWeek]?.isVisible === false && profile?.role !== 'ADMIN') ? (
+            <div className="text-center py-12 bg-[#121212] border border-zinc-800 rounded-xl">
+              <h3 className="text-xl font-bold text-white mb-2">Week {selectedWeek} Not Yet Available</h3>
+              <p className="text-zinc-400">The matchups for this week are currently being finalized. Please check back later.</p>
+            </div>
+          ) : (
+            <>
           {(() => {
              if (selectedCampaign?.format === 'CONFIDENCE') {
                 const confidences = Object.values(userPicks).map(p => p.confidence).filter(c => c !== undefined && c !== null && c > 0);
@@ -777,6 +789,8 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                 );
               })}
             </div>
+          )}
+            </>
           )}
         </>
       )}

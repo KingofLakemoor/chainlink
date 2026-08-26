@@ -37,10 +37,12 @@ export default function PickEmCampaignDetail() {
   const [startDateStr, setStartDateStr] = useState('');
   const [endDateStr, setEndDateStr] = useState('');
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
+  const [hasWeekZero, setHasWeekZero] = useState<boolean>(false);
   const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
   const [weekSettings, setWeekSettings] = useState<Record<string, any>>({});
   const [weekGamesBeginDateStr, setWeekGamesBeginDateStr] = useState('');
   const [weekLabel, setWeekLabel] = useState('');
+  const [weekIsVisible, setWeekIsVisible] = useState<boolean>(true);
   const [weekEndDateStr, setWeekEndDateStr] = useState('');
 
 
@@ -52,8 +54,9 @@ export default function PickEmCampaignDetail() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setCampaign({ id: docSnap.id, ...data });
-        setSelectedWeek(data.currentWeek || 1);
+        setSelectedWeek(data.currentWeek !== undefined ? data.currentWeek : 1);
         setTotalWeeks(data.totalWeeks || 18);
+        setHasWeekZero(data.hasWeekZero || false);
         setUseTiebreaker(data.useTiebreaker || false);
         setWeekSettings(data.weekSettings || {});
 
@@ -116,6 +119,7 @@ export default function PickEmCampaignDetail() {
       const ws = campaign.weekSettings || {};
       const currentWS = ws[selectedWeek] || {};
       setWeekLabel(currentWS.label || '');
+      setWeekIsVisible(currentWS.isVisible !== false);
       if (currentWS.gamesBeginDate) {
          const d = new Date(currentWS.gamesBeginDate);
          setWeekGamesBeginDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
@@ -131,7 +135,7 @@ export default function PickEmCampaignDetail() {
     }
   }, [campaign, selectedWeek]);
 
-  const updateCurrentWeek = async () => {
+  const handleSaveCampaign = async () => {
     if (!campaign || !id) return;
     try {
 
@@ -146,6 +150,7 @@ export default function PickEmCampaignDetail() {
       await updateDoc(doc(db, 'pickemCampaigns', id), {
         currentWeek: selectedWeek,
         totalWeeks: totalWeeks,
+        hasWeekZero: hasWeekZero,
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
@@ -155,6 +160,7 @@ export default function PickEmCampaignDetail() {
         ...(campaign.weekSettings || {}),
         [selectedWeek]: {
           label: weekLabel,
+          isVisible: weekIsVisible,
           gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
           endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
         }
@@ -170,6 +176,8 @@ export default function PickEmCampaignDetail() {
       const updatedWeekSettings = {
         ...(campaign.weekSettings || {}),
         [selectedWeek]: {
+          label: weekLabel,
+          isVisible: weekIsVisible,
           gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
           endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
         }
@@ -179,6 +187,7 @@ export default function PickEmCampaignDetail() {
         ...prev, 
         currentWeek: selectedWeek, 
         totalWeeks,
+        hasWeekZero,
         useTiebreaker, 
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
@@ -345,7 +354,7 @@ export default function PickEmCampaignDetail() {
             statusDesc: m.statusDesc,
             homeTeam: m.homeTeam,
             awayTeam: m.awayTeam,
-            type: campaign.defaultMatchType || "STANDARD",
+            type: campaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"),
             metadata: metadataToSave,
             createdAt: Date.now()
           }, { merge: true });
@@ -544,8 +553,8 @@ export default function PickEmCampaignDetail() {
                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
                 className="bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
               >
-                {[...Array(totalWeeks)].map((_, i) => {
-                  const w = i + 1;
+                {[...Array(campaign?.hasWeekZero ? totalWeeks + 1 : totalWeeks)].map((_, i) => {
+                  const w = campaign?.hasWeekZero ? i : i + 1;
                   const lbl = campaign?.weekSettings?.[w]?.label;
                   return (
                     <option key={w} value={w}>{lbl ? `Week ${w} (${lbl})` : `Week ${w}`}</option>
@@ -566,6 +575,19 @@ export default function PickEmCampaignDetail() {
                 placeholder="e.g. Preseason Week 2"
                 className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm mb-4"
               />
+              
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  type="checkbox"
+                  checked={weekIsVisible}
+                  onChange={e => setWeekIsVisible(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e]"
+                />
+                <div>
+                  <label className="text-sm font-medium text-zinc-300">Visible to Users</label>
+                  <p className="text-xs text-zinc-500">If unchecked, users cannot see or pick matchups for this week.</p>
+                </div>
+              </div>
             </div>
             <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Sync Start Boundary (Optional)</label>
               <input
@@ -621,7 +643,11 @@ export default function PickEmCampaignDetail() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks</label>
+                <div className="flex items-center gap-2 mt-2 mb-4">
+                  <input type="checkbox" checked={hasWeekZero} onChange={e => setHasWeekZero(e.target.checked)} className="w-5 h-5" />
+                  <span className="text-zinc-300">Include Week 0 (e.g. for CFB)</span>
+                </div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks (excluding Week 0)</label>
                 <input
                   type="number"
                   min="1"

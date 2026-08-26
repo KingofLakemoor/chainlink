@@ -229,7 +229,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                    )}
                  </div>
                )}
-               {isLink4 && m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && (
+               {isLink4 && m.type !== "SPREAD" && m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
                    {isNaN(m.metadata.mlAway) ? 0 : (m.metadata.mlAway > 0 ? `+${m.metadata.mlAway}` : String(m.metadata.mlAway))}
                  </div>
@@ -378,7 +378,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                    )}
                  </div>
                )}
-               {isLink4 && m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && (
+               {isLink4 && m.type !== "SPREAD" && m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
                    {isNaN(m.metadata.mlHome) ? 0 : (m.metadata.mlHome > 0 ? `+${m.metadata.mlHome}` : String(m.metadata.mlHome))}
                  </div>

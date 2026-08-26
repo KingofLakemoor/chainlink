@@ -107,7 +107,7 @@ export default function PickEmCampaignsList() {
   )}
 </td>
                   <td className="px-4 py-3 text-zinc-400">{camp.league}</td>
-                  <td className="px-4 py-3 text-zinc-400">{camp.currentWeek || 1}</td>
+                  <td className="px-4 py-3 text-zinc-400">{camp.currentWeek ?? 1}</td>
                 </tr>
               ))}
             </tbody>

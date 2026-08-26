@@ -9,6 +9,7 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
   const [matchups, setMatchups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [matchupsLoading, setMatchupsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSegment = async () => {
@@ -36,15 +37,32 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
   const fetchMatchups = async () => {
     if (!segmentId) return;
     setMatchupsLoading(true);
+    setFetchError(null);
     try {
-      const q = query(
-        collection(db, 'link4Matchups'),
-        where('segmentId', '==', segmentId)
-      );
-      const snap = await getDocs(q);
-      setMatchups(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (err) {
-      console.error(err);
+      let docs: any[] = [];
+      try {
+        const q = query(
+          collection(db, 'link4Matchups'),
+          where('segmentId', '==', segmentId)
+        );
+        const snap = await getDocs(q);
+        docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (primaryErr: any) {
+        console.warn('Primary link4Matchups query failed, trying fallback scan:', primaryErr);
+      }
+
+      if (docs.length === 0) {
+        // Fallback: get all link4Matchups and filter client-side
+        const fallbackSnap = await getDocs(collection(db, 'link4Matchups'));
+        docs = fallbackSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter((m: any) => m.segmentId === segmentId || m.id.startsWith(`${segmentId}_`));
+      }
+
+      setMatchups(docs);
+    } catch (err: any) {
+      console.error('Error fetching Link4 matchups:', err);
+      setFetchError(err.message || String(err));
     } finally {
       setMatchupsLoading(false);
     }
@@ -151,6 +169,12 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
              {matchupsLoading ? 'Syncing...' : 'Sync Matchups (ESPN)'}
           </Button>
         </div>
+
+        {fetchError && (
+          <div className="p-4 mb-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm font-medium">
+            Error loading matchups: {fetchError}
+          </div>
+        )}
 
         {matchupsLoading ? (
           <div className="p-12 text-center text-zinc-500 font-medium">Loading matchups...</div>

@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import assert from 'node:assert';
 
 function normalizeLink4Metadata(metadata?: any, mainMatchupMetadata?: any) {
@@ -50,43 +51,40 @@ function filterSyncedMatchups(matchups: any[], effectiveBeginDate?: number, effe
   });
 }
 
-function runTests() {
-  console.log('Running Link4 sync unit tests...');
+describe('Link4 sync logic', () => {
+  it('normalizes metadata correctly', () => {
+    const res1 = normalizeLink4Metadata({ mlHome: -150, mlAway: 130 });
+    expect(res1).toEqual({ mlHome: -150, mlAway: 130 });
 
-  // 1. Metadata Normalization Tests
-  const res1 = normalizeLink4Metadata({ mlHome: -150, mlAway: 130 });
-  assert.deepStrictEqual(res1, { mlHome: -150, mlAway: 130 });
+    const res2 = normalizeLink4Metadata({ mlHome: null, mlAway: null }, { mlHome: -200, mlAway: 170 });
+    expect(res2).toEqual({ mlHome: -200, mlAway: 170 });
 
-  const res2 = normalizeLink4Metadata({ mlHome: null, mlAway: null }, { mlHome: -200, mlAway: 170 });
-  assert.deepStrictEqual(res2, { mlHome: -200, mlAway: 170 });
+    const res3 = normalizeLink4Metadata(null);
+    expect(res3).toEqual({ mlHome: -110, mlAway: -110 });
+  });
 
-  const res3 = normalizeLink4Metadata(null);
-  assert.deepStrictEqual(res3, { mlHome: -110, mlAway: -110 });
+  it('generates sync dates accurately', () => {
+    const start = new Date('2026-03-01T00:00:00.000Z').getTime();
+    const end = new Date('2026-03-03T23:59:59.000Z').getTime();
+    const dates = generateSyncDates(start, end);
 
-  // 2. Date Range Generation Tests
-  const start = new Date('2026-03-01T00:00:00.000Z').getTime();
-  const end = new Date('2026-03-03T23:59:59.000Z').getTime();
-  const dates = generateSyncDates(start, end);
+    expect(dates.includes('20260301')).toBe(true);
+    expect(dates.includes('20260302')).toBe(true);
+    expect(dates.includes('20260303')).toBe(true);
+  });
 
-  assert.ok(dates.includes('20260301'), 'Should include 20260301');
-  assert.ok(dates.includes('20260302'), 'Should include 20260302');
-  assert.ok(dates.includes('20260303'), 'Should include 20260303');
+  it('filters synced matchups by date buffer', () => {
+    const startSegment = new Date('2026-03-01T18:00:00.000Z').getTime();
+    const endSegment = new Date('2026-03-02T23:59:59.000Z').getTime();
 
-  // 3. Matchup Filtering Tests
-  const startSegment = new Date('2026-03-01T18:00:00.000Z').getTime();
-  const endSegment = new Date('2026-03-02T23:59:59.000Z').getTime();
+    const testMatchups = [
+      { id: 1, startTime: startSegment - (2 * 3600 * 1000) }, // 2h before start -> kept
+      { id: 2, startTime: startSegment + (2 * 3600 * 1000) }, // inside segment -> kept
+      { id: 3, startTime: endSegment + (2 * 3600 * 1000) },   // 2h after end -> kept
+      { id: 4, startTime: startSegment - (15 * 3600 * 1000) } // 15h before start -> filtered
+    ];
 
-  const testMatchups = [
-    { id: 1, startTime: startSegment - (2 * 3600 * 1000) }, // 2h before start -> kept
-    { id: 2, startTime: startSegment + (2 * 3600 * 1000) }, // inside segment -> kept
-    { id: 3, startTime: endSegment + (2 * 3600 * 1000) },   // 2h after end -> kept
-    { id: 4, startTime: startSegment - (15 * 3600 * 1000) } // 15h before start -> filtered
-  ];
-
-  const filtered = filterSyncedMatchups(testMatchups, startSegment, endSegment);
-  assert.deepStrictEqual(filtered.map(m => m.id), [1, 2, 3]);
-
-  console.log('All Link4 sync unit tests passed successfully!');
-}
-
-runTests();
+    const filtered = filterSyncedMatchups(testMatchups, startSegment, endSegment);
+    expect(filtered.map(m => m.id)).toEqual([1, 2, 3]);
+  });
+});

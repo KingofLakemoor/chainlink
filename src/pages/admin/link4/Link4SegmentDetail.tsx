@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
-import { Loader2, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, RefreshCw, Trash2, Plus, Check } from 'lucide-react';
 
 export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: string, onBack: () => void }) {
   const [segment, setSegment] = useState<any>(null);
@@ -10,6 +10,13 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
   const [loading, setLoading] = useState(true);
   const [matchupsLoading, setMatchupsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Pool Slotting state
+  const [showPool, setShowPool] = useState(false);
+  const [poolMatchups, setPoolMatchups] = useState<any[]>([]);
+  const [poolLoading, setPoolLoading] = useState(false);
+  const [selectedPoolIds, setSelectedPoolIds] = useState<string[]>([]);
+  const [slottingLoading, setSlottingLoading] = useState(false);
 
   useEffect(() => {
     const fetchSegment = async () => {
@@ -52,11 +59,14 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
       }
 
       if (docs.length === 0) {
-        // Fallback: get all link4Matchups and filter client-side
-        const fallbackSnap = await getDocs(collection(db, 'link4Matchups'));
-        docs = fallbackSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter((m: any) => m.segmentId === segmentId || m.id.startsWith(`${segmentId}_`));
+        try {
+          const fallbackSnap = await getDocs(collection(db, 'link4Matchups'));
+          docs = fallbackSnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter((m: any) => m.segmentId === segmentId || m.id.startsWith(`${segmentId}_`));
+        } catch (fallbackErr: any) {
+          console.warn('Fallback link4Matchups query failed:', fallbackErr);
+        }
       }
 
       setMatchups(docs);
@@ -65,6 +75,83 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
       setFetchError(err.message || String(err));
     } finally {
       setMatchupsLoading(false);
+    }
+  };
+
+  const fetchPoolMatchups = async () => {
+    setPoolLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'matchups'));
+      const existingGameIds = new Set(matchups.map(m => String(m.gameId || m.id)));
+
+      const allowedSports = segment?.allowedSports || [];
+
+      const available = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((m: any) => {
+          if (!m.gameId) return false;
+          // Filter by allowed sports if configured
+          if (allowedSports.length > 0 && !allowedSports.includes(m.league)) return false;
+          // Filter out already included matchups
+          if (existingGameIds.has(String(m.gameId))) return false;
+          return true;
+        })
+        .sort((a: any, b: any) => (a.startTime || 0) - (b.startTime || 0));
+
+      setPoolMatchups(available);
+    } catch (err) {
+      console.error('Failed to fetch main matchups pool:', err);
+    } finally {
+      setPoolLoading(false);
+    }
+  };
+
+  const handleOpenPool = () => {
+    setShowPool(!showPool);
+    if (!showPool) {
+      fetchPoolMatchups();
+    }
+  };
+
+  const toggleSelectPoolMatchup = (gameId: string) => {
+    setSelectedPoolIds(prev =>
+      prev.includes(gameId) ? prev.filter(id => id !== gameId) : [...prev, gameId]
+    );
+  };
+
+  const handleSlotSelected = async () => {
+    if (selectedPoolIds.length === 0) return;
+    setSlottingLoading(true);
+    try {
+      const matchupsToSlot = poolMatchups.filter(m => selectedPoolIds.includes(String(m.gameId || m.id)));
+      const token = await auth.currentUser?.getIdToken();
+
+      const res = await fetch('/api/admin/link4/add-matchups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          segmentId,
+          matchups: matchupsToSlot
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to slot matchups');
+      }
+
+      alert(`Slotted ${data.count ?? matchupsToSlot.length} matchups into Link4!`);
+      setSelectedPoolIds([]);
+      setShowPool(false);
+      await fetchMatchups();
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to slot matchups: ' + (err.message || String(err)));
+    } finally {
+      setSlottingLoading(false);
     }
   };
 
@@ -162,13 +249,81 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
       </div>
 
       <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-lg p-6 flex flex-col min-h-[500px]">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h3 className="font-bold text-lg capitalize">Included Matchups ({matchups.length})</h3>
-          <Button onClick={handleSyncMatchups} size="sm" className="gap-2" disabled={matchupsLoading}>
-             <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
-             {matchupsLoading ? 'Syncing...' : 'Sync Matchups (ESPN)'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleOpenPool} variant="outline" size="sm" className="gap-2 border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200">
+               <Plus className="w-4 h-4 text-green-400" />
+               {showPool ? 'Hide Available Pool' : 'Slot Available Games'}
+            </Button>
+            <Button onClick={handleSyncMatchups} size="sm" className="gap-2" disabled={matchupsLoading}>
+               <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
+               {matchupsLoading ? 'Syncing...' : 'Sync Matchups (ESPN)'}
+            </Button>
+          </div>
         </div>
+
+        {/* Pool Slotting Interface */}
+        {showPool && (
+          <div className="mb-6 p-4 bg-[#1a1a1a] border border-zinc-700 rounded-xl space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="font-bold text-white text-md">Slot Games from Main Matchups Pool</h4>
+                <p className="text-xs text-zinc-400">Select scheduled games from main database to include in this Link4 segment.</p>
+              </div>
+              {selectedPoolIds.length > 0 && (
+                <Button onClick={handleSlotSelected} size="sm" disabled={slottingLoading} className="gap-2 bg-green-600 hover:bg-green-500">
+                  {slottingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Slot {selectedPoolIds.length} Selected
+                </Button>
+              )}
+            </div>
+
+            {poolLoading ? (
+              <div className="p-6 text-center text-zinc-400 text-sm flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-green-500" /> Loading available pool...
+              </div>
+            ) : poolMatchups.length === 0 ? (
+              <div className="p-6 text-center text-zinc-500 text-sm">
+                No un-slotted matchups found in database for segment sports.
+              </div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                {poolMatchups.map(m => {
+                  const gameIdStr = String(m.gameId || m.id);
+                  const isSelected = selectedPoolIds.includes(gameIdStr);
+
+                  return (
+                    <div
+                      key={gameIdStr}
+                      onClick={() => toggleSelectPoolMatchup(gameIdStr)}
+                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-green-500/10 border-green-500/50 text-white'
+                          : 'bg-[#222225] border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                          isSelected ? 'border-green-500 bg-green-500 text-black' : 'border-zinc-600'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <div>
+                          <span className="font-bold text-sm text-white">{m.awayTeam?.name || 'Away'} @ {m.homeTeam?.name || 'Home'}</span>
+                          <span className="ml-2 text-xs text-zinc-400">({m.league})</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-zinc-400">
+                        {new Date(m.startTime).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {fetchError && (
           <div className="p-4 mb-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm font-medium">

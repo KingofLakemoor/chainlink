@@ -390,6 +390,67 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
+  try {
+    const { segmentId, matchups } = req.body;
+    if (!segmentId || !Array.isArray(matchups) || matchups.length === 0) {
+      return res.status(400).json({ success: false, error: "Missing segmentId or matchups array" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    let batch = adminDb.batch();
+    let batchCount = 0;
+    let count = 0;
+
+    for (const m of matchups) {
+      const gameIdStr = String(m.gameId || m.id);
+      if (!gameIdStr) continue;
+
+      const link4MatchupId = `${segmentId}_${gameIdStr}`;
+      const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);
+
+      let metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : {};
+      if (metadataToSave.mlHome === undefined || metadataToSave.mlHome === null) metadataToSave.mlHome = -110;
+      if (metadataToSave.mlAway === undefined || metadataToSave.mlAway === null) metadataToSave.mlAway = -110;
+
+      const homeTeamToSave = m.homeTeam ? JSON.parse(JSON.stringify(m.homeTeam)) : null;
+      const awayTeamToSave = m.awayTeam ? JSON.parse(JSON.stringify(m.awayTeam)) : null;
+
+      batch.set(docRef, {
+        segmentId,
+        gameId: gameIdStr,
+        title: m.title || `${awayTeamToSave?.name || 'Away'} @ ${homeTeamToSave?.name || 'Home'}`,
+        startTime: m.startTime || Date.now(),
+        status: m.status || 'STATUS_SCHEDULED',
+        statusDesc: m.statusDesc || '',
+        homeTeam: homeTeamToSave,
+        awayTeam: awayTeamToSave,
+        league: m.league || 'UNKNOWN',
+        type: 'STANDARD',
+        metadata: metadataToSave,
+        updatedAt: Date.now()
+      }, { merge: true });
+
+      count++;
+      batchCount++;
+      if (batchCount >= 400) {
+        await batch.commit();
+        batch = adminDb.batch();
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    res.json({ success: true, count });
+  } catch (e: any) {
+    console.error('Link4 add matchups error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => {
   try {
     const { segmentId } = req.body;
@@ -443,44 +504,51 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         specificDates = Array.from(dateSet);
       }
 
-      const resScrape = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
-      if (!resScrape.data || resScrape.data.length === 0) {
-        continue;
-      }
-
       // Buffer start/end filter by 12 hours to account for timezone shifts and game schedule padding
       const filterBegin = effectiveBeginDate ? effectiveBeginDate - (12 * 3600 * 1000) : undefined;
       const filterEnd = effectiveEndDate ? effectiveEndDate + (12 * 3600 * 1000) : undefined;
 
-      for (const m of resScrape.data) {
-        if (filterBegin && m.startTime < filterBegin) continue;
-        if (filterEnd && m.startTime > filterEnd) continue;
+      // 1. Scrape live ESPN schedules
+      const matchupsToProcess: any[] = [];
+      try {
+        const resScrape = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
+        if (resScrape.data && resScrape.data.length > 0) {
+          matchupsToProcess.push(...resScrape.data);
+        }
+      } catch (e) {
+        console.warn(`Scrape schedules failed for league ${lg}:`, e);
+      }
 
-        const link4MatchupId = `${segmentId}_${m.gameId}`;
+      // 2. Also check existing main 'matchups' collection for this league
+      try {
+        const existingSnap = await adminDb.collection('matchups').where('league', '==', lg).get();
+        existingSnap.docs.forEach(doc => {
+          const data = doc.data();
+          if (data && data.gameId) {
+            matchupsToProcess.push(data);
+          }
+        });
+      } catch (e) {
+        console.warn(`Failed to fetch existing main matchups for league ${lg}:`, e);
+      }
+
+      const processedGameIds = new Set<string>();
+
+      for (const m of matchupsToProcess) {
+        const gameIdStr = String(m.gameId);
+        if (processedGameIds.has(gameIdStr)) continue;
+        processedGameIds.add(gameIdStr);
+
+        if (filterBegin && m.startTime && m.startTime < filterBegin) continue;
+        if (filterEnd && m.startTime && m.startTime > filterEnd) continue;
+
+        const link4MatchupId = `${segmentId}_${gameIdStr}`;
         const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);
 
         let metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : {};
         if (!metadataToSave) metadataToSave = {};
 
-        // If scraped metadata lacks moneyline odds, check existing main 'matchups' collection doc
-        if (metadataToSave.mlHome === undefined || metadataToSave.mlHome === null || metadataToSave.mlAway === undefined || metadataToSave.mlAway === null) {
-          try {
-            const mainDoc = await adminDb.collection('matchups').doc(String(m.gameId)).get();
-            if (mainDoc.exists) {
-              const mainData = mainDoc.data();
-              if (mainData?.metadata?.mlHome !== undefined && mainData?.metadata?.mlHome !== null) {
-                metadataToSave.mlHome = mainData.metadata.mlHome;
-              }
-              if (mainData?.metadata?.mlAway !== undefined && mainData?.metadata?.mlAway !== null) {
-                metadataToSave.mlAway = mainData.metadata.mlAway;
-              }
-            }
-          } catch (e) {
-            console.warn(`Could not check main matchups doc for ${m.gameId}:`, e);
-          }
-        }
-
-        // Fall back to standard moneyline (-110) if moneyline odds are still missing
+        // Fall back to standard moneyline (-110) if moneyline odds are missing
         if (metadataToSave.mlHome === undefined || metadataToSave.mlHome === null) {
           metadataToSave.mlHome = -110;
         }
@@ -493,14 +561,14 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
 
         batch.set(docRef, {
           segmentId: segmentId,
-          gameId: String(m.gameId),
-          title: m.title || `${m.awayTeam?.name} @ ${m.homeTeam?.name}`,
-          startTime: m.startTime,
-          status: m.status,
-          statusDesc: m.statusDesc,
+          gameId: gameIdStr,
+          title: m.title || `${awayTeamToSave?.name || 'Away'} @ ${homeTeamToSave?.name || 'Home'}`,
+          startTime: m.startTime || Date.now(),
+          status: m.status || 'STATUS_SCHEDULED',
+          statusDesc: m.statusDesc || '',
           homeTeam: homeTeamToSave,
           awayTeam: awayTeamToSave,
-          league: m.league,
+          league: m.league || lg,
           type: 'STANDARD',
           metadata: metadataToSave,
           updatedAt: Date.now()

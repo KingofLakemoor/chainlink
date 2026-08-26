@@ -1,4 +1,5 @@
 import { CharityBanner } from '../../components/pickem/CharityBanner';
+import { CharityProgressTracker } from '../../components/pickem/CharityProgressTracker';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect } from 'react';
@@ -463,7 +464,11 @@ export default function PickEmPage() {
       )}
       {selectedCampaign && isParticipant && (
         <>
-      
+          {selectedCampaign.name === 'YES Day Walk for Autism 2026' && (
+            <div className="w-full mb-8">
+              <CharityProgressTracker />
+            </div>
+          )}
       {isEliminated && selectedCampaign?.format === 'SURVIVOR' && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-center font-medium mb-6">
            <AlertTriangle className="w-6 h-6 mx-auto mb-2" />

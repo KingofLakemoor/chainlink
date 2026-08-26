@@ -3,7 +3,7 @@ import React from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import { ShoppingCart, Trophy, Link2, Coins, ChevronRight, Mail, Calendar,  } from 'lucide-react';
+import { ShoppingCart, Trophy, Link2, Coins, ChevronRight, Mail, Calendar, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { db } from '../../lib/firebase';
@@ -13,6 +13,7 @@ import { DashboardPick, DashboardPickSkeleton } from '../../components/dashboard
 
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../../components/ui/titles';
+import { ProfileSettingsModal } from '../../components/profile/ProfileSettingsModal';
 export default function DashboardPage() {
   const { user, profile, chain } = useAuth();
   const [picks, setPicks] = React.useState<any[]>([]);
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [sponsors, setSponsors] = React.useState<any[]>([]);
   const [announcements, setAnnouncements] = React.useState<any[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
   React.useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -234,6 +236,13 @@ export default function DashboardPage() {
                  Joined {joinDate}
                </div>
             </div>
+            
+            <div className="mt-4 flex justify-center md:justify-start">
+               <Button onClick={() => setIsSettingsOpen(true)} variant="outline" size="sm" className="bg-black/40 border-zinc-700 hover:bg-black/60 text-zinc-300">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings & Inventory
+               </Button>
+            </div>
          </div>
 
          <div className="z-10 flex flex-col gap-3">
@@ -277,6 +286,11 @@ export default function DashboardPage() {
                           </span>
                       </div>
                   </div>
+                  <Link to="/mypicks" className="mt-4 block w-full">
+                      <Button variant="secondary" className="w-full text-zinc-300 border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800">
+                         View Detailed Stats & History
+                      </Button>
+                  </Link>
               </div>
 
               <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 flex flex-col max-h-[300px]">
@@ -333,6 +347,7 @@ export default function DashboardPage() {
             </div>
         </div>
       )}
+      <ProfileSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

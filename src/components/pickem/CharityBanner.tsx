@@ -1,14 +1,15 @@
 import React from 'react';
 import { ExternalLink, Heart, Trophy, Calendar, Gift, CheckCircle } from 'lucide-react';
-import { FirebaseImage } from '../ui/FirebaseImage';
+import { CharityProgressTracker } from './CharityProgressTracker';
 
 export function CharityBanner() {
+
+
   return (
     <div className="bg-gradient-to-br from-purple-900/40 via-[#121212] to-yellow-900/20 border border-purple-500/30 rounded-xl p-6 md:p-8 shadow-lg relative overflow-hidden mb-12">
       <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none mix-blend-overlay" style={{ background: 'radial-gradient(circle at top left, rgba(147,51,234,0.3) 0%, transparent 70%)' }}></div>
       
       <div className="relative z-10">
-        
         <div className="flex flex-col lg:flex-row gap-8 mb-8">
           {/* Left Column: Pick Em & Club 602 */}
           <div className="flex-1 space-y-6">
@@ -24,6 +25,9 @@ export function CharityBanner() {
                 By covering the prize pot, they are guaranteeing that <strong>100% of your donations</strong> go directly to nonprofit autism organizations throughout the state, providing critical support and services.
               </p>
             </div>
+
+            {/* PROGRESS BARS */}
+            <CharityProgressTracker />
 
             <div className="bg-black/40 border border-purple-500/20 rounded-xl p-5 md:p-6">
               <h4 className="text-lg font-bold text-white border-b border-white/10 pb-2 mb-4">Entry & Match Details</h4>
@@ -42,7 +46,7 @@ export function CharityBanner() {
                 </li>
                 <li className="flex items-start gap-3">
                   <Gift className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
-                  <p className="text-zinc-300 text-sm leading-relaxed"><strong className="text-white">Bonus:</strong> The Pick 'Em champion will take home a 602 West Neon Tee.</p>
+                  <p className="text-zinc-300 text-sm leading-relaxed"><strong className="text-white">Bonus:</strong> The Pick 'Em champion will take home a 602 West Neon Tee, plus an exclusive Yes Day 2026 cosmetics pack on ChainLink and ScriptLess.</p>
                 </li>
               </ul>
             </div>
@@ -53,7 +57,6 @@ export function CharityBanner() {
             <div className="bg-[#18181B]/80 border border-yellow-500/20 rounded-xl p-5 md:p-6 h-full flex flex-col justify-center">
               
               <div className="flex justify-center mb-6">
-                 {/* Expecting the user to upload the image into the file explorer under public/images/yes-day-logo.png */}
                  <img src="/images/yes-day-logo.png" alt="YES Day Walk for Autism" className="h-32 object-contain drop-shadow-md" />
               </div>
 
@@ -94,7 +97,6 @@ export function CharityBanner() {
             </a>
           </div>
         </div>
-        
       </div>
     </div>
   );

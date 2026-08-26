@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { collection, getDocs, query, where, setDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
@@ -13,6 +13,7 @@ import { getTeamShortName } from '../../lib/teamUtils';
 export default function PickEmLandingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'my_picks' | 'join'>('my_picks');
   
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -26,6 +27,12 @@ export default function PickEmLandingPage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
+      
+      const urlCode = searchParams.get('joinCode') || searchParams.get('code');
+      if (urlCode && activeTab !== 'join') {
+        setActiveTab('join');
+        setJoinCode(urlCode);
+      }
       try {
         // Fetch campaigns
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));

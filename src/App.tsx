@@ -69,13 +69,13 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
     }).catch(() => {});
   }, [user]);
 
-  const NavItem = ({ icon: Icon, label, path, showBadge = false }: { icon: any, label: string, path: string, showBadge?: boolean }) => {
+  const NavItem = ({ icon: Icon, label, path, showBadge = false, isShimmer = false }: { icon: any, label: string, path: string, showBadge?: boolean, isShimmer?: boolean }) => {
     const active = location.pathname === path;
     return (
       <Link to={path} className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${active ? 'bg-[#22c55e]/10 text-[#22c55e] font-medium' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}>
         <div className="flex items-center gap-3">
           <Icon className="w-5 h-5" />
-          <span className="text-sm">{label}</span>
+          <span className={`text-sm ${isShimmer ? "animate-pulse text-[#22c55e] font-bold drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" : ""}`}>{label}</span>
         </div>
         {showBadge && (
            <span className="flex h-2 w-2 relative">
@@ -114,15 +114,14 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
       <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1.5 custom-scrollbar">
         <SidebarProgress />
         <NavItem icon={LayoutDashboard} label="Dashboard" path="/dashboard" />
-        <NavItem icon={UserIcon} label="My Profile" path="/profile" />
+        
 
         <div className="mt-6 mb-2 px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">ChainLink</div>
         <NavItem icon={PlayCircle} label="Play ChainLink" path="/" />
         <NavItem icon={Layers} label="Pick'em" path="/pickem" showBadge={hasActivePickEm} />
-        <NavItem icon={CheckCircle2} label="My Stats" path="/mypicks" />
-        <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
+                <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
         <NavItem icon={ShoppingCart} label="Link Shop" path="/shop" />
-        <NavItem icon={Grid} label="Link4" path="/link4" showBadge={hasActiveLink4} />
+        {hasActiveLink4 && <NavItem icon={Grid} label="Link4" path="/link4" showBadge={true} isShimmer={true} />}
         <NavItem icon={HelpCircle} label="Help & Rules" path="/help" />
 
         {profile?.role === "ADMIN" && (
@@ -505,7 +504,6 @@ const PlayDashboard = React.lazy(() => import('./pages/play/PlayDashboard'));
 const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
 const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'));
 const AdvancedMetricsPage = React.lazy(() => import('./pages/advancedMetrics/AdvancedMetricsPage'));
-const ProfilePage = React.lazy(() => import('./pages/profile/ProfilePage'));
 const LeaderboardsPage = React.lazy(() => import('./pages/leaderboards/LeaderboardsPage'));
 const ShopPage = React.lazy(() => import('./pages/shop/ShopPage'));
 const MyPicksPage = React.lazy(() => import('./pages/mypicks/MyPicksPage'));
@@ -546,8 +544,7 @@ export default function App() {
           <Route path="/" element={<MainLayout><PlayDashboard /></MainLayout>} />
           <Route path="/admin/*" element={<AdminDashboard />} />
           <Route path="/dashboard" element={<PrivateRoute><MainLayout><DashboardPage /></MainLayout></PrivateRoute>} />
-                    <Route path="/profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
-          <Route path="/pickem" element={<PrivateRoute><MainLayout><PickEmLandingPage /></MainLayout></PrivateRoute>} />
+                              <Route path="/pickem" element={<PrivateRoute><MainLayout><PickEmLandingPage /></MainLayout></PrivateRoute>} />
           <Route path="/pickem/:campaignId" element={<PrivateRoute><MainLayout><PickEmPage /></MainLayout></PrivateRoute>} />
           <Route path="/brackets" element={<MainLayout><BracketsPage /></MainLayout>} />
           <Route path="/brackets/:bracketId" element={<MainLayout><BracketsPage /></MainLayout>} />

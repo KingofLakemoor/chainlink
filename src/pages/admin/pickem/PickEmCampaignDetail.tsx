@@ -518,7 +518,10 @@ export default function PickEmCampaignDetail() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
-        <Button variant="ghost" onClick={() => navigate('/admin/pickem')}>Back</Button>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" onClick={() => navigate('/admin/pickem')}>Back</Button>
+          <Button onClick={handleSaveCampaign} className="bg-purple-600 hover:bg-purple-500 text-white font-bold">Save All Settings</Button>
+        </div>
       </div>
 
       <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
@@ -550,7 +553,7 @@ export default function PickEmCampaignDetail() {
                 })}
               </select>
             </div>
-            <Button onClick={updateCurrentWeek} variant="secondary">Update Campaign</Button>
+            <Button onClick={handleSaveCampaign} variant="secondary">Save Week Selection</Button>
           </div>
           <div className="flex flex-wrap items-end gap-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
             <div>
@@ -653,15 +656,40 @@ export default function PickEmCampaignDetail() {
                   Private Campaign
               </label>
               {isPrivate && (
-                <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Join Code</label>
-                  <input
-                    type="text"
-                    value={joinCode}
-                    onChange={e => setJoinCode(e.target.value)}
-                    placeholder="Enter a secret code to join"
-                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Join Code</label>
+                    <input
+                      type="text"
+                      value={joinCode}
+                      onChange={e => setJoinCode(e.target.value)}
+                      placeholder="Enter a secret code to join"
+                      className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                    />
+                  </div>
+                  {joinCode && (
+                    <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
+                      <label className="block text-xs font-medium text-zinc-500 mb-1">Direct Share Link</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${window.location.origin}/pickem?joinCode=${joinCode}`}
+                          className="flex-1 bg-black/50 border border-zinc-800/50 rounded px-3 py-1.5 text-zinc-300 text-sm"
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/pickem?joinCode=${joinCode}`);
+                            alert('Link copied to clipboard!');
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

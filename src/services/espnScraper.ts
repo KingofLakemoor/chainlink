@@ -843,7 +843,7 @@ export function getScoreboardUrl(league: string): string | null {
                 LMX: "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard",
         ARG: "https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard",
         BRA: "https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard",
-        CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard",
+        CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300",
         CBASE: "https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard",
         WNBA: "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard",
         CRICKET: "https://site.api.espn.com/apis/site/v2/sports/cricket/21266/scoreboard",

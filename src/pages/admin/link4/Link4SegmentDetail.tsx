@@ -86,21 +86,64 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
     setPoolLoading(true);
     try {
       const snap = await getDocs(collection(db, 'matchups'));
-      const existingGameIds = new Set(matchups.map(m => String(m.gameId || m.id)));
+      const existingGameIds = new Set<string>();
+      matchups.forEach(m => {
+        if (m.gameId) existingGameIds.add(String(m.gameId));
+        if (m.id) {
+          existingGameIds.add(String(m.id));
+          existingGameIds.add(String(m.id).replace(new RegExp(`^${segmentId}_`), ''));
+        }
+      });
 
-      const allowedSports = segment?.allowedSports || [];
+      let allowedSports = segment?.allowedSports || [];
+      if (allowedSports.length === 0) {
+        const nameLower = (segment?.name || '').toLowerCase();
+        if (nameLower.includes('college football') || nameLower.includes('cfb') || nameLower.includes('ncaa football')) {
+          allowedSports = ['CFB'];
+        } else if (nameLower.includes('nfl')) {
+          allowedSports = ['NFL'];
+        } else if (nameLower.includes('nba')) {
+          allowedSports = ['NBA'];
+        } else if (nameLower.includes('mlb')) {
+          allowedSports = ['MLB'];
+        } else if (nameLower.includes('nhl')) {
+          allowedSports = ['NHL'];
+        }
+      }
 
-      const available = snap.docs
+      let available = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .filter((m: any) => {
-          if (!m.gameId) return false;
-          // Filter by allowed sports if configured
+          const gId = String(m.gameId || m.id);
+          if (!gId) return false;
           if (allowedSports.length > 0 && !allowedSports.includes(m.league)) return false;
-          // Filter out already included matchups
-          if (existingGameIds.has(String(m.gameId))) return false;
+          if (existingGameIds.has(gId)) return false;
           return true;
         })
         .sort((a: any, b: any) => (a.startTime || 0) - (b.startTime || 0));
+
+      // If no games found in main matchups collection, scrape ESPN for allowed sports
+      if (available.length === 0 && allowedSports.length > 0) {
+        try {
+          const { scrapeLeagueSchedules } = await import('../../../services/espnScraper');
+          for (const lg of allowedSports) {
+            const res = await scrapeLeagueSchedules(lg, false);
+            if (res.data) {
+              res.data.forEach((m: any) => {
+                const gId = String(m.gameId || m.id);
+                if (gId && !existingGameIds.has(gId)) {
+                  if (!available.some((a: any) => String(a.gameId || a.id) === gId)) {
+                    available.push(m);
+                  }
+                }
+              });
+            }
+          }
+          available.sort((a: any, b: any) => (a.startTime || 0) - (b.startTime || 0));
+        } catch (scrapeErr) {
+          console.warn('Failed fallback ESPN scrape for pool matchups:', scrapeErr);
+        }
+      }
 
       setPoolMatchups(available);
     } catch (err) {
@@ -161,14 +204,6 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
 
   const handleSyncMatchups = async () => {
     if (!segment || !segmentId) return;
-    const leaguesToSync = segment.allowedSports && segment.allowedSports.length > 0
-      ? segment.allowedSports
-      : [];
-
-    if (leaguesToSync.length === 0) {
-      alert("No sports configured for this segment.");
-      return;
-    }
 
     setMatchupsLoading(true);
     try {

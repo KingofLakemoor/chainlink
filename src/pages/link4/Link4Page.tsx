@@ -464,12 +464,15 @@ export default function Link4Page() {
   const availableMatchups = normalizedMatchups.filter(m => {
     if (m.link4Excluded) return false;
     if (allowedSports.length > 0 && !allowedSports.includes(m.league)) return false;
-    if (m.status !== 'STATUS_SCHEDULED') return false;
+    const statusStr = String(m.status || '');
+    if (statusStr !== 'STATUS_SCHEDULED' && statusStr !== 'SCHEDULED') return false;
 
     if (nextPickIndex > 0 && picks[nextPickIndex - 1]) {
       const prevPick = picks[nextPickIndex - 1];
       if (prevPick?.startTime && m.startTime) {
-        if (new Date(m.startTime).getTime() <= new Date(prevPick.startTime).getTime()) {
+        const prevTime = typeof prevPick.startTime === 'number' ? prevPick.startTime : new Date(prevPick.startTime).getTime();
+        const curTime = typeof m.startTime === 'number' ? m.startTime : new Date(m.startTime).getTime();
+        if (!isNaN(prevTime) && !isNaN(curTime) && curTime <= prevTime) {
           return false;
         }
       }
@@ -477,8 +480,8 @@ export default function Link4Page() {
 
     return true;
   }).sort((a, b) => {
-    const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
-    const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+    const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+    const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
     return timeA - timeB;
   });
 

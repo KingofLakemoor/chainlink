@@ -416,17 +416,21 @@ apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
       const homeTeamToSave = m.homeTeam ? JSON.parse(JSON.stringify(m.homeTeam)) : null;
       const awayTeamToSave = m.awayTeam ? JSON.parse(JSON.stringify(m.awayTeam)) : null;
 
+      const rawStart = m.startTime;
+      const validStartTime = typeof rawStart === 'number' ? rawStart : (rawStart ? new Date(rawStart).getTime() : Date.now());
+
       batch.set(docRef, {
         segmentId,
         gameId: gameIdStr,
         title: m.title || `${awayTeamToSave?.name || 'Away'} @ ${homeTeamToSave?.name || 'Home'}`,
-        startTime: m.startTime || Date.now(),
+        startTime: isNaN(validStartTime) ? Date.now() : validStartTime,
         status: m.status || 'STATUS_SCHEDULED',
         statusDesc: m.statusDesc || '',
         homeTeam: homeTeamToSave,
         awayTeam: awayTeamToSave,
         league: m.league || 'UNKNOWN',
         type: 'STANDARD',
+        link4Excluded: false,
         metadata: metadataToSave,
         updatedAt: Date.now()
       }, { merge: true });
@@ -539,8 +543,12 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         if (processedGameIds.has(gameIdStr)) continue;
         processedGameIds.add(gameIdStr);
 
-        if (filterBegin && m.startTime && m.startTime < filterBegin) continue;
-        if (filterEnd && m.startTime && m.startTime > filterEnd) continue;
+        const rawStart = m.startTime;
+        const validStartTime = typeof rawStart === 'number' ? rawStart : (rawStart ? new Date(rawStart).getTime() : Date.now());
+        const finalStartTime = isNaN(validStartTime) ? Date.now() : validStartTime;
+
+        if (filterBegin && finalStartTime < filterBegin) continue;
+        if (filterEnd && finalStartTime > filterEnd) continue;
 
         const link4MatchupId = `${segmentId}_${gameIdStr}`;
         const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);
@@ -563,13 +571,14 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
           segmentId: segmentId,
           gameId: gameIdStr,
           title: m.title || `${awayTeamToSave?.name || 'Away'} @ ${homeTeamToSave?.name || 'Home'}`,
-          startTime: m.startTime || Date.now(),
+          startTime: finalStartTime,
           status: m.status || 'STATUS_SCHEDULED',
           statusDesc: m.statusDesc || '',
           homeTeam: homeTeamToSave,
           awayTeam: awayTeamToSave,
           league: m.league || lg,
           type: 'STANDARD',
+          link4Excluded: false,
           metadata: metadataToSave,
           updatedAt: Date.now()
         }, { merge: true });

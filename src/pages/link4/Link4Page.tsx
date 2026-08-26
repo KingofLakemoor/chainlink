@@ -128,33 +128,23 @@ export default function Link4Page() {
   }, []);
 
   useEffect(() => {
-    if (!user || !activeSegmentId) return;
+    if (!activeSegmentId) return;
 
-    // Listen to specific matchups for the user's picks in case they drop from the active query
-    let unsubFallbackMatchups = () => {};
-    const setupFallbackMatchups = (pickDataPicks: any[]) => {
-       const matchupIds = pickDataPicks.map(p => p.id.replace('pick-', '')).filter(Boolean);
-       if (matchupIds.length > 0) {
-           const fallbackQ = query(collection(db, 'link4Matchups'), where('segmentId', '==', activeSegmentId), where('gameId', 'in', matchupIds));
-           unsubFallbackMatchups = onSnapshot(fallbackQ, (snap) => {
-               setFallbackMatchups(snap.docs.map(d => ({id: d.id, ...d.data()})));
-           });
-       } else {
-           setFallbackMatchups([]);
-       }
+    const matchupsQ = query(collection(db, 'link4Matchups'), where('segmentId', '==', activeSegmentId));
+    const unsubLink4Matchups = onSnapshot(matchupsQ, (snap) => {
+      const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllMatchups(matchups);
+    }, (error) => {
+      console.error('Error fetching link4 matchups', error);
+    });
+
+    return () => {
+      unsubLink4Matchups();
     };
+  }, [activeSegmentId]);
 
-    // Listen for link4Matchups for this segment
-    let unsubLink4Matchups = () => {};
-    if (activeSegmentId) {
-      const matchupsQ = query(collection(db, 'link4Matchups'), where('segmentId', '==', activeSegmentId));
-      unsubLink4Matchups = onSnapshot(matchupsQ, (snap) => {
-        const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllMatchups(matchups);
-      }, (error) => {
-        console.error('Error fetching link4 matchups', error);
-      });
-    }
+  useEffect(() => {
+    if (!user || !activeSegmentId) return;
 
     // Fetch user's picks if they exist
     const fetchUserPicks = async () => {
@@ -462,9 +452,17 @@ export default function Link4Page() {
     }
   };
 
-  const availableMatchups = allMatchups.filter(m => {
+  const normalizedMatchups = allMatchups.map(m => ({
+    ...m,
+    metadata: {
+      ...(m.metadata || {}),
+      mlHome: (m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null) ? m.metadata.mlHome : -110,
+      mlAway: (m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null) ? m.metadata.mlAway : -110,
+    }
+  }));
+
+  const availableMatchups = normalizedMatchups.filter(m => {
     if (m.link4Excluded) return false;
-    if (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null || m.metadata?.mlAway === undefined || m.metadata?.mlAway === null) return false;
     if (allowedSports.length > 0 && !allowedSports.includes(m.league)) return false;
     if (m.status !== 'STATUS_SCHEDULED') return false;
 

@@ -78,7 +78,7 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
         throw new Error(data.error || 'Failed to sync matchups');
       }
 
-      fetchMatchups();
+      await fetchMatchups();
       alert(`Synced ${data.count ?? 0} matchups successfully for Link4!`);
     } catch (err: any) {
       console.error(err);

@@ -634,11 +634,28 @@ apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
 apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;
-    const { campaignId, joinCode } = req.body;
+    let { campaignId, joinCode } = req.body;
+
+    const cleanJoinCode = (joinCode || '').trim();
+
+    if (!campaignId && cleanJoinCode) {
+      const matchSnap = await adminDb.collection('pickemCampaigns')
+        .where('isPrivate', '==', true)
+        .get();
+      const matched = matchSnap.docs.find(d => {
+        const data = d.data();
+        return !data.isArchived && data.joinCode && data.joinCode.trim().toLowerCase() === cleanJoinCode.toLowerCase();
+      });
+      if (matched) {
+        campaignId = matched.id;
+      }
+    }
 
     if (!campaignId) {
-      return res.status(400).json({ success: false, error: "Missing campaignId" });
+      return res.status(400).json({ success: false, error: "Missing campaignId or invalid join code." });
     }
+
+    let joinedCampaignId = campaignId;
 
     await adminDb.runTransaction(async (transaction: any) => {
       const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
@@ -648,7 +665,7 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
       const campaignData = campaignDoc.data();
 
       if (campaignData.isPrivate) {
-        if (!joinCode || joinCode.trim().toLowerCase() !== (campaignData.joinCode || '').trim().toLowerCase()) {
+        if (!cleanJoinCode || cleanJoinCode.toLowerCase() !== (campaignData.joinCode || '').trim().toLowerCase()) {
           throw new Error("Invalid join code for this private campaign.");
         }
       }
@@ -693,7 +710,7 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
       });
     });
 
-    res.json({ success: true });
+    res.json({ success: true, campaignId: joinedCampaignId });
   } catch (e: any) {
     console.error("Pickem join error:", e.message, e);
     res.status(500).json({ success: false, error: e.message });

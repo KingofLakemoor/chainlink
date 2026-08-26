@@ -87,11 +87,27 @@ export default function PickEmLandingPage() {
     if (!user || !joinCode.trim()) return;
     setJoinError('');
     
-    // Find campaign with this code
-    const camp = campaigns.find(c => c.isPrivate && c.joinCode && c.joinCode.toLowerCase() === joinCode.toLowerCase().trim());
-    if (!camp) {
-      setJoinError('Invalid join code or campaign not found.');
-      return;
+    const cleanCode = joinCode.trim();
+
+    // Find campaign with this code in loaded campaigns first
+    let targetCampaignId = campaigns.find(c => c.isPrivate && c.joinCode && c.joinCode.trim().toLowerCase() === cleanCode.toLowerCase())?.id;
+
+    // If not found in loaded campaigns, query Firestore for any unarchived private campaign matching joinCode
+    if (!targetCampaignId) {
+      try {
+        const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
+        const matchedDoc = campSnap.docs.find(d => {
+          const data = d.data();
+          return !data.isArchived && data.isPrivate && data.joinCode && data.joinCode.trim().toLowerCase() === cleanCode.toLowerCase();
+        });
+        if (matchedDoc) {
+          targetCampaignId = matchedDoc.id;
+          const newCamp = { id: matchedDoc.id, ...matchedDoc.data() };
+          setCampaigns(prev => prev.some(c => c.id === newCamp.id) ? prev : [...prev, newCamp]);
+        }
+      } catch (err) {
+        console.error("Error looking up campaign by join code:", err);
+      }
     }
     
     try {
@@ -102,18 +118,24 @@ export default function PickEmLandingPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ campaignId: camp.id, joinCode: joinCode.trim() })
+        body: JSON.stringify({
+          ...(targetCampaignId ? { campaignId: targetCampaignId } : {}),
+          joinCode: cleanCode
+        })
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to join campaign');
       }
-      setJoinedCampaignIds(prev => new Set(prev).add(camp.id));
+      const joinedId = data.campaignId || targetCampaignId;
+      if (joinedId) {
+        setJoinedCampaignIds(prev => new Set(prev).add(joinedId));
+      }
       setActiveTab('my_picks');
       setJoinCode('');
     } catch (err: any) {
       console.error(err);
-      setJoinError(err.message || 'Failed to join campaign.');
+      setJoinError(err.message || 'Invalid join code or campaign not found.');
     }
   };
 

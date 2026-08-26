@@ -46,30 +46,34 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
     setMatchupsLoading(true);
     setFetchError(null);
     try {
-      let docs: any[] = [];
+      const docsMap = new Map<string, any>();
+
       try {
         const q = query(
           collection(db, 'link4Matchups'),
           where('segmentId', '==', segmentId)
         );
         const snap = await getDocs(q);
-        docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        snap.docs.forEach(d => {
+          docsMap.set(d.id, { id: d.id, ...d.data() });
+        });
       } catch (primaryErr: any) {
-        console.warn('Primary link4Matchups query failed, trying fallback scan:', primaryErr);
+        console.warn('Primary link4Matchups query failed:', primaryErr);
       }
 
-      if (docs.length === 0) {
-        try {
-          const fallbackSnap = await getDocs(collection(db, 'link4Matchups'));
-          docs = fallbackSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter((m: any) => m.segmentId === segmentId || m.id.startsWith(`${segmentId}_`));
-        } catch (fallbackErr: any) {
-          console.warn('Fallback link4Matchups query failed:', fallbackErr);
-        }
+      try {
+        const fallbackSnap = await getDocs(collection(db, 'link4Matchups'));
+        fallbackSnap.docs.forEach(d => {
+          const m = d.data();
+          if (m.segmentId === segmentId || d.id.startsWith(`${segmentId}_`)) {
+            docsMap.set(d.id, { id: d.id, ...m });
+          }
+        });
+      } catch (fallbackErr: any) {
+        console.warn('Fallback link4Matchups query failed:', fallbackErr);
       }
 
-      setMatchups(docs);
+      setMatchups(Array.from(docsMap.values()));
     } catch (err: any) {
       console.error('Error fetching Link4 matchups:', err);
       setFetchError(err.message || String(err));

@@ -536,13 +536,28 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         console.warn(`Failed to fetch existing main matchups for league ${lg}:`, e);
       }
 
-      const processedGameIds = new Set<string>();
+      const processedGameIds = new Map<string, any>();
 
       for (const m of matchupsToProcess) {
         const gameIdStr = String(m.gameId);
-        if (processedGameIds.has(gameIdStr)) continue;
-        processedGameIds.add(gameIdStr);
+        if (!gameIdStr || gameIdStr === 'undefined') continue;
 
+        if (!processedGameIds.has(gameIdStr)) {
+          processedGameIds.set(gameIdStr, m);
+        } else {
+          // Merge properties, preferring items that have populated metadata moneyline odds
+          const existing = processedGameIds.get(gameIdStr);
+          const hasExistingML = existing.metadata?.mlHome !== undefined && existing.metadata?.mlHome !== null;
+          const hasNewML = m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null;
+          if (!hasExistingML && hasNewML) {
+            processedGameIds.set(gameIdStr, { ...existing, ...m, metadata: { ...existing.metadata, ...m.metadata } });
+          } else {
+            processedGameIds.set(gameIdStr, { ...m, ...existing, metadata: { ...m.metadata, ...existing.metadata } });
+          }
+        }
+      }
+
+      for (const [gameIdStr, m] of processedGameIds.entries()) {
         const rawStart = m.startTime;
         const validStartTime = typeof rawStart === 'number' ? rawStart : (rawStart ? new Date(rawStart).getTime() : Date.now());
         const finalStartTime = isNaN(validStartTime) ? Date.now() : validStartTime;

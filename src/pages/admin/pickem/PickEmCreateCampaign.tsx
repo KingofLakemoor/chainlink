@@ -82,6 +82,8 @@ export default function PickEmCreateCampaign() {
         pickLimit: pickLimit,
         totalWeeks: totalWeeks,
         hasWeekZero: hasWeekZero,
+        useTiebreaker: useTiebreaker,
+        format: format,
         type: 'STANDARD',
         defaultMatchType,
         scoringType: 'WIN_LOSS',
@@ -147,6 +149,17 @@ export default function PickEmCreateCampaign() {
               ))}
             </div>
             {leagues.length === 0 && <p className="text-red-500 text-sm mt-1">Please select at least one league.</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1">Entry Fee / Buy In (Links)</label>
+            <input
+              type="number"
+              min="0"
+              value={entryFee}
+              onChange={e => setEntryFee(parseInt(e.target.value) || 0)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+            />
           </div>
 
           <div>

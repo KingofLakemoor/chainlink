@@ -60,6 +60,8 @@ export default function PickEmCampaignDetail() {
         setHasWeekZero(data.hasWeekZero || false);
         setUseTiebreaker(data.useTiebreaker || false);
         setEntryFee(data.entryFee || 0);
+        setIsPrivate(data.isPrivate || false);
+        setJoinCode(data.joinCode || '');
         setWeekSettings(data.weekSettings || {});
 
         setThemePrimaryColor(data.theme?.primaryColor || '#22c55e');
@@ -153,6 +155,10 @@ export default function PickEmCampaignDetail() {
         currentWeek: selectedWeek,
         totalWeeks: totalWeeks,
         hasWeekZero: hasWeekZero,
+        useTiebreaker: useTiebreaker,
+        entryFee: entryFee,
+        isPrivate: isPrivate,
+        joinCode: isPrivate ? joinCode : '',
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
@@ -191,6 +197,9 @@ export default function PickEmCampaignDetail() {
         totalWeeks,
         hasWeekZero,
         useTiebreaker, 
+        entryFee,
+        isPrivate,
+        joinCode: isPrivate ? joinCode : '',
         visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
@@ -543,6 +552,7 @@ export default function PickEmCampaignDetail() {
           <p className="text-zinc-400">Pick Limit: <span className="text-white font-medium">
             {campaign.pickLimit > 0 ? campaign.pickLimit : 'Unlimited'}
           </span></p>
+          <p className="text-zinc-400">Entry Fee: <span className="text-white font-medium">{entryFee > 0 ? `${entryFee} Links` : 'Free'}</span></p>
           <p className="text-zinc-400">Active Week: <span className="text-white font-medium">{campaign.currentWeek}</span></p>
         </div>
 
@@ -634,6 +644,16 @@ export default function PickEmCampaignDetail() {
                   type="datetime-local"
                   value={gamesBeginDateStr}
                   onChange={e => setGamesBeginDateStr(e.target.value)}
+                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Entry Fee / Buy In (Links)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={entryFee}
+                  onChange={e => setEntryFee(parseInt(e.target.value) || 0)}
                   className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
                 />
               </div>

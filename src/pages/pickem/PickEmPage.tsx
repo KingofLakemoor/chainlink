@@ -118,16 +118,23 @@ export default function PickEmPage() {
     if (!user || !selectedCampaign) return;
     setJoining(true);
     try {
-      const pairId = `${selectedCampaign.id}_${user.uid}`;
-      await setDoc(doc(db, 'pickemParticipants', pairId), {
-        campaignId: selectedCampaign.id,
-        participantId: user.uid,
-        joinedAt: Date.now()
+      const token = await user.getIdToken();
+      const res = await fetch('/api/pickem/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ campaignId: selectedCampaign.id })
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to join campaign');
+      }
       setIsParticipant(true);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Failed to join campaign.');
+      alert(e.message || 'Failed to join campaign.');
     } finally {
       setJoining(false);
     }
@@ -798,6 +805,46 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
       {activeTab === 'leaderboard' && (
         
           <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden">
+          {/* Prize Pool Summary Banner */}
+          {(() => {
+            const entryFee = selectedCampaign?.entryFee || 0;
+            const totalEntries = leaderboardData.length;
+            const totalPot = totalEntries * entryFee;
+            const firstPayout = Math.floor(totalPot * 0.45);
+            const secondPayout = Math.floor(totalPot * 0.15);
+            const thirdPayout = Math.floor(totalPot * 0.05);
+
+            return (
+              <div className="p-4 md:p-6 border-b border-zinc-800 bg-[#18181A]">
+                <div className="flex items-center gap-2 mb-3 text-yellow-500 font-bold text-sm uppercase tracking-wider">
+                  <Trophy className="w-5 h-5" /> Campaign Prize Pool & Payout Breakdown
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                  <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">Entry Fee</span>
+                    <span className="text-base font-bold text-white">{entryFee > 0 ? `${entryFee} Links` : 'Free'}</span>
+                  </div>
+                  <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">Total Entries</span>
+                    <span className="text-base font-bold text-white">{totalEntries}</span>
+                  </div>
+                  <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">1st Place (45%)</span>
+                    <span className="text-base font-bold text-green-400">{firstPayout} Links</span>
+                  </div>
+                  <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">2nd Place (15%)</span>
+                    <span className="text-base font-bold text-green-400">{secondPayout} Links</span>
+                  </div>
+                  <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">3rd Place (5%)</span>
+                    <span className="text-base font-bold text-green-400">{thirdPayout} Links</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-[#18181A]">
             <h3 className="font-bold text-lg text-white">Leaderboard</h3>
             <div className="flex bg-zinc-800 rounded-lg p-1">

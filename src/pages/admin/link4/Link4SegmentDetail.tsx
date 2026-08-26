@@ -107,17 +107,27 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
           if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
           if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
           
-          // FOR LINK4: We force the type to STANDARD (moneyline)
-          m.type = 'STANDARD';
-
           const link4MatchupId = `${segmentId}_${m.gameId}`;
           const docRef = doc(db, 'link4Matchups', link4MatchupId);
-          
+
+          const metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : null;
+          const homeTeamToSave = m.homeTeam ? JSON.parse(JSON.stringify(m.homeTeam)) : null;
+          const awayTeamToSave = m.awayTeam ? JSON.parse(JSON.stringify(m.awayTeam)) : null;
+
           batch.set(docRef, {
             segmentId: segmentId,
-            ...m,
+            gameId: String(m.gameId),
+            title: m.title || `${m.awayTeam?.name} @ ${m.homeTeam?.name}`,
+            startTime: m.startTime,
+            status: m.status,
+            statusDesc: m.statusDesc,
+            homeTeam: homeTeamToSave,
+            awayTeam: awayTeamToSave,
+            league: m.league,
+            type: 'STANDARD',
+            metadata: metadataToSave,
             updatedAt: Date.now()
-          });
+          }, { merge: true });
 
           count++;
           batchCount++;

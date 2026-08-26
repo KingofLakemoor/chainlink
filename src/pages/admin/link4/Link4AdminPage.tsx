@@ -40,6 +40,7 @@ export default function Link4AdminPage() {
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
   const [allowedSports, setAllowedSports] = useState<string[]>([]);
+  const [cost, setCost] = useState<number>(10);
 
   // Theme State
   const [primaryColor, setPrimaryColor] = useState('#22c55e');
@@ -78,6 +79,7 @@ export default function Link4AdminPage() {
     setStartTime('');
     setEndTime('');
     setAllowedSports([]);
+    setCost(10);
     setPrimaryColor('#22c55e');
     setLogoUrl('');
     setSponsorName('');
@@ -104,6 +106,7 @@ export default function Link4AdminPage() {
     }
 
     setAllowedSports(segment.allowedSports || []);
+    setCost(segment.cost !== undefined ? segment.cost : 10);
 
     if (segment.theme) {
       setPrimaryColor(segment.theme.primaryColor || '#22c55e');
@@ -152,6 +155,7 @@ export default function Link4AdminPage() {
         startTime: startTimeUTC,
         endTime: endTimeUTC,
         allowedSports,
+        cost,
         theme: {
           primaryColor,
           logoUrl,
@@ -400,6 +404,19 @@ export default function Link4AdminPage() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-1 flex items-center gap-1">
+                  <Coins className="w-4 h-4" /> Entry Fee / Buy In (Links)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={cost}
+                  onChange={(e) => setCost(parseInt(e.target.value) || 0)}
+                  className="w-full bg-[#27272a] border border-zinc-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1 flex items-center gap-1">
                   <PlayCircle className="w-4 h-4" /> Start Time
                 </label>
                 <input
@@ -610,6 +627,10 @@ export default function Link4AdminPage() {
                       <div className="flex justify-between text-zinc-400">
                         <span>End:</span>
                         <span className="text-zinc-200">{new Date(segment.endTime).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Entry Fee:</span>
+                        <span className="text-zinc-200 font-medium">{segment.cost !== undefined ? segment.cost : 10} Links</span>
                       </div>
 
                       {segment.theme?.sponsorName && (

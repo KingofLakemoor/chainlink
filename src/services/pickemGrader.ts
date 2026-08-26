@@ -147,3 +147,101 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     await batch.commit();
   }
 }
+
+export async function payoutPickemCampaign(campaignId: string) {
+  const adminDb = getAdminDb();
+  if (!adminDb) return;
+
+  await adminDb.runTransaction(async (transaction: any) => {
+    const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
+    const campaignDoc = await transaction.get(campaignRef);
+
+    if (!campaignDoc.exists) throw new Error("Campaign not found");
+    if (campaignDoc.data().payoutComplete) throw new Error("Payout already completed for this campaign");
+
+    const campaignData = campaignDoc.data();
+    const entryFee = campaignData.entryFee || 0;
+
+    const participantsSnap = await transaction.get(adminDb.collection('pickemParticipants').where('campaignId', '==', campaignId));
+    if (participantsSnap.empty) {
+      transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
+      return;
+    }
+
+    const totalEntries = participantsSnap.size;
+    const totalPot = totalEntries * entryFee;
+
+    if (totalPot <= 0) {
+      transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
+      return;
+    }
+
+    // Payout percentages: 65% total entries pot (1st: 45%, 2nd: 15%, 3rd: 5%)
+    const firstPayout = Math.floor(totalPot * 0.45);
+    const secondPayout = Math.floor(totalPot * 0.15);
+    const thirdPayout = Math.floor(totalPot * 0.05);
+
+    // Calculate points for each participant
+    const picksSnap = await transaction.get(adminDb.collection('pickemPicks').where('campaignId', '==', campaignId));
+
+    const participantPoints: Record<string, { uid: string, points: number }> = {};
+    participantsSnap.docs.forEach((d: any) => {
+      const uid = d.data().participantId;
+      if (uid) {
+        participantPoints[uid] = { uid, points: 0 };
+      }
+    });
+
+    picksSnap.docs.forEach((d: any) => {
+      const data = d.data();
+      const pId = data.participantId;
+      if (participantPoints[pId]) {
+        if (data.status === 'WIN') {
+          participantPoints[pId].points += data.pointsEarned || 1;
+        }
+      }
+    });
+
+    const leaderboard = Object.values(participantPoints).sort((a, b) => b.points - a.points);
+
+    const winners = [
+      { rank: '1st', placeName: '1st Place', uid: leaderboard[0]?.uid, amount: firstPayout },
+      { rank: '2nd', placeName: '2nd Place', uid: leaderboard[1]?.uid, amount: secondPayout },
+      { rank: '3rd', placeName: '3rd Place', uid: leaderboard[2]?.uid, amount: thirdPayout },
+    ];
+
+    for (const w of winners) {
+      if (w.uid && w.amount > 0) {
+        const userRef = adminDb.collection('users').doc(w.uid);
+        const userDoc = await transaction.get(userRef);
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          transaction.update(userRef, { links: (userData.links || 0) + w.amount });
+
+          const logRef = adminDb.collection('linkTransactions').doc();
+          transaction.set(logRef, {
+            userId: w.uid,
+            username: userData.username || userData.name || 'Unknown User',
+            type: 'PICKEM_WIN',
+            amount: w.amount,
+            description: `Won ${w.placeName} in Pick 'Em Campaign: ${campaignData.name || campaignId}`,
+            createdAt: Date.now()
+          });
+
+          const notificationsRef = adminDb.collection('notifications').doc();
+          transaction.set(notificationsRef, {
+            title: `Pick 'Em Winner! 🎉`,
+            body: `You finished ${w.placeName} in ${campaignData.name || 'Pick Em'}! ${w.amount} links have been added to your account.`,
+            audience: 'USER',
+            targetUserId: w.uid,
+            status: 'PENDING',
+            scheduledTime: Date.now(),
+            createdAt: Date.now()
+          });
+        }
+      }
+    }
+
+    transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
+  });
+}

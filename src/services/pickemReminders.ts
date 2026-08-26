@@ -18,7 +18,7 @@ export function startPickemRemindersJob() {
       
       for (const campaignDoc of campaignsSnap.docs) {
          const campaign = campaignDoc.data();
-         if (!campaign.currentWeek) continue;
+         if (campaign.currentWeek === undefined || campaign.currentWeek === null) continue;
          
          // Find the earliest game in this week for this campaign
          const matchupsSnap = await adminDb.collection('pickemMatchups')

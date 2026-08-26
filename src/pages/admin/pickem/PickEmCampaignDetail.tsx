@@ -15,6 +15,7 @@ export default function PickEmCampaignDetail() {
   const [campaign, setCampaign] = useState<any>(null);
   const [matchups, setMatchups] = useState<any[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [activeLiveWeek, setActiveLiveWeek] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [matchupsLoading, setMatchupsLoading] = useState(false);
   const [showPropModal, setShowPropModal] = useState(false);
@@ -55,7 +56,9 @@ export default function PickEmCampaignDetail() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setCampaign({ id: docSnap.id, ...data });
-        setSelectedWeek(data.currentWeek !== undefined ? data.currentWeek : 1);
+        const initialWeek = (data.currentWeek !== undefined && data.currentWeek !== null) ? data.currentWeek : (data.hasWeekZero ? 0 : 1);
+        setSelectedWeek(initialWeek);
+        setActiveLiveWeek(initialWeek);
         setTotalWeeks(data.totalWeeks || 18);
         setHasWeekZero(data.hasWeekZero || false);
         setUseTiebreaker(data.useTiebreaker || false);
@@ -117,7 +120,7 @@ export default function PickEmCampaignDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (campaign && selectedWeek) {
+    if (campaign && selectedWeek !== undefined && selectedWeek !== null) {
       fetchMatchups(selectedWeek);
       
       const ws = campaign.weekSettings || {};
@@ -151,8 +154,18 @@ export default function PickEmCampaignDetail() {
       finalLogoUrl = await getDownloadURL(storageRef);
     }
 
+      const updatedWeekSettings = {
+        ...(campaign.weekSettings || {}),
+        [selectedWeek]: {
+          label: weekLabel,
+          isVisible: weekIsVisible,
+          gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
+          endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
+        }
+      };
+
       await updateDoc(doc(db, 'pickemCampaigns', id), {
-        currentWeek: selectedWeek,
+        currentWeek: activeLiveWeek,
         totalWeeks: totalWeeks,
         hasWeekZero: hasWeekZero,
         useTiebreaker: useTiebreaker,
@@ -163,37 +176,18 @@ export default function PickEmCampaignDetail() {
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
         endDate: endDateStr ? new Date(endDateStr).getTime() : null,
-
-      weekSettings: {
-        ...(campaign.weekSettings || {}),
-        [selectedWeek]: {
-          label: weekLabel,
-          isVisible: weekIsVisible,
-          gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
-          endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
+        weekSettings: updatedWeekSettings,
+        theme: {
+          primaryColor: themePrimaryColor,
+          title: themeTitle,
+          subtitle: themeSubtitle,
+          logoUrl: finalLogoUrl,
         }
-      },
-      theme: {
-        primaryColor: themePrimaryColor,
-        title: themeTitle,
-        subtitle: themeSubtitle,
-        logoUrl: finalLogoUrl,
-      }
-
       });
-      const updatedWeekSettings = {
-        ...(campaign.weekSettings || {}),
-        [selectedWeek]: {
-          label: weekLabel,
-          isVisible: weekIsVisible,
-          gamesBeginDate: weekGamesBeginDateStr ? new Date(weekGamesBeginDateStr).getTime() : null,
-          endDate: weekEndDateStr ? new Date(weekEndDateStr).getTime() : null
-        }
-      };
       
       setCampaign(prev => ({ 
         ...prev, 
-        currentWeek: selectedWeek, 
+        currentWeek: activeLiveWeek,
         totalWeeks,
         hasWeekZero,
         useTiebreaker, 
@@ -567,8 +561,19 @@ export default function PickEmCampaignDetail() {
           <span className="text-base font-semibold text-white">{entryFee > 0 ? `${entryFee} Links` : 'Free'}</span>
         </div>
         <div className="px-2 pt-2 sm:pt-0">
-          <span className="text-xs font-medium text-zinc-400 block mb-1">Active Week</span>
-          <span className="text-base font-semibold text-purple-400">Week {campaign.currentWeek}</span>
+          <span className="text-xs font-medium text-zinc-400 block mb-1">Active Live Week</span>
+          <select
+            value={activeLiveWeek}
+            onChange={(e) => setActiveLiveWeek(Number(e.target.value))}
+            className="bg-[#18181A] border border-zinc-800 rounded px-2 py-1 text-sm font-semibold text-purple-400 focus:outline-none focus:border-purple-500"
+          >
+            {[...Array(campaign?.hasWeekZero ? totalWeeks + 1 : totalWeeks)].map((_, i) => {
+              const w = campaign?.hasWeekZero ? i : i + 1;
+              return (
+                <option key={w} value={w}>Week {w}</option>
+              );
+            })}
+          </select>
         </div>
       </div>
 

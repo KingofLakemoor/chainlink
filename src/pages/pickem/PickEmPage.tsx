@@ -97,12 +97,15 @@ export default function PickEmPage() {
 
         if (initialCampaign) {
           setSelectedCampaign(initialCampaign);
-          setSelectedWeek(initialCampaign.currentWeek !== undefined ? initialCampaign.currentWeek : 1);
-        if (user && initialCampaign) {
+          const defaultWeek = (initialCampaign.currentWeek !== undefined && initialCampaign.currentWeek !== null)
+            ? initialCampaign.currentWeek
+            : (initialCampaign.hasWeekZero ? 0 : 1);
+          setSelectedWeek(defaultWeek);
+          if (user) {
             const pairId = `${initialCampaign.id}_${user.uid}`;
             const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
             setIsParticipant(docRef.exists());
-        }
+          }
         }
       } catch (err) {
         console.error(err);
@@ -174,10 +177,8 @@ export default function PickEmPage() {
   };
 
   useEffect(() => {
-    if (selectedCampaign && selectedWeek) {
+    if (selectedCampaign && selectedWeek !== undefined && selectedWeek !== null) {
       // Fetch matchups even if user is not authenticated (for leaderboard)
-      // fetchMatchupsAndPicks normally needs a user to fetch picks,
-      // but we need it to just fetch matchups if user is missing, or we can just fetch it as is
       fetchMatchupsAndPicks(selectedCampaign.id, selectedWeek);
     }
   }, [selectedCampaign, selectedWeek, user]);

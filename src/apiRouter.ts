@@ -454,7 +454,35 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         const link4MatchupId = `${segmentId}_${m.gameId}`;
         const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);
 
-        const metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : null;
+        let metadataToSave = m.metadata ? JSON.parse(JSON.stringify(m.metadata)) : {};
+        if (!metadataToSave) metadataToSave = {};
+
+        // If scraped metadata lacks moneyline odds, check existing main 'matchups' collection doc
+        if (metadataToSave.mlHome === undefined || metadataToSave.mlHome === null || metadataToSave.mlAway === undefined || metadataToSave.mlAway === null) {
+          try {
+            const mainDoc = await adminDb.collection('matchups').doc(String(m.gameId)).get();
+            if (mainDoc.exists) {
+              const mainData = mainDoc.data();
+              if (mainData?.metadata?.mlHome !== undefined && mainData?.metadata?.mlHome !== null) {
+                metadataToSave.mlHome = mainData.metadata.mlHome;
+              }
+              if (mainData?.metadata?.mlAway !== undefined && mainData?.metadata?.mlAway !== null) {
+                metadataToSave.mlAway = mainData.metadata.mlAway;
+              }
+            }
+          } catch (e) {
+            console.warn(`Could not check main matchups doc for ${m.gameId}:`, e);
+          }
+        }
+
+        // Fall back to standard moneyline (-110) if moneyline odds are still missing
+        if (metadataToSave.mlHome === undefined || metadataToSave.mlHome === null) {
+          metadataToSave.mlHome = -110;
+        }
+        if (metadataToSave.mlAway === undefined || metadataToSave.mlAway === null) {
+          metadataToSave.mlAway = -110;
+        }
+
         const homeTeamToSave = m.homeTeam ? JSON.parse(JSON.stringify(m.homeTeam)) : null;
         const awayTeamToSave = m.awayTeam ? JSON.parse(JSON.stringify(m.awayTeam)) : null;
 

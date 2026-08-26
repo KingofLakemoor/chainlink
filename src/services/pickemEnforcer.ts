@@ -17,7 +17,7 @@ export function startPickemEnforcerJob() {
       
       for (const campaignDoc of campaignsSnap.docs) {
          const campaign = campaignDoc.data();
-         if (!campaign.currentWeek) continue;
+         if (campaign.currentWeek === undefined || campaign.currentWeek === null) continue;
          
          let expectedLimit = campaign.pickLimit;
          if (campaign.format === 'SURVIVOR') expectedLimit = 1;

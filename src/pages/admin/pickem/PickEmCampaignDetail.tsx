@@ -39,6 +39,7 @@ export default function PickEmCampaignDetail() {
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
   const [hasWeekZero, setHasWeekZero] = useState<boolean>(false);
   const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
+  const [entryFee, setEntryFee] = useState<number>(0);
   const [weekSettings, setWeekSettings] = useState<Record<string, any>>({});
   const [weekGamesBeginDateStr, setWeekGamesBeginDateStr] = useState('');
   const [weekLabel, setWeekLabel] = useState('');
@@ -58,6 +59,7 @@ export default function PickEmCampaignDetail() {
         setTotalWeeks(data.totalWeeks || 18);
         setHasWeekZero(data.hasWeekZero || false);
         setUseTiebreaker(data.useTiebreaker || false);
+        setEntryFee(data.entryFee || 0);
         setWeekSettings(data.weekSettings || {});
 
         setThemePrimaryColor(data.theme?.primaryColor || '#22c55e');

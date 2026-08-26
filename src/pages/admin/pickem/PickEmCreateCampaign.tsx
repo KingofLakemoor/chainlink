@@ -17,6 +17,7 @@ export default function PickEmCreateCampaign() {
   const [totalWeeks, setTotalWeeks] = useState<number>(18);
   const [hasWeekZero, setHasWeekZero] = useState<boolean>(false);
   const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
+  const [entryFee, setEntryFee] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   const [themePrimaryColor, setThemePrimaryColor] = useState('#22c55e');
@@ -97,7 +98,7 @@ export default function PickEmCreateCampaign() {
         currentWeek: hasWeekZero ? 0 : 1,
         isPrivate,
         joinCode: isPrivate ? joinCode : '',
-        entryFee: 0,
+        entryFee: entryFee,
         createdAt: Date.now()
       });
       navigate('/admin/pickem');

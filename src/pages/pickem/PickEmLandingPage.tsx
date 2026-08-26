@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { collection, getDocs, query, where, setDoc, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
 import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
@@ -95,37 +95,50 @@ export default function PickEmLandingPage() {
     }
     
     try {
-      const pairId = `${camp.id}_${user.uid}`;
-      await setDoc(doc(db, 'pickemParticipants', pairId), {
-        campaignId: camp.id,
-        participantId: user.uid,
-        joinedAt: Date.now(),
-        joinCode: joinCode.trim()
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/pickem/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ campaignId: camp.id, joinCode: joinCode.trim() })
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to join campaign');
+      }
       setJoinedCampaignIds(prev => new Set(prev).add(camp.id));
       setActiveTab('my_picks');
       setJoinCode('');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setJoinError('Failed to join campaign.');
+      setJoinError(err.message || 'Failed to join campaign.');
     }
   };
 
   const handleJoinPublic = async (camp: any) => {
     if (!user) return;
     try {
-      const pairId = `${camp.id}_${user.uid}`;
-      await setDoc(doc(db, 'pickemParticipants', pairId), {
-        campaignId: camp.id,
-        participantId: user.uid,
-        joinedAt: Date.now()
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/pickem/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ campaignId: camp.id })
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to join campaign');
+      }
       setJoinedCampaignIds(prev => new Set(prev).add(camp.id));
       setActiveTab('my_picks');
       setSelectedPublicCamp(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to join campaign.');
+      alert(err.message || 'Failed to join campaign.');
     }
   };
 
@@ -343,7 +356,7 @@ export default function PickEmLandingPage() {
                 )}
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-1">{selectedPublicCamp.theme?.title || selectedPublicCamp.name}</h3>
-                  <p className="text-sm text-[#22c55e] font-semibold">{selectedPublicCamp.leagues?.join(', ')} • Week {selectedPublicCamp.currentWeek ?? 1}</p>
+                  <p className="text-sm text-[#22c55e] font-semibold">{selectedPublicCamp.leagues?.join(', ')} • Week {selectedPublicCamp.currentWeek ?? 1} {selectedPublicCamp.entryFee ? `• ${selectedPublicCamp.entryFee} Links` : ''}</p>
                 </div>
               </div>
             </div>

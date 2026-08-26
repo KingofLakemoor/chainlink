@@ -507,13 +507,12 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
 
       let specificDates: string[] | undefined = undefined;
       if (effectiveBeginDate && effectiveEndDate) {
-        // Expand date range to +/- 7 days around segment bounds so games across the week are pulled
-        const startDay = new Date(effectiveBeginDate - 7 * 86400000);
-        const endDay = new Date(effectiveEndDate + 7 * 86400000);
+        const startDay = new Date(effectiveBeginDate);
+        const endDay = new Date(effectiveEndDate + 86400000);
         let curr = new Date(startDay);
         let days = 0;
         const dateSet = new Set<string>();
-        while (curr <= endDay && days <= 60) {
+        while (curr <= endDay && days <= 35) {
           const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
           const [month, day, year] = str.split("/");
           dateSet.add(`${year}${month}${day}`);
@@ -523,9 +522,8 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         specificDates = Array.from(dateSet);
       }
 
-      // Buffer start/end filter by 7 days so games occurring during the segment week are not cut off
-      const filterBegin = effectiveBeginDate ? effectiveBeginDate - (7 * 24 * 3600 * 1000) : undefined;
-      const filterEnd = effectiveEndDate ? effectiveEndDate + (7 * 24 * 3600 * 1000) : undefined;
+      const filterBegin = effectiveBeginDate;
+      const filterEnd = effectiveEndDate;
 
       // 1. Scrape live ESPN schedules
       const matchupsToProcess: any[] = [];

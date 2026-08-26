@@ -535,278 +535,328 @@ export default function PickEmCampaignDetail() {
         </div>
       )}
 
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+        <div>
+          <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
+          <p className="text-xs text-zinc-400 mt-1">Manage campaign schedule, week settings, access controls, and theme parameters.</p>
+        </div>
         <div className="flex items-center gap-3">
           <Button variant="ghost" onClick={() => navigate('/admin/pickem')}>Back</Button>
           <Button onClick={handleSaveCampaign} className="bg-purple-600 hover:bg-purple-500 text-white font-bold">Save All Settings</Button>
         </div>
       </div>
 
-      <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
-        <div>
-          <p className="text-zinc-400">Leagues: <span className="text-white font-medium">
-            {campaign.leagues && campaign.leagues.length > 0 ? campaign.leagues.join(', ') : campaign.league}
-          </span></p>
-          <p className="text-zinc-400">Pick Limit: <span className="text-white font-medium">
-            {campaign.pickLimit > 0 ? campaign.pickLimit : 'Unlimited'}
-          </span></p>
-          <p className="text-zinc-400">Entry Fee: <span className="text-white font-medium">{entryFee > 0 ? `${entryFee} Links` : 'Free'}</span></p>
-          <p className="text-zinc-400">Active Week: <span className="text-white font-medium">{campaign.currentWeek}</span></p>
+      {/* Campaign Overview Stats Card */}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800/60">
+        <div className="px-2">
+          <span className="text-xs font-medium text-zinc-400 block mb-1">Leagues</span>
+          <span className="text-base font-semibold text-white">
+            {campaign.leagues && campaign.leagues.length > 0 ? campaign.leagues.join(', ') : campaign.league || 'None'}
+          </span>
+        </div>
+        <div className="px-2 pt-2 sm:pt-0">
+          <span className="text-xs font-medium text-zinc-400 block mb-1">Pick Limit</span>
+          <span className="text-base font-semibold text-white">
+            {campaign.pickLimit > 0 ? `${campaign.pickLimit} picks/week` : 'Unlimited'}
+          </span>
+        </div>
+        <div className="px-2 pt-2 sm:pt-0">
+          <span className="text-xs font-medium text-zinc-400 block mb-1">Entry Fee</span>
+          <span className="text-base font-semibold text-white">{entryFee > 0 ? `${entryFee} Links` : 'Free'}</span>
+        </div>
+        <div className="px-2 pt-2 sm:pt-0">
+          <span className="text-xs font-medium text-zinc-400 block mb-1">Active Week</span>
+          <span className="text-base font-semibold text-purple-400">Week {campaign.currentWeek}</span>
+        </div>
+      </div>
+
+      {/* Week Management Section */}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800/80">
+          <div>
+            <h3 className="text-lg font-bold text-white">Week Management</h3>
+            <p className="text-xs text-zinc-400">Configure visibility and sync bounds for individual campaign weeks.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(Number(e.target.value))}
+              className="bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm font-medium focus:outline-none focus:border-purple-500"
+            >
+              {[...Array(campaign?.hasWeekZero ? totalWeeks + 1 : totalWeeks)].map((_, i) => {
+                const w = campaign?.hasWeekZero ? i : i + 1;
+                const lbl = campaign?.weekSettings?.[w]?.label;
+                return (
+                  <option key={w} value={w}>{lbl ? `Week ${w} (${lbl})` : `Week ${w}`}</option>
+                );
+              })}
+            </select>
+            <Button onClick={handleSaveCampaign} variant="secondary" size="sm">Save Week Selection</Button>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex items-end gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Manage Week</label>
-              <select
-                value={selectedWeek}
-                onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                className="bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-              >
-                {[...Array(campaign?.hasWeekZero ? totalWeeks + 1 : totalWeeks)].map((_, i) => {
-                  const w = campaign?.hasWeekZero ? i : i + 1;
-                  const lbl = campaign?.weekSettings?.[w]?.label;
-                  return (
-                    <option key={w} value={w}>{lbl ? `Week ${w} (${lbl})` : `Week ${w}`}</option>
-                  );
-                })}
-              </select>
-            </div>
-            <Button onClick={handleSaveCampaign} variant="secondary">Save Week Selection</Button>
-          </div>
-          <div className="flex flex-wrap items-end gap-4 p-4 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
-            <div>
-              <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Display Label (Optional)</label>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">Week {selectedWeek} Display Label <span className="text-zinc-500 font-normal">(Optional)</span></label>
               <input
                 type="text"
                 value={weekLabel}
                 onChange={e => setWeekLabel(e.target.value)}
                 placeholder="e.g. Preseason Week 2"
-                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm mb-4"
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
               />
-              
-              <div className="flex items-center gap-2 mb-4">
-                <input
-                  type="checkbox"
-                  checked={weekIsVisible}
-                  onChange={e => setWeekIsVisible(e.target.checked)}
-                  className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e]"
-                />
-                <div>
-                  <label className="text-sm font-medium text-zinc-300">Visible to Users</label>
-                  <p className="text-xs text-zinc-500">If unchecked, users cannot see or pick matchups for this week.</p>
-                </div>
+            </div>
+
+            <label className="flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={weekIsVisible}
+                onChange={e => setWeekIsVisible(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-[#18181A] text-purple-600 focus:ring-purple-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-zinc-200 block">Visible to Users</span>
+                <span className="text-xs text-zinc-400">Allow users to view & pick matchups for Week {selectedWeek}.</span>
               </div>
-            </div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Sync Start Boundary (Optional)</label>
-              <input
-                type="datetime-local"
-                value={weekGamesBeginDateStr}
-                onChange={e => setWeekGamesBeginDateStr(e.target.value)}
-                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-1">Week {selectedWeek} Sync End Boundary (Optional)</label>
-              <input
-                type="datetime-local"
-                value={weekEndDateStr}
-                onChange={e => setWeekEndDateStr(e.target.value)}
-                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm"
-              />
-            </div>
-            <div className="text-xs text-zinc-500 max-w-sm ml-2">
-              These bounds determine which games are fetched when clicking "Sync Matchups" for this specific week. (Don't forget to click 'Update Campaign' after editing).
-            </div>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Week {selectedWeek} Sync Start Boundary <span className="text-zinc-500 font-normal">(Optional)</span></label>
+            <input
+              type="datetime-local"
+              value={weekGamesBeginDateStr}
+              onChange={e => setWeekGamesBeginDateStr(e.target.value)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+            />
+            <p className="text-xs text-zinc-500 mt-1.5">Earliest game start time to pull during sync.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Week {selectedWeek} Sync End Boundary <span className="text-zinc-500 font-normal">(Optional)</span></label>
+            <input
+              type="datetime-local"
+              value={weekEndDateStr}
+              onChange={e => setWeekEndDateStr(e.target.value)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+            />
+            <p className="text-xs text-zinc-500 mt-1.5">Latest game start time to pull during sync.</p>
           </div>
         </div>
+      </div>
 
+      {/* Campaign Schedule & Rules Card */}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 space-y-6">
+        <div>
+          <h3 className="text-lg font-bold text-white">Campaign Schedule & Rules</h3>
+          <p className="text-xs text-zinc-400">Set overall campaign lifecycle dates, fees, and tiebreaker options.</p>
+        </div>
 
-          {/* Campaign Schedule */}
-          <div className="pt-6 border-t border-zinc-800 w-full mt-6 col-span-2">
-            <h3 className="text-lg font-medium text-white mb-4">Campaign Schedule</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Visible Date</label>
-                <input
-                  type="datetime-local"
-                  value={visibleDateStr}
-                  onChange={e => setVisibleDateStr(e.target.value)}
-                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Games Begin Date</label>
-                <input
-                  type="datetime-local"
-                  value={gamesBeginDateStr}
-                  onChange={e => setGamesBeginDateStr(e.target.value)}
-                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Entry Fee / Buy In (Links)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={entryFee}
-                  onChange={e => setEntryFee(parseInt(e.target.value) || 0)}
-                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Enable Tiebreaker Features</label>
-                <div className="flex items-center gap-2 mt-2 mb-4">
-                  <input type="checkbox" checked={useTiebreaker} onChange={e => setUseTiebreaker(e.target.checked)} className="w-5 h-5" />
-                  <span className="text-zinc-300">Allow users to enter total points prediction for tiebreaker games</span>
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mt-2 mb-4">
-                  <input type="checkbox" checked={hasWeekZero} onChange={e => setHasWeekZero(e.target.checked)} className="w-5 h-5" />
-                  <span className="text-zinc-300">Include Week 0 (e.g. for CFB)</span>
-                </div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Total Weeks (excluding Week 0)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={totalWeeks}
-                  onChange={e => setTotalWeeks(parseInt(e.target.value) || 1)}
-                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">End Date</label>
-                <input
-                  type="datetime-local"
-                  value={endDateStr}
-                  onChange={e => setEndDateStr(e.target.value)}
-                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                />
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Visible Date</label>
+            <input
+              type="datetime-local"
+              value={visibleDateStr}
+              onChange={e => setVisibleDateStr(e.target.value)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+            />
           </div>
 
-                    <div className="pt-6 border-t border-zinc-800">
-            <h3 className="text-lg font-medium text-white mb-4">Access Settings</h3>
-            <div className="space-y-4">
-              <label className="flex items-center gap-2 cursor-pointer text-white">
-                  <input
-                    type="checkbox"
-                    checked={isPrivate}
-                    onChange={(e) => setIsPrivate(e.target.checked)}
-                    className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e] focus:ring-[#22c55e]"
-                  />
-                  Private Campaign
-              </label>
-              {isPrivate && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-400 mb-1">Join Code</label>
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Games Begin Date</label>
+            <input
+              type="datetime-local"
+              value={gamesBeginDateStr}
+              onChange={e => setGamesBeginDateStr(e.target.value)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">End Date</label>
+            <input
+              type="datetime-local"
+              value={endDateStr}
+              onChange={e => setEndDateStr(e.target.value)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Entry Fee / Buy In (Links)</label>
+            <input
+              type="number"
+              min="0"
+              value={entryFee}
+              onChange={e => setEntryFee(parseInt(e.target.value) || 0)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Total Weeks (excluding Week 0)</label>
+            <input
+              type="number"
+              min="1"
+              value={totalWeeks}
+              onChange={e => setTotalWeeks(parseInt(e.target.value) || 1)}
+              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div className="space-y-3 pt-1">
+            <label className="flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasWeekZero}
+                onChange={e => setHasWeekZero(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-[#18181A] text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-sm font-medium text-zinc-200">Include Week 0 (e.g. for CFB)</span>
+            </label>
+
+            <label className="flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useTiebreaker}
+                onChange={e => setUseTiebreaker(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-[#18181A] text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-sm font-medium text-zinc-200">Enable Tiebreaker Features</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid for Access & Theme Settings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Access Settings */}
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 space-y-5">
+          <div>
+            <h3 className="text-lg font-bold text-white">Access Settings</h3>
+            <p className="text-xs text-zinc-400">Manage campaign visibility and access passcodes.</p>
+          </div>
+
+          <label className="flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800/60 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={(e) => setIsPrivate(e.target.checked)}
+              className="w-4 h-4 rounded border-zinc-700 bg-[#18181A] text-purple-600 focus:ring-purple-500"
+            />
+            <div>
+              <span className="text-sm font-medium text-zinc-200 block">Private Campaign</span>
+              <span className="text-xs text-zinc-400">Require a join code to access this campaign.</span>
+            </div>
+          </label>
+
+          {isPrivate && (
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1.5">Join Code</label>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={e => setJoinCode(e.target.value)}
+                  placeholder="Enter a secret code to join"
+                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {joinCode && (
+                <div className="bg-zinc-900/80 p-4 rounded-lg border border-zinc-800 space-y-2">
+                  <label className="block text-xs font-medium text-zinc-400">Direct Share Link</label>
+                  <div className="flex gap-2">
                     <input
                       type="text"
-                      value={joinCode}
-                      onChange={e => setJoinCode(e.target.value)}
-                      placeholder="Enter a secret code to join"
-                      className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                      readOnly
+                      value={`${window.location.origin}/pickem?joinCode=${joinCode}`}
+                      className="flex-1 bg-black/50 border border-zinc-800 rounded px-3 py-1.5 text-zinc-300 text-xs font-mono"
                     />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/pickem?joinCode=${joinCode}`);
+                        alert('Link copied to clipboard!');
+                      }}
+                    >
+                      Copy
+                    </Button>
                   </div>
-                  {joinCode && (
-                    <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800">
-                      <label className="block text-xs font-medium text-zinc-500 mb-1">Direct Share Link</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={`${window.location.origin}/pickem?joinCode=${joinCode}`}
-                          className="flex-1 bg-black/50 border border-zinc-800/50 rounded px-3 py-1.5 text-zinc-300 text-sm"
-                        />
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/pickem?joinCode=${joinCode}`);
-                            alert('Link copied to clipboard!');
-                          }}
-                        >
-                          Copy
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
+          )}
+        </div>
+
+        {/* White Label / Theme Settings */}
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 space-y-5">
+          <div>
+            <h3 className="text-lg font-bold text-white">White Label / Theme Settings</h3>
+            <p className="text-xs text-zinc-400">Customize branding title, subtitle, colors, and logo.</p>
           </div>
-          {/* Theme Settings */}
-          <div className="pt-6 border-t border-zinc-800 w-full mt-6 col-span-2">
-            <h3 className="text-lg font-medium text-white mb-4">White Label / Theme Settings</h3>
 
-            <div className="space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Theme Title</label>
-                  <input
-                    type="text"
-                    value={themeTitle}
-                    onChange={e => setThemeTitle(e.target.value)}
-                    placeholder="Leave blank to use Campaign Name"
-                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                  />
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">Theme Title</label>
+              <input
+                type="text"
+                value={themeTitle}
+                onChange={e => setThemeTitle(e.target.value)}
+                placeholder="Defaults to Campaign Name"
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Theme Subtitle</label>
-                  <input
-                    type="text"
-                    value={themeSubtitle}
-                    onChange={e => setThemeSubtitle(e.target.value)}
-                    placeholder="Optional subtitle"
-                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">Theme Subtitle</label>
+              <input
+                type="text"
+                value={themeSubtitle}
+                onChange={e => setThemeSubtitle(e.target.value)}
+                placeholder="Optional subtitle"
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+              />
+            </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Primary Color</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={themePrimaryColor}
-                      onChange={e => setThemePrimaryColor(e.target.value)}
-                      className="w-10 h-10 rounded cursor-pointer bg-transparent border-0 p-0"
-                    />
-                    <span className="text-zinc-400 text-sm">{themePrimaryColor}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-zinc-400 mb-1">Logo Image</label>
-                  {themeLogoUrl && (
-                    <div className="mb-2">
-                      <img src={themeLogoUrl} alt="Current Logo" className="h-12 object-contain" loading="lazy" />
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={e => {
-                      if (e.target.files && e.target.files[0]) {
-                        setThemeLogoFile(e.target.files[0]);
-                      }
-                    }}
-                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                  />
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">Primary Color</label>
+              <div className="flex items-center gap-3 bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5">
+                <input
+                  type="color"
+                  value={themePrimaryColor}
+                  onChange={e => setThemePrimaryColor(e.target.value)}
+                  className="w-7 h-7 rounded cursor-pointer bg-transparent border-0 p-0"
+                />
+                <span className="text-zinc-200 text-sm font-mono">{themePrimaryColor}</span>
               </div>
             </div>
-          </div>
 
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">Logo Image</label>
+              {themeLogoUrl && (
+                <div className="mb-2 p-1 bg-black/40 border border-zinc-800 rounded w-fit">
+                  <img src={themeLogoUrl} alt="Current Logo" className="h-8 object-contain" loading="lazy" />
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => {
+                  if (e.target.files && e.target.files[0]) {
+                    setThemeLogoFile(e.target.files[0]);
+                  }
+                }}
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-white text-xs file:mr-3 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-medium file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden shadow-xl">

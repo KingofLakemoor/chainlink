@@ -34,23 +34,24 @@ export default function PickEmLandingPage() {
         setJoinCode(urlCode);
       }
       try {
+        // Fetch participants first to know what they joined
+        const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
+        const partSnap = await getDocs(partQuery);
+        const joinedIds = new Set(partSnap.docs.map(d => d.data().campaignId));
+        setJoinedCampaignIds(joinedIds);
+
         // Fetch campaigns
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
         let camps = campSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
         camps = camps.filter(c => !c.isArchived);
         const now = Date.now();
         camps = camps.filter(c => {
+          if (joinedIds.has(c.id)) return true; // Always show joined campaigns
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true;
           return now >= (c.visibleDate || c.startDate);
         });
         setCampaigns(camps);
-
-        // Fetch participants
-        const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
-        const partSnap = await getDocs(partQuery);
-        const joinedIds = new Set(partSnap.docs.map(d => d.data().campaignId));
-        setJoinedCampaignIds(joinedIds);
         
         // For joined campaigns, fetch current week matchups and picks in parallel to show status
         const details: Record<string, { matchups: any[], picks: any[] }> = {};

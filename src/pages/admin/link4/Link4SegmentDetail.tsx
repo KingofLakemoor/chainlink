@@ -350,10 +350,16 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
-                {matchups.sort((a,b) => a.startTime - b.startTime).map(m => (
+                {matchups.sort((a,b) => {
+                  const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+                  const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+                  return timeA - timeB;
+                }).map(m => {
+                  const validTime = typeof m.startTime === 'number' ? m.startTime : (m.startTime ? new Date(m.startTime).getTime() : 0);
+                  return (
                   <tr key={m.id} className="hover:bg-zinc-800/30 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {new Date(m.startTime).toLocaleString()}
+                      {validTime ? new Date(validTime).toLocaleString() : '-'}
                     </td>
                     <td className="px-4 py-3 font-medium">{m.league}</td>
                     <td className="px-4 py-3">
@@ -388,7 +394,8 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

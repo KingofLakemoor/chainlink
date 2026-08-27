@@ -3,7 +3,7 @@ import { CharityProgressTracker } from '../../components/pickem/CharityProgressT
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
@@ -31,6 +31,7 @@ export default function PickEmPage() {
 
 
   const { campaignId } = useParams<{ campaignId: string }>();
+  const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
@@ -137,6 +138,7 @@ export default function PickEmPage() {
     if (!user || !selectedCampaign) return;
     setJoining(true);
     try {
+      const urlCode = searchParams.get('joinCode') || searchParams.get('code') || selectedCampaign.joinCode || '';
       const token = await user.getIdToken();
       const res = await fetch('/api/pickem/join', {
         method: 'POST',
@@ -144,7 +146,7 @@ export default function PickEmPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ campaignId: selectedCampaign.id })
+        body: JSON.stringify({ campaignId: selectedCampaign.id, ...(urlCode ? { joinCode: urlCode.trim() } : {}) })
       });
       const data = await res.json();
       if (!res.ok || !data.success) {

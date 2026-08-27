@@ -28,11 +28,8 @@ export default function PickEmLandingPage() {
     const fetchData = async () => {
       if (!user) return;
       
-      const urlCode = searchParams.get('joinCode') || searchParams.get('code');
-      if (urlCode && activeTab !== 'join') {
-        setActiveTab('join');
-        setJoinCode(urlCode);
-      }
+      const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || '').trim();
+
       try {
         // Fetch participants first to know what they joined
         const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
@@ -42,10 +39,25 @@ export default function PickEmLandingPage() {
 
         // Fetch campaigns
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
-        let camps = campSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-        camps = camps.filter(c => !c.isArchived);
+        let allUnarchivedCamps = campSnap.docs
+          .map(d => ({ id: d.id, ...d.data() as any }))
+          .filter(c => !c.isArchived);
+
+        if (urlCode) {
+          const matched = allUnarchivedCamps.find(c => c.joinCode && c.joinCode.trim().toLowerCase() === urlCode.toLowerCase());
+          if (matched) {
+            navigate(`/pickem/${matched.id}?joinCode=${encodeURIComponent(urlCode)}`, { replace: true });
+            return;
+          } else {
+            if (activeTab !== 'join') {
+              setActiveTab('join');
+              setJoinCode(urlCode);
+            }
+          }
+        }
+
         const now = Date.now();
-        camps = camps.filter(c => {
+        let camps = allUnarchivedCamps.filter(c => {
           if (joinedIds.has(c.id)) return true; // Always show joined campaigns
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true;
@@ -131,6 +143,8 @@ export default function PickEmLandingPage() {
       const joinedId = data.campaignId || targetCampaignId;
       if (joinedId) {
         setJoinedCampaignIds(prev => new Set(prev).add(joinedId));
+        navigate(`/pickem/${joinedId}`);
+        return;
       }
       setActiveTab('my_picks');
       setJoinCode('');

@@ -20,4 +20,23 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     const formattedPot = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(potAmount);
     expect(formattedPot).toBe('$15');
   });
+
+  it('matches join codes case-insensitively and handles whitespace', () => {
+    const campaigns = [
+      { id: 'yes-day-1', name: 'YES Day Walk for Autism 2026', joinCode: 'yesday2026', isArchived: false },
+      { id: 'other-camp', name: 'Other League', joinCode: 'SECRET123', isArchived: false },
+      { id: 'archived-camp', name: 'Old League', joinCode: 'yesday2026', isArchived: true }
+    ];
+
+    const matchCode = (cleanCode: string) => {
+      const trimmed = cleanCode.trim().toLowerCase();
+      return campaigns.find(c => !c.isArchived && c.joinCode && c.joinCode.trim().toLowerCase() === trimmed);
+    };
+
+    expect(matchCode('yesday2026')?.id).toBe('yes-day-1');
+    expect(matchCode('  YESDAY2026  ')?.id).toBe('yes-day-1');
+    expect(matchCode('YesDay2026')?.id).toBe('yes-day-1');
+    expect(matchCode('secret123')?.id).toBe('other-camp');
+    expect(matchCode('invalidcode')).toBeUndefined();
+  });
 });

@@ -312,30 +312,25 @@ export default function PickEmCampaignDetail() {
           const pickemMatchupId = `${id}_${selectedWeek}_${m.gameId}`;
           const docRef = doc(db, 'pickemMatchups', pickemMatchupId);
 
-          let metadataToSave = m.metadata || null;
+          const existingMatchup = matchups.find(ex => ex.id === pickemMatchupId);
+          let metadataToSave = m.metadata ? { ...m.metadata } : null;
+          let finalType = campaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD");
+
+          if (existingMatchup && existingMatchup.type) {
+             finalType = existingMatchup.type; // Preserve admin overrides
+          }
 
           // For CFB and NFL, check if it's before Thursday 2AM AZ time (9AM UTC) relative to the GAME'S week
-          if ((lg === 'CFB' || lg === 'NFL') && m.metadata) {
+          if ((lg === 'CFB' || lg === 'NFL') && metadataToSave) {
              // Find the previous Thursday at 9AM UTC relative to the game's start time
              const gameDate = new Date(m.startTime);
              const gameDay = gameDate.getUTCDay();
 
-             // How many days since the last Thursday?
-             // If gameDay is Thursday (4), and hour >= 9, it's 0 days.
-             // If gameDay is Thursday (4) and hour < 9, the "last Thursday" was 7 days ago.
-             // We can simplify by just getting the current timestamp and finding the MOST RECENT Thursday 9AM UTC,
-             // then checking if the current time is before that.
-             // Wait, the lock time is the Thursday *of the game's week*.
-             // For a CFB game on Saturday, lock is that same week's Thursday.
-             // Let's construct the lock date based on the game's start time:
              const lockDate = new Date(m.startTime);
-
-             // Determine days to subtract to get to Thursday (4)
              let daysToSubtract = gameDay - 4;
              if (daysToSubtract < 0) {
                  daysToSubtract += 7; // e.g., if game is Wed (3), lock was last Thursday (subtract 6)
              }
-
              lockDate.setUTCDate(lockDate.getUTCDate() - daysToSubtract);
              lockDate.setUTCHours(9, 0, 0, 0); // 9 AM UTC
 
@@ -343,9 +338,12 @@ export default function PickEmCampaignDetail() {
              const isBeforeThursdayLock = now.getTime() < lockDate.getTime();
 
              if (isBeforeThursdayLock) {
-                metadataToSave = { ...m.metadata, spreadLocked: false };
+                metadataToSave.spreadLocked = false;
              } else {
-                metadataToSave = { ...m.metadata, spreadLocked: true };
+                metadataToSave.spreadLocked = true;
+                if (existingMatchup && existingMatchup.metadata && existingMatchup.metadata.spread !== undefined) {
+                   metadataToSave.spread = existingMatchup.metadata.spread; // Preserve the locked spread!
+                }
              }
           }
 
@@ -359,7 +357,7 @@ export default function PickEmCampaignDetail() {
             statusDesc: m.statusDesc,
             homeTeam: m.homeTeam,
             awayTeam: m.awayTeam,
-            type: campaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"),
+            type: finalType,
             metadata: metadataToSave,
             createdAt: Date.now()
           }, { merge: true });

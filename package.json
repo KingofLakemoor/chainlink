@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "NODE_OPTIONS=--max_old_space_size=4096 tsc --noEmit"
   },
   "dependencies": {
     "@babel/core": "^7.29.7",

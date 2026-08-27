@@ -92,7 +92,7 @@ export function startPickemEnforcerJob() {
     }
   };
 
-  // Run every 10 minutes
+  // Run every 6 hours
   runEnforcer();
-  enforcerInterval = setInterval(runEnforcer, 10 * 60 * 1000);
+  enforcerInterval = setInterval(runEnforcer, 6 * 60 * 60 * 1000);
 }

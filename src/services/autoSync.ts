@@ -110,5 +110,5 @@ export function startAutoSyncJob() {
   
   // Run immediately on start
   runSync();
-  syncInterval = setInterval(runSync, 2 * 60 * 1000);
+  syncInterval = setInterval(runSync, 3 * 60 * 1000);
 }

@@ -130,7 +130,7 @@ export default function PickEmLandingPage() {
       }
       const joinedId = data.campaignId || targetCampaignId;
       if (joinedId) {
-        setJoinedCampaignIds(prev => new Set(prev).add(joinedId)); fetchCampaigns();
+        setJoinedCampaignIds(prev => new Set(prev).add(joinedId));
       }
       setActiveTab('my_picks');
       setJoinCode('');

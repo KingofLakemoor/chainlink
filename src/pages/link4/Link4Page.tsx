@@ -134,8 +134,20 @@ export default function Link4Page() {
     const unsubLink4Matchups = onSnapshot(matchupsQ, (snap) => {
       const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllMatchups(matchups);
-    }, (error) => {
+        }, async (error) => {
       console.error('Error fetching link4 matchups', error);
+      // Fallback if rules are not deployed
+      try {
+        const res = await fetch(`/api/link4/matchups/${activeSegmentId}`);
+        if (res.ok) {
+           const data = await res.json();
+           if (data.success && data.matchups) {
+              setAllMatchups(data.matchups);
+           }
+        }
+      } catch(e) {
+        console.error("API fallback also failed", e);
+      }
     });
 
     return () => {
@@ -149,10 +161,32 @@ export default function Link4Page() {
     // Fetch user's picks if they exist
     const fetchUserPicks = async () => {
       try {
-        const q = query(collection(db, 'link4Picks'), where('segmentId', '==', activeSegmentId), where('userId', '==', user.uid));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const data = snap.docs[0].data();
+        let pickData = null;
+        try {
+          const q = query(collection(db, 'link4Picks'), where('segmentId', '==', activeSegmentId), where('userId', '==', user.uid));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            pickData = snap.docs[0].data();
+          }
+        } catch (fbErr) {
+          console.warn("Primary link4Picks fetch failed", fbErr);
+          try {
+            const res = await fetch(`/api/link4/picks/${activeSegmentId}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && data.picks) {
+                 const myPick = data.picks.find((p: any) => p.userId === user.uid);
+                 if (myPick) pickData = myPick;
+              }
+            }
+          } catch(apiErr) {
+            console.error("API fallback failed for picks", apiErr);
+          }
+        }
+        
+        if (pickData) {
+          const data = pickData;
+          //
           if (data.picks) {
              const userPicks = Array.isArray(data.picks) ? data.picks : Object.values(data.picks);
 
@@ -186,9 +220,20 @@ export default function Link4Page() {
     if (!user) return;
     const fetchLeaderboard = async () => {
         try {
-            const snap = await getDocs(query(collection(db, 'link4Picks'), where('segmentId', '==', activeSegmentId)));
-            
-        const allUserPicks = snap.docs.map(d => d.data());
+            let allUserPicks: any[] = [];
+            try {
+              const snap = await getDocs(query(collection(db, 'link4Picks'), where('segmentId', '==', activeSegmentId)));
+              allUserPicks = snap.docs.map(d => d.data());
+            } catch (fbErr) {
+              console.warn("Primary link4Picks leaderboard fetch failed", fbErr);
+              const res = await fetch(`/api/link4/picks/${activeSegmentId}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.picks) {
+                  allUserPicks = data.picks;
+                }
+              }
+            }
 
         // Wait for allMatchups to be ready
         if (allMatchups.length === 0) return;

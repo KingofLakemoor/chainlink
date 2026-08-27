@@ -69,8 +69,19 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
             docsMap.set(d.id, { id: d.id, ...m });
           }
         });
-      } catch (fallbackErr: any) {
+            } catch (fallbackErr: any) {
         console.warn('Fallback link4Matchups query failed:', fallbackErr);
+        try {
+          const res = await fetch(`/api/link4/matchups/${segmentId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.matchups) {
+              data.matchups.forEach((m: any) => docsMap.set(m.id, m));
+            }
+          }
+        } catch (apiErr) {
+          console.error("API fetch fallback also failed", apiErr);
+        }
       }
 
       setMatchups(Array.from(docsMap.values()));
@@ -127,7 +138,7 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
         try {
           const { scrapeLeagueSchedules } = await import('../../../services/espnScraper');
           for (const lg of allowedSports) {
-            const res = await scrapeLeagueSchedules(lg, false);
+            const res = await scrapeLeagueSchedules(lg, false, undefined, undefined);
             if (res.data) {
               res.data.forEach((m: any) => {
                 const gId = String(m.gameId || m.id);

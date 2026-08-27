@@ -508,8 +508,8 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
       let specificDates: string[] | undefined = undefined;
       if (effectiveBeginDate && effectiveEndDate) {
         // Expand date range to +/- 7 days around segment bounds so games across the week are pulled
-        const startDay = new Date(effectiveBeginDate - 7 * 86400000);
-        const endDay = new Date(effectiveEndDate + 7 * 86400000);
+        const startDay = new Date(effectiveBeginDate - 1 * 86400000);
+        const endDay = new Date(effectiveEndDate + 1 * 86400000);
         let curr = new Date(startDay);
         let days = 0;
         const dateSet = new Set<string>();
@@ -524,8 +524,8 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
       }
 
       // Buffer start/end filter by 7 days so games occurring during the segment week are not cut off
-      const filterBegin = effectiveBeginDate ? effectiveBeginDate - (7 * 24 * 3600 * 1000) : undefined;
-      const filterEnd = effectiveEndDate ? effectiveEndDate + (7 * 24 * 3600 * 1000) : undefined;
+      const filterBegin = effectiveBeginDate ? effectiveBeginDate : undefined;
+      const filterEnd = effectiveEndDate ? effectiveEndDate : undefined;
 
       // 1. Scrape live ESPN schedules
       const matchupsToProcess: any[] = [];
@@ -2135,5 +2135,17 @@ apiRouter.get("/chains", validateAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching chains', error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+apiRouter.get("/link4/matchups/:segmentId", async (req, res) => {
+  try {
+    const { segmentId } = req.params;
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const snap = await adminDb.collection('link4Matchups').where('segmentId', '==', segmentId).get();
+    const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ success: true, matchups });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });

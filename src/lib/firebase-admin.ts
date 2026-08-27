@@ -31,6 +31,7 @@ if (!getApps().length) {
 
 const isCustomAdminProject = (projectId && projectId !== firebaseConfig.projectId);
 const adminDatabaseId = process.env.FIREBASE_FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (isCustomAdminProject ? '(default)' : firebaseConfig.firestoreDatabaseId);
+console.log("adminDatabaseId is:", adminDatabaseId);
 export const adminDb = getApps().length ? getFirestore(undefined, adminDatabaseId) : null;
 export const adminAuth = getApps().length ? getAuth() : null;
 export const adminMessaging = getApps().length ? getMessaging() : null;

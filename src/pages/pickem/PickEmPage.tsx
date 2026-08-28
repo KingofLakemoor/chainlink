@@ -467,13 +467,15 @@ export default function PickEmPage() {
         </h1>
         <p className="text-zinc-400 text-lg mb-4">{subtitle}</p>
         
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-200 text-sm max-w-3xl mt-6">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="flex flex-col gap-1">
-            <p className="font-semibold text-amber-400">Note on Spreads</p>
-            <p>NFL and CFB spreads lock for the week on <strong>Thursday morning at 2 AM AZ Time</strong>. Please verify your picks before the lock to ensure the spread didn't shift on you.</p>
+        {selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && selectedCampaign?.defaultMatchType !== 'STANDARD' && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-200 text-sm max-w-3xl mt-6">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold text-amber-400">Note on Spreads</p>
+              <p>NFL and CFB spreads lock for the week on <strong>Thursday morning at 2 AM AZ Time</strong>. Please verify your picks before the lock to ensure the spread didn't shift on you.</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
             {selectedCampaign && !isParticipant && (
@@ -628,7 +630,8 @@ export default function PickEmPage() {
                 const pick = userPicks[m.id];
                 const isLocked = m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime);
 
-                const isSpread = m.type === 'SPREAD' && m.metadata?.spread !== undefined;
+                const isYesDay = selectedCampaign?.name === 'YES Day Walk for Autism 2026';
+                const isSpread = !isYesDay && m.type === 'SPREAD' && m.metadata?.spread !== undefined;
                 const spread = m.metadata?.spread || 0;
 
                 const isSpreadPendingLock = isSpread && (m.league === 'CFB' || m.league === 'NFL') && !m.metadata?.spreadLocked;

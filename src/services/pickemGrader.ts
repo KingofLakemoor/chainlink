@@ -37,7 +37,9 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const isPostponed = matchup.status === 'STATUS_POSTPONED';
 
   let adjustedHomeScore = homeScore;
-  if (matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
+  if (matchup.campaignName === 'YES Day Walk for Autism 2026') {
+    adjustedHomeScore = homeScore;
+  } else if (matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
     adjustedHomeScore += Number(matchup.metadata.spread);
   }
 

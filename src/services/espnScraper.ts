@@ -330,22 +330,6 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
   const processedGameIds = new Set<string>();
   const parsedMatchups: any[] = [];
   
-  let oddsApiData: any[] = [];
-  if (['RPL', 'TUR', 'ARG', 'BRA', 'LMX'].includes(league as string) && !scoreboardOnly && process.env.ODDS_API_KEY) {
-      let sportKey = 'soccer_russia_premier_league';
-      if (league === 'TUR') sportKey = 'soccer_turkey_super_league';
-      else if (league === 'ARG') sportKey = 'soccer_argentina_primera_division';
-      else if (league === 'BRA') sportKey = 'soccer_brazil_campeonato';
-      else if (league === 'LMX') sportKey = 'soccer_mexico_ligamx';
-      try {
-          const res = await fetch(`https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
-          if (res.ok) {
-              oddsApiData = await res.json();
-          }
-      } catch (err) {
-          console.error(`Failed to fetch ${league} odds from Odds API:`, err);
-      }
-  }
 
 
   
@@ -620,27 +604,6 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 let mlHome = competition.odds?.[0]?.moneyline?.home?.close?.odds || competition.odds?.[0]?.moneyline?.home?.open?.odds;
                 let mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
                 
-                // If RPL, try to pull odds from Odds API prefetch
-                if (['RPL', 'TUR', 'ARG', 'BRA', 'LMX'].includes(league as string) && !scoreboardOnly && oddsApiData.length > 0) {
-                    const normalizeName = (name) => name ? name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, "").trim() : "";
-                    const oEvent = oddsApiData.find((o) => {
-                        const oH = normalizeName(o.home_team);
-                        const oA = normalizeName(o.away_team);
-                        const yH = normalizeName(homeName);
-                        const yA = normalizeName(awayName);
-                        return (oH.includes(yH) || yH.includes(oH)) && (oA.includes(yA) || yA.includes(oA));
-                    });
-                    if (oEvent) {
-                        const bm = oEvent.bookmakers?.[0]; // or draftkings if we preferred
-                        if (bm) {
-                            const h2h = bm.markets?.find((m) => m.key === 'h2h');
-                            if (h2h) {
-                                mlHome = h2h.outcomes?.find((o) => normalizeName(o.name).includes(normalizeName(homeName)) || normalizeName(homeName).includes(normalizeName(o.name)))?.price?.toString() || mlHome;
-                                mlAway = h2h.outcomes?.find((o) => normalizeName(o.name).includes(normalizeName(awayName)) || normalizeName(awayName).includes(normalizeName(o.name)))?.price?.toString() || mlAway;
-                            }
-                        }
-                    }
-                }
                 let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
                 if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[league] !== undefined) {
                   threshold = Math.abs(scraperConfig.sportOverrides[league]);

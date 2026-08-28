@@ -69,6 +69,16 @@ export async function syncTennisOdds() {
   }
 
   try {
+    const matchupsSnap = await adminDb.collection('matchups')
+      .where('status', '==', 'STATUS_SCHEDULED')
+      .where('league', 'in', ['ATP', 'WTA'])
+      .get();
+
+    if (matchupsSnap.empty) {
+      console.log("[OddsProcessor] No scheduled ATP/WTA matchups in DB.");
+      return { success: true, message: 'No scheduled tennis matches in DB.' };
+    }
+
     const sportsRes = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${apiKey}`);
     if (!sportsRes.ok) {
        const text = await sportsRes.text();
@@ -96,16 +106,6 @@ export async function syncTennisOdds() {
           // just taking ATP override as generic for tennis
           threshold = Math.abs(scraperConfig.sportOverrides['ATP']);
        }
-    }
-
-    const matchupsSnap = await adminDb.collection('matchups')
-      .where('status', '==', 'STATUS_SCHEDULED')
-      .where('league', 'in', ['ATP', 'WTA'])
-      .get();
-      
-    if (matchupsSnap.empty) {
-      console.log("[OddsProcessor] No scheduled ATP/WTA matchups in DB.");
-      return { success: true, message: 'No scheduled tennis matches in DB.' };
     }
     
     const dbMatchups: any[] = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -283,7 +283,10 @@ export async function syncSoccerOdds() {
           .where('league', '==', l.espn)
           .get();
              
-        if (matchupsSnap.empty) continue;
+        if (matchupsSnap.empty) {
+            console.log(`[OddsProcessor] No scheduled matchups for soccer league ${l.espn}, skipping API call.`);
+            continue;
+        }
         const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);

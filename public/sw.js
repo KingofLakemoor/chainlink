@@ -3209,6 +3209,11 @@
   });
   self.addEventListener("fetch", (event) => {
   });
+  self.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "SKIP_WAITING") {
+      self.skipWaiting();
+    }
+  });
   try {
     const app = initializeApp(firebase_applet_config_default);
     const messaging = getMessagingInSw(app);

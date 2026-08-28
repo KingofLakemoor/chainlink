@@ -154,10 +154,10 @@ async function startServer() {
     try {
       const indexPath = path.join(process.cwd(), 'dist', 'index.html');
       if (fs.existsSync(indexPath)) {
-        return fs.statSync(indexPath).mtimeMs.toString();
+        return new Date(fs.statSync(indexPath).mtimeMs).toISOString();
       }
     } catch (e) {}
-    return Date.now().toString();
+    return new Date().toISOString();
   })();
 
   const handleVersionRequest = (req: express.Request, res: express.Response) => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { isServerVersionNewer } from '../utils/version';
 
 declare const __APP_BUILD_TIME__: string | undefined;
 
@@ -56,17 +57,8 @@ export const VersionChecker: React.FC = () => {
         const serverVersion = data.version;
         const localVersion = typeof __APP_BUILD_TIME__ !== 'undefined' ? __APP_BUILD_TIME__ : null;
 
-        if (localVersion && serverVersion && serverVersion !== localVersion) {
-          // Compare build times
-          const serverTime = new Date(serverVersion).getTime();
-          const localTime = new Date(localVersion).getTime();
-
-          if (!isNaN(serverTime) && !isNaN(localTime) && serverTime > localTime + 5000) {
-            setHasUpdate(true);
-          } else if (isNaN(serverTime) || isNaN(localTime)) {
-            // String mismatch if non-date strings used
-            setHasUpdate(true);
-          }
+        if (isServerVersionNewer(serverVersion, localVersion)) {
+          setHasUpdate(true);
         }
       }
     } catch (err) {
@@ -89,11 +81,12 @@ export const VersionChecker: React.FC = () => {
     };
 
     window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', () => {
+    const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         checkForUpdate();
       }
-    });
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     // Listen for SW updatefound event
     if ('serviceWorker' in navigator) {
@@ -117,6 +110,7 @@ export const VersionChecker: React.FC = () => {
       clearTimeout(initialTimer);
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [checkForUpdate]);
 

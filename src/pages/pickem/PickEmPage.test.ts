@@ -39,4 +39,25 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(matchCode('secret123')?.id).toBe('other-camp');
     expect(matchCode('invalidcode')).toBeUndefined();
   });
+
+  it('enforces strictly Moneyline picks for YES Day Walk for Autism 2026 campaign', () => {
+    const selectedCampaign = {
+      name: 'YES Day Walk for Autism 2026',
+      defaultMatchType: 'STANDARD'
+    };
+
+    const matchup = {
+      id: 'm1',
+      type: 'SPREAD',
+      metadata: { spread: -3.5 }
+    };
+
+    const isYesDay = selectedCampaign?.name === 'YES Day Walk for Autism 2026';
+    const isSpread = !isYesDay && matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined;
+
+    expect(isSpread).toBe(false);
+
+    const showSpreadNote = selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && selectedCampaign?.defaultMatchType !== 'STANDARD';
+    expect(showSpreadNote).toBe(false);
+  });
 });

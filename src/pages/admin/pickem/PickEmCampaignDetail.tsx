@@ -314,9 +314,11 @@ export default function PickEmCampaignDetail() {
 
           const existingMatchup = matchups.find(ex => ex.id === pickemMatchupId);
           let metadataToSave = m.metadata ? { ...m.metadata } : null;
-          let finalType = campaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD");
+          let finalType = campaign.name === 'YES Day Walk for Autism 2026'
+            ? "STANDARD"
+            : (campaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"));
 
-          if (existingMatchup && existingMatchup.type) {
+          if (existingMatchup && existingMatchup.type && campaign.name !== 'YES Day Walk for Autism 2026') {
              finalType = existingMatchup.type; // Preserve admin overrides
           }
 
@@ -406,6 +408,10 @@ export default function PickEmCampaignDetail() {
   };
 
   const handleToggleSpread = async (matchupId: string, currentType: string) => {
+    if (campaign?.name === 'YES Day Walk for Autism 2026') {
+      alert("YES Day Walk for Autism 2026 is strictly Moneyline (STANDARD) picks.");
+      return;
+    }
     try {
       const newType = currentType === "SPREAD" ? "STANDARD" : "SPREAD";
       await updateDoc(doc(db, "pickemMatchups", matchupId), {
@@ -419,6 +425,10 @@ export default function PickEmCampaignDetail() {
   };
 
   const handleSetAllToSpread = async () => {
+    if (campaign?.name === 'YES Day Walk for Autism 2026') {
+      alert("YES Day Walk for Autism 2026 is strictly Moneyline (STANDARD) picks.");
+      return;
+    }
     if (!confirm(`Set all Week ${selectedWeek} matchups to Against The Spread (ATS)?`)) return;
 
     try {

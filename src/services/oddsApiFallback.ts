@@ -5,7 +5,7 @@ const BASE_URL = 'https://api.the-odds-api.com/v4/sports';
 
 const slateCache: Record<string, { timestamp: number; data: any[] }> = {};
 const activeSportsCache: { timestamp: number; data: any[] } = { timestamp: 0, data: [] };
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10-minute cache window
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30-minute cache window
 
 export function clearOddsApiCache() {
   for (const key of Object.keys(slateCache)) {
@@ -37,7 +37,7 @@ async function getActiveSports(apiKey: string): Promise<any[]> {
 }
 
 async function getOddsApiSlate(oddsApiSportKey: string): Promise<any[]> {
-  const apiKey = process.env.THE_ODDS_API_KEY || '';
+  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '';
   const now = Date.now();
   if (slateCache[oddsApiSportKey] && now - slateCache[oddsApiSportKey].timestamp < CACHE_TTL_MS) {
     return slateCache[oddsApiSportKey].data;
@@ -90,7 +90,7 @@ export async function matchAndFetchOddsApiFallback(
   espnSportKey: string
 ): Promise<NormalizedOdds | null> {
   const oddsApiSportKey = ESPN_TO_ODDS_API_SPORT[espnSportKey.toLowerCase()];
-  const apiKey = process.env.THE_ODDS_API_KEY || '';
+  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '';
   if (!oddsApiSportKey || !apiKey) return null;
 
   const competition = espnGame.competitions?.[0] || espnGame;

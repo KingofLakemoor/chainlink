@@ -175,22 +175,31 @@ service cloud.firestore {
       function isMatchupOpen(mId) {
         return mId != null && mId != '' &&
                exists(/databases/$(database)/documents/pickemMatchups/$(mId)) &&
-               get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.status == 'STATUS_SCHEDULED' &&
+               get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('status', 'STATUS_SCHEDULED') == 'STATUS_SCHEDULED' &&
                (
                  get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) == null ||
                  get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) == 0 ||
+                 !(get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) is number) ||
                  get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) > request.time.toMillis()
                );
       }
       allow read: if isSignedIn() && (resource == null || existing().participantId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && incoming().participantId == request.auth.uid && isMatchupOpen(incoming().matchupId);
       allow update: if isSignedIn() && (
-        resource == null || 
-        (existing().get('participantId', '') == request.auth.uid && incoming().get('participantId', '') == request.auth.uid && isMatchupOpen(existing().get('matchupId', '')))
+        isAdmin() ||
+        (
+          (resource == null || existing().get('participantId', '') == request.auth.uid) &&
+          incoming().get('participantId', '') == request.auth.uid &&
+          isMatchupOpen(existing() != null ? existing().get('matchupId', incoming().get('matchupId', '')) : incoming().get('matchupId', ''))
+        )
       );
       allow delete: if isSignedIn() && (
-        resource == null || 
-        (existing().get('participantId', '') == request.auth.uid && isMatchupOpen(existing().get('matchupId', '')))
+        isAdmin() ||
+        (
+          existing() != null &&
+          existing().get('participantId', '') == request.auth.uid &&
+          isMatchupOpen(existing().get('matchupId', ''))
+        )
       );
     }
 

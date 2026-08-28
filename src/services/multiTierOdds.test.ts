@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { cleanTeamName, teamsMatch, ESPN_TO_ODDS_API_SPORT, ESPN_TO_SHARP_API_LEAGUE } from '../utils/sportMapping';
+import { cleanTeamName, teamsMatch, parsePlayerName, tennisPlayersMatch, ESPN_TO_ODDS_API_SPORT, ESPN_TO_SHARP_API_LEAGUE } from '../utils/sportMapping';
 import { extractEspnOdds } from './espnParser';
 import { matchAndFetchOddsApiFallback, clearOddsApiCache } from './oddsApiFallback';
 import { matchAndFetchSharpApiFallback, clearSharpApiCache } from './sharpApiFallback';
@@ -22,11 +22,30 @@ describe('Sport Mapping & Name Normalizer', () => {
     expect(teamsMatch('', 'Boston Celtics')).toBe(false);
   });
 
-  it('contains expected league mappings', () => {
+  it('contains expected league mappings including tennis', () => {
     expect(ESPN_TO_ODDS_API_SPORT['nfl']).toBe('americanfootball_nfl');
     expect(ESPN_TO_ODDS_API_SPORT['nba']).toBe('basketball_nba');
+    expect(ESPN_TO_ODDS_API_SPORT['atp']).toBe('tennis_atp');
+    expect(ESPN_TO_ODDS_API_SPORT['wta']).toBe('tennis_wta');
     expect(ESPN_TO_SHARP_API_LEAGUE['nfl']).toBe('nfl');
     expect(ESPN_TO_SHARP_API_LEAGUE['epl']).toBe('epl');
+    expect(ESPN_TO_SHARP_API_LEAGUE['atp']).toBe('atp');
+    expect(ESPN_TO_SHARP_API_LEAGUE['wta']).toBe('wta');
+  });
+
+  it('tennis player name parsing and matching', () => {
+    expect(parsePlayerName('J. Sinner')).toEqual({ firstName: 'J.', lastName: 'Sinner', initial: 'j' });
+    expect(parsePlayerName('Jannik Sinner')).toEqual({ firstName: 'Jannik', lastName: 'Sinner', initial: 'j' });
+    expect(parsePlayerName('Sinner, Jannik')).toEqual({ firstName: 'Jannik', lastName: 'Sinner', initial: 'j' });
+
+    expect(tennisPlayersMatch('J. Sinner', 'Jannik Sinner')).toBe(true);
+    expect(tennisPlayersMatch('Sinner, Jannik', 'J. Sinner')).toBe(true);
+    expect(tennisPlayersMatch('Carlos Alcaraz Garfia', 'C. Alcaraz')).toBe(true);
+    expect(tennisPlayersMatch('Alex de Minaur', 'A. de Minaur')).toBe(true);
+
+    // Conflicting first initials should NOT match
+    expect(tennisPlayersMatch('A. Zverev', 'M. Zverev')).toBe(false);
+    expect(tennisPlayersMatch('J. Sinner', 'C. Alcaraz')).toBe(false);
   });
 });
 
@@ -168,6 +187,72 @@ describe('Tier 2: The Odds API Fallback', () => {
 
     vi.restoreAllMocks();
   });
+
+  it('fetches and matches ATP tennis odds dynamically across active tournaments', async () => {
+    process.env.THE_ODDS_API_KEY = 'test-key';
+
+    const mockActiveSports = [
+      { key: 'tennis_atp_us_open', group: 'Tennis', active: true },
+    ];
+
+    const mockTournamentOdds = [
+      {
+        commence_time: '2025-09-10T20:00:00Z',
+        home_team: 'Jannik Sinner',
+        away_team: 'Carlos Alcaraz',
+        bookmakers: [
+          {
+            key: 'draftkings',
+            markets: [
+              {
+                key: 'h2h',
+                outcomes: [
+                  { name: 'Jannik Sinner', price: -150 },
+                  { name: 'Carlos Alcaraz', price: +125 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    // First call: get active sports list
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockActiveSports,
+    } as Response);
+    // Second call: get odds for tennis_atp_us_open
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockTournamentOdds,
+    } as Response);
+
+    const espnTennisGame = {
+      date: '2025-09-10T20:00:00Z',
+      competitions: [{
+        date: '2025-09-10T20:00:00Z',
+        competitors: [
+          { homeAway: 'home', id: 'p1', athlete: { displayName: 'J. Sinner', shortName: 'J. Sinner' } },
+          { homeAway: 'away', id: 'p2', athlete: { displayName: 'C. Alcaraz', shortName: 'C. Alcaraz' } },
+        ]
+      }]
+    };
+
+    const result = await matchAndFetchOddsApiFallback(espnTennisGame, 'atp');
+    expect(result).toEqual({
+      spread: null,
+      favoriteTeamId: undefined,
+      overUnder: null,
+      homeMoneyline: -150,
+      awayMoneyline: 125,
+      provider: 'the-odds-api',
+      lineSummary: undefined,
+    });
+
+    vi.restoreAllMocks();
+  });
 });
 
 describe('Tier 3: SharpAPI Fallback', () => {
@@ -249,6 +334,67 @@ describe('Tier 3: SharpAPI Fallback', () => {
       awayMoneyline: 140,
       provider: 'sharp-api',
       lineSummary: '-3',
+    });
+
+    vi.restoreAllMocks();
+  });
+
+  it('fetches and matches ATP tennis odds from SharpAPI excluding set-specific markets', async () => {
+    process.env.SHARP_API_KEY = 'sharp-key';
+
+    const mockSharpTennisData = {
+      data: [
+        {
+          start_time: '2025-09-10T20:00:00Z',
+          home_team: { name: 'Jannik Sinner' },
+          away_team: { name: 'Carlos Alcaraz' },
+          markets: [
+            {
+              market_type: 'moneyline',
+              market_name: '1st Set Moneyline',
+              lines: [
+                { is_home: true, team_name: 'Jannik Sinner', odds: '-120' },
+                { is_home: false, team_name: 'Carlos Alcaraz', odds: '+100' },
+              ],
+            },
+            {
+              market_type: 'moneyline',
+              market_name: 'Match Winner',
+              lines: [
+                { is_home: true, team_name: 'Jannik Sinner', odds: '-155' },
+                { is_home: false, team_name: 'Carlos Alcaraz', odds: '+135' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockSharpTennisData,
+    } as Response);
+
+    const espnTennisGame = {
+      date: '2025-09-10T20:00:00Z',
+      competitions: [{
+        date: '2025-09-10T20:00:00Z',
+        competitors: [
+          { homeAway: 'home', id: 'p1', athlete: { displayName: 'Jannik Sinner' } },
+          { homeAway: 'away', id: 'p2', athlete: { displayName: 'Carlos Alcaraz' } },
+        ]
+      }]
+    };
+
+    const result = await matchAndFetchSharpApiFallback(espnTennisGame, 'atp');
+    expect(result).toEqual({
+      spread: null,
+      favoriteTeamId: undefined,
+      overUnder: null,
+      homeMoneyline: -155,
+      awayMoneyline: 135,
+      provider: 'sharp-api',
+      lineSummary: undefined,
     });
 
     vi.restoreAllMocks();

@@ -46,7 +46,7 @@ try {
     console.log('[sw.ts] Received background message ', payload);
     
     // Support both notification and data payloads to avoid duplicates
-    const title = payload.notification?.title || payload.data?.title || "Social Pick 'Em Update";
+    const title = payload.notification?.title || payload.data?.title || "ChainLink Update";
     const body = payload.notification?.body || payload.data?.body;
     
     const notificationOptions = {

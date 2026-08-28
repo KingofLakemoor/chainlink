@@ -3220,7 +3220,7 @@
     onBackgroundMessage(messaging, (payload) => {
       var _a, _b, _c, _d, _e;
       console.log("[sw.ts] Received background message ", payload);
-      const title = ((_a = payload.notification) == null ? void 0 : _a.title) || ((_b = payload.data) == null ? void 0 : _b.title) || "Social Pick 'Em Update";
+      const title = ((_a = payload.notification) == null ? void 0 : _a.title) || ((_b = payload.data) == null ? void 0 : _b.title) || "ChainLink Update";
       const body = ((_c = payload.notification) == null ? void 0 : _c.body) || ((_d = payload.data) == null ? void 0 : _d.body);
       const notificationOptions = {
         body,

@@ -149,6 +149,25 @@ async function startServer() {
     }
   });
 
+  // Version Endpoint for client update checks
+  const buildTimestamp = (() => {
+    try {
+      const indexPath = path.join(process.cwd(), 'dist', 'index.html');
+      if (fs.existsSync(indexPath)) {
+        return fs.statSync(indexPath).mtimeMs.toString();
+      }
+    } catch (e) {}
+    return Date.now().toString();
+  })();
+
+  const handleVersionRequest = (req: express.Request, res: express.Response) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.json({ version: process.env.BUILD_VERSION || buildTimestamp, timestamp: Date.now() });
+  };
+
+  app.get('/api/version', handleVersionRequest);
+  app.get('/version.json', handleVersionRequest);
+
   app.use('/api', apiRouter);
 
   // Catch-all 404 handler specifically for /api routes to prevent Vite fallback
@@ -156,7 +175,7 @@ async function startServer() {
     res.status(404).json({ success: false, error: 'Not Found' });
   });
 
-  
+  const noCacheRoutes = ['/sw.js', '/manifest.json', '/index.html'];
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import("vite");
@@ -164,16 +183,40 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: "spa",
     });
-    app.get('/sw.js', (req, res) => {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.sendFile(path.join(process.cwd(), 'public/sw.js'));
+
+    noCacheRoutes.forEach(route => {
+      app.get(route, (req, res, next) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        next();
+      });
     });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.get('/sw.js', (req, res) => { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.sendFile(path.join(distPath, 'sw.js')); });
-    app.use(express.static(distPath));
+
+    app.get('/sw.js', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.sendFile(path.join(distPath, 'sw.js'));
+    });
+
+    app.get('/manifest.json', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.sendFile(path.join(distPath, 'manifest.json'));
+    });
+
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.includes('/assets/')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('.html') || filePath.endsWith('manifest.json') || filePath.endsWith('sw.js')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        }
+      }
+    }));
+
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

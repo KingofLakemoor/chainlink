@@ -32,6 +32,12 @@ self.addEventListener('fetch', (event) => {
   // Pass-through fetch handler for PWA requirements
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 try {
   const app = initializeApp(firebaseConfig);
   const messaging = getMessaging(app);

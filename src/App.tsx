@@ -22,6 +22,7 @@ import { FaDiscord } from 'react-icons/fa';
 import { Download } from 'lucide-react';
 
 import { ErrorBoundaryWrapper } from './components/ErrorBoundary';
+import { VersionChecker } from './components/VersionChecker';
 
 const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, setOpen: (open: boolean) => void }) {
   const { user, profile } = useAuth();
@@ -447,6 +448,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-[#0a0a0a] text-zinc-50 font-sans overflow-hidden">
+       <VersionChecker />
        <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
        <div className="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
          <NotificationPrompt />

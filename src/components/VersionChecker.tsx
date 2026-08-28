@@ -128,7 +128,7 @@ export const VersionChecker: React.FC = () => {
         <RefreshCw className={`w-5 h-5 text-zinc-950 shrink-0 ${isUpdating ? 'animate-spin' : ''}`} />
         <div className="text-xs font-semibold leading-tight">
           <p className="font-bold">App Update Available!</p>
-          <p className="text-[11px] opacity-90">A new version of Social Pick 'Em is live.</p>
+          <p className="text-[11px] opacity-90">A new version of ChainLink is live.</p>
         </div>
       </div>
       <button

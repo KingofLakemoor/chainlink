@@ -1,6 +1,6 @@
 {
-  "name": "Social Pick 'Em | Social Pick 'Em",
-  "short_name": "Social Pick 'Em",
+  "name": "ChainLink",
+  "short_name": "ChainLink",
   "description": "Play Link4, join the weekly Social Pick 'Em pool, claim daily coins, and compete on the global leaderboard.",
   "start_url": "/",
   "display": "standalone",

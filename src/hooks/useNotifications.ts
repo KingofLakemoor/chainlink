@@ -134,7 +134,7 @@ export function useNotifications() {
           const unsubscribe = onMessage(messaging, (payload) => {
             if (payload.notification) {
                addToast({
-                 title: payload.notification.title || payload.data?.title || "Social Pick 'Em Update",
+                 title: payload.notification.title || payload.data?.title || "ChainLink Update",
                  body: payload.notification.body || '',
                  url: payload.data?.url || '/'
                });

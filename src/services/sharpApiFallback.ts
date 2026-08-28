@@ -33,6 +33,12 @@ async function getSharpApiSlate(leagueSlug: string): Promise<any[]> {
   return events;
 }
 
+function isSetSpecificMarket(m: any): boolean {
+  const name = (m.market_name || m.name || m.market_type || m.market || '').toLowerCase();
+  const period = String(m.period || '').toLowerCase();
+  return name.includes('set') || name.includes('period') || period.includes('1') || period.includes('2') || period.includes('set');
+}
+
 export async function matchAndFetchSharpApiFallback(
   espnGame: any,
   espnSportKey: string
@@ -41,17 +47,19 @@ export async function matchAndFetchSharpApiFallback(
   const apiKey = process.env.SHARP_API_KEY || '';
   if (!leagueSlug || !apiKey) return null;
 
-  const competition = espnGame.competitions?.[0];
+  const competition = espnGame.competitions?.[0] || espnGame;
   if (!competition) return null;
 
-  const homeCompetitor = competition.competitors?.find((c: any) => c.homeAway === 'home');
-  const awayCompetitor = competition.competitors?.find((c: any) => c.homeAway === 'away');
+  const homeCompetitor = competition.competitors?.find((c: any) => c.homeAway === 'home') || competition.competitors?.[0];
+  const awayCompetitor = competition.competitors?.find((c: any) => c.homeAway === 'away') || competition.competitors?.[1];
 
-  const espnHomeName = homeCompetitor?.team?.displayName || homeCompetitor?.team?.name;
-  const espnAwayName = awayCompetitor?.team?.displayName || awayCompetitor?.team?.name;
+  const espnHomeName = homeCompetitor?.athlete?.displayName || homeCompetitor?.athlete?.fullName || homeCompetitor?.team?.displayName || homeCompetitor?.team?.name;
+  const espnAwayName = awayCompetitor?.athlete?.displayName || awayCompetitor?.athlete?.fullName || awayCompetitor?.team?.displayName || awayCompetitor?.team?.name;
   const espnGameTime = new Date(competition.date || espnGame.date).getTime();
 
   if (!espnHomeName || !espnAwayName || isNaN(espnGameTime)) return null;
+
+  const isTennis = ['atp', 'wta', 'tennis'].includes(espnSportKey.toLowerCase()) || ['atp', 'wta'].includes(leagueSlug.toLowerCase());
 
   try {
     const sharpEvents = await getSharpApiSlate(leagueSlug);
@@ -63,7 +71,7 @@ export async function matchAndFetchSharpApiFallback(
 
       const homeName = item.home_team?.name || item.home_team || '';
       const awayName = item.away_team?.name || item.away_team || '';
-      return teamsMatch(espnHomeName, homeName) && teamsMatch(espnAwayName, awayName);
+      return teamsMatch(espnHomeName, homeName, isTennis) && teamsMatch(espnAwayName, awayName, isTennis);
     });
 
     if (!matchedEvent) return null;
@@ -75,25 +83,25 @@ export async function matchAndFetchSharpApiFallback(
     let awayMoneyline: number | null = null;
 
     const markets = matchedEvent.markets || [];
-    const spreadMarket = markets.find((m: any) => m.market_type === 'spread' || m.market === 'spread');
+    const spreadMarket = markets.find((m: any) => (m.market_type === 'spread' || m.market === 'spread') && !isSetSpecificMarket(m));
     if (spreadMarket?.lines?.length) {
-      const homeLine = spreadMarket.lines.find((l: any) => l.is_home || teamsMatch(l.team_name, matchedEvent.home_team?.name || matchedEvent.home_team));
+      const homeLine = spreadMarket.lines.find((l: any) => l.is_home || teamsMatch(l.team_name, matchedEvent.home_team?.name || matchedEvent.home_team || espnHomeName, isTennis));
       if (homeLine?.spread !== undefined) {
         spread = parseFloat(homeLine.spread);
         favoriteTeamId = spread < 0 ? homeCompetitor?.id : awayCompetitor?.id;
       }
     }
 
-    const totalsMarket = markets.find((m: any) => m.market_type === 'total' || m.market === 'totals');
+    const totalsMarket = markets.find((m: any) => (m.market_type === 'total' || m.market === 'totals') && !isSetSpecificMarket(m));
     if (totalsMarket?.lines?.length) {
       const totalLine = totalsMarket.lines[0];
       if (totalLine?.total !== undefined) overUnder = parseFloat(totalLine.total);
     }
 
-    const mlMarket = markets.find((m: any) => m.market_type === 'moneyline' || m.market === 'h2h');
+    const mlMarket = markets.find((m: any) => (m.market_type === 'moneyline' || m.market_type === 'h2h' || m.market === 'moneyline' || m.market === 'h2h') && !isSetSpecificMarket(m));
     if (mlMarket?.lines?.length) {
-      const homeMl = mlMarket.lines.find((l: any) => l.is_home || teamsMatch(l.team_name, matchedEvent.home_team?.name || matchedEvent.home_team));
-      const awayMl = mlMarket.lines.find((l: any) => !l.is_home || teamsMatch(l.team_name, matchedEvent.away_team?.name || matchedEvent.away_team));
+      const homeMl = mlMarket.lines.find((l: any) => l.is_home || teamsMatch(l.team_name, matchedEvent.home_team?.name || matchedEvent.home_team || espnHomeName, isTennis));
+      const awayMl = mlMarket.lines.find((l: any) => !l.is_home || teamsMatch(l.team_name, matchedEvent.away_team?.name || matchedEvent.away_team || espnAwayName, isTennis));
       if (homeMl?.odds !== undefined) homeMoneyline = parseInt(homeMl.odds, 10);
       if (awayMl?.odds !== undefined) awayMoneyline = parseInt(awayMl.odds, 10);
     }

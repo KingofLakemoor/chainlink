@@ -352,18 +352,33 @@ export default function PickEmPage() {
   
   const handleTiebreakerChange = async (matchup: any, total: number) => {
     if (!user || !selectedCampaign || isNaN(total)) return;
-    const pickId = userPicks[matchup.id]?.id;
+    const pickId = userPicks[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
+    const pickRef = doc(db, 'pickemPicks', pickId);
 
     setUserPicks(prev => ({
       ...prev,
-      [matchup.id]: { ...prev[matchup.id], tiebreakerTotal: total }
+      [matchup.id]: {
+        ...prev[matchup.id],
+        id: pickId,
+        campaignId: selectedCampaign.id,
+        participantId: user.uid,
+        matchupId: matchup.id,
+        week: selectedWeek,
+        tiebreakerTotal: total,
+        updatedAt: Date.now()
+      }
     }));
 
-    if (!pickId) return;
-
     try {
-      await updateDoc(doc(db, 'pickemPicks', pickId), { tiebreakerTotal: total });
-    } catch (e) {
+      await setDoc(pickRef, {
+        campaignId: selectedCampaign.id,
+        participantId: user.uid,
+        matchupId: matchup.id,
+        week: selectedWeek,
+        tiebreakerTotal: total,
+        updatedAt: Date.now()
+      }, { merge: true });
+    } catch (e: any) {
       console.error("Failed to update tiebreaker", e);
     }
   };
@@ -385,7 +400,7 @@ export default function PickEmPage() {
     } catch (err: any) {
       console.error(err);
       if (err.message && err.message.includes("Missing or insufficient permissions")) {
-         alert('Missing Permissions: Your Firebase project needs delete permissions for pickemPicks.\n\nGo to Firebase Console -> Firestore -> Rules and ensure you have:\n\nmatch /pickemPicks/{pickId} {\n  allow read, write, delete: if request.auth != null;\n}');
+         alert('Unable to clear pick. Missing permission or game is locked.');
       } else {
          alert('Failed to clear pick: ' + (err.message || String(err)));
       }
@@ -401,7 +416,7 @@ export default function PickEmPage() {
       const pickRef = doc(db, 'pickemPicks', pickId);
 
       const existingPick = userPicks[matchup.id];
-      if (existingPick?.pick.teamId === teamId) {
+      if (existingPick?.pick?.teamId === teamId) {
         // Unselect if clicking the same team
         await handleClearPick(matchup);
         return;
@@ -411,29 +426,37 @@ export default function PickEmPage() {
       if (!existingPick && selectedCampaign.pickLimit > 0) {
         const currentPicksCount = Object.keys(userPicks).length;
         if (currentPicksCount >= selectedCampaign.pickLimit) {
-          console.log(`You have reached the maximum of ${selectedCampaign.pickLimit} picks for this week.`);
+          alert(`You have reached the maximum of ${selectedCampaign.pickLimit} picks for this week.`);
           return;
         }
       }
 
-      const newPick = {
+      const newPick: any = {
         campaignId: selectedCampaign.id,
         participantId: user.uid,
         matchupId: matchup.id,
         week: selectedWeek,
         pick: { teamId },
         status: 'PENDING',
-        pointsEarned: 0,
+        pointsEarned: existingPick?.pointsEarned || 0,
         submittedAt: Date.now(),
-        createdAt: Date.now(),
+        createdAt: existingPick?.createdAt || Date.now(),
         updatedAt: Date.now()
       };
 
+      if (existingPick?.tiebreakerTotal !== undefined) {
+        newPick.tiebreakerTotal = existingPick.tiebreakerTotal;
+      }
+      if (existingPick?.confidence !== undefined) {
+        newPick.confidence = existingPick.confidence;
+        newPick.pointsEarned = existingPick.confidence;
+      }
+
       await setDoc(pickRef, newPick, { merge: true });
       setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick } }));
-    } catch (err) {
-      console.error(err);
-      console.log('Failed to save pick');
+    } catch (err: any) {
+      console.error('Failed to save pick', err);
+      alert('Failed to save pick: ' + (err.message || String(err)));
     }
   };
 

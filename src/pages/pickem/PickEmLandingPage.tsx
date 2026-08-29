@@ -51,7 +51,7 @@ export default function PickEmLandingPage() {
         if (urlCode) {
           let matched = allUnarchivedCamps.find(c =>
             (c.joinCode && c.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
-            c.id === urlCode
+            c.id.toLowerCase() === urlCode.toLowerCase()
           );
 
           if (!matched) {
@@ -60,7 +60,7 @@ export default function PickEmLandingPage() {
               const data = d.data();
               return !data.isArchived && (
                 (data.joinCode && data.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
-                d.id === urlCode
+                d.id.toLowerCase() === urlCode.toLowerCase()
               );
             });
             if (matchedDoc) {
@@ -435,7 +435,8 @@ export default function PickEmLandingPage() {
                       <div className="p-6 bg-[#18181A] flex-1 flex flex-col justify-center">
                         <div className="flex flex-wrap gap-2 mb-2">
                            {Array.from({ length: allowedPicks }).map((_, i) => {
-                             const pick = details.picks[i];
+                             const validPicks = (details.picks || []).filter(p => p.pick?.teamId);
+                             const pick = validPicks[i];
                              if (!pick || !pick.pick?.teamId) {
                                return (
                                  <div key={`empty-${i}`} className="w-10 h-10 rounded-full border-2 border-zinc-800 bg-[#121212] flex-shrink-0" />

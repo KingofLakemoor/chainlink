@@ -769,12 +769,12 @@ onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)}
 disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id))}
 
                         className={`p-3 rounded-lg border text-left flex items-center justify-between transition-colors
-                          ${pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)
+                          ${pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)
                             ? '' // dynamic styles below
                             : 'border-zinc-800 hover:border-zinc-600 bg-[#18181A]'}
-                          ${isLocked && pick?.pick.teamId !== (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
+                          ${isLocked && pick?.pick?.teamId !== (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
                         `}
-                        style={pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
+                        style={pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -803,7 +803,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                           </div>
                           {(selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)) && <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">USED</span>}
                         </div>
-                        {pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) && (() => {
+                        {pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) && (() => {
                           const style = getPickStyle(pick, isLocked);
                           if (!style) return null;
                           const IconComponent = style.icon === 'Lock' ? Lock : (style.icon === 'XCircle' ? XCircle : CheckCircle);
@@ -818,12 +818,12 @@ onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)}
 disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id))}
 
                         className={`p-3 rounded-lg border text-left flex items-center justify-between transition-colors
-                          ${pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)
+                          ${pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)
                             ? '' // dynamic styles below
                             : 'border-zinc-800 hover:border-zinc-600 bg-[#18181A]'}
-                          ${isLocked && pick?.pick.teamId !== (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
+                          ${isLocked && pick?.pick?.teamId !== (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
                         `}
-                        style={pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
+                        style={pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -852,7 +852,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                           </div>
                           {(selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)) && <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">USED</span>}
                         </div>
-                        {pick?.pick.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) && (() => {
+                        {pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) && (() => {
                           const style = getPickStyle(pick, isLocked);
                           if (!style) return null;
                           const IconComponent = style.icon === 'Lock' ? Lock : (style.icon === 'XCircle' ? XCircle : CheckCircle);
@@ -1088,6 +1088,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                       <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
                           {participant.picks && participant.picks.filter((p: any) => p.week === selectedWeek).map((pick: any) => {
+                            if (!pick?.pick?.teamId) return null;
                             const matchup = matchups.find((m: any) => m.id === pick.matchupId);
                             if (!matchup) return null;
                             

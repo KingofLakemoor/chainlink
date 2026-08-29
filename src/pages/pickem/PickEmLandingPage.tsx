@@ -436,7 +436,7 @@ export default function PickEmLandingPage() {
                         <div className="flex flex-wrap gap-2 mb-2">
                            {Array.from({ length: allowedPicks }).map((_, i) => {
                              const pick = details.picks[i];
-                             if (!pick) {
+                             if (!pick || !pick.pick?.teamId) {
                                return (
                                  <div key={`empty-${i}`} className="w-10 h-10 rounded-full border-2 border-zinc-800 bg-[#121212] flex-shrink-0" />
                                );

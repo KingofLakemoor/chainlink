@@ -30,14 +30,53 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
 
     const matchCode = (cleanCode: string) => {
       const trimmed = cleanCode.trim().toLowerCase();
-      return campaigns.find(c => !c.isArchived && c.joinCode && c.joinCode.trim().toLowerCase() === trimmed);
+      return campaigns.find(c => !c.isArchived && (
+        (c.joinCode && c.joinCode.trim().toLowerCase() === trimmed) ||
+        c.id.toLowerCase() === trimmed
+      ));
     };
 
     expect(matchCode('yesday2026')?.id).toBe('yes-day-1');
     expect(matchCode('  YESDAY2026  ')?.id).toBe('yes-day-1');
     expect(matchCode('YesDay2026')?.id).toBe('yes-day-1');
     expect(matchCode('secret123')?.id).toBe('other-camp');
+    expect(matchCode('yes-day-1')?.id).toBe('yes-day-1');
     expect(matchCode('invalidcode')).toBeUndefined();
+  });
+
+  it('correctly resolves direct campaign landing view state when user has not joined', () => {
+    const campaigns = [
+      { id: 'camp1', name: 'Private League 1', joinCode: 'CODE123', isArchived: false },
+      { id: 'camp2', name: 'Public League 2', isArchived: false }
+    ];
+    const joinedIds = new Set(['camp2']);
+
+    const resolveDirectLandingState = (urlCode: string) => {
+      const clean = urlCode.trim().toLowerCase();
+      const matched = campaigns.find(c => !c.isArchived && (
+        (c.joinCode && c.joinCode.trim().toLowerCase() === clean) ||
+        c.id.toLowerCase() === clean
+      ));
+
+      if (!matched) return { action: 'SHOW_ERROR', code: urlCode };
+      if (joinedIds.has(matched.id)) return { action: 'REDIRECT_CAMPAIGN', campaignId: matched.id };
+      return { action: 'SHOW_DIRECT_LANDING', campaign: matched };
+    };
+
+    expect(resolveDirectLandingState('CODE123')).toEqual({
+      action: 'SHOW_DIRECT_LANDING',
+      campaign: campaigns[0]
+    });
+
+    expect(resolveDirectLandingState('camp2')).toEqual({
+      action: 'REDIRECT_CAMPAIGN',
+      campaignId: 'camp2'
+    });
+
+    expect(resolveDirectLandingState('NONEXISTENT')).toEqual({
+      action: 'SHOW_ERROR',
+      code: 'NONEXISTENT'
+    });
   });
 
   it('enforces strictly Moneyline picks for YES Day Walk for Autism 2026 campaign', () => {

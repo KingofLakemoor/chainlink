@@ -265,6 +265,22 @@ export default function PickEmPage() {
 
       setLeaderboardLoading(true);
       try {
+        // Fetch all joined participants for this campaign so everyone shows on the leaderboard and counts towards prize pot
+        const partQuery = query(
+          collection(db, 'pickemParticipants'),
+          where('campaignId', '==', selectedCampaign.id),
+          limit(3000)
+        );
+        const partSnap = await getDocs(partQuery);
+
+        const participantStats: Record<string, { wins: number, losses: number, pushes: number, points: number, picks: any[] }> = {};
+        partSnap.docs.forEach(d => {
+          const data = d.data();
+          if (data.participantId) {
+            participantStats[data.participantId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
+          }
+        });
+
         // Limited to recent picks to prevent O(N) client-side memory lockups
         const pQuery = query(
           collection(db, 'pickemPicks'),
@@ -272,8 +288,6 @@ export default function PickEmPage() {
           limit(3000)
         );
         const pSnap = await getDocs(pQuery);
-
-        const participantStats: Record<string, { wins: number, losses: number, pushes: number, points: number, picks: any[] }> = {};
 
         pSnap.docs.forEach(d => {
           const pick = { id: d.id, ...d.data() } as any;

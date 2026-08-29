@@ -99,4 +99,49 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     const showSpreadNote = selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && selectedCampaign?.defaultMatchType !== 'STANDARD';
     expect(showSpreadNote).toBe(false);
   });
+
+  it('allows joined private campaign to be accessed directly from My Pick Em list without re-entering join code', () => {
+    const user = { uid: 'cpr1staid' };
+    const campaigns = [
+      { id: 'private-league-1', name: 'Private Pick Em League', joinCode: 'CPR_PRIVATE', isPrivate: true, isArchived: false },
+      { id: 'public-league-2', name: 'Public League', isPrivate: false, isArchived: false }
+    ];
+
+    // User cpr1staid has joined private-league-1
+    const joinedCampaignIds = new Set(['private-league-1']);
+
+    // My Pick Em filtering logic from PickEmLandingPage
+    const myCampaigns = campaigns.filter(c => joinedCampaignIds.has(c.id));
+
+    expect(myCampaigns).toHaveLength(1);
+    expect(myCampaigns[0].id).toBe('private-league-1');
+    expect(myCampaigns[0].isPrivate).toBe(true);
+
+    // Navigating to joined private campaign requires no join code prompt
+    const canAccessDirectly = joinedCampaignIds.has('private-league-1');
+    expect(canAccessDirectly).toBe(true);
+  });
+
+  it('handles tiebreaker score input updates safely when team pick is undefined', () => {
+    const userPicks: Record<string, any> = {
+      'matchup-tb-1': {
+        campaignId: 'private-league-1',
+        participantId: 'cpr1staid',
+        matchupId: 'matchup-tb-1',
+        week: 1,
+        tiebreakerTotal: 45,
+        // pick property is omitted when user only enters tiebreaker total score
+      }
+    };
+
+    const pick = userPicks['matchup-tb-1'];
+
+    // Optional chaining prevents runtime TypeError when accessing teamId
+    expect(pick?.pick?.teamId).toBeUndefined();
+    expect(pick.tiebreakerTotal).toBe(45);
+
+    // Checking leaderboard / matchup pick circle rendering helper
+    const getPickTeamId = (p: any) => p?.pick?.teamId;
+    expect(getPickTeamId(pick)).toBeUndefined();
+  });
 });

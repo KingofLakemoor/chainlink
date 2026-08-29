@@ -511,6 +511,9 @@ export default function Link4Page() {
     if (allowedSports.length > 0 && !allowedSports.includes(m.league)) return false;
     const statusStr = String(m.status || '');
     if (statusStr !== 'STATUS_SCHEDULED' && statusStr !== 'SCHEDULED') return false;
+    
+    const now = Date.now();
+    if (m.startTime && m.startTime <= now) return false;
 
     if (nextPickIndex > 0 && picks[nextPickIndex - 1]) {
       const prevPick = picks[nextPickIndex - 1];
@@ -563,7 +566,7 @@ export default function Link4Page() {
             Link4
           </h1>
           <p className="text-zinc-400 text-lg">
-            Connect four to win! Play Link4 and earn links. Entry: {segmentCost} links. You don't have to make all 4 picks at once—submit them one by one as games become available!
+            Connect four to win! Play Link4 and earn links. Entry: {segmentCost} links. You don't have to make all 4 picks at once. Submit them one by one as games become available!
             {theme.sponsorName && (
               <span className="block mt-1 text-sm">
                 Presented by{' '}
@@ -786,6 +789,10 @@ export default function Link4Page() {
                           Cancel
                         </button>
                       </div>
+                      <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500 text-sm flex items-start gap-2">
+                        <span className="text-lg leading-none">⚠️</span>
+                        <span><strong>Important:</strong> Games must be picked in chronological order. Selecting a later game will lock out any earlier games for your remaining picks.</span>
+                      </div>
 
                       <div className="grid lg:grid-cols-2 gap-5">
                         {availableMatchups.map((m) => (
@@ -831,7 +838,13 @@ export default function Link4Page() {
           {unsavedPicksCount > 0 && !hasLoss && (
             <div className="mt-8 p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-center">
               <h3 className="text-lg font-bold text-white mb-2">Ready to Submit?</h3>
-              <p className="text-zinc-400 mb-4">Once you submit, your pick is locked for this Link4 segment.</p>
+              <p className="text-zinc-400 mb-2">Once you submit, your pick is locked for this Link4 segment.</p>
+              {picks.filter(p => p !== null).length < 4 && (
+                <div className="mb-4 text-amber-500 text-sm bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 inline-block text-left">
+                  <strong>⚠️ Incomplete Card:</strong> You have only selected {picks.filter(p => p !== null).length} picks. You must complete all 4 picks before the segment ends to be eligible for payout.
+                </div>
+              )}
+              <div className="mt-1" />
               <button
                 onClick={handleSubmitPicks}
                 disabled={isSubmitting}

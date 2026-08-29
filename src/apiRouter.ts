@@ -1074,8 +1074,22 @@ apiRouter.post("/link4/submit", async (req, res) => {
            }
         }
 
-        // Only store non-null picks
         const sanitizedPicks = picks.filter((p: any) => p !== null);
+        
+        // Validate newly added picks
+        for (let i = currentPicks.length; i < sanitizedPicks.length; i++) {
+            const newPick = sanitizedPicks[i];
+            const mId = newPick.id.replace('pick-', '');
+            const matchupRef = adminDb.collection('link4Matchups').doc(`${segmentId}_${mId}`);
+            const mDoc = await transaction.get(matchupRef);
+            if (!mDoc.exists) throw new Error("Invalid matchup selected.");
+            const mData = mDoc.data();
+            if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
+            if (mData.startTime && mData.startTime <= Date.now()) throw new Error("Matchup is locked.");
+        }
+        if (sanitizedPicks.length > 4) {
+            throw new Error("Invalid submission. Cannot exceed 4 picks.");
+        }
 
         transaction.update(pickRef, {
           picks: sanitizedPicks,
@@ -1084,11 +1098,23 @@ apiRouter.post("/link4/submit", async (req, res) => {
 
       } else {
         // First pick, deduct fee
+        const sanitizedPicks = picks.filter((p: any) => p !== null);
+        // Validate newly added picks
+        for (let i = 0; i < sanitizedPicks.length; i++) {
+            const newPick = sanitizedPicks[i];
+            const mId = newPick.id.replace('pick-', '');
+            const matchupRef = adminDb.collection('link4Matchups').doc(`${segmentId}_${mId}`);
+            const mDoc = await transaction.get(matchupRef);
+            if (!mDoc.exists) throw new Error("Invalid matchup selected.");
+            const mData = mDoc.data();
+            if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
+            if (mData.startTime && mData.startTime <= Date.now()) throw new Error("Matchup is locked.");
+        }
+
         if (currentLinks < cost) {
           throw new Error(`Not enough links. Link4 requires ${cost} links to enter.`);
         }
 
-        const sanitizedPicks = picks.filter((p: any) => p !== null);
         if (sanitizedPicks.length === 0) {
             throw new Error("Must provide at least one pick to enter.");
         }

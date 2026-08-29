@@ -888,14 +888,20 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                              min="1"
                              placeholder="Points"
                              value={pick.confidence || ''}
-                             onChange={async (e) => {
+                             onChange={(e) => {
                                const conf = parseInt(e.target.value) || 1;
                                if (!userPicks[m.id]?.id) return;
-                               await updateDoc(doc(db, 'pickemPicks', userPicks[m.id].id), { confidence: conf, pointsEarned: conf });
+                               const pickIdToUpdate = userPicks[m.id].id;
                                setUserPicks(prev => ({
                                  ...prev,
                                  [m.id]: { ...prev[m.id], confidence: conf }
                                }));
+                               
+                               updateDoc(doc(db, 'pickemPicks', pickIdToUpdate), { confidence: conf, pointsEarned: conf })
+                                 .catch((err) => {
+                                   console.error("Failed to update confidence", err);
+                                   alert("Failed to save confidence points: " + (err.message || String(err)));
+                                 });
                              }}
                              disabled={isLocked}
                              className="w-full bg-[#121212] border border-zinc-700 rounded-lg px-4 py-2 text-white disabled:opacity-50"

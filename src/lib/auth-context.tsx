@@ -115,8 +115,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (document.exists()) {
         const data = document.data();
 
-        const mergedProfile = { id: document.id, ...data };
-        setProfile(mergedProfile);
+        setProfile((prevProfile: any) => {
+          const mergedProfile = { id: document.id, ...data };
+          // Preserve optimistic needsOnboarding completion if snapshot is lagging
+          if (prevProfile && prevProfile.needsOnboarding === false && data.needsOnboarding === true) {
+            return { ...mergedProfile, needsOnboarding: false };
+          }
+          return mergedProfile;
+        });
       } else if (import.meta.env.DEV && user.uid === 'mock-user-123') {
         // preserve the mock profile
       } else {

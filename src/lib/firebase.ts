@@ -153,6 +153,16 @@ export const ensureUserProfile = async (user: User, username?: string, referrerI
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+  } else if (username) {
+    const sanitized = username.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+    if (sanitized.length >= 3) {
+      await updateDoc(userRef, {
+        username: sanitized,
+        usernameLower: sanitized.toLowerCase(),
+        needsOnboarding: false,
+        updatedAt: Date.now()
+      });
+    }
   }
 };
 

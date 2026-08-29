@@ -383,7 +383,12 @@ export default function PickEmPage() {
   }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups]);
 
   
-  const handleTiebreakerChange = async (matchup: any, rawVal: string) => {
+  const userPicksRef = useRef<Record<string, any>>({});
+  userPicksRef.current = userPicks;
+
+  const tiebreakerTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  const handleTiebreakerChange = (matchup: any, rawVal: string) => {
     if (!user || !selectedCampaign) return;
 
     const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime);
@@ -394,67 +399,63 @@ export default function PickEmPage() {
 
     const trimmed = rawVal.trim();
     const total = trimmed === '' ? null : parseInt(trimmed, 10);
-    if (total !== null && isNaN(total)) return;
+    if (total !== null && (isNaN(total) || total < 0)) return;
 
-    const pickId = userPicks[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
-    const pickRef = doc(db, 'pickemPicks', pickId);
+    const pickId = userPicksRef.current[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
+    const existingPick = userPicksRef.current[matchup.id];
 
-    const existingPick = userPicks[matchup.id];
-
-    const updatedData: any = {
+    const updatedPick = {
+      ...existingPick,
+      id: pickId,
       campaignId: selectedCampaign.id,
       participantId: user.uid,
       matchupId: matchup.id,
       week: selectedWeek,
+      tiebreakerTotal: total,
+      status: existingPick?.status || 'PENDING',
+      createdAt: existingPick?.createdAt || Date.now(),
       updatedAt: Date.now()
     };
 
-    if (total !== null) {
-      updatedData.tiebreakerTotal = total;
-    } else {
-      updatedData.tiebreakerTotal = null;
-    }
-
-    if (existingPick?.createdAt) {
-      updatedData.createdAt = existingPick.createdAt;
-    } else {
-      updatedData.createdAt = Date.now();
-    }
-
-    if (existingPick?.status) {
-      updatedData.status = existingPick.status;
-    } else {
-      updatedData.status = 'PENDING';
-    }
-
     if (existingPick?.pick) {
-      updatedData.pick = existingPick.pick;
+      updatedPick.pick = existingPick.pick;
     }
 
     setUserPicks(prev => ({
       ...prev,
-      [matchup.id]: {
-        ...prev[matchup.id],
-        id: pickId,
-        ...updatedData
-      }
+      [matchup.id]: updatedPick
     }));
 
-    try {
-      await setDoc(pickRef, updatedData, { merge: true });
-    } catch (e: any) {
-      console.error("Failed to update tiebreaker", e);
-      alert("Failed to save tiebreaker score: " + (e.message || String(e)));
-      if (existingPick) {
-        setUserPicks(prev => ({ ...prev, [matchup.id]: existingPick }));
-      } else {
-        setUserPicks(prev => {
-          const next = { ...prev };
-          delete next[matchup.id];
-          return next;
-        });
-      }
+    if (tiebreakerTimeoutRef.current[matchup.id]) {
+      clearTimeout(tiebreakerTimeoutRef.current[matchup.id]);
     }
+
+    tiebreakerTimeoutRef.current[matchup.id] = setTimeout(async () => {
+      try {
+        const currentRefPick = userPicksRef.current[matchup.id];
+        const pickRef = doc(db, 'pickemPicks', pickId);
+
+        const payload: any = {
+          campaignId: selectedCampaign.id,
+          participantId: user.uid,
+          matchupId: matchup.id,
+          week: selectedWeek,
+          tiebreakerTotal: total,
+          status: currentRefPick?.status || 'PENDING',
+          createdAt: currentRefPick?.createdAt || Date.now(),
+          updatedAt: Date.now()
+        };
+
+        if (currentRefPick?.pick) {
+          payload.pick = currentRefPick.pick;
+        }
+
+        await setDoc(pickRef, payload, { merge: true });
+      } catch (e: any) {
+        console.error("Failed to update tiebreaker", e);
+        alert("Failed to save tiebreaker score: " + (e.message || String(e)));
+      }
+    }, 400);
   };
 
   const handleClearPick = async (matchup: any) => {

@@ -74,6 +74,9 @@ export default function PickEmLandingPage() {
               navigate(`/pickem/${matched.id}`, { replace: true });
               return;
             } else {
+              if (matched.joinCode) {
+                localStorage.setItem('chainlink_join_code', matched.joinCode.trim());
+              }
               setDirectCampaign(matched);
               setLoading(false);
               return;

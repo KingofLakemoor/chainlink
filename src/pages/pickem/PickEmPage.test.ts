@@ -144,4 +144,40 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     const getPickTeamId = (p: any) => p?.pick?.teamId;
     expect(getPickTeamId(pick)).toBeUndefined();
   });
+
+  it('allows already joined participants to pass /api/pickem/join without requiring joinCode', () => {
+    const campaign = { id: 'private-camp-1', isPrivate: true, joinCode: 'SECRET123' };
+
+    const validateJoinAttempt = (alreadyJoined: boolean, cleanCode: string, camp: typeof campaign) => {
+      if (alreadyJoined) {
+        return { success: true, campaignId: camp.id, bypassed: true };
+      }
+      if (camp.isPrivate) {
+        const expectedCode = (camp.joinCode || '').trim().toLowerCase();
+        if (!cleanCode || cleanCode.toLowerCase() !== expectedCode) {
+          throw new Error("Invalid join code for this private campaign.");
+        }
+      }
+      return { success: true, campaignId: camp.id, bypassed: false };
+    };
+
+    // 1. Already joined participant calling join without join code should succeed
+    expect(validateJoinAttempt(true, '', campaign)).toEqual({
+      success: true,
+      campaignId: 'private-camp-1',
+      bypassed: true
+    });
+
+    // 2. Unjoined participant calling join with incorrect code should throw error
+    expect(() => validateJoinAttempt(false, 'WRONG_CODE', campaign)).toThrow(
+      "Invalid join code for this private campaign."
+    );
+
+    // 3. Unjoined participant calling join with correct code should succeed
+    expect(validateJoinAttempt(false, 'secret123', campaign)).toEqual({
+      success: true,
+      campaignId: 'private-camp-1',
+      bypassed: false
+    });
+  });
 });

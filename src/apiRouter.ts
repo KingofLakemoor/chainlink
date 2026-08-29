@@ -669,12 +669,13 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
     const cleanJoinCode = (joinCode || '').trim();
 
     if (!campaignId && cleanJoinCode) {
-      const matchSnap = await adminDb.collection('pickemCampaigns')
-        
-        .get();
+      const matchSnap = await adminDb.collection('pickemCampaigns').get();
       const matched = matchSnap.docs.find(d => {
         const data = d.data();
-        return !data.isArchived && data.joinCode && data.joinCode.trim().toLowerCase() === cleanJoinCode.toLowerCase();
+        return !data.isArchived && (
+          (data.joinCode && data.joinCode.trim().toLowerCase() === cleanJoinCode.toLowerCase()) ||
+          d.id.toLowerCase() === cleanJoinCode.toLowerCase()
+        );
       });
       if (matched) {
         campaignId = matched.id;
@@ -688,6 +689,14 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
     let joinedCampaignId = campaignId;
 
     await adminDb.runTransaction(async (transaction: any) => {
+      const pairId = `${campaignId}_${uid}`;
+      const participantRef = adminDb.collection('pickemParticipants').doc(pairId);
+      const participantDoc = await transaction.get(participantRef);
+
+      if (participantDoc.exists) {
+        return; // Already joined - skip join code validation & fee checks
+      }
+
       const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
       const campaignDoc = await transaction.get(campaignRef);
 
@@ -695,17 +704,10 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
       const campaignData = campaignDoc.data();
 
       if (campaignData.isPrivate) {
-        if (!cleanJoinCode || cleanJoinCode.toLowerCase() !== (campaignData.joinCode || '').trim().toLowerCase()) {
+        const expectedCode = (campaignData.joinCode || '').trim().toLowerCase();
+        if (!cleanJoinCode || cleanJoinCode.toLowerCase() !== expectedCode) {
           throw new Error("Invalid join code for this private campaign.");
         }
-      }
-
-      const pairId = `${campaignId}_${uid}`;
-      const participantRef = adminDb.collection('pickemParticipants').doc(pairId);
-      const participantDoc = await transaction.get(participantRef);
-
-      if (participantDoc.exists) {
-        return; // Already joined
       }
 
       const userRef = adminDb.collection('users').doc(uid);

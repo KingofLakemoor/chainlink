@@ -2,7 +2,7 @@ import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { CharityProgressTracker } from '../../components/pickem/CharityProgressTracker';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
@@ -46,6 +46,7 @@ export default function PickEmPage() {
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [isParticipant, setIsParticipant] = useState(false);
   const [joining, setJoining] = useState(false);
+  const autoJoinAttempted = useRef<Record<string, boolean>>({});
   const [isEliminated, setIsEliminated] = useState(false);
   const [usedTeams, setUsedTeams] = useState<Set<string>>(new Set());
   const [charityProgress, setCharityProgress] = useState<{ pot: number } | null>(null);
@@ -138,7 +139,8 @@ export default function PickEmPage() {
     if (!user || !selectedCampaign) return;
     setJoining(true);
     try {
-      const urlCode = searchParams.get('joinCode') || searchParams.get('code') || selectedCampaign.joinCode || '';
+      const storedCode = localStorage.getItem('chainlink_join_code') || '';
+      const urlCode = searchParams.get('joinCode') || searchParams.get('code') || storedCode || selectedCampaign.joinCode || '';
       const token = await user.getIdToken();
       const res = await fetch('/api/pickem/join', {
         method: 'POST',
@@ -152,6 +154,7 @@ export default function PickEmPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to join campaign');
       }
+      localStorage.removeItem('chainlink_join_code');
       setIsParticipant(true);
     } catch (e: any) {
       console.error(e);
@@ -160,6 +163,22 @@ export default function PickEmPage() {
       setJoining(false);
     }
   };
+
+  useEffect(() => {
+    if (user && selectedCampaign && !isParticipant && !joining && !loading) {
+      const campId = selectedCampaign.id;
+      if (autoJoinAttempted.current[campId]) return;
+
+      const storedCode = localStorage.getItem('chainlink_join_code') || '';
+      const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || '').trim();
+
+      // Auto-join if user explicitly came in with a join code (URL or localStorage) or if campaign has a joinCode
+      if (urlCode || selectedCampaign.joinCode) {
+        autoJoinAttempted.current[campId] = true;
+        handleJoinCampaign();
+      }
+    }
+  }, [user, selectedCampaign, isParticipant, loading]);
 
   const fetchMatchupsAndPicks = async (campaignId: string, week: number) => {
     setMatchupsLoading(true);

@@ -175,7 +175,14 @@ function Landing() {
   }, [referrerId]);
 
   if (loading) return null;
-  if (user) return <Navigate to="/" replace />;
+  if (user) {
+    const redirectUrl = localStorage.getItem('chainlink_redirect_after_login');
+    if (redirectUrl) {
+      localStorage.removeItem('chainlink_redirect_after_login');
+      return <Navigate to={redirectUrl} replace />;
+    }
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -488,9 +495,20 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 
 function PrivateRoute({ children, allowOnboarding = false }: { children: React.ReactNode, allowOnboarding?: boolean }) {
   const { user, profile, loading } = useAuth();
+  const location = useLocation();
+
   if (loading) return null;
 
   if (!user) {
+    const targetUrl = location.pathname + location.search;
+    if (targetUrl && targetUrl !== '/login') {
+      localStorage.setItem('chainlink_redirect_after_login', targetUrl);
+    }
+    const params = new URLSearchParams(location.search);
+    const joinCode = params.get('joinCode') || params.get('code');
+    if (joinCode) {
+      localStorage.setItem('chainlink_join_code', joinCode.trim());
+    }
     return <Navigate to="/login" replace />;
   }
 
@@ -526,6 +544,10 @@ function GlobalEffects() {
       const refParam = params.get('ref');
       if (refParam) {
         localStorage.setItem('chainlink_referrer_id', refParam);
+      }
+      const joinCode = params.get('joinCode') || params.get('code');
+      if (joinCode) {
+        localStorage.setItem('chainlink_join_code', joinCode.trim());
       }
     }
   }, []);

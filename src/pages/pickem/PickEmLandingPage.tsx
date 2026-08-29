@@ -28,7 +28,8 @@ export default function PickEmLandingPage() {
     const fetchData = async () => {
       if (!user) return;
       
-      const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || '').trim();
+      const storedCode = localStorage.getItem('chainlink_join_code') || '';
+      const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || '').trim();
 
       try {
         // Fetch participants first to know what they joined
@@ -46,12 +47,24 @@ export default function PickEmLandingPage() {
         if (urlCode) {
           const matched = allUnarchivedCamps.find(c => c.joinCode && c.joinCode.trim().toLowerCase() === urlCode.toLowerCase());
           if (matched) {
+            localStorage.removeItem('chainlink_join_code');
             navigate(`/pickem/${matched.id}?joinCode=${encodeURIComponent(urlCode)}`, { replace: true });
             return;
           } else {
-            if (activeTab !== 'join') {
-              setActiveTab('join');
-              setJoinCode(urlCode);
+            // Also try fetching private/unarchived campaigns directly from Firestore matching joinCode
+            const matchedDoc = campSnap.docs.find(d => {
+              const data = d.data();
+              return !data.isArchived && data.joinCode && data.joinCode.trim().toLowerCase() === urlCode.toLowerCase();
+            });
+            if (matchedDoc) {
+              localStorage.removeItem('chainlink_join_code');
+              navigate(`/pickem/${matchedDoc.id}?joinCode=${encodeURIComponent(urlCode)}`, { replace: true });
+              return;
+            } else {
+              if (activeTab !== 'join') {
+                setActiveTab('join');
+                setJoinCode(urlCode);
+              }
             }
           }
         }
@@ -142,6 +155,7 @@ export default function PickEmLandingPage() {
       }
       const joinedId = data.campaignId || targetCampaignId;
       if (joinedId) {
+        localStorage.removeItem('chainlink_join_code');
         setJoinedCampaignIds(prev => new Set(prev).add(joinedId));
         navigate(`/pickem/${joinedId}`);
         return;

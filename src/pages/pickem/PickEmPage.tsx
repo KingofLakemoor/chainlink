@@ -491,6 +491,11 @@ export default function PickEmPage() {
       const pickRef = doc(db, 'pickemPicks', pickId);
 
       const existingPick = userPicks[matchup.id];
+
+      if (tiebreakerTimeoutRef.current[matchup.id]) {
+        clearTimeout(tiebreakerTimeoutRef.current[matchup.id]);
+      }
+
       if (existingPick?.pick?.teamId === teamId) {
         // Unselect if clicking the same team
         await handleClearPick(matchup);
@@ -498,8 +503,9 @@ export default function PickEmPage() {
       }
 
       // Check pick limit before adding a new pick (skip if replacing existing pick in same matchup)
-      if (!existingPick && selectedCampaign.pickLimit > 0) {
-        const currentPicksCount = Object.keys(userPicks).length;
+      const isNewTeamPick = !existingPick?.pick?.teamId;
+      if (isNewTeamPick && selectedCampaign.pickLimit > 0) {
+        const currentPicksCount = Object.values(userPicks).filter((p: any) => p.pick?.teamId).length;
         if (currentPicksCount >= selectedCampaign.pickLimit) {
           alert(`You have reached the maximum of ${selectedCampaign.pickLimit} picks for this week.`);
           return;

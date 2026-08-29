@@ -25,10 +25,16 @@ export default function OnboardingPage() {
     }
   }, [user, profile]);
 
-  // If they somehow get here without needing onboarding, redirect to dashboard
+  // If they somehow get here without needing onboarding, redirect to dashboard or target page
   React.useEffect(() => {
     if (profile && profile.needsOnboarding === false) {
-      navigate('/', { replace: true });
+      const redirectUrl = localStorage.getItem('chainlink_redirect_after_login');
+      if (redirectUrl) {
+        localStorage.removeItem('chainlink_redirect_after_login');
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [profile, navigate]);
 
@@ -113,8 +119,14 @@ export default function OnboardingPage() {
 
       setSuccess('Username successfully set!');
 
-      // Navigate immediately to dashboard without delayed timeouts
-      navigate('/', { replace: true });
+      // Navigate immediately to target page or dashboard without delayed timeouts
+      const redirectUrl = localStorage.getItem('chainlink_redirect_after_login');
+      if (redirectUrl) {
+        localStorage.removeItem('chainlink_redirect_after_login');
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
 
     } catch (err: any) {
       setError(err.message || 'Failed to update username.');

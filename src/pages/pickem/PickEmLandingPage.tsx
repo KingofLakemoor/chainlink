@@ -4,7 +4,7 @@ import { collection, getDocs, query, where, setDoc, doc, getDoc } from 'firebase
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink, ArrowLeft } from 'lucide-react';
 import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { cn } from '../../lib/utils';
@@ -21,6 +21,10 @@ export default function PickEmLandingPage() {
   const [loading, setLoading] = useState(true);
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState('');
+
+  const [directCampaign, setDirectCampaign] = useState<any>(null);
+  const [directJoining, setDirectJoining] = useState(false);
+  const [directJoinError, setDirectJoinError] = useState('');
   
   const [campaignDetails, setCampaignDetails] = useState<Record<string, { matchups: any[], picks: any[] }>>({});
 
@@ -45,27 +49,39 @@ export default function PickEmLandingPage() {
           .filter(c => !c.isArchived);
 
         if (urlCode) {
-          const matched = allUnarchivedCamps.find(c => c.joinCode && c.joinCode.trim().toLowerCase() === urlCode.toLowerCase());
-          if (matched) {
-            localStorage.removeItem('chainlink_join_code');
-            navigate(`/pickem/${matched.id}?joinCode=${encodeURIComponent(urlCode)}`, { replace: true });
-            return;
-          } else {
-            // Also try fetching private/unarchived campaigns directly from Firestore matching joinCode
+          let matched = allUnarchivedCamps.find(c =>
+            (c.joinCode && c.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
+            c.id === urlCode
+          );
+
+          if (!matched) {
+            // Also try searching Firestore docs for unarchived matching joinCode or id
             const matchedDoc = campSnap.docs.find(d => {
               const data = d.data();
-              return !data.isArchived && data.joinCode && data.joinCode.trim().toLowerCase() === urlCode.toLowerCase();
+              return !data.isArchived && (
+                (data.joinCode && data.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
+                d.id === urlCode
+              );
             });
             if (matchedDoc) {
+              matched = { id: matchedDoc.id, ...matchedDoc.data() as any };
+            }
+          }
+
+          if (matched) {
+            if (joinedIds.has(matched.id)) {
               localStorage.removeItem('chainlink_join_code');
-              navigate(`/pickem/${matchedDoc.id}?joinCode=${encodeURIComponent(urlCode)}`, { replace: true });
+              navigate(`/pickem/${matched.id}`, { replace: true });
               return;
             } else {
-              if (activeTab !== 'join') {
-                setActiveTab('join');
-                setJoinCode(urlCode);
-              }
+              setDirectCampaign(matched);
+              setLoading(false);
+              return;
             }
+          } else {
+            setActiveTab('join');
+            setJoinCode(urlCode);
+            setJoinError(`No active campaign found for code: "${urlCode}"`);
           }
         }
 
@@ -107,6 +123,40 @@ export default function PickEmLandingPage() {
     };
     fetchData();
   }, [user]);
+
+  const handleJoinDirectCampaign = async (camp: any) => {
+    if (!user) return;
+    setDirectJoining(true);
+    setDirectJoinError('');
+    try {
+      const storedCode = localStorage.getItem('chainlink_join_code') || '';
+      const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || camp.joinCode || '').trim();
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/pickem/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          campaignId: camp.id,
+          ...(urlCode ? { joinCode: urlCode } : {})
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to join campaign');
+      }
+      localStorage.removeItem('chainlink_join_code');
+      setJoinedCampaignIds(prev => new Set(prev).add(camp.id));
+      navigate(`/pickem/${camp.id}`);
+    } catch (err: any) {
+      console.error(err);
+      setDirectJoinError(err.message || 'Failed to join campaign.');
+    } finally {
+      setDirectJoining(false);
+    }
+  };
 
   const handleJoinWithCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,6 +250,113 @@ export default function PickEmLandingPage() {
 
   if (loading) {
     return <div className="p-8 text-center text-zinc-500">Loading Pick'em...</div>;
+  }
+
+  if (directCampaign) {
+    const isCharity = directCampaign.isCharity || directCampaign.name === 'YES Day Walk for Autism 2026';
+
+    return (
+      <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto w-full pt-20 md:pt-8">
+        <div className="mb-6 flex justify-between items-center">
+          <button
+            onClick={() => {
+              setDirectCampaign(null);
+              setSearchParams({}, { replace: true });
+            }}
+            className="text-zinc-400 hover:text-white text-sm flex items-center gap-2 transition-colors font-medium bg-[#121212] border border-zinc-800 px-4 py-2 rounded-lg"
+          >
+            <ArrowLeft className="w-4 h-4" /> Browse All Pick 'Em Leagues
+          </button>
+        </div>
+
+        <div className="text-center mb-8">
+          {directCampaign.theme?.logoUrl ? (
+            <FirebaseImage
+              src={directCampaign.theme.logoUrl}
+              alt={directCampaign.theme?.title || directCampaign.name}
+              className="w-20 h-20 object-contain mx-auto mb-4 rounded-2xl bg-zinc-900 p-2 border border-zinc-800 shadow-xl"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl bg-[#22c55e]/10 border border-[#22c55e]/20 mx-auto mb-4 flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.15)]">
+              <Layers className="w-10 h-10 text-[#22c55e]" />
+            </div>
+          )}
+          <h1 className="text-3xl md:text-5xl font-display font-black text-white mb-3 tracking-tight">
+            {directCampaign.theme?.title || directCampaign.name}
+          </h1>
+          <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
+            {directCampaign.theme?.subtitle || "You've been invited to join this Pick 'Em campaign! Review details below and click Join to get started."}
+          </p>
+        </div>
+
+        {isCharity && <CharityBanner />}
+
+        <div className="bg-[#121212] border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="p-6 md:p-8 border-b border-zinc-800/80 bg-[#161618] flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#22c55e] bg-[#22c55e]/10 px-3 py-1 rounded-full border border-[#22c55e]/20">
+                {directCampaign.isPrivate ? 'Private Campaign' : 'Public Campaign'}
+              </span>
+              <h3 className="text-xl md:text-2xl font-bold text-white mt-2">
+                League Details
+              </h3>
+            </div>
+            {directCampaign.leagues && directCampaign.leagues.length > 0 && (
+              <div className="text-right">
+                <span className="text-xs text-zinc-400 block uppercase tracking-wider font-semibold">Leagues</span>
+                <span className="text-white font-medium text-base">{directCampaign.leagues.join(', ')}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 md:p-8 space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-[#18181A] border border-zinc-800/60 p-4 rounded-xl">
+                <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Match Type</span>
+                <span className="text-white font-medium text-base">
+                  {directCampaign.defaultMatchType === 'SPREAD' ? 'Against the Spread' : directCampaign.defaultMatchType === 'BOTH' ? 'Moneyline / ATS' : 'Moneyline (Straight Up)'}
+                </span>
+              </div>
+              <div className="bg-[#18181A] border border-zinc-800/60 p-4 rounded-xl">
+                <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Weekly Picks</span>
+                <span className="text-white font-medium text-base">
+                  {directCampaign.pickLimit > 0 ? `${directCampaign.pickLimit} per week` : 'All Games'}
+                </span>
+              </div>
+              <div className="bg-[#18181A] border border-zinc-800/60 p-4 rounded-xl">
+                <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Duration</span>
+                <span className="text-white font-medium text-base">
+                  {directCampaign.hasWeekZero ? (directCampaign.totalWeeks || 1) + 1 : (directCampaign.totalWeeks || 1)} Weeks
+                </span>
+              </div>
+              <div className="bg-[#18181A] border border-zinc-800/60 p-4 rounded-xl">
+                <span className="text-zinc-500 block text-xs uppercase tracking-wider font-bold mb-1">Entry Fee</span>
+                <span className="text-white font-medium text-base">
+                  {directCampaign.entryFee > 0 ? `${directCampaign.entryFee} Links` : 'Free'}
+                </span>
+              </div>
+            </div>
+
+            {directJoinError && (
+              <div className="p-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl">
+                {directJoinError}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-zinc-800/80">
+              <Button
+                size="lg"
+                className="flex-1 h-14 text-lg font-bold shadow-[0_0_25px_rgba(34,197,94,0.25)]"
+                onClick={() => handleJoinDirectCampaign(directCampaign)}
+                disabled={directJoining}
+              >
+                {directJoining ? 'Joining Campaign...' : `Join ${directCampaign.theme?.title || directCampaign.name} Now`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

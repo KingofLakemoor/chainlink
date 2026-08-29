@@ -345,7 +345,7 @@ export default function PickEmPage() {
                 // For simplicity, find the closest tiebreaker distance among all their picks that were tiebreakers
                 participantStats[uid].picks.forEach(p => {
                     const m = matchups.find(m => m.id === p.matchupId);
-                    if (m && m.isTiebreaker && m.status === 'STATUS_FINAL' && p.tiebreakerTotal > 0) {
+                    if (m && m.isTiebreaker && m.status === 'STATUS_FINAL' && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null && p.tiebreakerTotal > 0) {
                         const actualTotal = (m.homeScore || 0) + (m.awayScore || 0);
                         const dist = Math.abs(p.tiebreakerTotal - actualTotal);
                         if (dist < tbDistance) tbDistance = dist;
@@ -383,36 +383,77 @@ export default function PickEmPage() {
   }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups]);
 
   
-  const handleTiebreakerChange = async (matchup: any, total: number) => {
-    if (!user || !selectedCampaign || isNaN(total)) return;
+  const handleTiebreakerChange = async (matchup: any, rawVal: string) => {
+    if (!user || !selectedCampaign) return;
+
+    const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime);
+    if (isLocked) {
+      alert("This matchup is locked. Tiebreaker score cannot be changed.");
+      return;
+    }
+
+    const trimmed = rawVal.trim();
+    const total = trimmed === '' ? null : parseInt(trimmed, 10);
+    if (total !== null && isNaN(total)) return;
+
     const pickId = userPicks[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
     const pickRef = doc(db, 'pickemPicks', pickId);
+
+    const existingPick = userPicks[matchup.id];
+
+    const updatedData: any = {
+      campaignId: selectedCampaign.id,
+      participantId: user.uid,
+      matchupId: matchup.id,
+      week: selectedWeek,
+      updatedAt: Date.now()
+    };
+
+    if (total !== null) {
+      updatedData.tiebreakerTotal = total;
+    } else {
+      updatedData.tiebreakerTotal = null;
+    }
+
+    if (existingPick?.createdAt) {
+      updatedData.createdAt = existingPick.createdAt;
+    } else {
+      updatedData.createdAt = Date.now();
+    }
+
+    if (existingPick?.status) {
+      updatedData.status = existingPick.status;
+    } else {
+      updatedData.status = 'PENDING';
+    }
+
+    if (existingPick?.pick) {
+      updatedData.pick = existingPick.pick;
+    }
 
     setUserPicks(prev => ({
       ...prev,
       [matchup.id]: {
         ...prev[matchup.id],
         id: pickId,
-        campaignId: selectedCampaign.id,
-        participantId: user.uid,
-        matchupId: matchup.id,
-        week: selectedWeek,
-        tiebreakerTotal: total,
-        updatedAt: Date.now()
+        ...updatedData
       }
     }));
 
     try {
-      await setDoc(pickRef, {
-        campaignId: selectedCampaign.id,
-        participantId: user.uid,
-        matchupId: matchup.id,
-        week: selectedWeek,
-        tiebreakerTotal: total,
-        updatedAt: Date.now()
-      }, { merge: true });
+      await setDoc(pickRef, updatedData, { merge: true });
     } catch (e: any) {
       console.error("Failed to update tiebreaker", e);
+      alert("Failed to save tiebreaker score: " + (e.message || String(e)));
+      if (existingPick) {
+        setUserPicks(prev => ({ ...prev, [matchup.id]: existingPick }));
+      } else {
+        setUserPicks(prev => {
+          const next = { ...prev };
+          delete next[matchup.id];
+          return next;
+        });
+      }
     }
   };
 
@@ -820,7 +861,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                       </button>
 
                       
-                      {m.isTiebreaker && pick && (
+                      {m.isTiebreaker && (
                         <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                            <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">Tiebreaker Matchup</label>
                            <p className="text-zinc-400 text-sm mb-2">Predict the total combined score for this game.</p>
@@ -828,8 +869,8 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                              type="number"
                              min="0"
                              placeholder="Total Score (e.g. 45)"
-                             value={pick.tiebreakerTotal || ''}
-                             onChange={(e) => handleTiebreakerChange(m, parseInt(e.target.value) || 0)}
+                             value={userPicks[m.id]?.tiebreakerTotal !== undefined && userPicks[m.id]?.tiebreakerTotal !== null ? userPicks[m.id].tiebreakerTotal : ''}
+                             onChange={(e) => handleTiebreakerChange(m, e.target.value)}
                              disabled={isLocked}
                              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white disabled:opacity-50"
                            />
@@ -1035,7 +1076,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                       </td>
                       <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
                         {(() => {
-                          const tbPick = participant.picks?.find((p: any) => p.tiebreakerTotal !== undefined);
+                          const tbPick = participant.picks?.find((p: any) => p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
                           if (!tbPick) return '-';
                           const tbMatchup = matchups.find((m: any) => m.id === tbPick.matchupId);
                           const isLocked = tbMatchup && tbMatchup.startTime && Date.now() >= tbMatchup.startTime;

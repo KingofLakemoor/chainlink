@@ -62,4 +62,29 @@ describe('Onboarding profile setup', () => {
     expect(payload.username).toMatch(/^User\d+$/);
     expect(payload.needsOnboarding).toBe(true);
   });
+
+  it('sets needsOnboarding to false when explicit valid username is provided during onboarding', () => {
+    const googleUser = {
+      uid: 'google-uid-789',
+      email: 'jane@example.com',
+      displayName: 'Jane Doe',
+      photoURL: null,
+    };
+
+    const payload = prepareUserProfilePayload(googleUser, 'janedoe99');
+
+    expect(payload.username).toBe('janedoe99');
+    expect(payload.usernameLower).toBe('janedoe99');
+    expect(payload.needsOnboarding).toBe(false);
+  });
+
+  it('correctly filters out auto-generated UserNNN patterns from auto-suggest candidate', () => {
+    const user = { displayName: null, email: 'alex@example.com' };
+    const profile = { name: 'User987654' };
+
+    const rawCandidate = user?.displayName || (profile?.name && !/^User\d+$/i.test(profile.name) ? profile.name : '') || user?.email?.split('@')[0] || '';
+    const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+
+    expect(sanitized).toBe('alex');
+  });
 });

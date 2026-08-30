@@ -14,12 +14,12 @@ export default function OnboardingPage() {
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Auto-suggest a initial clean username from user profile/display name/email
+  // Auto-suggest an initial clean username from user profile/display name/email
   React.useEffect(() => {
     if (!username && (user || profile)) {
-      const rawCandidate = user?.displayName || profile?.name || user?.email?.split('@')[0] || '';
+      const rawCandidate = user?.displayName || (profile?.name && !/^User\d+$/i.test(profile.name) ? profile.name : '') || user?.email?.split('@')[0] || '';
       const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
-      if (sanitized.length >= 3) {
+      if (sanitized.length >= 3 && !/^User\d+$/i.test(sanitized)) {
         setUsername(sanitized);
       }
     }

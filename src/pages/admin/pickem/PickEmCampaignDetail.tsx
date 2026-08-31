@@ -901,6 +901,7 @@ export default function PickEmCampaignDetail() {
                   <th className="px-4 py-3 font-medium">Game Title</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Start Time</th>
+                  <th className="px-4 py-3 font-medium">Odds</th>
                   <th className="px-4 py-3 font-medium text-center">Type</th>
                   <th className="px-4 py-3 font-medium text-center">Tiebreaker</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -912,6 +913,41 @@ export default function PickEmCampaignDetail() {
                     <td className="px-4 py-3 font-medium text-zinc-200">{m.title}</td>
                     <td className="px-4 py-3 text-zinc-400">{m.statusDesc || m.status}</td>
                     <td className="px-4 py-3 text-zinc-400">{new Date(m.startTime).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-xs font-mono">
+                      {(() => {
+                        const hasSpread = m.metadata?.spread !== undefined && m.metadata?.spread !== null && m.metadata?.spread !== '';
+                        const spreadStr = hasSpread ? (Number(m.metadata.spread) > 0 ? `+${m.metadata.spread}` : `${m.metadata.spread}`) : null;
+
+                        const hasMlAway = m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlAway !== '';
+                        const hasMlHome = m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && m.metadata?.mlHome !== '';
+                        const hasML = hasMlAway || hasMlHome;
+
+                        const formatML = (val: any) => {
+                          if (val === undefined || val === null || val === '') return '-';
+                          const num = Number(val);
+                          return isNaN(num) ? String(val) : (num > 0 ? `+${num}` : String(num));
+                        };
+
+                        if (!hasSpread && !hasML) {
+                          return <span className="text-zinc-600">-</span>;
+                        }
+
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            {hasSpread && (
+                              <span className="text-zinc-300 font-semibold">
+                                Spread: {spreadStr}
+                              </span>
+                            )}
+                            {hasML && (
+                              <span className="text-zinc-400">
+                                ML: {formatML(m.metadata?.mlAway)} / {formatML(m.metadata?.mlHome)}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => handleToggleSpread(m.id, m.type)}

@@ -111,8 +111,13 @@ export async function executeRollover(adminDb: FirebaseFirestore.Firestore, mont
             }
             
             const userRef = adminDb.collection('users').doc(stats.id);
-            let allTimeStats = data.allTimeStats || { wins: stats.wins, losses: stats.losses, pushes: stats.pushes };
-            let historicalStats = data.historicalStats || {};
+            const existingAllTime = data.allTimeStats || {};
+            const allTimeStats = {
+              wins: existingAllTime.wins ?? stats.wins,
+              losses: existingAllTime.losses ?? stats.losses,
+              pushes: existingAllTime.pushes ?? stats.pushes,
+            };
+            const historicalStats = data.historicalStats || {};
             historicalStats[monthKeyToArchive] = {
                 monthKey: monthKeyToArchive,
                 monthLabel,
@@ -124,13 +129,20 @@ export async function executeRollover(adminDb: FirebaseFirestore.Firestore, mont
                 endOfMonthChain: stats.currentChain,
             };
             
-            batch.update(userRef, { allTimeStats, historicalStats, stats: { wins: 0, losses: 0, pushes: 0 } });
+            const userAllTimeBest = Math.max(data.allTimeBest || 0, stats.bestChain || 0);
+
+            batch.update(userRef, {
+              allTimeStats,
+              historicalStats,
+              allTimeBest: userAllTimeBest,
+              stats: { wins: 0, losses: 0, pushes: 0 }
+            });
             count++;
             
             if (chainData.id) {
                 const chainRef = adminDb.collection('chains').doc(chainData.id);
-                let allTimeBest = Math.max(chainData.allTimeBest || 0, data.allTimeBest || 0, stats.bestChain || 0);
-                batch.update(chainRef, { chain: 0, best: 0, wins: 0, losses: 0, allTimeBest });
+                const chainAllTimeBest = Math.max(chainData.allTimeBest || 0, data.allTimeBest || 0, stats.bestChain || 0);
+                batch.update(chainRef, { chain: 0, best: 0, wins: 0, losses: 0, allTimeBest: chainAllTimeBest });
                 count++;
             }
             

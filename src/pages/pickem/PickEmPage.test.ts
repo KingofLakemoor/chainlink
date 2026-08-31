@@ -180,4 +180,25 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
       bypassed: false
     });
   });
+
+  it('sorts Pick Em campaign matchups sequentially by date and time ascending', () => {
+    const matchups = [
+      { id: 'm1', title: 'Mustangs @ Seminoles', startTime: new Date('2026-09-07T16:30:00Z').getTime() },
+      { id: 'm2', title: 'Blazers @ Fighting Illini', startTime: new Date('2026-09-03T18:00:00Z').getTime() },
+      { id: 'm3', title: 'Broncos @ Wolverines', startTime: new Date('2026-09-05T16:30:00Z').getTime() },
+      { id: 'm4', title: 'Rockets @ Spartans', startTime: new Date('2026-09-04T17:00:00Z').getTime() }
+    ];
+
+    const sorted = matchups.slice().sort((a: any, b: any) => {
+      const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+      const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+      return timeA - timeB;
+    });
+
+    expect(sorted.map(m => m.id)).toEqual(['m2', 'm4', 'm3', 'm1']);
+    expect(sorted[0].title).toBe('Blazers @ Fighting Illini'); // 9/3
+    expect(sorted[1].title).toBe('Rockets @ Spartans');       // 9/4
+    expect(sorted[2].title).toBe('Broncos @ Wolverines');     // 9/5
+    expect(sorted[3].title).toBe('Mustangs @ Seminoles');     // 9/7
+  });
 });

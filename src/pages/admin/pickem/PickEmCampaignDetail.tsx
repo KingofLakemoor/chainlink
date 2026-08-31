@@ -107,7 +107,13 @@ export default function PickEmCampaignDetail() {
         where('week', '==', week)
       );
       const snap = await getDocs(q);
-      setMatchups(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a: any, b: any) => {
+        const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+        const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+        return timeA - timeB;
+      });
+      setMatchups(docs);
     } catch (err) {
       console.error(err);
     } finally {
@@ -908,7 +914,11 @@ export default function PickEmCampaignDetail() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/50">
-                {matchups.map(m => (
+                {matchups.slice().sort((a: any, b: any) => {
+                  const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+                  const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+                  return timeA - timeB;
+                }).map(m => (
                   <tr key={m.id} className="hover:bg-zinc-800/20 transition-colors">
                     <td className="px-4 py-3 font-medium text-zinc-200">{m.title}</td>
                     <td className="px-4 py-3 text-zinc-400">{m.statusDesc || m.status}</td>

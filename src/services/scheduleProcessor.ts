@@ -118,7 +118,7 @@ export { scrapeLeagueSchedules } from './espnScraper.js';
 import { gradeBrackets } from './bracketGrader.js';
 
 let cachedScraperConfig: { config: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> }, timestamp: number } | null = null;
-const SCRAPER_CONFIG_TTL_MS = 5 * 60 * 1000;
+const SCRAPER_CONFIG_TTL_MS = 60 * 60 * 1000;
 
 export async function syncLeagueSchedules(
   league: League,

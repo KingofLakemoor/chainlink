@@ -75,6 +75,10 @@ export async function executeRollover(adminDb: FirebaseFirestore.Firestore, mont
             hasMore = false;
             break;
         }
+
+        if (usersSnap.docs.length < 500) {
+            hasMore = false;
+        }
         
         lastDoc = usersSnap.docs[usersSnap.docs.length - 1];
         

@@ -694,7 +694,7 @@ export async function syncLeagueSchedules(
 
               if (hasPicks) {
                 finalActive = true;
-              } else if (scrapedMatchup.league === 'ATP' || scrapedMatchup.league === 'WTA' || scrapedMatchup.league === 'RPL' || scrapedMatchup.league === 'TUR' || scrapedMatchup.league === 'ARG' || scrapedMatchup.league === 'BRA' || scrapedMatchup.league === 'LMX') {
+              } else if (scrapedMatchup.league === 'RPL' || scrapedMatchup.league === 'TUR' || scrapedMatchup.league === 'ARG' || scrapedMatchup.league === 'BRA' || scrapedMatchup.league === 'LMX') {
                 finalActive = true;
               } else {
                 finalActive = false;
@@ -1001,7 +1001,7 @@ export async function syncLeagueSchedules(
         const gamesToCheck = [];
         for (const [gameId, doc] of existingMap.entries()) {
             const data = doc.data();
-            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'ATP' && data.league !== 'WTA' && data.league !== 'CRICKET' && data.league !== 'RPL' && data.league !== 'TUR' && data.league !== 'ARG' && data.league !== 'BRA' && data.league !== 'LMX' && data.league !== 'NWSL') {
+            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !scrapedGameIds.has(gameId) && data.league !== 'PGA' && data.league !== 'CBASE' && data.league !== 'CRICKET' && data.league !== 'RPL' && data.league !== 'TUR' && data.league !== 'ARG' && data.league !== 'BRA' && data.league !== 'LMX' && data.league !== 'NWSL') {
                 gamesToCheck.push({ gameId, doc, data });
             }
         }

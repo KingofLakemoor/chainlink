@@ -186,11 +186,15 @@ export async function syncTennisOdds() {
                 }
             }
 
+            let abandoned = match.abandoned || false;
             if (!active) {
                 // Check if anyone has already picked this before making it inactive
                 const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-                if (!picksSnap.empty) {
+                const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();
+                if (!picksSnap.empty || !pickemPicksSnap.empty) {
                     active = true;
+                } else {
+                    abandoned = true;
                 }
             }
 
@@ -198,6 +202,7 @@ export async function syncTennisOdds() {
               'metadata.mlHome': finalMlHome,
               'metadata.mlAway': finalMlAway,
               'active': active,
+              'abandoned': abandoned,
               'updatedAt': Date.now()
             });
             updatedCount++;
@@ -211,18 +216,20 @@ export async function syncTennisOdds() {
        }
     }
     
-    // Mark any unmatched ATP/WTA matchups as inactive
+    // Mark any unmatched ATP/WTA matchups as inactive and abandoned if no picks exist
     for (const match of dbMatchups as any[]) {
        if (!matchedIds.has(match.id) && (match as any).active === true) {
            // Check if anyone has already picked this before making it inactive
            const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-           if (!picksSnap.empty) {
+           const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();
+           if (!picksSnap.empty || !pickemPicksSnap.empty) {
                continue;
            }
 
            const matchRef = adminDb.collection('matchups').doc(match.id);
            batch.update(matchRef, {
                'active': false,
+               'abandoned': true,
                'updatedAt': Date.now()
            });
            batchCount++;

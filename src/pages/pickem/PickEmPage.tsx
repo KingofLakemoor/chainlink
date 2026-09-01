@@ -73,8 +73,17 @@ export default function PickEmPage() {
         let camps = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
         camps = camps.filter(c => !c.isArchived);
 
+        let joinedIds = new Set<string>();
+        if (user) {
+          const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
+          const partSnap = await getDocs(partQuery);
+          joinedIds = new Set(partSnap.docs.map(d => d.data().campaignId));
+        }
+
         const now = Date.now();
         camps = camps.filter((c: any) => {
+          if (joinedIds.has(c.id)) return true; // Always keep if user joined
+          if (campaignId === c.id) return true; // Always keep if specifically requested in URL
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true; // Keep legacy campaigns
           const startToCheck = c.visibleDate || c.startDate;
@@ -504,7 +513,7 @@ export default function PickEmPage() {
 
       // Check pick limit before adding a new pick (skip if replacing existing pick in same matchup)
       const isNewTeamPick = !existingPick?.pick?.teamId;
-      if (isNewTeamPick && selectedCampaign.pickLimit > 0) {
+      if (isNewTeamPick && selectedCampaign.pickLimit > 0 && selectedCampaign.name !== 'YES Day Walk for Autism 2026') {
         const currentPicksCount = Object.values(userPicks).filter((p: any) => p.pick?.teamId).length;
         if (currentPicksCount >= selectedCampaign.pickLimit) {
           alert(`You have reached the maximum of ${selectedCampaign.pickLimit} picks for this week.`);

@@ -171,7 +171,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin(); // Server maintained
     }
-    match /pickemPicks/{pickId} {
+        match /pickemPicks/{pickId} {
       function isMatchupOpen(mId) {
         return mId != null && mId != '' &&
                exists(/databases/$(database)/documents/pickemMatchups/$(mId)) &&
@@ -183,21 +183,25 @@ service cloud.firestore {
                  get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) > request.time.toMillis()
                );
       }
-      allow read: if isSignedIn() && (resource == null || existing().participantId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().participantId == request.auth.uid && isMatchupOpen(incoming().matchupId) && exists(/databases/$(database)/documents/pickemParticipants/$(incoming().campaignId + '_' + request.auth.uid));
+      allow read: if isSignedIn() && (resource == null || resource.data.get('participantId', '') == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() 
+        && request.resource.data.get('participantId', '') == request.auth.uid 
+        && isMatchupOpen(request.resource.data.get('matchupId', '')) 
+        && exists(/databases/$(database)/documents/pickemParticipants/$(request.resource.data.get('campaignId', '') + '_' + request.auth.uid));
       allow update: if isSignedIn() && (
         isAdmin() ||
         (
-          (resource == null || existing().get('participantId', '') == request.auth.uid) &&
-          incoming().get('participantId', '') == request.auth.uid && isMatchupOpen(existing() != null ? existing().get('matchupId', incoming().get('matchupId', '')) : incoming().get('matchupId', '')) && exists(/databases/$(database)/documents/pickemParticipants/$(incoming().get('campaignId', existing() != null ? existing().get('campaignId', '') : '') + '_' + request.auth.uid))
+          resource.data.get('participantId', '') == request.auth.uid 
+          && request.resource.data.get('participantId', '') == request.auth.uid 
+          && isMatchupOpen(request.resource.data.get('matchupId', '')) 
+          && exists(/databases/$(database)/documents/pickemParticipants/$(request.resource.data.get('campaignId', '') + '_' + request.auth.uid))
         )
       );
       allow delete: if isSignedIn() && (
         isAdmin() ||
         (
-          existing() != null &&
-          existing().get('participantId', '') == request.auth.uid &&
-          isMatchupOpen(existing().get('matchupId', ''))
+          resource.data.get('participantId', '') == request.auth.uid &&
+          isMatchupOpen(resource.data.get('matchupId', ''))
         )
       );
     }

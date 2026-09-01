@@ -117,6 +117,9 @@ import { League, LeagueResponse, scrapeLeagueSchedules } from './espnScraper.js'
 export { scrapeLeagueSchedules } from './espnScraper.js';
 import { gradeBrackets } from './bracketGrader.js';
 
+let cachedScraperConfig: { config: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> }, timestamp: number } | null = null;
+const SCRAPER_CONFIG_TTL_MS = 5 * 60 * 1000;
+
 export async function syncLeagueSchedules(
   league: League,
   scoreboardOnly: boolean = false,
@@ -127,13 +130,19 @@ export async function syncLeagueSchedules(
 ): Promise<LeagueResponse> {
   let scraperConfig: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> } | undefined = undefined;
   if (adminDb) {
-    try {
-      const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
-      if (scraperSnap.exists) {
-        scraperConfig = scraperSnap.data() as { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> };
+    const now = Date.now();
+    if (cachedScraperConfig && (now - cachedScraperConfig.timestamp) < SCRAPER_CONFIG_TTL_MS) {
+      scraperConfig = cachedScraperConfig.config;
+    } else {
+      try {
+        const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
+        if (scraperSnap.exists) {
+          scraperConfig = scraperSnap.data() as { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> };
+          cachedScraperConfig = { config: scraperConfig, timestamp: now };
+        }
+      } catch (e) {
+        console.error("Error fetching scraper config", e);
       }
-    } catch (e) {
-      console.error("Error fetching scraper config", e);
     }
   }
 

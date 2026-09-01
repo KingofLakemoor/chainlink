@@ -70,20 +70,29 @@ export default function PickEmPage() {
     const fetchCampaigns = async () => {
       try {
         const snap = await getDocs(collection(db, 'pickemCampaigns'));
-        let camps = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-        camps = camps.filter(c => !c.isArchived);
+        let allCamps = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
 
         let joinedIds = new Set<string>();
         if (user) {
           const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
-          const partSnap = await getDocs(partQuery);
-          joinedIds = new Set(partSnap.docs.map(d => d.data().campaignId));
+          const picksQuery = query(collection(db, 'pickemPicks'), where('participantId', '==', user.uid));
+          const [partSnap, picksSnap] = await Promise.all([getDocs(partQuery), getDocs(picksQuery)]);
+
+          partSnap.docs.forEach(d => {
+            const cid = d.data().campaignId;
+            if (cid) joinedIds.add(cid);
+          });
+          picksSnap.docs.forEach(d => {
+            const cid = d.data().campaignId;
+            if (cid) joinedIds.add(cid);
+          });
         }
 
         const now = Date.now();
-        camps = camps.filter((c: any) => {
-          if (joinedIds.has(c.id)) return true; // Always keep if user joined
+        let camps = allCamps.filter((c: any) => {
+          if (joinedIds.has(c.id)) return true; // Always keep if user joined or submitted picks
           if (campaignId === c.id) return true; // Always keep if specifically requested in URL
+          if (c.isArchived || c.archived) return false;
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true; // Keep legacy campaigns
           const startToCheck = c.visibleDate || c.startDate;
@@ -131,7 +140,19 @@ export default function PickEmPage() {
           if (user) {
             const pairId = `${initialCampaign.id}_${user.uid}`;
             const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
-            setIsParticipant(docRef.exists());
+            if (docRef.exists()) {
+              setIsParticipant(true);
+            } else {
+              // Check if user has picks submitted for this campaign
+              const pCheckQuery = query(
+                collection(db, 'pickemPicks'),
+                where('campaignId', '==', initialCampaign.id),
+                where('participantId', '==', user.uid),
+                limit(1)
+              );
+              const pCheckSnap = await getDocs(pCheckQuery);
+              setIsParticipant(!pCheckSnap.empty);
+            }
           }
         }
       } catch (err) {

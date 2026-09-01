@@ -36,17 +36,26 @@ export default function PickEmLandingPage() {
       const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || '').trim();
 
       try {
-        // Fetch participants first to know what they joined
+        // Fetch participants and picks for current user to know all campaigns they have joined or entered picks for
         const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
-        const partSnap = await getDocs(partQuery);
-        const joinedIds = new Set(partSnap.docs.map(d => d.data().campaignId));
+        const picksQuery = query(collection(db, 'pickemPicks'), where('participantId', '==', user.uid));
+        const [partSnap, picksSnap] = await Promise.all([getDocs(partQuery), getDocs(picksQuery)]);
+
+        const joinedIds = new Set<string>();
+        partSnap.docs.forEach(d => {
+          const cid = d.data().campaignId;
+          if (cid) joinedIds.add(cid);
+        });
+        picksSnap.docs.forEach(d => {
+          const cid = d.data().campaignId;
+          if (cid) joinedIds.add(cid);
+        });
         setJoinedCampaignIds(joinedIds);
 
-        // Fetch campaigns
+        // Fetch all campaigns
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
-        let allUnarchivedCamps = campSnap.docs
-          .map(d => ({ id: d.id, ...d.data() as any }))
-          .filter(c => !c.isArchived);
+        let allCamps = campSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+        let allUnarchivedCamps = allCamps.filter(c => !c.isArchived && !c.archived);
 
         if (urlCode) {
           let matched = allUnarchivedCamps.find(c =>
@@ -89,8 +98,9 @@ export default function PickEmLandingPage() {
         }
 
         const now = Date.now();
-        let camps = allUnarchivedCamps.filter(c => {
-          if (joinedIds.has(c.id)) return true; // Always show joined campaigns
+        let camps = allCamps.filter(c => {
+          if (joinedIds.has(c.id)) return true; // Always show joined campaigns even if archived
+          if (c.isArchived || c.archived) return false;
           const hasDates = c.startDate && c.endDate;
           if (!hasDates) return true;
           return now >= (c.visibleDate || c.startDate);

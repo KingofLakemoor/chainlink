@@ -355,11 +355,15 @@ export default function PickEmCampaignDetail() {
              }
           }
 
+          const finalTitle = finalType === "SPREAD"
+            ? (m.title.endsWith(' - ATS') ? m.title : `${m.title} - ATS`)
+            : m.title.replace(/ - ATS$/, '');
+
           batch.set(docRef, {
             campaignId: id,
             week: selectedWeek,
             gameId: String(m.gameId),
-            title: m.title,
+            title: finalTitle,
             startTime: m.startTime,
             status: m.status,
             statusDesc: m.statusDesc,
@@ -419,11 +423,18 @@ export default function PickEmCampaignDetail() {
       return;
     }
     try {
+      const targetMatchup = matchups.find(m => m.id === matchupId);
+      const currentTitle = targetMatchup?.title || '';
       const newType = currentType === "SPREAD" ? "STANDARD" : "SPREAD";
+      const newTitle = newType === "SPREAD"
+        ? (currentTitle.endsWith(' - ATS') ? currentTitle : `${currentTitle} - ATS`)
+        : currentTitle.replace(/ - ATS$/, '');
+
       await updateDoc(doc(db, "pickemMatchups", matchupId), {
-        type: newType
+        type: newType,
+        title: newTitle
       });
-      setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, type: newType } : m));
+      setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, type: newType, title: newTitle } : m));
     } catch (err) {
       console.error(err);
       console.log("Failed to toggle matchup type");
@@ -439,11 +450,13 @@ export default function PickEmCampaignDetail() {
 
     try {
       const batch = writeBatch(db);
-      matchups.forEach(m => {
-        batch.update(doc(db, "pickemMatchups", m.id), { type: "SPREAD" });
+      const updatedMatchups = matchups.map(m => {
+        const newTitle = m.title.endsWith(' - ATS') ? m.title : `${m.title} - ATS`;
+        batch.update(doc(db, "pickemMatchups", m.id), { type: "SPREAD", title: newTitle });
+        return { ...m, type: "SPREAD", title: newTitle };
       });
       await batch.commit();
-      setMatchups(prev => prev.map(m => ({ ...m, type: "SPREAD" })));
+      setMatchups(updatedMatchups);
       console.log("All matchups set to ATS.");
     } catch (err) {
       console.error(err);

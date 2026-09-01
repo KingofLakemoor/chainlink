@@ -21,7 +21,7 @@ const ADMIN_MENU_SECTIONS = [
           { id: 'matchups-create', label: 'Create Matchup', path: '/admin/matchups/create' },
           { id: 'matchups-pga', label: 'PGA Builder', path: '/admin/pga-builder' },
           { id: 'matchups-prop', label: 'Prop Builder', path: '/admin/prop-builder' },
-          { id: 'matchups-scraper', label: 'Scraper Settings', path: '/admin/settings/scraper' }
+          { id: 'matchups-odds', label: 'Odds & Scraper', path: '/admin/odds' }
         ]
       },
       { id: 'pickem', label: "Pick'em", icon: Layers, path: '/admin/pickem' },

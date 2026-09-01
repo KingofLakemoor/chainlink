@@ -9,7 +9,7 @@ import { gradeLink4Matchups, payoutLink4Segment } from './services/link4Grader.j
 import { gradePickemMatchups, payoutPickemCampaign } from './services/pickemGrader.js';
 import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
-import { syncTennisOdds } from './services/oddsProcessor.js';
+import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -1501,9 +1501,26 @@ apiRouter.post("/admin/link4/payout", validateAdmin, async (req, res) => {
 
 apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
   try {
-    const result = await syncTennisOdds();
-    res.json(result);
-  } catch (err) {
+    const { sport } = req.body || {};
+    const target = (sport || 'ALL').toString().toUpperCase();
+
+    let tennisResult: any = null;
+    let soccerResult: any = null;
+
+    if (target === 'ALL' || target === 'TENNIS' || target === 'ATP' || target === 'WTA') {
+      tennisResult = await syncTennisOdds();
+    }
+    if (target === 'ALL' || target === 'SOCCER') {
+      soccerResult = await syncSoccerOdds();
+    }
+
+    res.json({
+      success: true,
+      sport: sport || 'ALL',
+      tennis: tennisResult,
+      soccer: soccerResult,
+    });
+  } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });

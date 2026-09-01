@@ -85,22 +85,22 @@ export default function AdminGuidePage() {
           </div>
         </section>
 
-        {/* League & Scraper Settings */}
+        {/* League & Odds Settings */}
         <section className="bg-[#121212] border border-zinc-800 rounded-xl p-6 md:p-8 shadow-xl relative overflow-hidden">
           <div className="flex items-center gap-3 mb-6 relative z-10">
             <div className="p-2 bg-orange-500/10 rounded-lg">
               <Settings className="w-6 h-6 text-orange-400" />
             </div>
-            <h2 className="text-2xl font-bold text-zinc-100">League & Scraper Settings</h2>
+            <h2 className="text-2xl font-bold text-zinc-100">League & Odds Management</h2>
           </div>
           <div className="space-y-4 text-zinc-300 relative z-10">
             <h3 className="font-bold text-white text-lg">League Settings</h3>
             <p>
               On the <strong>Leagues</strong> page, you can set the default Active status for new games synced from a specific league. You can also mass-deactivate all scheduled games for a league if the season is over or you want to pause it.
             </p>
-            <h3 className="font-bold text-white text-lg">Scraper Settings</h3>
+            <h3 className="font-bold text-white text-lg">Odds & Scraper Management</h3>
             <p>
-              In <strong>Settings &gt; Scraper Settings</strong>, you can define maximum moneyline odds. If an underdog's moneyline exceeds this value (e.g., +1000), the scraper will automatically mark the game as INACTIVE so it doesn't clutter the dashboard. You can set a global max or specific overrides per sport.
+              In <strong>Odds &amp; Scraper</strong>, you can define maximum moneyline odds thresholds and trigger manual odds updates on-demand across supported sports (such as ATP/WTA Tennis and International Soccer). You can set a global max moneyline threshold or specific overrides per sport to automatically hide extreme favourite games.
             </p>
           </div>
         </section>

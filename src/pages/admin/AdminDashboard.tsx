@@ -38,7 +38,7 @@ const LinkTransactionsAdminPage = React.lazy(() => import('./logs/LinkTransactio
 const ErrorLogsAdminPage = React.lazy(() => import('./logs/ErrorLogsAdminPage'));
 const OrdersAdminPage = React.lazy(() => import('./logs/OrdersAdminPage'));
 const PremiumStatusAdminPage = React.lazy(() => import('./users/PremiumStatusAdminPage'));
-const ScraperSettingsPage = React.lazy(() => import('./settings/ScraperSettingsPage'));
+const AdminOddsPage = React.lazy(() => import('./odds/AdminOddsPage'));
 const PrizeAdminPage = React.lazy(() => import('./prize/PrizeAdminPage'));
 const EngagementAdminPage = React.lazy(() => import('./system/EngagementAdminPage'));
 const AdminGuidePage = React.lazy(() => import('./guide/AdminGuidePage'));
@@ -136,8 +136,9 @@ export default function AdminDashboard() {
                 <Route path="shopItems/create" element={<CreateShopItemPage />} />
                 <Route path="shopItems/edit/:id" element={<EditShopItemPage />} />
 
-                {/* Settings */}
-                <Route path="settings/scraper" element={<ScraperSettingsPage />} />
+                {/* Settings & Odds */}
+                <Route path="odds" element={<AdminOddsPage />} />
+                <Route path="settings/scraper" element={<Navigate to="/admin/odds" replace />} />
 
                 {/* Admin Guide */}
                 <Route path="guide" element={<AdminGuidePage />} />

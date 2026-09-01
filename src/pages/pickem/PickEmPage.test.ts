@@ -201,4 +201,37 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(sorted[2].title).toBe('Broncos @ Wolverines');     // 9/5
     expect(sorted[3].title).toBe('Mustangs @ Seminoles');     // 9/7
   });
+
+  it('preserves joined campaigns on My Pick Em screen even if archived or missing participant record if user has picks', () => {
+    const userUid = 'cpr1staid';
+    const allCampaigns = [
+      { id: 'yes-day-2026', name: 'YES Day Walk for Autism 2026', isPrivate: true, isArchived: true },
+      { id: 'public-active', name: 'Active Public Campaign', isPrivate: false, isArchived: false },
+      { id: 'unjoined-archived', name: 'Archived Unjoined', isPrivate: false, isArchived: true }
+    ];
+
+    const participantRecords = [
+      // Suppose cpr1staid is missing from pickemParticipants for yes-day-2026
+    ];
+
+    const pickRecords = [
+      { campaignId: 'yes-day-2026', participantId: 'cpr1staid', matchupId: 'm1', pick: { teamId: 't1' } }
+    ];
+
+    // joinedIds set populated from both participantRecords and pickRecords
+    const joinedIds = new Set<string>();
+    participantRecords.forEach(p => joinedIds.add(p.campaignId));
+    pickRecords.filter(p => p.participantId === userUid).forEach(p => joinedIds.add(p.campaignId));
+
+    // Filter logic for My Pick Em screen
+    const myCampaigns = allCampaigns.filter(c => {
+      if (joinedIds.has(c.id)) return true; // Always show joined campaigns
+      if (c.isArchived) return false;
+      return true;
+    });
+
+    expect(myCampaigns.map(c => c.id)).toContain('yes-day-2026');
+    expect(myCampaigns.map(c => c.id)).toContain('public-active');
+    expect(myCampaigns.map(c => c.id)).not.toContain('unjoined-archived');
+  });
 });

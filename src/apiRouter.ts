@@ -697,6 +697,23 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
         return; // Already joined - skip join code validation & fee checks
       }
 
+      // Check if participant already has picks submitted for this campaign
+      const picksQuery = adminDb.collection('pickemPicks')
+        .where('campaignId', '==', campaignId)
+        .where('participantId', '==', uid)
+        .limit(1);
+      const picksSnap = await transaction.get(picksQuery);
+
+      if (!picksSnap.empty) {
+        // Backfill missing participant doc and return
+        transaction.set(participantRef, {
+          campaignId,
+          participantId: uid,
+          joinedAt: Date.now()
+        });
+        return;
+      }
+
       const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
       const campaignDoc = await transaction.get(campaignRef);
 

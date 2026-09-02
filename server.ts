@@ -12,6 +12,7 @@ import { startMonthlyRolloverJob } from './src/services/monthlyRollover.js';
 import { startAutoSyncJob } from './src/services/autoSync.js';
 import { startPickemRemindersJob } from './src/services/pickemReminders.js';
 import { startPickemEnforcerJob } from './src/services/pickemEnforcer.js';
+import { startOddsProcessorJob } from './src/services/oddsProcessor.js';
 
 async function startServer() {
   const app = express();
@@ -228,6 +229,7 @@ async function startServer() {
     startAutoSyncJob();
     startPickemRemindersJob();
     startPickemEnforcerJob();
+    startOddsProcessorJob();
   });
 }
 

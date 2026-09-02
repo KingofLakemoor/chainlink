@@ -15,6 +15,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
   beforeEach(() => {
     delete process.env.ODDS_API_KEY;
+    delete process.env.THE_ODDS_API_KEY;
     mockAdminDb = {
       collection: vi.fn(),
       batch: vi.fn(),
@@ -22,14 +23,34 @@ describe('OddsProcessor Optimization Tests', () => {
     setAdminDbMock(mockAdminDb);
   });
 
-  it('syncTennisOdds skips if ODDS_API_KEY is missing', async () => {
+  it('syncTennisOdds skips if odds API keys are missing', async () => {
     const res = await syncTennisOdds();
     expect(res).toEqual({ success: true, message: 'ODDS_API_KEY missing, skipping.' });
   });
 
-  it('syncSoccerOdds skips if ODDS_API_KEY is missing', async () => {
+  it('syncSoccerOdds skips if odds API keys are missing', async () => {
     const res = await syncSoccerOdds();
     expect(res).toEqual({ success: true, message: 'ODDS_API_KEY missing, skipping.' });
+  });
+
+  it('syncTennisOdds works with THE_ODDS_API_KEY fallback', async () => {
+    process.env.THE_ODDS_API_KEY = 'test-fallback-key';
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'matchups') {
+        return {
+          where: () => ({
+            where: () => ({
+              get: async () => ({ empty: true, docs: [] }),
+            }),
+          }),
+        };
+      }
+      return {};
+    });
+
+    const res = await syncTennisOdds();
+    expect(res).toEqual({ success: true, message: 'No scheduled tennis matches in DB.' });
   });
 
   it('syncTennisOdds skips external calls when DB matchups are empty', async () => {

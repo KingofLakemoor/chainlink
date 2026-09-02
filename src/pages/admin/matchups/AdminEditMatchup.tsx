@@ -42,7 +42,9 @@ export function AdminEditMatchup() {
             setSponsors(activeSponsors);
         }
 
-        const picksSnap = await getDocs(query(collection(db, 'picks'), where('matchupId', '==', id)));
+        const mGameId = docSnap.empty ? null : docSnap.docs[0].data()?.gameId;
+        const targetMatchupIds = Array.from(new Set([id, mGameId].filter(Boolean)));
+        const picksSnap = await getDocs(query(collection(db, 'picks'), where('matchupId', 'in', targetMatchupIds)));
         const rawPicks = picksSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
 
         // Batch fetch users to avoid N+1 query

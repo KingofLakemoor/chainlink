@@ -97,13 +97,10 @@ export default function PickEmLandingPage() {
           }
         }
 
-        const now = Date.now();
         let camps = allCamps.filter(c => {
           if (joinedIds.has(c.id)) return true; // Always show joined campaigns even if archived
           if (c.isArchived || c.archived) return false;
-          const hasDates = c.startDate && c.endDate;
-          if (!hasDates) return true;
-          return now >= (c.visibleDate || c.startDate);
+          return true; // Show all non-archived campaigns so public campaigns are always joinable
         });
         setCampaigns(camps);
         

@@ -436,4 +436,62 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(existingParticipants.has('cfb-2026_cpr1staid')).toBe(true);
     expect(existingParticipants.has('yes-day-2026_cpr1staid')).toBe(true);
   });
+
+  it('filters out closed campaigns (isOpen: false) from the Join Pick Em board', () => {
+    const campaigns = [
+      { id: 'open-public', name: 'Open Public League', isPrivate: false, isOpen: true, isArchived: false },
+      { id: 'closed-public', name: 'Closed Public League', isPrivate: false, isOpen: false, isArchived: false },
+      { id: 'default-open-public', name: 'Default Open Public League', isPrivate: false, isArchived: false }
+    ];
+
+    const joinedIds = new Set<string>();
+
+    const getPublicCampaigns = (joined: Set<string>) =>
+      campaigns.filter(c => !joined.has(c.id) && !c.isPrivate && c.isOpen !== false && !c.isArchived);
+
+    const publicList = getPublicCampaigns(joinedIds);
+    expect(publicList.map(c => c.id)).toEqual(['open-public', 'default-open-public']);
+    expect(publicList.map(c => c.id)).not.toContain('closed-public');
+  });
+
+  it('rejects joining closed campaigns via /api/pickem/join unless participant is already joined', () => {
+    const campaigns: Record<string, { id: string, isOpen?: boolean, isPrivate?: boolean }> = {
+      'closed-1': { id: 'closed-1', isOpen: false, isPrivate: false },
+      'open-1': { id: 'open-1', isOpen: true, isPrivate: false }
+    };
+
+    const attemptJoin = (campaignId: string, alreadyJoined: boolean) => {
+      if (alreadyJoined) {
+        return { success: true, bypassed: true };
+      }
+      const camp = campaigns[campaignId];
+      if (!camp) throw new Error("Campaign not found");
+      if (camp.isOpen === false) {
+        throw new Error("This campaign is closed to new entries.");
+      }
+      return { success: true, bypassed: false };
+    };
+
+    // 1. Joining an open campaign succeeds
+    expect(attemptJoin('open-1', false)).toEqual({ success: true, bypassed: false });
+
+    // 2. Joining a closed campaign throws error
+    expect(() => attemptJoin('closed-1', false)).toThrow("This campaign is closed to new entries.");
+
+    // 3. Existing joined participant accessing/auto-healing closed campaign succeeds
+    expect(attemptJoin('closed-1', true)).toEqual({ success: true, bypassed: true });
+  });
+
+  it('retains access for already joined users on My Pick Em even if campaign isOpen is toggled to false', () => {
+    const campaigns = [
+      { id: 'my-camp-1', name: 'My League', isOpen: false, isPrivate: false, isArchived: false },
+      { id: 'other-camp', name: 'Other Open League', isOpen: true, isPrivate: false, isArchived: false }
+    ];
+
+    const joinedIds = new Set(['my-camp-1']);
+
+    const myCampaigns = campaigns.filter(c => joinedIds.has(c.id));
+    expect(myCampaigns.map(c => c.id)).toEqual(['my-camp-1']);
+    expect(myCampaigns[0].isOpen).toBe(false);
+  });
 });

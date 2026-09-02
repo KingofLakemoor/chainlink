@@ -24,14 +24,11 @@ export default function PickEmCreateCampaign() {
   const [themeTitle, setThemeTitle] = useState('');
   const [themeSubtitle, setThemeSubtitle] = useState('');
   const [themeLogoFile, setThemeLogoFile] = useState<File | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [themeLogoUrl, setThemeLogoUrl] = useState('');
 
-  const [visibleDateStr, setVisibleDateStr] = useState(() => {
-    const d = new Date();
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  });
   const [gamesBeginDateStr, setGamesBeginDateStr] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -87,9 +84,9 @@ export default function PickEmCreateCampaign() {
         type: 'STANDARD',
         defaultMatchType,
         scoringType: 'WIN_LOSS',
-        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() || Date.now() : Date.now(),
+        isOpen: isOpen,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() || Date.now() : Date.now(),
-        startDate: visibleDateStr ? new Date(visibleDateStr).getTime() || Date.now() : Date.now(),
+        startDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() || Date.now() : Date.now(),
         endDate: endDateStr ? new Date(endDateStr).getTime() || Date.now() + 1000 * 60 * 60 * 24 * 30 * 6 : Date.now() + 1000 * 60 * 60 * 24 * 30 * 6,
         theme: {
           primaryColor: themePrimaryColor,
@@ -224,16 +221,6 @@ export default function PickEmCreateCampaign() {
             <h3 className="text-lg font-medium text-white mb-4">Campaign Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Visible Date (When users can see and sign up)</label>
-                <input
-                  type="datetime-local"
-                  value={visibleDateStr}
-                  onChange={e => setVisibleDateStr(e.target.value)}
-                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
-                  required
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-1">Games Begin Date</label>
                 <input
                   type="datetime-local"
@@ -257,9 +244,18 @@ export default function PickEmCreateCampaign() {
             </div>
           </div>
 
-                    <div className="pt-6 border-t border-zinc-800">
-            <h3 className="text-lg font-medium text-white mb-4">Access Settings</h3>
+          <div className="pt-6 border-t border-zinc-800">
+            <h3 className="text-lg font-medium text-white mb-4">Access & Status Settings</h3>
             <div className="space-y-4">
+              <label className="flex items-center gap-2 cursor-pointer text-white">
+                  <input
+                    type="checkbox"
+                    checked={isOpen}
+                    onChange={(e) => setIsOpen(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e] focus:ring-[#22c55e]"
+                  />
+                  <span className="font-semibold">Campaign Open (Joinable)</span>
+              </label>
               <label className="flex items-center gap-2 cursor-pointer text-white">
                   <input
                     type="checkbox"

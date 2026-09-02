@@ -29,11 +29,11 @@ export default function PickEmCampaignDetail() {
   const [themeTitle, setThemeTitle] = useState('');
   const [themeSubtitle, setThemeSubtitle] = useState('');
   const [themeLogoFile, setThemeLogoFile] = useState<File | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [themeLogoUrl, setThemeLogoUrl] = useState('');
 
-  const [visibleDateStr, setVisibleDateStr] = useState('');
   const [gamesBeginDateStr, setGamesBeginDateStr] = useState('');
   const [startDateStr, setStartDateStr] = useState('');
   const [endDateStr, setEndDateStr] = useState('');
@@ -63,6 +63,7 @@ export default function PickEmCampaignDetail() {
         setHasWeekZero(data.hasWeekZero || false);
         setUseTiebreaker(data.useTiebreaker || false);
         setEntryFee(data.entryFee || 0);
+        setIsOpen(data.isOpen !== false);
         setIsPrivate(data.isPrivate || false);
         setJoinCode(data.joinCode || '');
         setWeekSettings(data.weekSettings || {});
@@ -71,11 +72,6 @@ export default function PickEmCampaignDetail() {
         setThemeTitle(data.theme?.title || '');
         setThemeSubtitle(data.theme?.subtitle || '');
         setThemeLogoUrl(data.theme?.logoUrl || '');
-
-        if (data.visibleDate) {
-          const d = new Date(data.visibleDate);
-          setVisibleDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
-        }
         if (data.gamesBeginDate) {
           const d = new Date(data.gamesBeginDate);
           setGamesBeginDateStr(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
@@ -176,9 +172,9 @@ export default function PickEmCampaignDetail() {
         hasWeekZero: hasWeekZero,
         useTiebreaker: useTiebreaker,
         entryFee: entryFee,
+        isOpen: isOpen,
         isPrivate: isPrivate,
         joinCode: isPrivate ? joinCode : '',
-        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
         endDate: endDateStr ? new Date(endDateStr).getTime() : null,
@@ -198,9 +194,9 @@ export default function PickEmCampaignDetail() {
         hasWeekZero,
         useTiebreaker, 
         entryFee,
+        isOpen,
         isPrivate,
         joinCode: isPrivate ? joinCode : '',
-        visibleDate: visibleDateStr ? new Date(visibleDateStr).getTime() : null,
         gamesBeginDate: gamesBeginDateStr ? new Date(gamesBeginDateStr).getTime() : null,
         startDate: startDateStr ? new Date(startDateStr).getTime() : null,
         endDate: endDateStr ? new Date(endDateStr).getTime() : null,
@@ -687,17 +683,7 @@ export default function PickEmCampaignDetail() {
           <p className="text-xs text-zinc-400">Set overall campaign lifecycle dates, fees, and tiebreaker options.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Visible Date</label>
-            <input
-              type="datetime-local"
-              value={visibleDateStr}
-              onChange={e => setVisibleDateStr(e.target.value)}
-              className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-purple-500 [color-scheme:dark]"
-            />
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1.5">Games Begin Date</label>
             <input
@@ -769,9 +755,22 @@ export default function PickEmCampaignDetail() {
         {/* Access Settings */}
         <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 space-y-5">
           <div>
-            <h3 className="text-lg font-bold text-white">Access Settings</h3>
-            <p className="text-xs text-zinc-400">Manage campaign visibility and access passcodes.</p>
+            <h3 className="text-lg font-bold text-white">Access & Status Settings</h3>
+            <p className="text-xs text-zinc-400">Manage campaign open/closed status, visibility and access passcodes.</p>
           </div>
+
+          <label className="flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800/60 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isOpen}
+              onChange={(e) => setIsOpen(e.target.checked)}
+              className="w-4 h-4 rounded border-zinc-700 bg-[#18181A] text-purple-600 focus:ring-purple-500"
+            />
+            <div>
+              <span className="text-sm font-medium text-zinc-200 block">Campaign Open (Joinable)</span>
+              <span className="text-xs text-zinc-400">Allow non-participants to see and join this campaign.</span>
+            </div>
+          </label>
 
           <label className="flex items-center gap-3 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800/60 cursor-pointer">
             <input

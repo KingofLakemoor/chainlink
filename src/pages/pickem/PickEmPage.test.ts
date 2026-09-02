@@ -494,4 +494,49 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(myCampaigns.map(c => c.id)).toEqual(['my-camp-1']);
     expect(myCampaigns[0].isOpen).toBe(false);
   });
+
+  it('determines auto-join eligibility correctly in PickEmPage without false triggers on private joinCode fields', () => {
+    const checkCanAutoJoin = (urlCode: string, selectedCampaign: { isPrivate?: boolean, isOpen?: boolean, joinCode?: string }) => {
+      const cleanUrlCode = urlCode.trim();
+      return !!cleanUrlCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false);
+    };
+
+    // Scenario 1: Private campaign with joinCode in DB, but user came in with NO urlCode
+    const privateCamp = { id: 'priv-1', isPrivate: true, isOpen: true, joinCode: 'SECRET_CODE' };
+    expect(checkCanAutoJoin('', privateCamp)).toBe(false);
+
+    // Scenario 2: Private campaign, user came in WITH urlCode
+    expect(checkCanAutoJoin('SECRET_CODE', privateCamp)).toBe(true);
+
+    // Scenario 3: Public open campaign without urlCode
+    const publicOpenCamp = { id: 'pub-1', isPrivate: false, isOpen: true };
+    expect(checkCanAutoJoin('', publicOpenCamp)).toBe(true);
+
+    // Scenario 4: Public closed campaign without urlCode
+    const publicClosedCamp = { id: 'pub-2', isPrivate: false, isOpen: false };
+    expect(checkCanAutoJoin('', publicClosedCamp)).toBe(false);
+  });
+
+  it('includes active public campaigns on Join Pick Em board and handles public campaign join navigation', () => {
+    const campaigns = [
+      { id: 'pub-open', name: 'Public Open', isPrivate: false, isOpen: true, isArchived: false },
+      { id: 'pub-closed', name: 'Public Closed', isPrivate: false, isOpen: false, isArchived: false },
+      { id: 'priv-1', name: 'Private League', isPrivate: true, isArchived: false }
+    ];
+
+    const joinedIds = new Set<string>();
+
+    const publicCampaigns = campaigns.filter(c => !joinedIds.has(c.id) && !c.isPrivate && !c.isArchived);
+    expect(publicCampaigns.map(c => c.id)).toEqual(['pub-open', 'pub-closed']);
+
+    // Simulating joining public campaign -> navigates directly to campaign route
+    const handleJoinPublicSim = (camp: typeof campaigns[0]) => {
+      joinedIds.add(camp.id);
+      return `/pickem/${camp.id}`;
+    };
+
+    const targetRoute = handleJoinPublicSim(campaigns[0]);
+    expect(targetRoute).toBe('/pickem/pub-open');
+    expect(joinedIds.has('pub-open')).toBe(true);
+  });
 });

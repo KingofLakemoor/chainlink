@@ -88,16 +88,19 @@ export default function PickEmLandingPage() {
         if (urlCode) {
           let matched = allUnarchivedCamps.find(c =>
             (c.joinCode && c.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
-            c.id.toLowerCase() === urlCode.toLowerCase()
+            c.id.toLowerCase() === urlCode.toLowerCase() ||
+            (c.name && c.name.trim().toLowerCase() === urlCode.toLowerCase())
           );
 
           if (!matched) {
-            // Also try searching Firestore docs for unarchived matching joinCode or id
+            // Also try searching Firestore docs for unarchived matching joinCode, id, or name
             const matchedDoc = campSnap.docs.find(d => {
               const data = d.data();
-              return !data.isArchived && (
+              if (data.isArchived || data.archived) return false;
+              return (
                 (data.joinCode && data.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
-                d.id.toLowerCase() === urlCode.toLowerCase()
+                d.id.toLowerCase() === urlCode.toLowerCase() ||
+                (data.name && data.name.trim().toLowerCase() === urlCode.toLowerCase())
               );
             });
             if (matchedDoc) {
@@ -131,6 +134,10 @@ export default function PickEmLandingPage() {
           return true; // Show all non-archived campaigns so public campaigns are always joinable
         });
         setCampaigns(camps);
+
+        if (joinedIds.size === 0 && !urlCode) {
+          setActiveTab('join');
+        }
         
         // For joined campaigns, fetch current week matchups and picks in parallel to show status
         const details: Record<string, { matchups: any[], picks: any[] }> = {};
@@ -155,6 +162,9 @@ export default function PickEmLandingPage() {
 
       } catch (err) {
         console.error(err);
+        if (!urlCode) {
+          setActiveTab('join');
+        }
       } finally {
         setLoading(false);
       }
@@ -204,15 +214,24 @@ export default function PickEmLandingPage() {
     const cleanCode = joinCode.trim();
 
     // Find campaign with this code in loaded campaigns first
-    let targetCampaignId = campaigns.find(c => c.joinCode && c.joinCode.trim().toLowerCase() === cleanCode.toLowerCase())?.id;
+    let targetCampaignId = campaigns.find(c =>
+      (c.joinCode && c.joinCode.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+      c.id.toLowerCase() === cleanCode.toLowerCase() ||
+      (c.name && c.name.trim().toLowerCase() === cleanCode.toLowerCase())
+    )?.id;
 
-    // If not found in loaded campaigns, query Firestore for any unarchived private campaign matching joinCode
+    // If not found in loaded campaigns, query Firestore for any unarchived campaign matching joinCode, id, or name
     if (!targetCampaignId) {
       try {
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
         const matchedDoc = campSnap.docs.find(d => {
           const data = d.data();
-          return !data.isArchived && data.joinCode && data.joinCode.trim().toLowerCase() === cleanCode.toLowerCase();
+          if (data.isArchived || data.archived) return false;
+          return (
+            (data.joinCode && data.joinCode.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+            d.id.toLowerCase() === cleanCode.toLowerCase() ||
+            (data.name && data.name.trim().toLowerCase() === cleanCode.toLowerCase())
+          );
         });
         if (matchedDoc) {
           targetCampaignId = matchedDoc.id;

@@ -215,8 +215,8 @@ export default function PickEmPage() {
       const storedCode = localStorage.getItem('chainlink_join_code') || '';
       const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || '').trim();
 
-      // Auto-join if user explicitly came in with a join code (URL or localStorage) or if campaign has a joinCode
-      if (urlCode || selectedCampaign.joinCode) {
+      // Auto-join if user came in with a join code, campaign has a joinCode, or if campaign is public & open
+      if (urlCode || selectedCampaign.joinCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false)) {
         autoJoinAttempted.current[campId] = true;
         handleJoinCampaign();
       }
@@ -663,18 +663,25 @@ export default function PickEmPage() {
         )}
       </div>
 
-            {selectedCampaign && !isParticipant && (
-        <div className="max-w-3xl mx-auto my-12 space-y-6">
-          <CharityBanner />
+      {selectedCampaign && !isParticipant && (() => {
+        const isCharity = selectedCampaign.isCharity || selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.id === 'charity';
+        return (
+          <div className="max-w-3xl mx-auto my-12 space-y-6">
+            {isCharity && <CharityBanner />}
 
-          <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center relative z-10 shadow-xl">
-             <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
-             <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
-             <p className="text-zinc-400 text-lg mb-8">Once you have made your donation, click below to enter the league and make your picks.</p>
-             <Button size="lg" onClick={handleJoinCampaign} disabled={joining} className="px-10 h-12 text-lg font-bold">{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
+            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-8 md:p-12 text-center relative z-10 shadow-xl">
+               <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
+               <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
+               <p className="text-zinc-400 text-lg mb-8">
+                 {isCharity
+                   ? "Once you have made your donation, click below to enter the league and make your picks."
+                   : (selectedCampaign.theme?.subtitle || "Click below to enter the league and start making your weekly picks!")}
+               </p>
+               <Button size="lg" onClick={handleJoinCampaign} disabled={joining} className="px-10 h-12 text-lg font-bold">{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {selectedCampaign && isParticipant && (
         <>
           {selectedCampaign.name === 'YES Day Walk for Autism 2026' && (

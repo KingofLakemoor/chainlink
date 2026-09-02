@@ -137,9 +137,9 @@ export default function PickEmPage() {
           if (user) {
             const pairId = `${initialCampaign.id}_${user.uid}`;
             const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
-            if (docRef.exists()) {
-              setIsParticipant(true);
-            } else {
+            let userIsParticipant = docRef.exists();
+
+            if (!userIsParticipant) {
               // Check if user has picks submitted for this campaign
               const pCheckQuery = query(
                 collection(db, 'pickemPicks'),
@@ -148,8 +148,24 @@ export default function PickEmPage() {
                 limit(1)
               );
               const pCheckSnap = await getDocs(pCheckQuery);
-              setIsParticipant(!pCheckSnap.empty);
+              userIsParticipant = !pCheckSnap.empty;
+
+              if (userIsParticipant) {
+                // Auto-heal missing participant record for this campaign
+                user.getIdToken().then(token => {
+                  fetch('/api/pickem/join', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ campaignId: initialCampaign.id })
+                  }).catch(err => console.error("Auto-heal join error in PickEmPage:", err));
+                }).catch(console.error);
+              }
             }
+
+            setIsParticipant(userIsParticipant);
           }
         }
       } catch (err) {

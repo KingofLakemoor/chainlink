@@ -96,8 +96,24 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
 
     expect(isSpread).toBe(false);
 
-    const showSpreadNote = selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && selectedCampaign?.defaultMatchType !== 'STANDARD';
+    const matchups = [matchup];
+    const showSpreadNote = selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && (selectedCampaign?.defaultMatchType !== 'STANDARD' || matchups.some(m => m.type === 'SPREAD'));
     expect(showSpreadNote).toBe(false);
+  });
+
+  it('displays spread information panel for standard campaigns when matchups contain ATS matchups', () => {
+    const selectedCampaign = {
+      name: 'CFB Pick Em 2026',
+      defaultMatchType: 'STANDARD'
+    };
+
+    const matchups = [
+      { id: 'm1', type: 'STANDARD' },
+      { id: 'm2', type: 'SPREAD', metadata: { spread: -2.5 } }
+    ];
+
+    const showSpreadNote = selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && (selectedCampaign?.defaultMatchType !== 'STANDARD' || matchups.some(m => m.type === 'SPREAD'));
+    expect(showSpreadNote).toBe(true);
   });
 
   it('allows joined private campaign to be accessed directly from My Pick Em list without re-entering join code', () => {

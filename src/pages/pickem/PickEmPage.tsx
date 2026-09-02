@@ -44,6 +44,7 @@ export default function PickEmPage() {
   const [leaderboardView, setLeaderboardView] = useState<'season' | 'week'>('season');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [allCampaignMatchups, setAllCampaignMatchups] = useState<any[]>([]);
   const [isParticipant, setIsParticipant] = useState(false);
   const [joining, setJoining] = useState(false);
   const autoJoinAttempted = useRef<Record<string, boolean>>({});
@@ -364,34 +365,72 @@ export default function PickEmPage() {
             }
           }));
 
-          const formattedLeaderboard = participantIds.map(uid => {
-             let tbDistance = Infinity;
-             if (selectedCampaign?.useTiebreaker) {
-                // Find user's tiebreaker pick for this week (or globally if season view, but usually calculated per week)
-                // For simplicity, find the closest tiebreaker distance among all their picks that were tiebreakers
-                participantStats[uid].picks.forEach(p => {
-                    const m = matchups.find(m => m.id === p.matchupId);
-                    if (m && m.isTiebreaker && m.status === 'STATUS_FINAL' && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null && p.tiebreakerTotal > 0) {
-                        const actualTotal = (m.homeScore || 0) + (m.awayScore || 0);
-                        const dist = Math.abs(p.tiebreakerTotal - actualTotal);
-                        if (dist < tbDistance) tbDistance = dist;
-                    }
-                });
+        // Fetch all campaign matchups to evaluate tiebreaker games for all weeks or selected week
+        const allMQuery = query(
+          collection(db, 'pickemMatchups'),
+          where('campaignId', '==', selectedCampaign.id)
+        );
+        const allMSnap = await getDocs(allMQuery);
+        const campaignMatchups = allMSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        setAllCampaignMatchups(campaignMatchups);
+
+        const formattedLeaderboard = participantIds.map(uid => {
+           let tbValue = Infinity;
+           let tbDisplay: any = '-';
+
+           if (leaderboardView === 'week') {
+             const weekMatchups = campaignMatchups.filter((m: any) => m.week === selectedWeek);
+             const weekTbMatchup = weekMatchups.find((m: any) => m.isTiebreaker);
+             if (weekTbMatchup) {
+               const tbPick = participantStats[uid].picks.find((p: any) => p.matchupId === weekTbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
+               if (weekTbMatchup.status === 'STATUS_FINAL') {
+                 const actualTotal = Number(weekTbMatchup.homeScore ?? weekTbMatchup.homeTeam?.score ?? 0) + Number(weekTbMatchup.awayScore ?? weekTbMatchup.awayTeam?.score ?? 0);
+                 if (tbPick) {
+                   tbValue = Math.abs(tbPick.tiebreakerTotal - actualTotal);
+                   tbDisplay = tbValue;
+                 }
+               } else {
+                 if (tbPick) {
+                   tbDisplay = tbPick.tiebreakerTotal;
+                 }
+               }
              }
-             return {
-                 uid,
-                 name: usersMap[uid]?.username || usersMap[uid]?.displayName || 'Unknown User',
-                 avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
-                 tbDistance,
-                 ...participantStats[uid]
-             };
-          }).sort((a, b) => {
-              if (b.points !== a.points) return b.points - a.points; // Sort by points
-              if (selectedCampaign?.useTiebreaker) {
-                  return a.tbDistance - b.tbDistance; // Lower distance wins
-              }
-              return 0;
-          });
+           } else {
+             // Season view: running total of absolute values from completed tiebreaker weeks
+             const completedTbMatchups = campaignMatchups.filter((m: any) => m.isTiebreaker && m.status === 'STATUS_FINAL');
+             if (completedTbMatchups.length > 0) {
+               let runningTotal = 0;
+               let count = 0;
+               completedTbMatchups.forEach((m: any) => {
+                 const actualTotal = Number(m.homeScore ?? m.homeTeam?.score ?? 0) + Number(m.awayScore ?? m.awayTeam?.score ?? 0);
+                 const tbPick = participantStats[uid].picks.find((p: any) => p.matchupId === m.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
+                 if (tbPick) {
+                   runningTotal += Math.abs(tbPick.tiebreakerTotal - actualTotal);
+                   count++;
+                 }
+               });
+               if (count > 0) {
+                 tbValue = runningTotal;
+                 tbDisplay = runningTotal;
+               }
+             }
+           }
+
+           return {
+               uid,
+               name: usersMap[uid]?.username || usersMap[uid]?.displayName || 'Unknown User',
+               avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
+               tbValue,
+               tbDisplay,
+               ...participantStats[uid]
+           };
+        }).sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points; // Sort by points
+            if (a.tbValue !== b.tbValue) {
+                return a.tbValue - b.tbValue; // Lower distance/total wins
+            }
+            return 0;
+        });
 
           setLeaderboardData(formattedLeaderboard);
         } else {
@@ -1074,57 +1113,79 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-[#18181A] text-zinc-400 border-b border-zinc-800">
-                  <tr>
-                    <th className="px-6 py-4 font-medium w-16 text-center">Rank</th>
-                    <th className="px-6 py-4 font-medium">Participant</th>
-                    <th className="px-6 py-4 font-medium text-center">Points</th>
-                    <th className="px-6 py-4 font-medium text-center">W-L-P</th>
-                    <th className="px-6 py-4 font-medium text-center">Tiebreaker</th>
-                    <th className="px-6 py-4 font-medium text-left">Week {selectedWeek} Picks</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/50">
-                  {leaderboardData.map((participant, index) => (
-                    <tr
-                      key={participant.uid}
-                      className={`hover:bg-zinc-800/20 transition-colors ${participant.uid === user?.uid ? '' : ''}`}
-                      style={participant.uid === user?.uid ? { backgroundColor: `${primaryColor}0D` } : undefined}
-                    >
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
-                          index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
-                          index === 1 ? 'bg-zinc-300/20 text-zinc-300' :
-                          index === 2 ? 'bg-orange-500/20 text-orange-500' :
-                          'text-zinc-500'
-                        }`}>
-                          {index + 1}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <FirebaseImage fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${participant.id || "guest"}`} src={participant.avatar} alt={participant.name} className="w-8 h-8 rounded-full bg-zinc-800" loading="lazy" />
-                          <span className="font-medium text-white">{participant.name} {participant.uid === user?.uid && '(You)'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center text-zinc-400 font-mono">
-                        {isNaN(participant.wins) ? 0 : String(participant.wins)}-{isNaN(participant.losses) ? 0 : String(participant.losses)}-{isNaN(participant.pushes) ? 0 : String(participant.pushes)}
-                      </td>
-                      <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
-                        {(() => {
-                          const tbPick = participant.picks?.find((p: any) => p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
-                          if (!tbPick) return '-';
-                          const tbMatchup = matchups.find((m: any) => m.id === tbPick.matchupId);
-                          const isLocked = tbMatchup && tbMatchup.startTime && Date.now() >= tbMatchup.startTime;
-                          const isSelf = participant.uid === user?.uid;
-                          if (isLocked || isSelf) return tbPick.tiebreakerTotal;
-                          return <span title="Hidden until kickoff" className="flex items-center justify-center opacity-50"><Lock className="w-4 h-4 inline" /></span>;
-                        })()}
-                      </td>
-                      <td className="px-6 py-4">
+                {(() => {
+                  const showTiebreakerCol = leaderboardView === 'week'
+                    ? matchups.some((m: any) => m.isTiebreaker)
+                    : allCampaignMatchups.some((m: any) => m.isTiebreaker);
+
+                  return (
+                    <>
+                      <thead className="bg-[#18181A] text-zinc-400 border-b border-zinc-800">
+                        <tr>
+                          <th className="px-6 py-4 font-medium w-16 text-center">Rank</th>
+                          <th className="px-6 py-4 font-medium">Participant</th>
+                          <th className="px-6 py-4 font-medium text-center">Points</th>
+                          <th className="px-6 py-4 font-medium text-center">W-L-P</th>
+                          {showTiebreakerCol && (
+                            <th className="px-6 py-4 font-medium text-center">Tiebreaker</th>
+                          )}
+                          <th className="px-6 py-4 font-medium text-left">Week {selectedWeek} Picks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50">
+                        {leaderboardData.map((participant, index) => (
+                          <tr
+                            key={participant.uid}
+                            className={`hover:bg-zinc-800/20 transition-colors ${participant.uid === user?.uid ? '' : ''}`}
+                            style={participant.uid === user?.uid ? { backgroundColor: `${primaryColor}0D` } : undefined}
+                          >
+                            <td className="px-6 py-4 text-center">
+                              <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
+                                index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+                                index === 1 ? 'bg-zinc-300/20 text-zinc-300' :
+                                index === 2 ? 'bg-orange-500/20 text-orange-500' :
+                                'text-zinc-500'
+                              }`}>
+                                {index + 1}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <FirebaseImage fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${participant.id || "guest"}`} src={participant.avatar} alt={participant.name} className="w-8 h-8 rounded-full bg-zinc-800" loading="lazy" />
+                                <span className="font-medium text-white">{participant.name} {participant.uid === user?.uid && '(You)'}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center text-zinc-400 font-mono">
+                              {isNaN(participant.wins) ? 0 : String(participant.wins)}-{isNaN(participant.losses) ? 0 : String(participant.losses)}-{isNaN(participant.pushes) ? 0 : String(participant.pushes)}
+                            </td>
+                            {showTiebreakerCol && (
+                              <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
+                                {(() => {
+                                  if (leaderboardView === 'week') {
+                                    const weekTbMatchup = matchups.find((m: any) => m.isTiebreaker);
+                                    if (!weekTbMatchup) return '-';
+                                    const tbPick = participant.picks?.find((p: any) => p.matchupId === weekTbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
+                                    if (!tbPick) return '-';
+                                    const isFinal = weekTbMatchup.status === 'STATUS_FINAL';
+                                    if (isFinal) {
+                                      const actualTotal = Number(weekTbMatchup.homeScore ?? weekTbMatchup.homeTeam?.score ?? 0) + Number(weekTbMatchup.awayScore ?? weekTbMatchup.awayTeam?.score ?? 0);
+                                      return Math.abs(tbPick.tiebreakerTotal - actualTotal);
+                                    } else {
+                                      const isLocked = weekTbMatchup.startTime && Date.now() >= weekTbMatchup.startTime;
+                                      const isSelf = participant.uid === user?.uid;
+                                      if (isLocked || isSelf) return tbPick.tiebreakerTotal;
+                                      return <span title="Hidden until kickoff" className="flex items-center justify-center opacity-50"><Lock className="w-4 h-4 inline" /></span>;
+                                    }
+                                  } else {
+                                    return participant.tbDisplay !== undefined ? participant.tbDisplay : '-';
+                                  }
+                                })()}
+                              </td>
+                            )}
+                            <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
                           {participant.picks && participant.picks.filter((p: any) => p.week === selectedWeek).map((pick: any) => {
                             if (!pick?.pick?.teamId) return null;
@@ -1163,10 +1224,13 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             );
                           })}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </>
+                  );
+                })()}
               </table>
             </div>
           )}

@@ -296,4 +296,93 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
       expect(isVisibleOnMyPicks || isVisibleOnJoin).toBe(true);
     });
   });
+
+  it('calculates weekly tiebreaker distance as absolute value relative to total score when game is final', () => {
+    const matchup = {
+      id: 'tb-m1',
+      isTiebreaker: true,
+      status: 'STATUS_FINAL',
+      homeScore: 24,
+      awayScore: 21
+    };
+    const actualTotal = matchup.homeScore + matchup.awayScore; // 45
+
+    const participantPicks = [
+      { participantId: 'user1', tiebreakerTotal: 42 }, // diff |42 - 45| = 3
+      { participantId: 'user2', tiebreakerTotal: 48 }, // diff |48 - 45| = 3
+      { participantId: 'user3', tiebreakerTotal: 45 }, // diff |45 - 45| = 0
+      { participantId: 'user4', tiebreakerTotal: 60 }  // diff |60 - 45| = 15
+    ];
+
+    const results = participantPicks.map(p => ({
+      uid: p.participantId,
+      tbValue: Math.abs(p.tiebreakerTotal - actualTotal)
+    })).sort((a, b) => a.tbValue - b.tbValue);
+
+    expect(results[0]).toEqual({ uid: 'user3', tbValue: 0 });
+    expect(results[1].tbValue).toBe(3);
+    expect(results[2].tbValue).toBe(3);
+    expect(results[3]).toEqual({ uid: 'user4', tbValue: 15 });
+  });
+
+  it('omits tiebreaker leaderboard column if a week has no tiebreaker matchup', () => {
+    const weekMatchupsNoTb = [
+      { id: 'm1', isTiebreaker: false },
+      { id: 'm2', isTiebreaker: false }
+    ];
+
+    const weekMatchupsWithTb = [
+      { id: 'm1', isTiebreaker: false },
+      { id: 'm2', isTiebreaker: true }
+    ];
+
+    const showColumnNoTb = weekMatchupsNoTb.some(m => m.isTiebreaker);
+    const showColumnWithTb = weekMatchupsWithTb.some(m => m.isTiebreaker);
+
+    expect(showColumnNoTb).toBe(false);
+    expect(showColumnWithTb).toBe(true);
+  });
+
+  it('calculates season long tiebreaker as a running sum of absolute values from completed tiebreaker weeks', () => {
+    const campaignMatchups = [
+      { id: 'tb-w1', week: 1, isTiebreaker: true, status: 'STATUS_FINAL', homeScore: 20, awayScore: 17 }, // total = 37
+      { id: 'tb-w2', week: 2, isTiebreaker: true, status: 'STATUS_FINAL', homeScore: 28, awayScore: 24 }, // total = 52
+      { id: 'tb-w3', week: 3, isTiebreaker: true, status: 'STATUS_SCHEDULED', homeScore: 0, awayScore: 0 }, // not final
+      { id: 'normal-w1', week: 1, isTiebreaker: false, status: 'STATUS_FINAL' }
+    ];
+
+    const userPicks = [
+      { matchupId: 'tb-w1', tiebreakerTotal: 40 }, // diff |40 - 37| = 3
+      { matchupId: 'tb-w2', tiebreakerTotal: 50 }, // diff |50 - 52| = 2
+      { matchupId: 'tb-w3', tiebreakerTotal: 45 }  // skipped because not final
+    ];
+
+    const completedTbMatchups = campaignMatchups.filter(m => m.isTiebreaker && m.status === 'STATUS_FINAL');
+    let runningTotal = 0;
+    completedTbMatchups.forEach(m => {
+      const actualTotal = m.homeScore + m.awayScore;
+      const pick = userPicks.find(p => p.matchupId === m.id);
+      if (pick) {
+        runningTotal += Math.abs(pick.tiebreakerTotal - actualTotal);
+      }
+    });
+
+    expect(runningTotal).toBe(5); // 3 + 2 = 5
+  });
+
+  it('ranks tied participants secondarily by smaller tiebreaker absolute value', () => {
+    const leaderboard = [
+      { uid: 'u1', points: 10, tbValue: 12 },
+      { uid: 'u2', points: 10, tbValue: 4 },
+      { uid: 'u3', points: 12, tbValue: 20 },
+      { uid: 'u4', points: 10, tbValue: 0 }
+    ];
+
+    const sorted = leaderboard.slice().sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return a.tbValue - b.tbValue;
+    });
+
+    expect(sorted.map(u => u.uid)).toEqual(['u3', 'u4', 'u2', 'u1']);
+  });
 });

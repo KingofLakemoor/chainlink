@@ -601,7 +601,7 @@ export default function PickEmPage() {
         </h1>
         <p className="text-zinc-400 text-lg mb-4">{subtitle}</p>
         
-        {selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && selectedCampaign?.defaultMatchType !== 'STANDARD' && (
+        {selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && (selectedCampaign?.defaultMatchType !== 'STANDARD' || matchups.some(m => m.type === 'SPREAD')) && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-200 text-sm max-w-3xl mt-6">
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">

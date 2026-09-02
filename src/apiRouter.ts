@@ -770,6 +770,10 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
       if (!campaignDoc.exists) throw new Error("Campaign not found");
       const campaignData = campaignDoc.data();
 
+      if (campaignData.isOpen === false) {
+        throw new Error("This campaign is closed to new entries.");
+      }
+
       if (campaignData.isPrivate) {
         const expectedCode = (campaignData.joinCode || '').trim().toLowerCase();
         if (!cleanJoinCode || cleanJoinCode.toLowerCase() !== expectedCode) {

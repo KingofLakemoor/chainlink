@@ -37,14 +37,11 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
     
     // Check for active PickEm using getDocs instead of a global websocket listener to save massive reads
     getDocs(collection(db, 'pickemCampaigns')).then((snap) => {
-       const now = Date.now();
        let active = false;
        snap.forEach(doc => {
           const c = doc.data();
-          if (c.isArchived) return; // Skip archived campaigns
-          const startToCheck = c.visibleDate || c.startDate;
-          if (!startToCheck || !c.endDate) active = true; // Legacy
-          else if (now >= startToCheck && now <= c.endDate) active = true;
+          if (c.isArchived || c.archived || c.isOpen === false) return; // Skip archived or closed campaigns
+          active = true;
        });
        setHasActivePickEm(active);
     }).catch(() => {});

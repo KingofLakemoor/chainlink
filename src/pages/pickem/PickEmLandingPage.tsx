@@ -284,7 +284,7 @@ export default function PickEmLandingPage() {
   const [selectedPublicCamp, setSelectedPublicCamp] = useState<any>(null);
 
   const myCampaigns = campaigns.filter(c => joinedCampaignIds.has(c.id));
-  const publicCampaigns = campaigns.filter(c => !joinedCampaignIds.has(c.id) && !c.isPrivate);
+  const publicCampaigns = campaigns.filter(c => !joinedCampaignIds.has(c.id) && !c.isPrivate && c.isOpen !== false && !c.isArchived && !c.archived);
 
   if (loading) {
     return <div className="p-8 text-center text-zinc-500">Loading Pick'em...</div>;
@@ -332,9 +332,16 @@ export default function PickEmLandingPage() {
         <div className="bg-[#121212] border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
           <div className="p-6 md:p-8 border-b border-zinc-800/80 bg-[#161618] flex flex-wrap items-center justify-between gap-4">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#22c55e] bg-[#22c55e]/10 px-3 py-1 rounded-full border border-[#22c55e]/20">
-                {directCampaign.isPrivate ? 'Private Campaign' : 'Public Campaign'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#22c55e] bg-[#22c55e]/10 px-3 py-1 rounded-full border border-[#22c55e]/20">
+                  {directCampaign.isPrivate ? 'Private Campaign' : 'Public Campaign'}
+                </span>
+                {directCampaign.isOpen === false && (
+                  <span className="text-xs font-bold uppercase tracking-wider text-red-400 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+                    Campaign Closed
+                  </span>
+                )}
+              </div>
               <h3 className="text-xl md:text-2xl font-bold text-white mt-2">
                 League Details
               </h3>
@@ -386,9 +393,13 @@ export default function PickEmLandingPage() {
                 size="lg"
                 className="flex-1 h-14 text-lg font-bold shadow-[0_0_25px_rgba(34,197,94,0.25)]"
                 onClick={() => handleJoinDirectCampaign(directCampaign)}
-                disabled={directJoining}
+                disabled={directJoining || directCampaign.isOpen === false}
               >
-                {directJoining ? 'Joining Campaign...' : `Join ${directCampaign.theme?.title || directCampaign.name} Now`}
+                {directCampaign.isOpen === false
+                  ? 'Campaign Closed to New Entries'
+                  : directJoining
+                    ? 'Joining Campaign...'
+                    : `Join ${directCampaign.theme?.title || directCampaign.name} Now`}
               </Button>
             </div>
           </div>

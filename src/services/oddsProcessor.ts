@@ -7,6 +7,19 @@ let getAdminDb = () => firebaseAdmin.adminDb;
 // Export for mocking in tests
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
 
+let oddsSyncInterval: NodeJS.Timeout | null = null;
+
+export function startOddsProcessorJob() {
+  if (oddsSyncInterval) return;
+  const runOddsSync = async () => {
+    console.log('[OddsProcessor] Running scheduled odds sync (Tennis & Soccer)');
+    await syncTennisOdds();
+    await syncSoccerOdds();
+  };
+  runOddsSync();
+  oddsSyncInterval = setInterval(runOddsSync, 6 * 60 * 60 * 1000);
+}
+
 // Setup internal cron to run every 6 hours for odds sync
 cron.schedule('0 */6 * * *', async () => {
     console.log('[OddsProcessor] Running scheduled 6-hour odds sync (Tennis & Soccer)');
@@ -62,9 +75,9 @@ export async function syncTennisOdds() {
     return { success: false, error: 'No admin db' };
   }
   
-  const apiKey = process.env.ODDS_API_KEY;
+  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY;
   if (!apiKey) {
-    console.log("[OddsProcessor] ODDS_API_KEY is not set. Skipping tennis odds sync.");
+    console.log("[OddsProcessor] Neither THE_ODDS_API_KEY nor ODDS_API_KEY is set. Skipping tennis odds sync.");
     return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
   }
 
@@ -189,8 +202,9 @@ export async function syncTennisOdds() {
             let abandoned = match.abandoned || false;
             if (!active) {
                 // Check if anyone has already picked this before making it inactive
-                const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-                const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();
+                const targetIds = Array.from(new Set([match.id, match.gameId].filter(Boolean)));
+                const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
+                const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', 'in', targetIds).limit(1).get();
                 if (!picksSnap.empty || !pickemPicksSnap.empty) {
                     active = true;
                 } else {
@@ -220,8 +234,9 @@ export async function syncTennisOdds() {
     for (const match of dbMatchups as any[]) {
        if (!matchedIds.has(match.id) && (match as any).active === true) {
            // Check if anyone has already picked this before making it inactive
-           const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-           const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();
+           const targetIds = Array.from(new Set([match.id, match.gameId].filter(Boolean)));
+           const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
+           const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', 'in', targetIds).limit(1).get();
            if (!picksSnap.empty || !pickemPicksSnap.empty) {
                continue;
            }
@@ -257,7 +272,7 @@ export async function syncTennisOdds() {
 export async function syncSoccerOdds() {
   const adminDb = getAdminDb();
   if (!adminDb) return { success: false, error: 'No admin db' };
-  const apiKey = process.env.ODDS_API_KEY;
+  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY;
   if (!apiKey) return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
 
   const leaguesToSync = [
@@ -294,7 +309,7 @@ export async function syncSoccerOdds() {
             console.log(`[OddsProcessor] No scheduled matchups for soccer league ${l.espn}, skipping API call.`);
             continue;
         }
-        const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const dbMatchups: any[] = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
         if (!oddsRes.ok) continue;
@@ -350,7 +365,8 @@ export async function syncSoccerOdds() {
               }
                  
               if (!active) {
-                  const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+                  const targetIds = Array.from(new Set([match.id, match.gameId].filter(Boolean)));
+                  const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
                   if (!picksSnap.empty) active = true;
               }
 
@@ -372,7 +388,8 @@ export async function syncSoccerOdds() {
 
         for (const match of dbMatchups) {
            if (!matchedIds.has(match.id) && (match as any).active === true) {
-               const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
+               const targetIds = Array.from(new Set([match.id, match.gameId].filter(Boolean)));
+               const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
                if (!picksSnap.empty) continue;
                const matchRef = adminDb.collection('matchups').doc(match.id);
                batch.update(matchRef, { 'active': false, 'updatedAt': Date.now() });

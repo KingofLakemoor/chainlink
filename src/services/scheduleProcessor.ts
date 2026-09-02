@@ -251,8 +251,10 @@ export async function syncLeagueSchedules(
          for (let i = 0; i < deactivationGameIds.length; i += chunk) {
              const batchIds = deactivationGameIds.slice(i, i + chunk);
              await Promise.all(batchIds.map(async (gameId) => {
-                 const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).limit(1).get();
-                 const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', gameId).limit(1).get();
+                 const existingDoc = existingMap.get(gameId);
+                 const targetMatchupIds = Array.from(new Set([gameId, existingDoc?.id].filter(Boolean)));
+                 const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetMatchupIds).limit(1).get();
+                 const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', 'in', targetMatchupIds).limit(1).get();
                  deactivationPicksCache.set(gameId, !picksSnap.empty || !pickemPicksSnap.empty);
              }));
          }
@@ -541,13 +543,14 @@ export async function syncLeagueSchedules(
 
                 if (data.status === 'STATUS_SCHEDULED' && (newStatus === 'STATUS_IN_PROGRESS' || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED')) {
                   await processDependentProps(adminDb, existingGameId);
+                  const targetMatchupIds = Array.from(new Set([existingGameId, doc.id].filter(Boolean)));
                   const pendingPicksSnap = await adminDb.collection('picks')
-                    .where('matchupId', '==', existingGameId)
+                    .where('matchupId', 'in', targetMatchupIds)
                     .where('status', '==', 'PENDING')
                     .get();
 
                   const pendingPickemPicksSnap = await adminDb.collection('pickemPicks')
-                    .where('matchupId', '==', existingGameId)
+                    .where('matchupId', 'in', targetMatchupIds)
                     .where('status', '==', 'PENDING')
                     .limit(1)
                     .get();
@@ -849,13 +852,14 @@ export async function syncLeagueSchedules(
                  scrapedMatchup.status === 'STATUS_FINAL' || 
                  scrapedMatchup.status === 'STATUS_POSTPONED')) {
               await processDependentProps(adminDb, gameId);
+              const targetMatchupIds = Array.from(new Set([gameId, existingDoc.id].filter(Boolean)));
               const pendingPicksSnap = await adminDb.collection('picks')
-                .where('matchupId', '==', gameId)
+                .where('matchupId', 'in', targetMatchupIds)
                 .where('status', '==', 'PENDING')
                 .get();
 
               const pendingPickemPicksSnap = await adminDb.collection('pickemPicks')
-                .where('matchupId', '==', gameId)
+                .where('matchupId', 'in', targetMatchupIds)
                 .where('status', '==', 'PENDING')
                 .limit(1)
                 .get();

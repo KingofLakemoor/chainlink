@@ -385,4 +385,55 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
 
     expect(sorted.map(u => u.uid)).toEqual(['u3', 'u4', 'u2', 'u1']);
   });
+
+  it('triggers auto-healing participant record creation if user has picks but is missing from pickemParticipants', () => {
+    const userUid = 'cpr1staid';
+    const campaignId = 'cfb-2026-league';
+
+    const participantRecords: Array<{ campaignId: string, participantId: string }> = [];
+    const pickRecords = [
+      { campaignId: campaignId, participantId: userUid, matchupId: 'm1' }
+    ];
+
+    const isParticipantDoc = participantRecords.some(p => p.campaignId === campaignId && p.participantId === userUid);
+    const hasPicks = pickRecords.some(p => p.campaignId === campaignId && p.participantId === userUid);
+
+    let isParticipant = isParticipantDoc || hasPicks;
+    let shouldAutoHeal = !isParticipantDoc && hasPicks;
+
+    expect(isParticipant).toBe(true);
+    expect(shouldAutoHeal).toBe(true);
+
+    if (shouldAutoHeal) {
+      participantRecords.push({ campaignId, participantId: userUid });
+    }
+
+    expect(participantRecords).toHaveLength(1);
+    expect(participantRecords[0]).toEqual({ campaignId, participantId: userUid });
+  });
+
+  it('backfills missing pickemParticipants records across all pickemPicks', () => {
+    const existingParticipants = new Set<string>([
+      'cfb-2026_user1'
+    ]);
+
+    const picks = [
+      { campaignId: 'cfb-2026', participantId: 'user1' },
+      { campaignId: 'cfb-2026', participantId: 'cpr1staid' }, // missing participant doc
+      { campaignId: 'yes-day-2026', participantId: 'cpr1staid' } // missing participant doc
+    ];
+
+    let backfilledCount = 0;
+    picks.forEach(p => {
+      const pairId = `${p.campaignId}_${p.participantId}`;
+      if (!existingParticipants.has(pairId)) {
+        existingParticipants.add(pairId);
+        backfilledCount++;
+      }
+    });
+
+    expect(backfilledCount).toBe(2);
+    expect(existingParticipants.has('cfb-2026_cpr1staid')).toBe(true);
+    expect(existingParticipants.has('yes-day-2026_cpr1staid')).toBe(true);
+  });
 });

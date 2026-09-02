@@ -42,14 +42,42 @@ export default function PickEmLandingPage() {
         const [partSnap, picksSnap] = await Promise.all([getDocs(partQuery), getDocs(picksQuery)]);
 
         const joinedIds = new Set<string>();
+        const partCampaignIds = new Set<string>();
         partSnap.docs.forEach(d => {
           const cid = d.data().campaignId;
-          if (cid) joinedIds.add(cid);
+          if (cid) {
+            joinedIds.add(cid);
+            partCampaignIds.add(cid);
+          }
         });
+
+        const unhealedCampaignIds = new Set<string>();
         picksSnap.docs.forEach(d => {
           const cid = d.data().campaignId;
-          if (cid) joinedIds.add(cid);
+          if (cid) {
+            joinedIds.add(cid);
+            if (!partCampaignIds.has(cid)) {
+              unhealedCampaignIds.add(cid);
+            }
+          }
         });
+
+        // Auto-heal missing participant records in background
+        if (unhealedCampaignIds.size > 0 && auth.currentUser) {
+          auth.currentUser.getIdToken().then(token => {
+            unhealedCampaignIds.forEach(cid => {
+              fetch('/api/pickem/join', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ campaignId: cid })
+              }).catch(err => console.error("Auto-heal join error:", err));
+            });
+          }).catch(console.error);
+        }
+
         setJoinedCampaignIds(joinedIds);
 
         // Fetch all campaigns

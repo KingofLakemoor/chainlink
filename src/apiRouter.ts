@@ -390,6 +390,56 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/pickem/backfill-participants", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const picksSnap = await adminDb.collection('pickemPicks').get();
+    let backfilledCount = 0;
+    let batch = adminDb.batch();
+    let batchCount = 0;
+
+    const existingPairs = new Set<string>();
+    const partSnap = await adminDb.collection('pickemParticipants').get();
+    partSnap.docs.forEach(d => existingPairs.add(d.id));
+
+    for (const d of picksSnap.docs) {
+      const data = d.data();
+      const campaignId = data.campaignId;
+      const participantId = data.participantId;
+      if (!campaignId || !participantId) continue;
+
+      const pairId = `${campaignId}_${participantId}`;
+      if (!existingPairs.has(pairId)) {
+        existingPairs.add(pairId);
+        const ref = adminDb.collection('pickemParticipants').doc(pairId);
+        batch.set(ref, {
+          campaignId,
+          participantId,
+          joinedAt: data.createdAt || data.submittedAt || Date.now()
+        }, { merge: true });
+        backfilledCount++;
+        batchCount++;
+
+        if (batchCount >= 400) {
+          await batch.commit();
+          batch = adminDb.batch();
+          batchCount = 0;
+        }
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    res.json({ success: true, backfilledCount });
+  } catch (e: any) {
+    console.error('Pickem backfill participants error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
   try {
     const { segmentId, matchups } = req.body;

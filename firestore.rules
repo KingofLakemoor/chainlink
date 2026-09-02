@@ -186,15 +186,13 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource == null || resource.data.get('participantId', '') == request.auth.uid || isAdmin());
       allow create: if isSignedIn() 
         && request.resource.data.get('participantId', '') == request.auth.uid 
-        && isMatchupOpen(request.resource.data.get('matchupId', '')) 
-        && exists(/databases/$(database)/documents/pickemParticipants/$(request.resource.data.get('campaignId', '') + '_' + request.auth.uid));
+        && isMatchupOpen(request.resource.data.get('matchupId', ''));
       allow update: if isSignedIn() && (
         isAdmin() ||
         (
           resource.data.get('participantId', '') == request.auth.uid 
           && request.resource.data.get('participantId', '') == request.auth.uid 
-          && isMatchupOpen(request.resource.data.get('matchupId', '')) 
-          && exists(/databases/$(database)/documents/pickemParticipants/$(request.resource.data.get('campaignId', '') + '_' + request.auth.uid))
+          && isMatchupOpen(request.resource.data.get('matchupId', ''))
         )
       );
       allow delete: if isSignedIn() && (

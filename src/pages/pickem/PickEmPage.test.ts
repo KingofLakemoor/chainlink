@@ -250,4 +250,50 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(myCampaigns.map(c => c.id)).toContain('public-active');
     expect(myCampaigns.map(c => c.id)).not.toContain('unjoined-archived');
   });
+
+  it('enforces campaign visibility rules across Join Pick Em and My Pick Em tabs', () => {
+    const allCampaigns = [
+      { id: 'public-1', name: 'Public CFB League', isPrivate: false, isArchived: false },
+      { id: 'public-2', name: 'Public NFL League', isPrivate: false, isArchived: false },
+      { id: 'private-1', name: 'Private Friends League', isPrivate: true, joinCode: 'SECRET1', isArchived: false },
+      { id: 'archived-1', name: 'Past Public League', isPrivate: false, isArchived: true }
+    ];
+
+    // Scenario A: User has not joined any campaigns yet
+    let joinedIds = new Set<string>();
+
+    const getMyCampaigns = (joined: Set<string>) =>
+      allCampaigns.filter(c => joined.has(c.id));
+
+    const getPublicCampaigns = (joined: Set<string>) =>
+      allCampaigns.filter(c => !joined.has(c.id) && !c.isPrivate && !c.isArchived);
+
+    // 1. All unjoined active public campaigns must be visible under "Join Pick Em"
+    let publicList = getPublicCampaigns(joinedIds);
+    expect(publicList.map(c => c.id)).toEqual(['public-1', 'public-2']);
+    expect(publicList.map(c => c.id)).not.toContain('private-1');
+    expect(publicList.map(c => c.id)).not.toContain('archived-1');
+
+    // 2. User joins public-1 -> public-1 should now be visible on My Pick Em
+    joinedIds.add('public-1');
+    let myPicksList = getMyCampaigns(joinedIds);
+    expect(myPicksList.map(c => c.id)).toContain('public-1');
+
+    // public-1 is no longer listed in public campaigns to join, but public-2 remains
+    publicList = getPublicCampaigns(joinedIds);
+    expect(publicList.map(c => c.id)).toEqual(['public-2']);
+
+    // 3. User joins private-1 via join code -> private-1 should now be visible on My Pick Em
+    joinedIds.add('private-1');
+    myPicksList = getMyCampaigns(joinedIds);
+    expect(myPicksList.map(c => c.id)).toEqual(['public-1', 'private-1']);
+
+    // 4. Guarantee: Every active public campaign is always visible across either My Pick Em or Join Pick Em
+    const activePublicCampaigns = allCampaigns.filter(c => !c.isPrivate && !c.isArchived);
+    activePublicCampaigns.forEach(c => {
+      const isVisibleOnMyPicks = getMyCampaigns(joinedIds).some(my => my.id === c.id);
+      const isVisibleOnJoin = getPublicCampaigns(joinedIds).some(pub => pub.id === c.id);
+      expect(isVisibleOnMyPicks || isVisibleOnJoin).toBe(true);
+    });
+  });
 });

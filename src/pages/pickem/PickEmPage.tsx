@@ -88,15 +88,11 @@ export default function PickEmPage() {
           });
         }
 
-        const now = Date.now();
         let camps = allCamps.filter((c: any) => {
           if (joinedIds.has(c.id)) return true; // Always keep if user joined or submitted picks
           if (campaignId === c.id) return true; // Always keep if specifically requested in URL
           if (c.isArchived || c.archived) return false;
-          const hasDates = c.startDate && c.endDate;
-          if (!hasDates) return true; // Keep legacy campaigns
-          const startToCheck = c.visibleDate || c.startDate;
-          return now >= startToCheck; // Keep past campaigns
+          return true; // Show all non-archived campaigns
         });
         
         camps.sort((a, b) => {

@@ -7,25 +7,19 @@ let getAdminDb = () => firebaseAdmin.adminDb;
 // Export for mocking in tests
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
 
-let oddsSyncInterval: NodeJS.Timeout | null = null;
+let isOddsJobStarted = false;
 
 export function startOddsProcessorJob() {
-  if (oddsSyncInterval) return;
-  const runOddsSync = async () => {
-    console.log('[OddsProcessor] Running scheduled odds sync (Tennis & Soccer)');
-    await syncTennisOdds();
-    await syncSoccerOdds();
-  };
-  runOddsSync();
-  oddsSyncInterval = setInterval(runOddsSync, 6 * 60 * 60 * 1000);
-}
+  if (isOddsJobStarted) return;
+  isOddsJobStarted = true;
 
-// Setup internal cron to run every 6 hours for odds sync
-cron.schedule('0 */6 * * *', async () => {
-    console.log('[OddsProcessor] Running scheduled 6-hour odds sync (Tennis & Soccer)');
-    await syncTennisOdds();
-    await syncSoccerOdds();
-});
+  // Setup internal cron to run daily at 3:00 AM (overnight) for odds sync
+  cron.schedule('0 3 * * *', async () => {
+      console.log('[OddsProcessor] Running scheduled overnight odds sync (3:00 AM)');
+      await syncTennisOdds();
+      await syncSoccerOdds();
+  });
+}
 
 /**
  * Normalizes player names to help matching between ESPN and Odds API.

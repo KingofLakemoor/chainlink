@@ -9,6 +9,8 @@ interface AuthContextType {
   profile: any | null;
   chain: any | null;
   loading: boolean;
+  spoofedRole: string | null;
+  setSpoofedRole: (role: string | null) => void;
   updateProfileState: (partialProfile: Record<string, any>) => void;
 }
 
@@ -17,6 +19,8 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   chain: null,
   loading: true,
+  spoofedRole: null,
+  setSpoofedRole: () => {},
   updateProfileState: () => {},
 });
 
@@ -25,6 +29,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<any | null>(null);
   const [chain, setChain] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [spoofedRole, setSpoofedRoleState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('chainlink_spoofed_role');
+    }
+    return null;
+  });
+
+  const setSpoofedRole = (role: string | null) => {
+    setSpoofedRoleState(role);
+    if (typeof window !== 'undefined') {
+      if (role) {
+        sessionStorage.setItem('chainlink_spoofed_role', role);
+      } else {
+        sessionStorage.removeItem('chainlink_spoofed_role');
+      }
+    }
+  };
 
   useEffect(() => {
     if (!auth) {
@@ -65,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: username,
           image: mockUser.photoURL,
           links: 10,
-          role: 'ADMIN', // Make mock user an ADMIN for testing locally
+          role: e.detail?.role || 'ADMIN', // Support dynamic role selection in dev mock login
           status: 'ACTIVE',
           stats: { wins: 0, losses: 0, pushes: 0 },
           referralsCount: 42,
@@ -178,8 +199,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile((prev: any) => (prev ? { ...prev, ...partialProfile } : partialProfile));
   };
 
+  const activeProfile = profile ? {
+    ...profile,
+    realRole: profile.role,
+    role: spoofedRole || profile.role,
+  } : null;
+
   return (
-    <AuthContext.Provider value={{ user, profile, chain, loading, updateProfileState }}>
+    <AuthContext.Provider value={{
+      user,
+      profile: activeProfile,
+      chain,
+      loading,
+      spoofedRole,
+      setSpoofedRole,
+      updateProfileState
+    }}>
       {children}
     </AuthContext.Provider>
   );

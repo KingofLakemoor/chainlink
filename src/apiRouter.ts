@@ -390,6 +390,190 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/users/update-role", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId, role } = req.body;
+    if (!targetUserId || !role || !['USER', 'ADMIN'].includes(role)) {
+      return res.status(400).json({ success: false, error: "Invalid targetUserId or role" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const userRef = adminDb.collection('users').doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    await userRef.update({
+      role: role,
+      updatedAt: Date.now()
+    });
+
+    res.json({ success: true, role });
+  } catch (e: any) {
+    console.error("Update role error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/users/create-test-user", validateAdmin, async (req, res) => {
+  try {
+    const { username, email, password, role, links, count } = req.body;
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const numToCreate = Math.min(Math.max(parseInt(count || 1, 10), 1), 20);
+    const createdUsers: any[] = [];
+
+    for (let i = 0; i < numToCreate; i++) {
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 10000);
+      const testUsername = (numToCreate === 1 && username) ? username : `testuser_${timestamp.toString().slice(-4)}_${randomSuffix}`;
+      const testEmail = (numToCreate === 1 && email) ? email : `testuser_${timestamp}_${randomSuffix}@test.chainlink.local`;
+      const testPassword = password || 'TestUser123!';
+      const userRole = role && ['USER', 'ADMIN'].includes(role) ? role : 'USER';
+      const userLinks = typeof links === 'number' ? links : 100;
+
+      let uid: string;
+      if (adminAuth) {
+        try {
+          const userRecord = await adminAuth.createUser({
+            email: testEmail,
+            password: testPassword,
+            displayName: testUsername,
+            emailVerified: true
+          });
+          uid = userRecord.uid;
+        } catch (authErr) {
+          uid = `test_uid_${timestamp}_${randomSuffix}`;
+        }
+      } else {
+        uid = `test_uid_${timestamp}_${randomSuffix}`;
+      }
+
+      const userData = {
+        email: testEmail,
+        name: testUsername,
+        username: testUsername,
+        usernameLower: testUsername.toLowerCase(),
+        image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${testUsername}`,
+        links: userLinks,
+        role: userRole,
+        status: 'ACTIVE',
+        stats: { wins: 0, losses: 0, pushes: 0 },
+        isTestAccount: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        needsOnboarding: false
+      };
+
+      await adminDb.collection('users').doc(uid).set(userData);
+      await adminDb.collection('chains').doc(`${uid}_current`).set({
+        userId: uid,
+        active: true,
+        chain: 0,
+        wins: 0,
+        losses: 0,
+        best: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      });
+
+      createdUsers.push({ id: uid, ...userData });
+    }
+
+    res.json({ success: true, count: createdUsers.length, users: createdUsers });
+  } catch (e: any) {
+    console.error("Create test user error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/users/delete-test-user", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, error: "Missing targetUserId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const userRef = adminDb.collection('users').doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    if (adminAuth) {
+      try {
+        await adminAuth.deleteUser(targetUserId);
+      } catch (e) {
+        // Auth account might not exist if created locally without auth SDK
+      }
+    }
+
+    const batch = adminDb.batch();
+    batch.delete(userRef);
+    batch.delete(adminDb.collection('chains').doc(`${targetUserId}_current`));
+
+    const picksSnap = await adminDb.collection('picks').where('userId', '==', targetUserId).get();
+    picksSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    const pickemPicksSnap = await adminDb.collection('pickemPicks').where('participantId', '==', targetUserId).get();
+    pickemPicksSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    const pickemPartSnap = await adminDb.collection('pickemParticipants').where('participantId', '==', targetUserId).get();
+    pickemPartSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    await batch.commit();
+
+    res.json({ success: true, deletedUserId: targetUserId });
+  } catch (e: any) {
+    console.error("Delete test user error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/users/purge-test-users", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const testUsersSnap = await adminDb.collection('users').where('isTestAccount', '==', true).get();
+    let count = 0;
+
+    for (const doc of testUsersSnap.docs) {
+      const uid = doc.id;
+
+      if (adminAuth) {
+        try {
+          await adminAuth.deleteUser(uid);
+        } catch (e) {
+          // Ignores if not found in Auth
+        }
+      }
+
+      const batch = adminDb.batch();
+      batch.delete(doc.ref);
+      batch.delete(adminDb.collection('chains').doc(`${uid}_current`));
+
+      const picksSnap = await adminDb.collection('picks').where('userId', '==', uid).get();
+      picksSnap.docs.forEach(d => batch.delete(d.ref));
+
+      const pickemPicksSnap = await adminDb.collection('pickemPicks').where('participantId', '==', uid).get();
+      pickemPicksSnap.docs.forEach(d => batch.delete(d.ref));
+
+      const pickemPartSnap = await adminDb.collection('pickemParticipants').where('participantId', '==', uid).get();
+      pickemPartSnap.docs.forEach(d => batch.delete(d.ref));
+
+      await batch.commit();
+      count++;
+    }
+
+    res.json({ success: true, purgedCount: count });
+  } catch (e: any) {
+    console.error("Purge test users error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/pickem/backfill-participants", validateAdmin, async (req, res) => {
   try {
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });

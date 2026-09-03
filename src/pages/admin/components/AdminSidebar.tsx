@@ -39,6 +39,7 @@ const ADMIN_MENU_SECTIONS = [
         icon: Users,
         subItems: [
           { id: 'users-all', label: 'All Users', path: '/admin/users' },
+          { id: 'users-test-accounts', label: 'Test Accounts & Roles', path: '/admin/users/test-accounts' },
           { id: 'users-premium', label: 'Premium Status', path: '/admin/premium' },
           { id: 'users-cosmetics', label: 'User Cosmetics', path: '/admin/users/cosmetics' },
           { id: 'users-links', label: 'Manage Links', path: '/admin/users/links' },

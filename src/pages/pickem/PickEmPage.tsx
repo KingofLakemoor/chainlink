@@ -78,13 +78,21 @@ export default function PickEmPage() {
         if (user) {
           const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
           const picksQuery = query(collection(db, 'pickemPicks'), where('participantId', '==', user.uid));
-          const [partSnap, picksSnap] = await Promise.all([getDocs(partQuery), getDocs(picksQuery)]);
+          const partUserQuery = query(collection(db, 'pickemParticipants'), where('userId', '==', user.uid));
+          const picksUserQuery = query(collection(db, 'pickemPicks'), where('userId', '==', user.uid));
 
-          partSnap.docs.forEach(d => {
+          const [partSnap, picksSnap, partUserSnap, picksUserSnap] = await Promise.all([
+            getDocs(partQuery).catch(() => ({ docs: [] })),
+            getDocs(picksQuery).catch(() => ({ docs: [] })),
+            getDocs(partUserQuery).catch(() => ({ docs: [] })),
+            getDocs(picksUserQuery).catch(() => ({ docs: [] }))
+          ]);
+
+          [...(partSnap as any).docs, ...(partUserSnap as any).docs].forEach((d: any) => {
             const cid = d.data().campaignId;
             if (cid) joinedIds.add(cid);
           });
-          picksSnap.docs.forEach(d => {
+          [...(picksSnap as any).docs, ...(picksUserSnap as any).docs].forEach((d: any) => {
             const cid = d.data().campaignId;
             if (cid) joinedIds.add(cid);
           });
@@ -93,7 +101,8 @@ export default function PickEmPage() {
         let camps = allCamps.filter((c: any) => {
           if (joinedIds.has(c.id)) return true; // Always keep if user joined or submitted picks
           if (campaignId === c.id) return true; // Always keep if specifically requested in URL
-          if (c.isArchived || c.archived) return false;
+          const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
+          if (isArch) return false;
           return true; // Show all non-archived campaigns
         });
         

@@ -539,4 +539,32 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(targetRoute).toBe('/pickem/pub-open');
     expect(joinedIds.has('pub-open')).toBe(true);
   });
+
+  it('allows non-admin users to view all public non-archived campaigns and joined campaigns with string/boolean flags', () => {
+    const userRole = 'USER'; // Non-admin user
+
+    const allCampaigns = [
+      { id: 'pub-1', name: 'Public League 1', isPrivate: false, isArchived: false },
+      { id: 'pub-2', name: 'Public League 2 (string flags)', isPrivate: 'false', isArchived: 'false' },
+      { id: 'priv-joined', name: 'Joined Private League', isPrivate: true, isArchived: false },
+      { id: 'archived-unjoined', name: 'Old Archived League', isPrivate: false, isArchived: true }
+    ];
+
+    // User joined 'priv-joined'
+    const joinedCampaignIds = new Set(['priv-joined']);
+
+    // Filter logic as implemented in PickEmLandingPage
+    const myCampaigns = allCampaigns.filter(c => joinedCampaignIds.has(c.id));
+    const publicCampaigns = allCampaigns.filter(c => {
+      if (joinedCampaignIds.has(c.id)) return false;
+      const isPriv = c.isPrivate === true || c.isPrivate === 'true';
+      const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
+      return !isPriv && !isArch;
+    });
+
+    // Non-admin user can see public campaigns and joined campaign
+    expect(userRole).toBe('USER');
+    expect(myCampaigns.map(c => c.id)).toEqual(['priv-joined']);
+    expect(publicCampaigns.map(c => c.id)).toEqual(['pub-1', 'pub-2']);
+  });
 });

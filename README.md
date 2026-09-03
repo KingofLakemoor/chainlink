@@ -28,6 +28,17 @@ To support running both local development/AIStudio environments and Cloud Run/Ap
     2. **Secret Dependencies:** Ensure all secrets defined in `apphosting.yaml` (e.g., `VITE_FIREBASE_VAPID_KEY`, `FIREBASE_SERVICE_ACCOUNT_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SCRIPTLESS_API_KEY`) exist in Secret Manager and the App Hosting service account has Secret Manager Secret Accessor permission.
     3. **Build Step Verification:** Local production builds run efficiently in ~20 seconds (`npm run build`). If a build hangs remotely, check the Cloud Build log details via GCP Console to identify if `npm ci` or asset bundling hung waiting for interactive input or network access.
 
+## 📦 Dependency & Build Guidelines ("What Not To Do")
+
+To prevent Cloud Build and Docker deployment failures:
+
+1. **Always Keep `package-lock.json` Synchronized:**
+   - Cloud Build and `Dockerfile` execute `RUN npm ci`, which strictly validates that `package-lock.json` matches `package.json`.
+   - **DO NOT** edit `package.json` manually without running `npm install` to regenerate `package-lock.json`.
+   - **DO NOT** commit `package.json` without also committing the updated `package-lock.json`.
+2. **Verify Clean Installs Locally:**
+   - Before pushing commits, verify that `npm ci` succeeds locally. If `npm ci` fails with `npm error EUSAGE`, run `npm install` and commit the resulting `package-lock.json`.
+
 ## 🙏 Acknowledgements & Attribution
 
 ChainLink 2.0 is an evolution of a concept that began in the open-source community.

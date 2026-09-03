@@ -54,8 +54,9 @@ export function startPickemRemindersJob() {
 
             const pickCountByParticipant = new Map<string, number>();
             pickDocs.forEach(pDoc => {
-               const pId = pDoc.data().participantId;
-               if (pId) {
+               const pData = pDoc.data();
+               const pId = pData.participantId;
+               if (pId && pData.pick?.teamId) {
                   pickCountByParticipant.set(pId, (pickCountByParticipant.get(pId) || 0) + 1);
                }
             });

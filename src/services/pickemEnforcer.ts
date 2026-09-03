@@ -44,14 +44,15 @@ export function startPickemEnforcerJob() {
          }
 
          for (const [pId, userPicks] of picksByParticipant.entries()) {
-            if (userPicks.length > expectedLimit) {
-               console.warn(`[PickemEnforcer] User ${pId} exceeded limit for campaign ${campaignDoc.id}. Has ${userPicks.length}, allowed ${expectedLimit}.`);
+            const teamPicks = userPicks.filter(p => p.pick?.teamId);
+            if (teamPicks.length > expectedLimit) {
+               console.warn(`[PickemEnforcer] User ${pId} exceeded limit for campaign ${campaignDoc.id}. Has ${teamPicks.length}, allowed ${expectedLimit}.`);
                
                // Sort by creation date ascending
-               userPicks.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+               teamPicks.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
                
                // Delete the most recent ones that exceed the limit
-               const picksToDelete = userPicks.slice(expectedLimit);
+               const picksToDelete = teamPicks.slice(expectedLimit);
 
                // Collect matchup IDs to batch fetch
                const matchupIds = Array.from(new Set(picksToDelete.map(p => p.matchupId).filter(Boolean)));

@@ -161,6 +161,106 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(getPickTeamId(pick)).toBeUndefined();
   });
 
+  it('allows picking all available games when user enters a tiebreaker score alone', () => {
+    const pickLimit = 16;
+    const matchups = Array.from({ length: 16 }, (_, i) => ({
+      id: `m-${i + 1}`,
+      isTiebreaker: i === 15
+    }));
+
+    const userPicks: Record<string, any> = {
+      // User entered tiebreaker total score on matchup m-16 without selecting a team pick
+      'm-16': {
+        campaignId: 'c1',
+        participantId: 'user1',
+        matchupId: 'm-16',
+        week: 1,
+        tiebreakerTotal: 48
+      }
+    };
+
+    // User has selected team picks on 15 matchups so far
+    for (let i = 1; i <= 15; i++) {
+      userPicks[`m-${i}`] = {
+        campaignId: 'c1',
+        participantId: 'user1',
+        matchupId: `m-${i}`,
+        week: 1,
+        pick: { teamId: `team-${i}` }
+      };
+    }
+
+    // Count of team picks
+    const teamPicksCount = Object.values(userPicks).filter((p: any) => p.pick?.teamId).length;
+    expect(teamPicksCount).toBe(15);
+
+    // Total pick documents count (which previously blocked the 16th game)
+    const totalDocsCount = Object.keys(userPicks).length;
+    expect(totalDocsCount).toBe(16);
+
+    // Pick limit check using teamPicksCount allows adding the 16th team pick on m-16
+    const canPickFinalGame = teamPicksCount < pickLimit;
+    expect(canPickFinalGame).toBe(true);
+  });
+
+  it('treats missing tiebreaker entries as 100 distance penalty in weekly and season tiebreaker calculations', () => {
+    const campaignMatchups = [
+      { id: 'tb-w1', week: 1, isTiebreaker: true, status: 'STATUS_FINAL', homeScore: 24, awayScore: 21 }, // actual total = 45
+      { id: 'tb-w2', week: 2, isTiebreaker: true, status: 'STATUS_FINAL', homeScore: 30, awayScore: 20 }  // actual total = 50
+    ];
+
+    const participantStats: Record<string, { picks: any[] }> = {
+      'user-with-tb': {
+        picks: [
+          { matchupId: 'tb-w1', tiebreakerTotal: 42 }, // diff |42 - 45| = 3
+          { matchupId: 'tb-w2', tiebreakerTotal: 50 }  // diff |50 - 50| = 0
+        ]
+      },
+      'user-missing-tb': {
+        picks: [] // did not submit tiebreaker for either week
+      }
+    };
+
+    // 1. Weekly view for Week 1
+    const week1TbMatchup = campaignMatchups[0];
+    const actualW1Total = week1TbMatchup.homeScore + week1TbMatchup.awayScore;
+
+    const calcWeekTbValue = (uid: string) => {
+      const tbPick = participantStats[uid].picks.find(p => p.matchupId === week1TbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
+      if (week1TbMatchup.status === 'STATUS_FINAL') {
+        if (tbPick) {
+          return Math.abs(tbPick.tiebreakerTotal - actualW1Total);
+        } else {
+          return 100;
+        }
+      }
+      return Infinity;
+    };
+
+    expect(calcWeekTbValue('user-with-tb')).toBe(3);
+    expect(calcWeekTbValue('user-missing-tb')).toBe(100);
+
+    // 2. Season view running total across completed tiebreaker weeks
+    const completedTbMatchups = campaignMatchups.filter(m => m.isTiebreaker && m.status === 'STATUS_FINAL');
+
+    const calcSeasonTbValue = (uid: string) => {
+      let runningTotal = 0;
+      completedTbMatchups.forEach(m => {
+        const actualTotal = m.homeScore + m.awayScore;
+        const tbPick = participantStats[uid].picks.find(p => p.matchupId === m.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
+        if (tbPick) {
+          runningTotal += Math.abs(tbPick.tiebreakerTotal - actualTotal);
+        } else {
+          runningTotal += 100;
+        }
+      });
+      return runningTotal;
+    };
+
+    expect(calcSeasonTbValue('user-with-tb')).toBe(3); // 3 + 0
+    expect(calcSeasonTbValue('user-missing-tb')).toBe(200); // 100 + 100
+  });
+
   it('allows already joined participants to pass /api/pickem/join without requiring joinCode', () => {
     const campaign = { id: 'private-camp-1', isPrivate: true, joinCode: 'SECRET123' };
 

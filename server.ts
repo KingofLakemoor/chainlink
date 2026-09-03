@@ -16,7 +16,7 @@ import { startPickemEnforcerJob } from './src/services/pickemEnforcer.js';
 async function startServer() {
   const app = express();
   const isProduction = process.env.NODE_ENV === "production" || process.env.NODE_ENV === "prod" || (process.argv[1] && (process.argv[1].endsWith("server.cjs") || process.argv[1].includes("dist")));
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   const allowedOrigins = [
     'http://localhost:3000',
@@ -223,13 +223,27 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
     startNotificationListener();
     startMonthlyRolloverJob();
     startAutoSyncJob();
     startPickemRemindersJob();
     startPickemEnforcerJob();
   });
+
+  const SECONDARY_PORT = PORT === 8080 ? 3000 : (PORT === 3000 ? 8080 : null);
+  if (SECONDARY_PORT && SECONDARY_PORT !== PORT) {
+    try {
+      const secondaryServer = app.listen(SECONDARY_PORT, "0.0.0.0", () => {
+        console.log(`Secondary server listener running on http://0.0.0.0:${SECONDARY_PORT}`);
+      });
+      secondaryServer.on('error', (err: any) => {
+        console.warn(`Secondary port ${SECONDARY_PORT} listener skipped (${err.message})`);
+      });
+    } catch (e: any) {
+      console.warn(`Failed to bind secondary port ${SECONDARY_PORT}:`, e?.message || e);
+    }
+  }
 }
 
 startServer();

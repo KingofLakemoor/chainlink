@@ -25,6 +25,17 @@ function normalizeName(name: string) {
 /**
  * Checks if two names match, handling initials (e.g. "C. Alcaraz" vs "Carlos Alcaraz").
  */
+async function checkMatchupHasPicks(adminDb: any, match: any): Promise<boolean> {
+  const targetIds = Array.from(new Set([match.id, match.gameId])).filter(Boolean);
+  if (targetIds.length === 0) return false;
+
+  const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
+  if (!picksSnap.empty) return true;
+
+  const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', 'in', targetIds).limit(1).get();
+  return !pickemPicksSnap.empty;
+}
+
 function namesMatch(name1: string, name2: string) {
   const n1 = normalizeName(name1);
   const n2 = normalizeName(name2);
@@ -186,13 +197,13 @@ export async function syncTennisOdds() {
                 }
             }
 
-            let abandoned = match.abandoned || false;
+            let abandoned = active ? false : (match.abandoned || false);
             if (!active) {
                 // Check if anyone has already picked this before making it inactive
-                const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-                const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();
-                if (!picksSnap.empty || !pickemPicksSnap.empty) {
+                const hasPicks = await checkMatchupHasPicks(adminDb, match);
+                if (hasPicks) {
                     active = true;
+                    abandoned = false;
                 } else {
                     abandoned = true;
                 }
@@ -220,9 +231,8 @@ export async function syncTennisOdds() {
     for (const match of dbMatchups as any[]) {
        if (!matchedIds.has(match.id) && !match.abandoned) {
            // Check if anyone has already picked this before making it inactive
-           const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-           const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();
-           if (!picksSnap.empty || !pickemPicksSnap.empty) {
+           const hasPicks = await checkMatchupHasPicks(adminDb, match);
+           if (hasPicks) {
                continue;
            }
 
@@ -349,15 +359,22 @@ export async function syncSoccerOdds() {
                   if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
               }
                  
+              let abandoned = active ? false : (match.abandoned || false);
               if (!active) {
-                  const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-                  if (!picksSnap.empty) active = true;
+                  const hasPicks = await checkMatchupHasPicks(adminDb, match);
+                  if (hasPicks) {
+                      active = true;
+                      abandoned = false;
+                  } else {
+                      abandoned = true;
+                  }
               }
 
               batch.update(matchRef, {
                 'metadata.mlHome': finalMlHome,
                 'metadata.mlAway': finalMlAway,
                 'active': active,
+                'abandoned': abandoned,
                 'updatedAt': Date.now()
               });
               totalUpdated++;
@@ -372,10 +389,10 @@ export async function syncSoccerOdds() {
 
         for (const match of dbMatchups) {
            if (!matchedIds.has(match.id) && (match as any).active === true) {
-               const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
-               if (!picksSnap.empty) continue;
+               const hasPicks = await checkMatchupHasPicks(adminDb, match);
+               if (hasPicks) continue;
                const matchRef = adminDb.collection('matchups').doc(match.id);
-               batch.update(matchRef, { 'active': false, 'updatedAt': Date.now() });
+               batch.update(matchRef, { 'active': false, 'abandoned': true, 'updatedAt': Date.now() });
                batchCount++;
                if (batchCount === 490) { await batch.commit(); batchCount = 0; }
            }

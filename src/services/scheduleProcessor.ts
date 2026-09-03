@@ -238,12 +238,8 @@ export async function syncLeagueSchedules(
 
       let fifaBracketUpdates: Record<string, { oldHome: string, newHome: string, oldAway: string, newAway: string }> = {};
 
-      // OPTIMIZATION: Pre-fetch deactivation picks concurrently
-      const deactivationGameIds = response.data.filter((m: any) => !m.isRawPGAData && !scoreboardOnly && !m.active).map((m: any) => {
-         const existingDoc = existingMap.get(m.gameId);
-         if (existingDoc && existingDoc.data().active) return m.gameId;
-         return null;
-      }).filter(Boolean);
+      // OPTIMIZATION: Pre-fetch deactivation picks concurrently for all existing scraped games
+      const deactivationGameIds = response.data.filter((m: any) => !m.isRawPGAData && !scoreboardOnly).map((m: any) => m.gameId).filter(Boolean);
 
       const deactivationPicksCache = new Map<string, boolean>();
       if (deactivationGameIds.length > 0) {
@@ -251,9 +247,15 @@ export async function syncLeagueSchedules(
          for (let i = 0; i < deactivationGameIds.length; i += chunk) {
              const batchIds = deactivationGameIds.slice(i, i + chunk);
              await Promise.all(batchIds.map(async (gameId) => {
-                 const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).limit(1).get();
-                 const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', gameId).limit(1).get();
-                 deactivationPicksCache.set(gameId, !picksSnap.empty || !pickemPicksSnap.empty);
+                 const existingDoc = existingMap.get(gameId);
+                 const targetIds = Array.from(new Set([gameId, existingDoc?.id])).filter(Boolean);
+                 const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
+                 const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', 'in', targetIds).limit(1).get();
+                 const hasPicks = !picksSnap.empty || !pickemPicksSnap.empty;
+                 deactivationPicksCache.set(gameId, hasPicks);
+                 if (existingDoc?.id) {
+                   deactivationPicksCache.set(existingDoc.id, hasPicks);
+                 }
              }));
          }
       }
@@ -684,28 +686,43 @@ export async function syncLeagueSchedules(
           }
 
           let finalActive = existingData.active;
+          const hasPicks = deactivationPicksCache.get(gameId) || (existingDoc ? deactivationPicksCache.get(existingDoc.id) : false) || false;
 
           if (!scoreboardOnly) {
             let scraperActive = scrapedMatchup.active;
-            // Only deactivate if scraper says it shouldn't be active (e.g. wild odds)
-            // If it's already active, don't let defaultActive=false override it
-            if (existingData.active && !scraperActive) {
-              const hasPicks = deactivationPicksCache.get(gameId) || false;
+            const thirdPartyLeagues = ['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX'];
+            const hasValidMlOdds = existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null &&
+                                   existingData.metadata?.mlAway !== undefined && existingData.metadata?.mlAway !== null;
 
-              if (hasPicks) {
-                finalActive = true;
-              } else if (scrapedMatchup.league === 'RPL' || scrapedMatchup.league === 'TUR' || scrapedMatchup.league === 'ARG' || scrapedMatchup.league === 'BRA' || scrapedMatchup.league === 'LMX') {
+            if (hasPicks) {
+              finalActive = true;
+            } else if (existingData.active && !scraperActive) {
+              if (thirdPartyLeagues.includes(scrapedMatchup.league) || hasValidMlOdds) {
                 finalActive = true;
               } else {
                 finalActive = false;
               }
             } else if (!existingData.active && scraperActive) {
-                finalActive = true;
+              finalActive = true;
+            } else if (!existingData.active && !scraperActive) {
+              if (thirdPartyLeagues.includes(scrapedMatchup.league) && hasValidMlOdds) {
+                let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
+                if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[scrapedMatchup.league] !== undefined) {
+                  threshold = Math.abs(scraperConfig.sportOverrides[scrapedMatchup.league]);
+                }
+                const mlH = parseInt(existingData.metadata.mlHome, 10);
+                const mlA = parseInt(existingData.metadata.mlAway, 10);
+                if (!isNaN(mlH) && !isNaN(mlA) && Math.abs(mlH) < threshold && Math.abs(mlA) < threshold) {
+                  finalActive = true;
+                }
+              }
             }
           }
-          
-          if (newStatus === 'STATUS_IN_PROGRESS' || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
-              finalActive = false;
+
+          if (hasPicks && newStatus !== 'STATUS_FINAL' && newStatus !== 'STATUS_POSTPONED') {
+            finalActive = true;
+          } else if (newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
+            finalActive = false;
           }
 
           // FORCE skip update if abandoned

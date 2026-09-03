@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, setDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, X, ExternalLink, ArrowRight } from 'lucide-react';
 import { MdOutlineSportsSoccer, MdOutlineSportsFootball,  MdOutlineSportsBasketball, MdOutlineSportsHockey, MdOutlineSportsBaseball, MdOutlineSportsTennis, MdOutlineSportsGolf } from 'react-icons/md';
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
+import { PlayBannerConfig } from '../admin/system/BannerAdminPage';
 
 export default function PlayDashboard() {
   const { user, profile, chain } = useAuth();
@@ -20,6 +22,38 @@ export default function PlayDashboard() {
   const [allFetchedMatchups, setAllFetchedMatchups] = useState<any[]>([]);
   const [globalUpcomingPicks, setGlobalUpcomingPicks] = useState<any[]>([]);
   const [sponsors, setSponsors] = useState<any[]>([]);
+  const [bannerConfig, setBannerConfig] = useState<PlayBannerConfig | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubBanner = onSnapshot(doc(db, 'systemSettings', 'playBanner'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as PlayBannerConfig;
+        setBannerConfig(data);
+        const bannerKey = `chainlink_banner_dismissed_${data.updatedAt || 0}`;
+        if (localStorage.getItem(bannerKey) === 'true') {
+          setBannerDismissed(true);
+        } else {
+          setBannerDismissed(false);
+        }
+      } else {
+        setBannerConfig(null);
+      }
+    }, (err) => {
+      console.warn("Banner settings unavailable:", err);
+    });
+
+    return () => unsubBanner();
+  }, []);
+
+  const handleDismissBanner = () => {
+    if (bannerConfig) {
+      const bannerKey = `chainlink_banner_dismissed_${bannerConfig.updatedAt || 0}`;
+      localStorage.setItem(bannerKey, 'true');
+    }
+    setBannerDismissed(true);
+  };
 
   useEffect(() => {
     if (!db) {
@@ -388,8 +422,99 @@ export default function PlayDashboard() {
   // Normally the activePick is filtered out. We should probably filter out both activePick and queuedPick.
   const filteredMatchups = matchups.filter(m => !activePicks.find((p: any) => p.matchupId === m.gameId));
 
+  const getBannerStyles = (styleKey?: string) => {
+    switch (styleKey) {
+      case 'cyan':
+        return {
+          bg: 'bg-cyan-950/40 border-cyan-500/30 text-cyan-200',
+          badge: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+          button: 'bg-cyan-500 hover:bg-cyan-600 text-zinc-950 font-bold',
+          glow: 'shadow-[0_0_20px_rgba(6,182,212,0.15)]',
+        };
+      case 'fuchsia':
+        return {
+          bg: 'bg-fuchsia-950/40 border-fuchsia-500/30 text-fuchsia-200',
+          badge: 'bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/30',
+          button: 'bg-fuchsia-500 hover:bg-fuchsia-600 text-zinc-950 font-bold',
+          glow: 'shadow-[0_0_20px_rgba(217,70,239,0.15)]',
+        };
+      case 'amber':
+        return {
+          bg: 'bg-amber-950/40 border-amber-500/30 text-amber-200',
+          badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+          button: 'bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold',
+          glow: 'shadow-[0_0_20px_rgba(245,158,11,0.15)]',
+        };
+      case 'indigo':
+        return {
+          bg: 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200',
+          badge: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+          button: 'bg-indigo-500 hover:bg-indigo-600 text-zinc-950 font-bold',
+          glow: 'shadow-[0_0_20px_rgba(99,102,241,0.15)]',
+        };
+      case 'emerald':
+      default:
+        return {
+          bg: 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200',
+          badge: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+          button: 'bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold',
+          glow: 'shadow-[0_0_20px_rgba(16,185,129,0.15)]',
+        };
+    }
+  };
+
+  const currentBannerStyle = getBannerStyles(bannerConfig?.style);
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
+
+      {/* Dismissable Admin Play Page Banner */}
+      {bannerConfig && bannerConfig.active && !bannerDismissed && (
+        <div className={`mb-8 p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative transition-all duration-300 ${currentBannerStyle.bg} ${currentBannerStyle.glow}`}>
+          <div className="flex items-start gap-3 flex-1 pr-8 sm:pr-0">
+            {bannerConfig.badgeText && (
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shrink-0 ${currentBannerStyle.badge}`}>
+                {bannerConfig.badgeText}
+              </span>
+            )}
+            <div>
+              <h4 className="font-bold text-sm text-zinc-100 leading-snug">{bannerConfig.message}</h4>
+              {bannerConfig.subtext && <p className="text-xs text-zinc-300/80 mt-0.5">{bannerConfig.subtext}</p>}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+            {bannerConfig.linkType !== 'none' && bannerConfig.linkUrl && (
+              bannerConfig.linkType === 'external' ? (
+                <a
+                  href={bannerConfig.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`px-4 py-2 text-xs rounded-lg inline-flex items-center gap-1.5 transition-colors ${currentBannerStyle.button}`}
+                >
+                  {bannerConfig.ctaText || 'Learn More'} <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : (
+                <Link
+                  to={bannerConfig.linkUrl}
+                  className={`px-4 py-2 text-xs rounded-lg inline-flex items-center gap-1.5 transition-colors ${currentBannerStyle.button}`}
+                >
+                  {bannerConfig.ctaText || 'Learn More'} <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              )
+            )}
+
+            <button
+              onClick={handleDismissBanner}
+              className="p-1.5 text-zinc-400 hover:text-zinc-100 transition-colors rounded-lg hover:bg-zinc-800/50"
+              title="Dismiss banner"
+              aria-label="Dismiss banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeMatchup && (
         <div className="mb-10 w-full relative group">

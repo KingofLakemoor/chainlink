@@ -43,6 +43,7 @@ const AdminOddsPage = React.lazy(() => import('./odds/AdminOddsPage'));
 const PrizeAdminPage = React.lazy(() => import('./prize/PrizeAdminPage'));
 const EngagementAdminPage = React.lazy(() => import('./system/EngagementAdminPage'));
 const AdminGuidePage = React.lazy(() => import('./guide/AdminGuidePage'));
+const BannerAdminPage = React.lazy(() => import('./system/BannerAdminPage'));
 const MonthlyRolloverPage = React.lazy(() => import('./system/MonthlyRolloverPage'));
 const EditPickPage = React.lazy(() => import('./picks/EditPickPage'));
 
@@ -145,6 +146,7 @@ export default function AdminDashboard() {
                 {/* Admin Guide */}
                 <Route path="guide" element={<AdminGuidePage />} />
 
+                <Route path="system/banner" element={<BannerAdminPage />} />
                 <Route path="system/rollover" element={<MonthlyRolloverPage />} />
                 <Route path="system/engagement" element={<EngagementAdminPage />} />
                 <Route path="system/rollover" element={<MonthlyRolloverPage />} />

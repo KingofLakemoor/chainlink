@@ -39,11 +39,19 @@ export default function PickEmLandingPage() {
         // Fetch participants and picks for current user to know all campaigns they have joined or entered picks for
         const partQuery = query(collection(db, 'pickemParticipants'), where('participantId', '==', user.uid));
         const picksQuery = query(collection(db, 'pickemPicks'), where('participantId', '==', user.uid));
-        const [partSnap, picksSnap] = await Promise.all([getDocs(partQuery), getDocs(picksQuery)]);
+        const partUserQuery = query(collection(db, 'pickemParticipants'), where('userId', '==', user.uid));
+        const picksUserQuery = query(collection(db, 'pickemPicks'), where('userId', '==', user.uid));
+
+        const [partSnap, picksSnap, partUserSnap, picksUserSnap] = await Promise.all([
+          getDocs(partQuery).catch(() => ({ docs: [] })),
+          getDocs(picksQuery).catch(() => ({ docs: [] })),
+          getDocs(partUserQuery).catch(() => ({ docs: [] })),
+          getDocs(picksUserQuery).catch(() => ({ docs: [] }))
+        ]);
 
         const joinedIds = new Set<string>();
         const partCampaignIds = new Set<string>();
-        partSnap.docs.forEach(d => {
+        [...(partSnap as any).docs, ...(partUserSnap as any).docs].forEach(d => {
           const cid = d.data().campaignId;
           if (cid) {
             joinedIds.add(cid);
@@ -52,7 +60,7 @@ export default function PickEmLandingPage() {
         });
 
         const unhealedCampaignIds = new Set<string>();
-        picksSnap.docs.forEach(d => {
+        [...(picksSnap as any).docs, ...(picksUserSnap as any).docs].forEach(d => {
           const cid = d.data().campaignId;
           if (cid) {
             joinedIds.add(cid);
@@ -83,7 +91,10 @@ export default function PickEmLandingPage() {
         // Fetch all campaigns
         const campSnap = await getDocs(collection(db, 'pickemCampaigns'));
         let allCamps = campSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-        let allUnarchivedCamps = allCamps.filter(c => !c.isArchived && !c.archived);
+        let allUnarchivedCamps = allCamps.filter(c => {
+          const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
+          return !isArch;
+        });
 
         if (urlCode) {
           let matched = allUnarchivedCamps.find(c =>
@@ -96,7 +107,8 @@ export default function PickEmLandingPage() {
             // Also try searching Firestore docs for unarchived matching joinCode, id, or name
             const matchedDoc = campSnap.docs.find(d => {
               const data = d.data();
-              if (data.isArchived || data.archived) return false;
+              const isArch = data.isArchived === true || data.isArchived === 'true' || data.archived === true || data.archived === 'true';
+              if (isArch) return false;
               return (
                 (data.joinCode && data.joinCode.trim().toLowerCase() === urlCode.toLowerCase()) ||
                 d.id.toLowerCase() === urlCode.toLowerCase() ||
@@ -130,7 +142,8 @@ export default function PickEmLandingPage() {
 
         let camps = allCamps.filter(c => {
           if (joinedIds.has(c.id)) return true; // Always show joined campaigns even if archived
-          if (c.isArchived || c.archived) return false;
+          const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
+          if (isArch) return false;
           return true; // Show all non-archived campaigns so public campaigns are always joinable
         });
         setCampaigns(camps);
@@ -304,7 +317,12 @@ export default function PickEmLandingPage() {
   const [selectedPublicCamp, setSelectedPublicCamp] = useState<any>(null);
 
   const myCampaigns = campaigns.filter(c => joinedCampaignIds.has(c.id));
-  const publicCampaigns = campaigns.filter(c => !joinedCampaignIds.has(c.id) && !c.isPrivate && !c.isArchived && !c.archived);
+  const publicCampaigns = campaigns.filter(c => {
+    if (joinedCampaignIds.has(c.id)) return false;
+    const isPriv = c.isPrivate === true || c.isPrivate === 'true';
+    const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
+    return !isPriv && !isArch;
+  });
 
   if (loading) {
     return <div className="p-8 text-center text-zinc-500">Loading Pick'em...</div>;

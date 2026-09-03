@@ -412,6 +412,9 @@ export default function PickEmPage() {
                  if (tbPick) {
                    tbValue = Math.abs(tbPick.tiebreakerTotal - actualTotal);
                    tbDisplay = tbValue;
+                 } else {
+                   tbValue = 100;
+                   tbDisplay = 100;
                  }
                } else {
                  if (tbPick) {
@@ -424,19 +427,17 @@ export default function PickEmPage() {
              const completedTbMatchups = campaignMatchups.filter((m: any) => m.isTiebreaker && m.status === 'STATUS_FINAL');
              if (completedTbMatchups.length > 0) {
                let runningTotal = 0;
-               let count = 0;
                completedTbMatchups.forEach((m: any) => {
                  const actualTotal = Number(m.homeScore ?? m.homeTeam?.score ?? 0) + Number(m.awayScore ?? m.awayTeam?.score ?? 0);
                  const tbPick = participantStats[uid].picks.find((p: any) => p.matchupId === m.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
                  if (tbPick) {
                    runningTotal += Math.abs(tbPick.tiebreakerTotal - actualTotal);
-                   count++;
+                 } else {
+                   runningTotal += 100;
                  }
                });
-               if (count > 0) {
-                 tbValue = runningTotal;
-                 tbDisplay = runningTotal;
-               }
+               tbValue = runningTotal;
+               tbDisplay = runningTotal;
              }
            }
 
@@ -812,7 +813,7 @@ export default function PickEmPage() {
                   </p>
                </div>
                <div className="text-2xl font-black" style={{ color: primaryColor }}>
-                 {Object.keys(userPicks).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit > 0 ? Math.min(selectedCampaign.pickLimit, matchups.length) : matchups.length}</span>
+                 {Object.values(userPicks).filter((p: any) => p.pick?.teamId).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit > 0 ? Math.min(selectedCampaign.pickLimit, matchups.length) : matchups.length}</span>
                </div>
             </div>
           )}
@@ -1199,12 +1200,13 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                                     const weekTbMatchup = matchups.find((m: any) => m.isTiebreaker);
                                     if (!weekTbMatchup) return '-';
                                     const tbPick = participant.picks?.find((p: any) => p.matchupId === weekTbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
-                                    if (!tbPick) return '-';
                                     const isFinal = weekTbMatchup.status === 'STATUS_FINAL';
                                     if (isFinal) {
+                                      if (!tbPick) return 100;
                                       const actualTotal = Number(weekTbMatchup.homeScore ?? weekTbMatchup.homeTeam?.score ?? 0) + Number(weekTbMatchup.awayScore ?? weekTbMatchup.awayTeam?.score ?? 0);
                                       return Math.abs(tbPick.tiebreakerTotal - actualTotal);
                                     } else {
+                                      if (!tbPick) return '-';
                                       const isLocked = weekTbMatchup.startTime && Date.now() >= weekTbMatchup.startTime;
                                       const isSelf = participant.uid === user?.uid;
                                       if (isLocked || isSelf) return tbPick.tiebreakerTotal;

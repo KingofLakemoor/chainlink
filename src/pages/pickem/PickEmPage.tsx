@@ -144,12 +144,10 @@ export default function PickEmPage() {
               // Check if user has picks submitted for this campaign
               const pCheckQuery = query(
                 collection(db, 'pickemPicks'),
-                where('campaignId', '==', initialCampaign.id),
-                where('participantId', '==', user.uid),
-                limit(1)
+                where('participantId', '==', user.uid)
               );
               const pCheckSnap = await getDocs(pCheckQuery);
-              userIsParticipant = !pCheckSnap.empty;
+              userIsParticipant = pCheckSnap.docs.some(d => d.data().campaignId === initialCampaign.id);
 
               if (userIsParticipant) {
                 // Auto-heal missing participant record for this campaign
@@ -230,24 +228,23 @@ export default function PickEmPage() {
     try {
       const mQuery = query(
         collection(db, 'pickemMatchups'),
-        where('campaignId', '==', campaignId),
-        where('week', '==', week)
+        where('campaignId', '==', campaignId)
       );
       const mSnap = await getDocs(mQuery);
-      setMatchups(mSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => a.startTime - b.startTime));
+      setMatchups(mSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => m.week === week).sort((a: any, b: any) => a.startTime - b.startTime));
 
       if (user) {
         const pQuery = query(
           collection(db, 'pickemPicks'),
-          where('campaignId', '==', campaignId),
-          where('week', '==', week),
           where('participantId', '==', user.uid)
         );
         const pSnap = await getDocs(pQuery);
         const picksMap: Record<string, any> = {};
         pSnap.docs.forEach(d => {
           const data = d.data();
-          picksMap[data.matchupId] = { id: d.id, ...data };
+          if (data.campaignId === campaignId && data.week === week) {
+             picksMap[data.matchupId] = { id: d.id, ...data };
+          }
         });
         setUserPicks(picksMap);
       }
@@ -276,7 +273,6 @@ export default function PickEmPage() {
       try {
         const pQuery = query(
           collection(db, 'pickemPicks'),
-          where('campaignId', '==', selectedCampaign.id),
           where('participantId', '==', user.uid)
         );
         const pSnap = await getDocs(pQuery);
@@ -286,6 +282,7 @@ export default function PickEmPage() {
 
         pSnap.docs.forEach(d => {
           const data = d.data();
+          if (data.campaignId !== selectedCampaign.id) return;
           if (data.week !== selectedWeek && data.pick?.teamId) {
             used.add(data.pick.teamId);
           }

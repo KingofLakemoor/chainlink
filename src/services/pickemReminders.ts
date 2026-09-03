@@ -23,13 +23,13 @@ export function startPickemRemindersJob() {
          // Find the earliest game in this week for this campaign
          const matchupsSnap = await adminDb.collection('pickemMatchups')
             .where('campaignId', '==', campaignDoc.id)
-            .where('week', '==', campaign.currentWeek)
             .get();
+         const matchupDocs = matchupsSnap.docs.filter(d => d.data().week === campaign.currentWeek);
             
-         if (matchupsSnap.empty) continue;
+         if ((matchupDocs.length === 0)) continue;
          
          let earliestStart = Infinity;
-         matchupsSnap.docs.forEach(m => {
+         matchupDocs.forEach(m => {
             const mData = m.data();
             if (mData.startTime && mData.startTime < earliestStart) earliestStart = mData.startTime;
          });
@@ -49,11 +49,11 @@ export function startPickemRemindersJob() {
             // Fetch ALL picks for this campaign week in ONE query
             const picksSnap = await adminDb.collection('pickemPicks')
                .where('campaignId', '==', campaignDoc.id)
-               .where('week', '==', campaign.currentWeek)
                .get();
+            const pickDocs = picksSnap.docs.filter(d => d.data().week === campaign.currentWeek);
 
             const pickCountByParticipant = new Map<string, number>();
-            picksSnap.docs.forEach(pDoc => {
+            pickDocs.forEach(pDoc => {
                const pId = pDoc.data().participantId;
                if (pId) {
                   pickCountByParticipant.set(pId, (pickCountByParticipant.get(pId) || 0) + 1);

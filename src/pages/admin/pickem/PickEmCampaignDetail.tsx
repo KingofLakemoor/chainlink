@@ -99,11 +99,10 @@ export default function PickEmCampaignDetail() {
     try {
       const q = query(
         collection(db, 'pickemMatchups'),
-        where('campaignId', '==', id),
-        where('week', '==', week)
+        where('campaignId', '==', id)
       );
       const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => m.week === week);
       docs.sort((a: any, b: any) => {
         const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
         const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);

@@ -26,14 +26,14 @@ export function startPickemEnforcerJob() {
          // Fetch all picks for this campaign and week in a single query
          const picksSnap = await adminDb.collection('pickemPicks')
             .where('campaignId', '==', campaignDoc.id)
-            .where('week', '==', campaign.currentWeek)
             .get();
-
-         if (picksSnap.empty) continue;
+         
+         const pickDocs = picksSnap.docs.filter(d => d.data().week === campaign.currentWeek);
+         if (pickDocs.length === 0) continue;
 
          // Group picks by participantId
          const picksByParticipant = new Map<string, any[]>();
-         for (const pDoc of picksSnap.docs) {
+         for (const pDoc of pickDocs) {
             const pData: any = { id: pDoc.id, ...pDoc.data() };
             const pId = pData.participantId;
             if (!pId) continue;

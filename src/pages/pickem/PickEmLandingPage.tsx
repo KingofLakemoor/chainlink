@@ -292,8 +292,8 @@ export default function PickEmLandingPage() {
         throw new Error(data.error || 'Failed to join campaign');
       }
       setJoinedCampaignIds(prev => new Set(prev).add(camp.id));
-      setActiveTab('my_picks');
       setSelectedPublicCamp(null);
+      navigate(`/pickem/${camp.id}`);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Failed to join campaign.');
@@ -303,7 +303,7 @@ export default function PickEmLandingPage() {
   const [selectedPublicCamp, setSelectedPublicCamp] = useState<any>(null);
 
   const myCampaigns = campaigns.filter(c => joinedCampaignIds.has(c.id));
-  const publicCampaigns = campaigns.filter(c => !joinedCampaignIds.has(c.id) && !c.isPrivate && c.isOpen !== false && !c.isArchived && !c.archived);
+  const publicCampaigns = campaigns.filter(c => !joinedCampaignIds.has(c.id) && !c.isPrivate && !c.isArchived && !c.archived);
 
   if (loading) {
     return <div className="p-8 text-center text-zinc-500">Loading Pick'em...</div>;
@@ -447,15 +447,32 @@ export default function PickEmLandingPage() {
         </button>
         <button
           onClick={() => setActiveTab('join')}
-          className={cn("px-4 py-3 font-semibold text-sm transition-colors relative", activeTab === 'join' ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
+          className={cn("px-4 py-3 font-semibold text-sm transition-colors relative flex items-center gap-2", activeTab === 'join' ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
         >
           Join Pick Em
+          {publicCampaigns.length > 0 && (
+            <span className="bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30 text-xs px-2 py-0.5 rounded-full font-bold">
+              {publicCampaigns.length}
+            </span>
+          )}
           {activeTab === 'join' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#22c55e]" />}
         </button>
       </div>
 
       {activeTab === 'my_picks' && (
         <div className="space-y-6">
+          {myCampaigns.length > 0 && publicCampaigns.length > 0 && (
+            <div className="p-4 bg-[#18181A] border border-zinc-800/80 rounded-xl flex items-center justify-between gap-4">
+              <div>
+                <h4 className="font-bold text-white text-sm">More Leagues Available!</h4>
+                <p className="text-xs text-zinc-400">There {publicCampaigns.length === 1 ? 'is 1 other public campaign' : `are ${publicCampaigns.length} other public campaigns`} open to join.</p>
+              </div>
+              <Button size="sm" onClick={() => setActiveTab('join')} className="bg-[#22c55e] hover:bg-[#22c55e]/90 text-black font-bold text-xs whitespace-nowrap">
+                Browse Leagues ({publicCampaigns.length})
+              </Button>
+            </div>
+          )}
+
           {myCampaigns.length === 0 ? (
             <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center">
               <Layers className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
@@ -592,9 +609,16 @@ export default function PickEmLandingPage() {
                         )}
                         <div>
                           <h4 className="font-bold text-white text-lg leading-tight">{c.theme?.title || c.name}</h4>
-                          <span className="text-xs text-[#22c55e] font-semibold bg-[#22c55e]/10 px-2 py-0.5 rounded-full inline-block mt-1">
-                            {c.leagues ? c.leagues.join(', ') : 'Mixed'}
-                          </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-[#22c55e] font-semibold bg-[#22c55e]/10 px-2 py-0.5 rounded-full inline-block">
+                              {c.leagues ? c.leagues.join(', ') : 'Mixed'}
+                            </span>
+                            {c.isOpen === false && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                                Closed
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <p className="text-sm text-zinc-400 mb-6">{c.theme?.subtitle || "Join this public pick'em campaign and compete against others."}</p>
@@ -664,7 +688,13 @@ export default function PickEmLandingPage() {
             
             <div className="p-6 border-t border-zinc-800 bg-[#18181A] flex gap-4">
               <Button variant="ghost" className="flex-1" onClick={() => setSelectedPublicCamp(null)}>Cancel</Button>
-              <Button className="flex-1" onClick={() => handleJoinPublic(selectedPublicCamp)}>Join Campaign</Button>
+              <Button
+                className="flex-1"
+                onClick={() => handleJoinPublic(selectedPublicCamp)}
+                disabled={selectedPublicCamp.isOpen === false}
+              >
+                {selectedPublicCamp.isOpen === false ? 'Campaign Closed' : 'Join Campaign'}
+              </Button>
             </div>
           </div>
         </div>

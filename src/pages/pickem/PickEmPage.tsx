@@ -3,7 +3,7 @@ import { CharityProgressTracker } from '../../components/pickem/CharityProgressT
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName } from '../../lib/teamUtils';
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
@@ -32,6 +32,7 @@ export default function PickEmPage() {
 
   const { campaignId } = useParams<{ campaignId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
@@ -215,8 +216,9 @@ export default function PickEmPage() {
       const storedCode = localStorage.getItem('chainlink_join_code') || '';
       const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || '').trim();
 
-      // Auto-join if user came in with a join code, campaign has a joinCode, or if campaign is public & open
-      if (urlCode || selectedCampaign.joinCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false)) {
+      // Auto-join if user came in with a join code, or if campaign is public & open
+      const canAutoJoin = !!urlCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false);
+      if (canAutoJoin) {
         autoJoinAttempted.current[campId] = true;
         handleJoinCampaign();
       }
@@ -699,7 +701,7 @@ export default function PickEmPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div className="flex flex-col md:flex-row gap-4">
           
-          <Button variant="ghost" onClick={() => window.history.back()} className="text-zinc-400 hover:text-white">
+          <Button variant="ghost" onClick={() => navigate('/pickem')} className="text-zinc-400 hover:text-white">
             <ChevronRight className="w-5 h-5 rotate-180 mr-1" />
             Back to Pick'em Dashboard
           </Button>

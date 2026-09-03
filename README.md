@@ -33,3 +33,39 @@ To support running both local development/AIStudio environments and Cloud Run/Ap
 ChainLink 2.0 is an evolution of a concept that began in the open-source community.
 
 We would like to give our deepest thanks and full attribution to the original creator, unmonk (https://github.com/unmonk), and the original chainlink project (https://github.com/unmonk/chainlink). Their foundational work and design inspired this next generation of the platform. By continuing this project, we honor their contribution and commit to keeping the core of ChainLink open and accessible.
+
+## 🚨 Build Failure Analysis & Developer Guidelines
+
+### 1. Summary of Incident
+Deployment failed during the Docker image creation step (`RUN npm ci`).
+**Error Message:**
+```
+npm error code EUSAGE
+npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync.
+npm error Missing: @tailwindcss/oxide-... from lock file
+npm error Missing: @esbuild/... from lock file
+```
+
+### 2. Root Cause Analysis (RCA)
+- **Manual / Out-of-Sync Package Changes:** Dependencies or `devDependencies` in `package.json` were updated or added, but `package-lock.json` was either not updated via `npm install` or was excluded from the git commit.
+- **Strict Enforcement by npm ci:** The container build script (Dockerfile) uses `RUN npm ci` (which is standard practice for deterministic production builds). Unlike `npm install` (which updates `package-lock.json` on the fly), `npm ci` strictly fails if `package-lock.json` is missing dependencies present in `package.json` or if dependency versions do not align 100%.
+
+### 3. How It Was Fixed
+- **Synchronized Lockfile:** Executed `npm install` locally to reconcile all missing platform bindings (`@esbuild`, `@tailwindcss/oxide`, `@rollup`, etc.) into `package-lock.json`.
+- **Verified Clean Install:** Ran `npm ci` locally to confirm 100% lockfile alignment.
+- **Validated Quality Checks:** Verified `npm run build`, `npm run lint`, and `npx vitest run` pass cleanly.
+- **Committed Changes:** Pushed the updated `package-lock.json` alongside updated developer documentation in `README.md`.
+
+### 4. Developer Guidelines ("What NOT To Do")
+- ❌ **DO NOT edit package.json manually without updating package-lock.json.**
+  If you manually add or edit a dependency version in `package.json`, you must run `npm install` afterwards to regenerate the lockfile.
+- ❌ **DO NOT commit package.json alone.**
+  Always stage and commit both `package.json` AND `package-lock.json` in the same commit.
+- ❌ **DO NOT use npm install <package> with --no-save or bypass lockfiles in CI.**
+  Do not attempt to bypass `npm ci` by changing the Dockerfile to `npm install` in production. `npm ci` ensures reproducible builds and prevents unintended package version drifts.
+
+### 5. Pre-Push Checklist for Developers
+Before pushing code or opening a PR:
+1. **Run npm ci locally:** `npm ci` (If it fails, run `npm install` to sync your lockfile, then re-test `npm ci`).
+2. **Run full verification suite:** `npm run build && npm run lint && npx vitest run`
+3. **Check git status:** Ensure both `package.json` and `package-lock.json` are included in your commit if dependencies were modified.

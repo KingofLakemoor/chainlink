@@ -218,7 +218,7 @@ export async function syncTennisOdds() {
     
     // Mark any unmatched ATP/WTA matchups as inactive and abandoned if no picks exist
     for (const match of dbMatchups as any[]) {
-       if (!matchedIds.has(match.id) && (match as any).active === true) {
+       if (!matchedIds.has(match.id) && !match.abandoned) {
            // Check if anyone has already picked this before making it inactive
            const picksSnap = await adminDb.collection('picks').where('matchupId', '==', match.id).limit(1).get();
            const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', '==', match.id).limit(1).get();

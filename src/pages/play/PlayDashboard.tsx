@@ -189,8 +189,14 @@ export default function PlayDashboard() {
     const next24Hours = now + 24 * 60 * 60 * 1000;
 
     const filtered = allFetchedMatchups.filter((m: any) => {
-      if (m.abandoned) return false;
-      if (m.status === 'STATUS_SCHEDULED' && m.active === false) return false;
+      const hasPicksOnMatchup = Boolean(
+        userPicks[m.gameId] || userPicks[m.id] ||
+        (matchupPickCounts[m.gameId] && matchupPickCounts[m.gameId].total > 0) ||
+        (matchupPickCounts[m.id] && matchupPickCounts[m.id].total > 0)
+      );
+
+      if (m.abandoned && !hasPicksOnMatchup) return false;
+      if (m.active === false && !hasPicksOnMatchup) return false;
 
       const isFinal = m.status === 'STATUS_FINAL' || m.statusDesc?.toLowerCase().includes('final');
       const isLive = m.status !== 'STATUS_SCHEDULED' && !isFinal && m.status !== 'STATUS_POSTPONED' && m.status !== 'STATUS_CANCELED';

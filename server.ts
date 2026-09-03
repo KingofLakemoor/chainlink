@@ -12,6 +12,7 @@ import { startMonthlyRolloverJob } from './src/services/monthlyRollover.js';
 import { startAutoSyncJob } from './src/services/autoSync.js';
 import { startPickemRemindersJob } from './src/services/pickemReminders.js';
 import { startPickemEnforcerJob } from './src/services/pickemEnforcer.js';
+import { startGridironIngestionJob } from './src/services/gridironIngestion.js';
 
 async function startServer() {
   const app = express();
@@ -229,6 +230,7 @@ async function startServer() {
     startAutoSyncJob();
     startPickemRemindersJob();
     startPickemEnforcerJob();
+    startGridironIngestionJob();
   });
 
   const SECONDARY_PORT = PORT === 8080 ? 3000 : (PORT === 3000 ? 8080 : null);

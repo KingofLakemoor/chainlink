@@ -304,7 +304,7 @@ export async function syncSoccerOdds() {
             console.log(`[OddsProcessor] No scheduled matchups for soccer league ${l.espn}, skipping API call.`);
             continue;
         }
-        const dbMatchups = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const dbMatchups: any[] = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
         if (!oddsRes.ok) continue;

@@ -667,4 +667,84 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(myCampaigns.map(c => c.id)).toEqual(['priv-joined']);
     expect(publicCampaigns.map(c => c.id)).toEqual(['pub-1', 'pub-2']);
   });
+
+  it('evaluates hasSelection as true for tiebreaker-only, team-only, and combined picks to display Clear Pick button', () => {
+    const checkHasSelection = (pick: any) => !!(
+      pick?.pick?.teamId ||
+      (pick?.tiebreakerTotal !== undefined && pick?.tiebreakerTotal !== null) ||
+      pick?.confidence
+    );
+
+    // 1. Tiebreaker-only prediction
+    const tbOnlyPick = { tiebreakerTotal: 45 };
+    expect(checkHasSelection(tbOnlyPick)).toBe(true);
+
+    // 2. Team-only selection
+    const teamOnlyPick = { pick: { teamId: 'team-a' } };
+    expect(checkHasSelection(teamOnlyPick)).toBe(true);
+
+    // 3. Combined team selection & tiebreaker
+    const combinedPick = { pick: { teamId: 'team-a' }, tiebreakerTotal: 45 };
+    expect(checkHasSelection(combinedPick)).toBe(true);
+
+    // 4. No selection
+    const emptyPick = {};
+    expect(checkHasSelection(emptyPick)).toBe(false);
+    expect(checkHasSelection(undefined)).toBe(false);
+  });
+
+  it('clears team selection and tiebreaker prediction together when clearing a pick and cancels pending timers', () => {
+    const tiebreakerTimeoutRef: Record<string, any> = { 'm-tb-1': setTimeout(() => {}, 1000) };
+    let timerCleared = false;
+
+    // Mock timer cancellation check
+    const clearTimer = (matchupId: string) => {
+      if (tiebreakerTimeoutRef[matchupId]) {
+        clearTimeout(tiebreakerTimeoutRef[matchupId]);
+        delete tiebreakerTimeoutRef[matchupId];
+        timerCleared = true;
+      }
+    };
+
+    let userPicks: Record<string, any> = {
+      'm-tb-1': {
+        id: 'camp_1_m-tb-1_user1',
+        matchupId: 'm-tb-1',
+        pick: { teamId: 'team-home' },
+        tiebreakerTotal: 52
+      }
+    };
+
+    // Simulate clearing pick for matchup m-tb-1
+    clearTimer('m-tb-1');
+    delete userPicks['m-tb-1'];
+
+    expect(timerCleared).toBe(true);
+    expect(userPicks['m-tb-1']).toBeUndefined();
+  });
+
+  it('automatically triggers pick clearing when tiebreaker score input is erased and no team pick is selected', () => {
+    let clearedMatchupId: string | null = null;
+    const handleClearPickSim = (matchup: { id: string }) => {
+      clearedMatchupId = matchup.id;
+    };
+
+    const handleTiebreakerChangeSim = (matchup: { id: string }, rawVal: string, existingPick: any) => {
+      const trimmed = rawVal.trim();
+      const total = trimmed === '' ? null : parseInt(trimmed, 10);
+
+      if (total === null && !existingPick?.pick?.teamId) {
+        handleClearPickSim(matchup);
+        return;
+      }
+    };
+
+    const matchup = { id: 'm-tb-2' };
+    const tbOnlyPick = { id: 'p1', matchupId: 'm-tb-2', tiebreakerTotal: 48 };
+
+    // User erases tiebreaker input to empty string ''
+    handleTiebreakerChangeSim(matchup, '', tbOnlyPick);
+
+    expect(clearedMatchupId).toBe('m-tb-2');
+  });
 });

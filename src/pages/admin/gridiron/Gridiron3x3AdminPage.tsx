@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
 import { Gridiron3x3LinesDocument, GridironContest, GridironEntry } from '../../../types/gridiron';
+import { getFootballWeekDateRange } from '../../../utils/footballWeek';
 import { Button } from '../../../components/ui/button';
 import { RefreshCw, CheckCircle2, Trophy, Users, Layers, AlertCircle, Calendar, Shield, Clock } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -221,6 +222,9 @@ export default function Gridiron3x3AdminPage() {
               onChange={(e) => setWeekNumber(parseInt(e.target.value, 10) || 1)}
               className="w-14 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-zinc-100 text-center font-mono focus:outline-none focus:border-[#22c55e]"
             />
+            <span className="text-[10px] text-cyan-400 font-mono font-semibold px-1">
+              ({getFootballWeekDateRange(season, weekNumber).formattedRange})
+            </span>
           </div>
 
           <Button

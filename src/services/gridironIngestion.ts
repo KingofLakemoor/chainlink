@@ -2,24 +2,14 @@ import cron from 'node-cron';
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { scrapeLeagueSchedules } from './espnScraper.js';
 import { Gridiron3x3Game, Gridiron3x3LinesDocument } from '../types/gridiron.js';
+import { getFootballWeekDateRange, getCurrentFootballWeek } from '../utils/footballWeek.js';
+
+export { getFootballWeekDateRange, getCurrentFootballWeek };
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 
 export function setAdminDbMock(mock: any) {
   getAdminDb = () => mock;
-}
-
-/**
- * Calculates current football season and week number (defaulting to 1-18 for NFL/CFB).
- */
-export function getCurrentFootballWeek(now: Date = new Date()): { season: number; weekNumber: number } {
-  const season = now.getFullYear();
-  // Sept 1 as baseline start of season
-  const seasonStart = new Date(season, 8, 1); // Sept 1
-  const diffMs = now.getTime() - seasonStart.getTime();
-  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-  const weekNumber = Math.max(1, Math.min(diffWeeks, 20));
-  return { season, weekNumber };
 }
 
 /**
@@ -108,6 +98,7 @@ export async function fetchAndStoreTuesdayGridironLines(
   }
 
   const { season, weekNumber } = (forcedSeason && forcedWeek) ? { season: forcedSeason, weekNumber: forcedWeek } : getCurrentFootballWeek();
+  const weekRange = getFootballWeekDateRange(season, weekNumber);
   const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
 
   let attempts = 0;
@@ -120,11 +111,11 @@ export async function fetchAndStoreTuesdayGridironLines(
   while (attempts < maxAttempts) {
     attempts++;
     try {
-      console.log(`[GridironIngestion] Pulling lines for ${docId} (Attempt ${attempts}/${maxAttempts})...`);
+      console.log(`[GridironIngestion] Pulling lines for ${docId} (${weekRange.formattedRange}) (Attempt ${attempts}/${maxAttempts})...`);
 
       const [nflRes, cfbRes] = await Promise.all([
-        scrapeLeagueSchedules("NFL", true),
-        scrapeLeagueSchedules("CFB", true)
+        scrapeLeagueSchedules("NFL", true, undefined, weekRange.dateStrings),
+        scrapeLeagueSchedules("CFB", true, undefined, weekRange.dateStrings)
       ]);
 
       nflRaw = nflRes?.data || [];
@@ -154,12 +145,17 @@ export async function fetchAndStoreTuesdayGridironLines(
 
   const nflGames = filterAndNormalizeGridironGames(nflRaw, "NFL");
   const cfbGames = filterAndNormalizeGridironGames(cfbRaw, "CFB");
-  const allGames = [...nflGames, ...cfbGames].sort((a, b) => {
-    const timeA = getKickoffMs(a.kickoffTime);
-    const timeB = getKickoffMs(b.kickoffTime);
-    if (timeA !== timeB) return timeA - timeB;
-    return a.gameId.localeCompare(b.gameId);
-  });
+  const allGames = [...nflGames, ...cfbGames]
+    .filter(g => {
+      const ms = getKickoffMs(g.kickoffTime);
+      return ms >= weekRange.startMs && ms <= weekRange.endMs;
+    })
+    .sort((a, b) => {
+      const timeA = getKickoffMs(a.kickoffTime);
+      const timeB = getKickoffMs(b.kickoffTime);
+      if (timeA !== timeB) return timeA - timeB;
+      return a.gameId.localeCompare(b.gameId);
+    });
 
   // Sanity Alert Check
   if (nflGames.length < 10) {

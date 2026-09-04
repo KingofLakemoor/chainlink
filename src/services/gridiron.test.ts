@@ -1,9 +1,39 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { filterAndNormalizeGridironGames } from './gridironIngestion';
+import { filterAndNormalizeGridironGames, getFootballWeekDateRange, getCurrentFootballWeek } from './gridironIngestion';
 import { evaluateGridironPick, gradeGridironWeek, updateGridironLeaderboard, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
 import { GridironPick, GridironEntry } from '../types/gridiron';
 
 describe('Gridiron Service Tests', () => {
+  describe('NFL Week Date Ranges & getCurrentFootballWeek', () => {
+    it('accurately calculates 2026 NFL Week 1 date range starting Wed Sept 9th', () => {
+      const range = getFootballWeekDateRange(2026, 1);
+      expect(range.startDate.getFullYear()).toBe(2026);
+      expect(range.startDate.getMonth()).toBe(8); // September (0-indexed 8)
+      expect(range.startDate.getDate()).toBe(9); // Sept 9
+      expect(range.startDate.getDay()).toBe(3); // Wednesday (0=Sun, 3=Wed)
+
+      expect(range.formattedRange).toContain('Wed, Sep 9');
+      expect(range.dateStrings.length).toBe(7);
+      expect(range.dateStrings[0]).toBe('20260909');
+      expect(range.dateStrings[6]).toBe('20260915');
+    });
+
+    it('calculates 2026 NFL Week 2 date range starting Wed Sept 16th', () => {
+      const range = getFootballWeekDateRange(2026, 2);
+      expect(range.startDate.getDate()).toBe(16);
+      expect(range.startDate.getDay()).toBe(3); // Wednesday
+      expect(range.dateStrings[0]).toBe('20260916');
+    });
+
+    it('maps current date correctly to active week number', () => {
+      const wedSept9_2026 = new Date(2026, 8, 9, 12, 0, 0);
+      expect(getCurrentFootballWeek(wedSept9_2026)).toEqual({ season: 2026, weekNumber: 1 });
+
+      const friSept18_2026 = new Date(2026, 8, 18, 18, 0, 0);
+      expect(getCurrentFootballWeek(friSept18_2026)).toEqual({ season: 2026, weekNumber: 2 });
+    });
+  });
+
   describe('isGameStatusFinal', () => {
     it('identifies various final status strings as final', () => {
       expect(isGameStatusFinal('STATUS_FINAL')).toBe(true);

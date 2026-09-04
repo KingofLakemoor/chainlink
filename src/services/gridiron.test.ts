@@ -348,7 +348,7 @@ describe('Gridiron Service Tests', () => {
       expect(updatedEntry.picks[2].status).toBe('pending'); // g3 is still scheduled
     });
 
-    it('correctly calculates leaderboard records including CFB wins and losses', async () => {
+    it('correctly calculates leaderboard records including CFB wins and losses with case-insensitive league matching', async () => {
       mockStore.gridiron_3x3_contests['contest_1'] = { contestId: 'contest_1', name: 'Group 1', participants: ['u1'] };
       mockStore.gridiron_3x3_entries['contest_1_u1_1'] = {
         entryId: 'contest_1_u1_1',
@@ -358,8 +358,8 @@ describe('Gridiron Service Tests', () => {
         season: 2026,
         weekNumber: 1,
         picks: [
-          { gameId: 'g1', league: 'CFB', pickType: 'total', selection: 'over', value: 60.5, kickoffTime: Date.now() - 3600000, status: 'won' },
-          { gameId: 'g2', league: 'CFB', pickType: 'total', selection: 'under', value: 54.5, kickoffTime: Date.now() - 1800000, status: 'lost' }
+          { gameId: 'g1', league: 'cfb' as any, pickType: 'total', selection: 'over', value: 60.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g2', league: 'cfb' as any, pickType: 'total', selection: 'under', value: 54.5, kickoffTime: Date.now() - 1800000, status: 'lost' }
         ]
       };
 
@@ -373,6 +373,43 @@ describe('Gridiron Service Tests', () => {
       expect(lbDoc.cfbWins).toBe(1);
       expect(lbDoc.cfbLosses).toBe(1);
       expect(lbDoc.winPercentage).toBe(50);
+    });
+
+    it('updates contest leaderboard even if lines snapshot is missing when contestId is provided', async () => {
+      delete mockStore.gridiron_3x3_lines['2026_week_01'];
+      mockStore.gridiron_3x3_contests['contest_missing_lines'] = { contestId: 'contest_missing_lines', name: 'Group 2', participants: ['u2'] };
+      mockStore.gridiron_3x3_entries['contest_missing_lines_u2_1'] = {
+        entryId: 'contest_missing_lines_u2_1',
+        contestId: 'contest_missing_lines',
+        userId: 'u2',
+        displayName: 'Player Two',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g10', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' }
+        ]
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_missing_lines' });
+      expect(res.success).toBe(false);
+
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_missing_lines/leaderboard']?.['u2'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.totalWins).toBe(1);
+      expect(lbDoc.nflWins).toBe(1);
+    });
+
+    it('updates contest leaderboard even if no active entries are found to grade when contestId is provided', async () => {
+      delete mockStore.gridiron_3x3_entries['contest_1_u1_1'];
+      mockStore.gridiron_3x3_contests['contest_empty'] = { contestId: 'contest_empty', name: 'Group 3', participants: ['u3'] };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_empty' });
+      expect(res.success).toBe(true);
+
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_empty/leaderboard']?.['u3'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.totalWins).toBe(0);
+      expect(lbDoc.totalLosses).toBe(0);
     });
   });
 });

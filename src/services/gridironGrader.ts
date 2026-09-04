@@ -79,6 +79,9 @@ export async function gradeGridironWeek(
   const linesSnap = await linesDocRef.get();
 
   if (!linesSnap.exists) {
+    if (options?.contestId) {
+      await updateGridironLeaderboard(options.contestId);
+    }
     return { success: false, error: `Lines snapshot not found for ${docId}` };
   }
 
@@ -156,6 +159,9 @@ export async function gradeGridironWeek(
   }
 
   if (allEntries.length === 0) {
+    if (options?.contestId) {
+      await updateGridironLeaderboard(options.contestId);
+    }
     return { success: true, gradedEntries: 0, message: "No entries found to grade." };
   }
 
@@ -392,18 +398,19 @@ export async function updateGridironLeaderboard(contestId: string) {
     }
 
     for (const p of entry.picks || []) {
+      const lgUpper = p.league?.toUpperCase();
       if (p.status === "won") {
         rec.totalWins++;
-        if (p.league === "NFL") rec.nflWins++;
-        if (p.league === "CFB") rec.cfbWins++;
+        if (lgUpper === "NFL") rec.nflWins++;
+        if (lgUpper === "CFB") rec.cfbWins++;
       } else if (p.status === "lost") {
         rec.totalLosses++;
-        if (p.league === "NFL") rec.nflLosses++;
-        if (p.league === "CFB") rec.cfbLosses++;
+        if (lgUpper === "NFL") rec.nflLosses++;
+        if (lgUpper === "CFB") rec.cfbLosses++;
       } else if (p.status === "push") {
         rec.totalPushes++;
-        if (p.league === "NFL") rec.nflPushes++;
-        if (p.league === "CFB") rec.cfbPushes++;
+        if (lgUpper === "NFL") rec.nflPushes++;
+        if (lgUpper === "CFB") rec.cfbPushes++;
       }
     }
   }

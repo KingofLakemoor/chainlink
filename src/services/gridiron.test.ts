@@ -10,6 +10,8 @@ describe('Gridiron Service Tests', () => {
       expect(isGameStatusFinal('final')).toBe(true);
       expect(isGameStatusFinal('STATUS_FULL_TIME')).toBe(true);
       expect(isGameStatusFinal('STATUS_FINAL_OVERTIME')).toBe(true);
+      expect(isGameStatusFinal('COMPLETED')).toBe(true);
+      expect(isGameStatusFinal('CLOSED')).toBe(true);
       expect(isGameStatusFinal('STATUS_SCHEDULED')).toBe(false);
       expect(isGameStatusFinal('STATUS_IN_PROGRESS')).toBe(false);
     });
@@ -183,6 +185,8 @@ describe('Gridiron Service Tests', () => {
       return {
         collection: (collName: string) => ({
           doc: (docId: string) => ({
+            path: `${collName}/${docId}`,
+            id: docId,
             get: async () => ({
               exists: !!mockStore[collName]?.[docId],
               data: () => mockStore[collName]?.[docId]
@@ -242,7 +246,19 @@ describe('Gridiron Service Tests', () => {
             return { empty: docs.length === 0, docs };
           }
         }),
-        getAll: async (...refs: any[]) => [],
+        getAll: async (...refs: any[]) => {
+          return refs.map(r => {
+            const pathParts = r.path ? r.path.split('/') : [];
+            const collName = pathParts[0] || 'matchups';
+            const docId = pathParts[1];
+            const d = mockStore[collName]?.[docId];
+            return {
+              id: docId,
+              exists: !!d,
+              data: () => d
+            };
+          });
+        },
         batch: () => {
           const operations: (() => void)[] = [];
           return {
@@ -420,6 +436,65 @@ describe('Gridiron Service Tests', () => {
       expect(lbDoc).toBeDefined();
       expect(lbDoc.totalWins).toBe(0);
       expect(lbDoc.totalLosses).toBe(0);
+    });
+
+    it('grades picks using matchups collection getAll fallback by document ID for user ThePicks', async () => {
+      mockStore.matchups = {
+        'g100': {
+          gameId: 'g100',
+          homeTeam: { score: 24 },
+          awayTeam: { score: 17 },
+          status: 'STATUS_FINAL'
+        },
+        'g101': {
+          gameId: 'g101',
+          homeScore: 31,
+          awayScore: 20,
+          status: 'COMPLETED'
+        }
+      };
+
+      mockStore.gridiron_3x3_lines['2026_week_01'] = {
+        season: 2026,
+        weekNumber: 1,
+        games: [
+          { gameId: 'g100', league: 'NFL', awayTeam: { name: 'MIA' }, homeTeam: { name: 'BUF' }, status: 'scheduled', spread: { awaySpread: 3.5, homeSpread: -3.5 }, total: { line: 40.0 } },
+          { gameId: 'g101', league: 'CFB', awayTeam: { name: 'TEX' }, homeTeam: { name: 'OU' }, status: 'scheduled', spread: { awaySpread: 7.0, homeSpread: -7.0 }, total: { line: 50.0 } }
+        ]
+      };
+
+      mockStore.gridiron_3x3_contests['test_1'] = {
+        contestId: 'test_1',
+        name: 'Test 1',
+        participants: ['the_picks_uid']
+      };
+
+      mockStore.gridiron_3x3_entries['test_1_the_picks_1'] = {
+        entryId: 'test_1_the_picks_1',
+        contestId: 'test_1',
+        userId: 'the_picks_uid',
+        displayName: 'ThePicks',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g100', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'pending' },
+          { gameId: 'g101', league: 'CFB', pickType: 'total', selection: 'over', value: 50.0, kickoffTime: Date.now() - 1800000, status: 'pending' }
+        ]
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'test_1' });
+      expect(res.success).toBe(true);
+
+      const updatedEntry = mockStore.gridiron_3x3_entries['test_1_the_picks_1'];
+      expect(updatedEntry.picks[0].status).toBe('won'); // BUF 24-17 (-3.5)
+      expect(updatedEntry.picks[1].status).toBe('won'); // 31 + 20 = 51 > 50 over
+
+      const lbDoc = mockStore['gridiron_3x3_contests/test_1/leaderboard']?.['the_picks_uid'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.displayName).toBe('ThePicks');
+      expect(lbDoc.totalWins).toBe(2);
+      expect(lbDoc.totalLosses).toBe(0);
+      expect(lbDoc.winPercentage).toBe(100);
     });
 
     it('saves contestIds on weekly snapshot and skips batch write when leaderboard record is unchanged', async () => {

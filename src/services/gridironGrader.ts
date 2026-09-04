@@ -1,5 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { scrapeLeagueSchedules, MATCHUP_FINAL_STATUSES } from './espnScraper.js';
+import { fetchAndStoreTuesdayGridironLines } from './gridironIngestion.js';
 import { GridironEntry, GridironPick, GridironLeaderboardRecord } from '../types/gridiron.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
@@ -14,6 +15,8 @@ export function isGameStatusFinal(status: string | undefined): boolean {
   return (
     sUpper === "STATUS_FINAL" ||
     sUpper === "FINAL" ||
+    sUpper === "COMPLETED" ||
+    sUpper === "CLOSED" ||
     sUpper.includes("FINAL") ||
     MATCHUP_FINAL_STATUSES.includes(sUpper)
   );
@@ -76,7 +79,16 @@ export async function gradeGridironWeek(
 
   const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
   const linesDocRef = adminDb.collection("gridiron_3x3_lines").doc(docId);
-  const linesSnap = await linesDocRef.get();
+  let linesSnap = await linesDocRef.get();
+
+  if (!linesSnap.exists && process.env.NODE_ENV !== 'test') {
+    try {
+      await fetchAndStoreTuesdayGridironLines(season, weekNumber);
+      linesSnap = await linesDocRef.get();
+    } catch (e) {
+      console.warn(`[GridironGrader] Auto-generation of lines failed for ${docId}:`, e);
+    }
+  }
 
   if (!linesSnap.exists) {
     if (options?.contestId) {
@@ -121,17 +133,49 @@ export async function gradeGridironWeek(
     try {
       for (let i = 0; i < gameIds.length; i += 30) {
         const chunk = gameIds.slice(i, i + 30);
-        const mSnap = await adminDb.collection("matchups").where("gameId", "in", chunk).get();
-        mSnap.docs.forEach(d => {
-          const data = d.data();
-          if (data.gameId) {
-            dbMatchupsMap.set(String(data.gameId), {
-              homeScore: data.homeTeam?.score || 0,
-              awayScore: data.awayTeam?.score || 0,
-              status: data.status || "STATUS_SCHEDULED"
-            });
-          }
-        });
+
+        // 1. Fetch by document ID
+        try {
+          const docRefs = chunk.map(id => adminDb.collection("matchups").doc(id));
+          const docs = await adminDb.getAll(...docRefs);
+          docs.forEach(d => {
+            if (d.exists) {
+              const data = d.data();
+              if (data) {
+                const gid = String(data.gameId || d.id);
+                const hScore = typeof data.homeTeam?.score === 'number' ? data.homeTeam.score : (typeof data.homeScore === 'number' ? data.homeScore : 0);
+                const aScore = typeof data.awayTeam?.score === 'number' ? data.awayTeam.score : (typeof data.awayScore === 'number' ? data.awayScore : 0);
+                dbMatchupsMap.set(gid, {
+                  homeScore: hScore,
+                  awayScore: aScore,
+                  status: data.status || "STATUS_SCHEDULED"
+                });
+              }
+            }
+          });
+        } catch (e) {
+          console.warn("[GridironGrader] getAll matchups lookup error:", e);
+        }
+
+        // 2. Fetch by gameId field query
+        try {
+          const mSnap = await adminDb.collection("matchups").where("gameId", "in", chunk).get();
+          mSnap.docs.forEach(d => {
+            const data = d.data();
+            if (data) {
+              const gid = String(data.gameId || d.id);
+              const hScore = typeof data.homeTeam?.score === 'number' ? data.homeTeam.score : (typeof data.homeScore === 'number' ? data.homeScore : 0);
+              const aScore = typeof data.awayTeam?.score === 'number' ? data.awayTeam.score : (typeof data.awayScore === 'number' ? data.awayScore : 0);
+              dbMatchupsMap.set(gid, {
+                homeScore: hScore,
+                awayScore: aScore,
+                status: data.status || "STATUS_SCHEDULED"
+              });
+            }
+          });
+        } catch (e) {
+          console.warn("[GridironGrader] where gameId matchups lookup error:", e);
+        }
       }
     } catch (e) {
       console.warn("[GridironGrader] Matchups collection lookup error:", e);

@@ -169,8 +169,23 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
+  const getKickoffMs = (kickoffTime: any): number => {
+    if (!kickoffTime) return 0;
+    if (typeof kickoffTime === 'number') return kickoffTime;
+    if (typeof kickoffTime?.toMillis === 'function') return kickoffTime.toMillis();
+    if (typeof kickoffTime?.seconds === 'number') return kickoffTime.seconds * 1000;
+    const parsed = new Date(kickoffTime).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const nflGames = linesDoc?.games?.filter(g => g.league === 'NFL') || [];
   const cfbGames = linesDoc?.games?.filter(g => g.league === 'CFB') || [];
+  const sortedGames = [...(linesDoc?.games || [])].sort((a, b) => {
+    const timeA = getKickoffMs(a.kickoffTime);
+    const timeB = getKickoffMs(b.kickoffTime);
+    if (timeA !== timeB) return timeA - timeB;
+    return a.gameId.localeCompare(b.gameId);
+  });
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8 space-y-6">
@@ -345,7 +360,7 @@ export default function Gridiron3x3AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
-                    {(linesDoc.games || []).map((game) => (
+                    {sortedGames.map((game) => (
                       <tr key={game.gameId} className="hover:bg-zinc-800/40 transition-colors">
                         <td className="p-3">
                           <span className={cn(

@@ -244,11 +244,27 @@ export default function Gridiron3x3Page() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const filteredGames = games.filter(g => {
-    if (leagueFilter === 'NFL') return g.league === 'NFL';
-    if (leagueFilter === 'CFB') return g.league === 'CFB';
-    return true;
-  });
+  const getKickoffMs = (kickoffTime: any): number => {
+    if (!kickoffTime) return 0;
+    if (typeof kickoffTime === 'number') return kickoffTime;
+    if (typeof kickoffTime?.toMillis === 'function') return kickoffTime.toMillis();
+    if (typeof kickoffTime?.seconds === 'number') return kickoffTime.seconds * 1000;
+    const parsed = new Date(kickoffTime).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const filteredGames = games
+    .filter(g => {
+      if (leagueFilter === 'NFL') return g.league === 'NFL';
+      if (leagueFilter === 'CFB') return g.league === 'CFB';
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = getKickoffMs(a.kickoffTime);
+      const timeB = getKickoffMs(b.kickoffTime);
+      if (timeA !== timeB) return timeA - timeB;
+      return a.gameId.localeCompare(b.gameId);
+    });
 
   if (viewMode === 'landing') {
     const myContests = contests;

@@ -121,6 +121,12 @@ export default function Gridiron3x3Page() {
     }
   }, [selectedContest, season, weekNumber]);
 
+  useEffect(() => {
+    if (selectedContest && (activeTab === 'leaderboard' || activeTab === 'group')) {
+      fetchEntries();
+    }
+  }, [activeTab]);
+
   // Subscribe to real-time leaderboard subcollection
   useEffect(() => {
     const contestId = selectedContest?.contestId;

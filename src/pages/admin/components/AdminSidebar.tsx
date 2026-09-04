@@ -25,6 +25,7 @@ const ADMIN_MENU_SECTIONS = [
         ]
       },
       { id: 'pickem', label: "Pick'em", icon: Layers, path: '/admin/pickem' },
+      { id: 'gridiron-3x3', label: 'Gridiron 3x3', icon: Trophy, path: '/admin/gridiron-3x3' },
       { id: 'brackets', label: 'Brackets', icon: GitMerge, path: '/admin/brackets' },
       { id: 'link4', label: 'Link4', icon: Target, path: '/admin/link4' },
       { id: 'challenges', label: 'Challenges', icon: Target, path: '/admin/challenges' },

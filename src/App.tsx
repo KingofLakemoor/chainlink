@@ -569,7 +569,7 @@ export default function App() {
           <Route path="/dashboard" element={<PrivateRoute><MainLayout><DashboardPage /></MainLayout></PrivateRoute>} />
                               <Route path="/pickem" element={<PrivateRoute><MainLayout><PickEmLandingPage /></MainLayout></PrivateRoute>} />
           <Route path="/pickem/:campaignId" element={<PrivateRoute><MainLayout><PickEmPage /></MainLayout></PrivateRoute>} />
-          <Route path="/gridiron-3x3" element={<PrivateRoute><MainLayout><Gridiron3x3Page /></MainLayout></PrivateRoute>} />
+          <Route path="/gridiron-3x3" element={<MainLayout><Gridiron3x3Page /></MainLayout>} />
           <Route path="/brackets" element={<MainLayout><BracketsPage /></MainLayout>} />
           <Route path="/brackets/:bracketId" element={<MainLayout><BracketsPage /></MainLayout>} />
           <Route path="/link4" element={<PrivateRoute><MainLayout><Link4Page /></MainLayout></PrivateRoute>} />

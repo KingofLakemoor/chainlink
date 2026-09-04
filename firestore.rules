@@ -18,10 +18,6 @@ service cloud.firestore {
     }
 
 
-    match /link_transactions/{txId} {
-      allow read, update, delete: if isAdmin();
-      allow create: if isSignedIn();
-    }
     match /orders/{orderId} {
       allow read, write: if isAdmin();
       allow create: if isSignedIn();

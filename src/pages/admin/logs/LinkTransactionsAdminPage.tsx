@@ -1,20 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, where } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 
 export default function LinkTransactionsAdminPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMoreBackend, setHasMoreBackend] = useState<boolean>(false);
   const [searchUsername, setSearchUsername] = useState('');
-
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchLogs = async (loadMore = false) => {
     setLoading(true);
     setErrorMsg(null);
     try {
+      const token = await auth.currentUser?.getIdToken();
+      if (token) {
+        const url = new URL('/api/admin/link-transactions', window.location.origin);
+        if (searchUsername) {
+          url.searchParams.set('username', searchUsername);
+        }
+        if (loadMore && logs.length > 0) {
+          const lastLog = logs[logs.length - 1];
+          if (lastLog?.id) {
+            url.searchParams.set('startAfterId', lastLog.id);
+          }
+        }
+        const res = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.logs)) {
+            if (loadMore) {
+              setLogs(prev => [...prev, ...data.logs]);
+            } else {
+              setLogs(data.logs);
+            }
+            setHasMoreBackend(data.hasMore ?? (data.logs.length === 100));
+            setLastDoc(null);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Fallback to client Firestore query if API call is unauthenticated or fails
       let q;
       if (searchUsername) {
          q = query(collection(db, 'linkTransactions'), where('username', '==', searchUsername), orderBy('createdAt', 'desc'), limit(100));
@@ -36,6 +70,7 @@ export default function LinkTransactionsAdminPage() {
       } else {
         setLogs(docs);
       }
+      setHasMoreBackend(false);
       
       if (!snap.empty) {
         setLastDoc(snap.docs[snap.docs.length - 1]);
@@ -53,6 +88,16 @@ export default function LinkTransactionsAdminPage() {
   useEffect(() => {
     fetchLogs();
   }, []);
+
+  const formatDate = (val: any) => {
+    if (!val) return 'Unknown';
+    if (typeof val === 'number') return new Date(val).toLocaleString();
+    if (typeof val === 'string') return new Date(val).toLocaleString();
+    if (val.seconds) return new Date(val.seconds * 1000).toLocaleString();
+    return 'Unknown';
+  };
+
+  const showLoadMore = hasMoreBackend || (lastDoc !== null);
 
   return (
     <div className="space-y-6">
@@ -77,6 +122,10 @@ export default function LinkTransactionsAdminPage() {
               <>
                 This query requires a database index. Please open the console and click the link to create it, or use this link if visible in the error: {errorMsg}
               </>
+            ) : errorMsg.includes('permissions') ? (
+              <>
+                <strong>Permission Denied.</strong> You are using a custom Firebase project or test role. Accessing backend log endpoints requires an authenticated Admin session.
+              </>
             ) : (
               errorMsg
             )}
@@ -100,7 +149,7 @@ export default function LinkTransactionsAdminPage() {
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b border-zinc-700/50 hover:bg-zinc-700/20">
                     <td className="px-4 py-3 whitespace-nowrap text-zinc-300">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {formatDate(log.createdAt)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-zinc-200">{log.username || 'Unknown'}</div>
@@ -122,7 +171,7 @@ export default function LinkTransactionsAdminPage() {
             {logs.length === 0 && !loading && (
               <div className="text-center py-8 text-zinc-500">No transactions found.</div>
             )}
-            {logs.length > 0 && lastDoc && (
+            {logs.length > 0 && showLoadMore && (
               <div className="mt-4 flex justify-center">
                 <Button variant="outline" onClick={() => fetchLogs(true)} disabled={loading}>
                   {loading ? 'Loading...' : 'Load More'}

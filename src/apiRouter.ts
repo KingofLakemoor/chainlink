@@ -393,6 +393,38 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.get("/admin/link-transactions", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const { username, startAfterId, limit: reqLimit } = req.query;
+    const fetchLimit = Math.min(parseInt(reqLimit as string) || 100, 500);
+
+    let query: FirebaseFirestore.Query = adminDb.collection('linkTransactions');
+
+    if (username && typeof username === 'string' && username.trim() !== '') {
+      query = query.where('username', '==', username.trim());
+    }
+
+    query = query.orderBy('createdAt', 'desc');
+
+    if (startAfterId && typeof startAfterId === 'string') {
+      const docSnap = await adminDb.collection('linkTransactions').doc(startAfterId).get();
+      if (docSnap.exists) {
+        query = query.startAfter(docSnap);
+      }
+    }
+
+    const snap = await query.limit(fetchLimit).get();
+    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const hasMore = snap.docs.length === fetchLimit;
+
+    res.json({ success: true, logs, hasMore });
+  } catch (e: any) {
+    console.error("Fetch Admin Link Transactions error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.get("/admin/gridiron-3x3/contests", validateAdmin, async (req, res) => {
   try {
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });

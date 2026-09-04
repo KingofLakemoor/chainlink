@@ -23,7 +23,7 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
     match /orders/{orderId} {
-      allow read, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
       allow create: if isSignedIn();
     }
     match /globalQuiz/{quizId} {
@@ -331,12 +331,5 @@ service cloud.firestore {
       );
       allow write: if isAdmin();
     }
-    
-    match /orders/{orderId} {
-      allow read, write: if isAdmin();
-    }
-
-          
-
   }
 }

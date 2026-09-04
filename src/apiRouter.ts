@@ -2568,6 +2568,44 @@ apiRouter.post("/admin/force-grade-brackets", validateAdmin, async (req, res) =>
     }
 });
 
+apiRouter.get("/admin/orders", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const snap = await adminDb.collection('orders').orderBy('createdAt', 'desc').limit(100).get();
+    const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json({ success: true, orders });
+  } catch (e: any) {
+    console.error("Fetch Admin Orders error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/orders/update-status", validateAdmin, async (req, res) => {
+  try {
+    const { orderId, status } = req.body;
+    if (!orderId || !status) {
+      return res.status(400).json({ success: false, error: "Missing orderId or status" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const orderRef = adminDb.collection('orders').doc(orderId);
+    const orderDoc = await orderRef.get();
+    if (!orderDoc.exists) {
+      return res.status(404).json({ success: false, error: "Order not found" });
+    }
+
+    await orderRef.update({
+      status: status,
+      updatedAt: Date.now()
+    });
+
+    res.json({ success: true, orderId, status });
+  } catch (e: any) {
+    console.error("Update Admin Order status error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 let chainsCache: any = null;
 let chainsCacheTime = 0;
 

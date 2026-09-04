@@ -36,6 +36,9 @@ export default function Gridiron3x3Page() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [newContestName, setNewContestName] = useState('');
+  const [newLogoUrl, setNewLogoUrl] = useState('');
+  const [newPrimaryColor, setNewPrimaryColor] = useState('#22c55e');
+  const [newSecondaryColor, setNewSecondaryColor] = useState('#06b6d4');
   const [joinInviteCode, setJoinInviteCode] = useState('');
 
   const [copiedCode, setCopiedCode] = useState(false);
@@ -156,7 +159,14 @@ export default function Gridiron3x3Page() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${await user?.getIdToken()}`
         },
-        body: JSON.stringify({ name: newContestName, season, weekNumber })
+        body: JSON.stringify({
+          name: newContestName,
+          season,
+          weekNumber,
+          logoUrl: newLogoUrl.trim() || undefined,
+          primaryColor: newPrimaryColor || undefined,
+          secondaryColor: newSecondaryColor || undefined
+        })
       });
 
       const data = await res.json();
@@ -164,6 +174,9 @@ export default function Gridiron3x3Page() {
         showToast('Private contest created!', 'success');
         setIsCreating(false);
         setNewContestName('');
+        setNewLogoUrl('');
+        setNewPrimaryColor('#22c55e');
+        setNewSecondaryColor('#06b6d4');
         await fetchContests();
         setSelectedContest(data.contest);
         setLandingViewMode('workspace');
@@ -379,8 +392,19 @@ export default function Gridiron3x3Page() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContests.map(c => (
-                  <div key={c.contestId} className="bg-[#121212] border border-[#27272a] hover:border-zinc-700 rounded-2xl p-5 space-y-4 transition-all shadow-lg flex flex-col justify-between">
-                    <div className="space-y-2">
+                  <div
+                    key={c.contestId}
+                    style={{ borderColor: c.primaryColor ? `${c.primaryColor}30` : undefined }}
+                    className="bg-[#121212] border border-[#27272a] hover:border-zinc-700 rounded-2xl p-5 space-y-4 transition-all shadow-lg flex flex-col justify-between relative overflow-hidden"
+                  >
+                    {c.primaryColor && (
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1"
+                        style={{ backgroundColor: c.primaryColor }}
+                      />
+                    )}
+
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
                           {c.inviteCode}
@@ -389,10 +413,30 @@ export default function Gridiron3x3Page() {
                           Season {c.season} • Wk {c.weekNumber}
                         </span>
                       </div>
-                      <h3 className="text-lg font-bold text-zinc-100">{c.name}</h3>
-                      <p className="text-xs text-zinc-400 flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-zinc-500" /> {c.participants?.length || 0} Members
-                      </p>
+
+                      <div className="flex items-center gap-3">
+                        {c.logoUrl ? (
+                          <img
+                            src={c.logoUrl}
+                            alt={c.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-[#27272a] shrink-0"
+                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div
+                            className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs text-zinc-100 shrink-0"
+                            style={{ backgroundColor: c.primaryColor || '#27272a' }}
+                          >
+                            <Trophy className="w-5 h-5 text-zinc-900" />
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="text-lg font-bold text-zinc-100">{c.name}</h3>
+                          <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                            <Users className="w-3.5 h-3.5 text-zinc-500" /> {c.participants?.length || 0} Members
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
                     <Button
@@ -401,6 +445,10 @@ export default function Gridiron3x3Page() {
                         setSeason(c.season || 2026);
                         setWeekNumber(c.weekNumber || 1);
                         setLandingViewMode('workspace');
+                      }}
+                      style={{
+                        backgroundColor: c.primaryColor || undefined,
+                        color: c.primaryColor ? '#09090b' : undefined
                       }}
                       className="w-full font-bold gap-2"
                     >
@@ -594,12 +642,26 @@ export default function Gridiron3x3Page() {
 
       {/* Invite Code Sharing Banner */}
       {selectedContest && (
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex items-center justify-between">
+        <div
+          className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex items-center justify-between"
+          style={{ borderColor: selectedContest.primaryColor ? `${selectedContest.primaryColor}40` : undefined }}
+        >
           <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-cyan-400 shrink-0" />
+            {selectedContest.logoUrl ? (
+              <img
+                src={selectedContest.logoUrl}
+                alt={selectedContest.name}
+                className="w-8 h-8 rounded-lg object-cover border border-[#27272a] shrink-0"
+                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+              />
+            ) : (
+              <Users className="w-5 h-5 shrink-0" style={{ color: selectedContest.primaryColor || '#22c55e' }} />
+            )}
             <div>
               <span className="text-xs font-semibold uppercase text-zinc-400 block">Active Contest Group</span>
-              <span className="text-sm font-bold text-zinc-100">{selectedContest.name}</span>
+              <span className="text-sm font-bold text-zinc-100" style={{ color: selectedContest.primaryColor || undefined }}>
+                {selectedContest.name}
+              </span>
             </div>
           </div>
 
@@ -879,6 +941,45 @@ export default function Gridiron3x3Page() {
                   required
                 />
               </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Custom Logo URL (Optional)</label>
+                  <input
+                    type="url"
+                    value={newLogoUrl}
+                    onChange={(e) => setNewLogoUrl(e.target.value)}
+                    placeholder="https://example.com/logo.png"
+                    className="w-full bg-zinc-900 border border-[#3f3f46] rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">Primary Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={newPrimaryColor}
+                        onChange={(e) => setNewPrimaryColor(e.target.value)}
+                        className="w-8 h-8 rounded border border-zinc-700 bg-transparent cursor-pointer"
+                      />
+                      <span className="text-xs font-mono text-zinc-300">{newPrimaryColor}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">Secondary Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={newSecondaryColor}
+                        onChange={(e) => setNewSecondaryColor(e.target.value)}
+                        className="w-8 h-8 rounded border border-zinc-700 bg-transparent cursor-pointer"
+                      />
+                      <span className="text-xs font-mono text-zinc-300">{newSecondaryColor}</span>
+                    </div>
+                  </div>
+                </div>
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>

@@ -16,6 +16,14 @@ export default function Gridiron3x3AdminPage() {
   const [selectedContestId, setSelectedContestId] = useState<string | null>(null);
   const [entries, setEntries] = useState<GridironEntry[]>([]);
 
+  // White label editing state
+  const [editingContest, setEditingContest] = useState<GridironContest | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLogoUrl, setEditLogoUrl] = useState('');
+  const [editPrimaryColor, setEditPrimaryColor] = useState('#22c55e');
+  const [editSecondaryColor, setEditSecondaryColor] = useState('#06b6d4');
+  const [isSavingContest, setIsSavingContest] = useState(false);
+
   const [loadingLines, setLoadingLines] = useState(false);
   const [loadingContests, setLoadingContests] = useState(false);
   const [loadingEntries, setLoadingEntries] = useState(false);
@@ -133,6 +141,52 @@ export default function Gridiron3x3AdminPage() {
       setStatusMessage({ type: 'error', text: err.message || 'Error syncing lines.' });
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleOpenEditContest = (c: GridironContest) => {
+    setEditingContest(c);
+    setEditName(c.name || '');
+    setEditLogoUrl(c.logoUrl || '');
+    setEditPrimaryColor(c.primaryColor || '#22c55e');
+    setEditSecondaryColor(c.secondaryColor || '#06b6d4');
+  };
+
+  const handleSaveContest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContest) return;
+    setIsSavingContest(true);
+    setStatusMessage(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/gridiron-3x3/update-contest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          contestId: editingContest.contestId,
+          name: editName,
+          logoUrl: editLogoUrl,
+          primaryColor: editPrimaryColor,
+          secondaryColor: editSecondaryColor
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStatusMessage({ type: 'success', text: `White label settings updated for "${editName}"!` });
+        setEditingContest(null);
+        await fetchContests();
+      } else {
+        setStatusMessage({ type: 'error', text: data.error || 'Failed to update group.' });
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || 'Error updating group.' });
+    } finally {
+      setIsSavingContest(false);
     }
   };
 
@@ -423,12 +477,29 @@ export default function Gridiron3x3AdminPage() {
               <tbody className="divide-y divide-zinc-800">
                 {contests.map((c) => (
                   <tr key={c.contestId} className={cn("hover:bg-zinc-800/40 transition-colors", c.contestId === selectedContestId && "bg-[#22c55e]/5")}>
-                    <td className="p-3 font-bold text-zinc-100">{c.name}</td>
+                    <td className="p-3 font-bold text-zinc-100 flex items-center gap-2">
+                      {c.logoUrl ? (
+                        <img src={c.logoUrl} alt={c.name} className="w-6 h-6 rounded object-cover border border-zinc-700 shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                      ) : (
+                        <div className="w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] text-zinc-900 shrink-0" style={{ backgroundColor: c.primaryColor || '#22c55e' }}>
+                          G
+                        </div>
+                      )}
+                      <span>{c.name}</span>
+                    </td>
                     <td className="p-3 font-mono font-bold text-cyan-400">{c.inviteCode}</td>
                     <td className="p-3 font-mono text-zinc-300">{c.season || 2026} Week {c.weekNumber || 1}</td>
                     <td className="p-3 font-mono text-zinc-400 truncate max-w-[150px]">{c.createdBy}</td>
                     <td className="p-3 font-mono font-bold text-zinc-200">{c.participants?.length || 0} Users</td>
                     <td className="p-3 text-right flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenEditContest(c)}
+                        className="text-xs border-zinc-700 hover:bg-zinc-800 text-cyan-400"
+                      >
+                        White Label
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -461,6 +532,75 @@ export default function Gridiron3x3AdminPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Edit White Label Modal */}
+      {editingContest && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 max-w-md w-full space-y-4">
+            <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-cyan-400" /> White Label Group Settings
+            </h3>
+            <form onSubmit={handleSaveContest} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Group Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Custom Logo Image URL</label>
+                <input
+                  type="url"
+                  value={editLogoUrl}
+                  onChange={(e) => setEditLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Primary Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={editPrimaryColor}
+                      onChange={(e) => setEditPrimaryColor(e.target.value)}
+                      className="w-8 h-8 rounded border border-zinc-700 bg-transparent cursor-pointer"
+                    />
+                    <span className="text-xs font-mono text-zinc-300">{editPrimaryColor}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Secondary Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={editSecondaryColor}
+                      onChange={(e) => setEditSecondaryColor(e.target.value)}
+                      className="w-8 h-8 rounded border border-zinc-700 bg-transparent cursor-pointer"
+                    />
+                    <span className="text-xs font-mono text-zinc-300">{editSecondaryColor}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setEditingContest(null)}>Cancel</Button>
+                <Button type="submit" disabled={isSavingContest}>
+                  {isSavingContest ? 'Saving...' : 'Save Settings'}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

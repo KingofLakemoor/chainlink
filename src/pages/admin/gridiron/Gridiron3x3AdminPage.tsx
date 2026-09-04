@@ -122,7 +122,7 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
-  const handleGradeWeek = async () => {
+  const handleGradeWeek = async (finalizeAndPurge: boolean = false) => {
     setIsGrading(true);
     setStatusMessage(null);
     try {
@@ -133,11 +133,14 @@ export default function Gridiron3x3AdminPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ season, weekNumber })
+        body: JSON.stringify({ season, weekNumber, finalizeAndPurge })
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setStatusMessage({ type: 'success', text: `Grading completed! Processed ${data.processedCount || 0} entries.` });
+        const msg = finalizeAndPurge
+          ? `Week Finalized & Purged! Snapshotted ${data.snapshottedEntries || 0} entries into consolidated snapshot and purged ${data.purgedEntries || 0} individual records.`
+          : `Grading completed! Graded ${data.gradedEntries || 0} entries across ${data.updatedContests || 0} contests.`;
+        setStatusMessage({ type: 'success', text: msg });
         await fetchEntries();
       } else {
         setStatusMessage({ type: 'error', text: data.error || 'Failed to grade week.' });
@@ -200,12 +203,22 @@ export default function Gridiron3x3AdminPage() {
 
           <Button
             size="sm"
-            onClick={handleGradeWeek}
+            onClick={() => handleGradeWeek(false)}
             disabled={isGrading}
             className="gap-2 font-semibold bg-[#22c55e] hover:bg-[#22c55e]/90 text-zinc-950"
           >
             {isGrading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
             Grade Week
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => handleGradeWeek(true)}
+            disabled={isGrading}
+            className="gap-2 font-semibold bg-amber-600 hover:bg-amber-500 text-zinc-100"
+          >
+            {isGrading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            Finalize & Purge Week
           </Button>
         </div>
       </div>

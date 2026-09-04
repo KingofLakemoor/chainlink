@@ -1,6 +1,8 @@
 import { adminDb } from '../lib/firebase-admin.js';
 import { syncLeagueSchedules } from './scheduleProcessor.js';
 import { updateAllProps } from './propGrader.js';
+import { gradeGridironWeek } from './gridironGrader.js';
+import { getCurrentFootballWeek } from './gridironIngestion.js';
 
 let syncInterval: NodeJS.Timeout | null = null;
 let loopCount = 0;
@@ -117,6 +119,16 @@ export function startAutoSyncJob() {
            }
         }
       }
+      // Automatically grade Gridiron 3x3 active week games when NFL/CFB are synced
+      if (activeLeaguesSet.has('NFL') || activeLeaguesSet.has('CFB')) {
+        try {
+          const { season, weekNumber } = getCurrentFootballWeek();
+          await gradeGridironWeek(season, weekNumber);
+        } catch (e: any) {
+          console.error(`[AutoSync] Error during background Gridiron grading:`, e?.message || e);
+        }
+      }
+
       console.log("[AutoSync] Background schedule sync completed.");
     } catch (e) {
       console.error("[AutoSync] Error during background sync job:", e);

@@ -74,3 +74,11 @@ export interface GridironLeaderboardRecord {
   // Calculated Win Percentage
   winPercentage: number;
 }
+
+export interface GridironWeeklySnapshot {
+  season: number;
+  weekNumber: number;
+  snapshotTimestamp: number;
+  isFinalized: boolean;
+  entries: GridironEntry[];
+}

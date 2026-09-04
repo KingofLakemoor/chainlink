@@ -2580,16 +2580,32 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
       return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
     }
 
+    // 1. Check active individual entries
     const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
       .where("contestId", "==", contestId)
       .where("weekNumber", "==", weekNum)
       .get();
 
+    let rawEntries: GridironEntry[] = [];
+
+    if (!entriesSnap.empty) {
+      rawEntries = entriesSnap.docs.map(doc => ({ entryId: doc.id, ...(doc.data() as GridironEntry) }));
+    } else {
+      // 2. Fallback to weekly consolidated snapshot document if individual entries were purged
+      const season = contestDoc.data()?.season || 2026;
+      const docId = `${season}_week_${weekNum.toString().padStart(2, '0')}`;
+      const snapshotSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").doc(docId).get();
+
+      if (snapshotSnap.exists) {
+        const snapshotEntries: GridironEntry[] = snapshotSnap.data()?.entries || [];
+        rawEntries = snapshotEntries.filter(e => e.contestId === contestId);
+      }
+    }
+
     const now = Date.now();
 
     // BLIND REVEAL SECURITY: Mask competitor picks if kickoffTime > now
-    const entries = entriesSnap.docs.map(doc => {
-      const data = doc.data() as GridironEntry;
+    const entries = rawEntries.map(data => {
       const isOwner = data.userId === uid;
 
       const maskedPicks = (data.picks || []).map(p => {
@@ -2621,7 +2637,6 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
 
       return {
         ...data,
-        entryId: doc.id,
         picks: maskedPicks
       };
     });
@@ -2763,12 +2778,12 @@ apiRouter.post("/admin/gridiron-3x3/sync-lines", validateAdmin, async (req, res)
 
 apiRouter.post("/admin/gridiron-3x3/grade", validateAdmin, async (req, res) => {
   try {
-    const { season, weekNumber } = req.body;
+    const { season, weekNumber, finalizeAndPurge } = req.body;
     const fw = getCurrentFootballWeek();
     const activeSeason = season || fw.season;
     const activeWeek = weekNumber || fw.weekNumber;
 
-    const result = await gradeGridironWeek(activeSeason, activeWeek);
+    const result = await gradeGridironWeek(activeSeason, activeWeek, { finalizeAndPurge: !!finalizeAndPurge });
     res.json(result);
   } catch (e: any) {
     console.error("Admin grade Gridiron error:", e);

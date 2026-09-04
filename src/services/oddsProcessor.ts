@@ -1,4 +1,5 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
+import { logServerError } from '../lib/serverErrorLogger.js';
 import fetch from 'node-fetch';
 import cron from 'node-cron';
 
@@ -258,6 +259,7 @@ export async function syncTennisOdds() {
     return { success: true, updatedCount };
   } catch (err: any) {
     console.error("[OddsProcessor] Odds processing error:", err);
+    logServerError('OddsProcessor Tennis Sync', err);
     return { success: false, error: err.message };
   }
 }
@@ -404,6 +406,7 @@ export async function syncSoccerOdds() {
     return { success: true, updated: totalUpdated };
   } catch (err: any) {
     console.error('Error syncing soccer odds', err);
+    logServerError('OddsProcessor Soccer Sync', err);
     return { success: false, error: err.message };
   }
 }

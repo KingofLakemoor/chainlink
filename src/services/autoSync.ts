@@ -1,4 +1,5 @@
 import { adminDb } from '../lib/firebase-admin.js';
+import { logServerError } from '../lib/serverErrorLogger.js';
 import { syncLeagueSchedules } from './scheduleProcessor.js';
 import { updateAllProps } from './propGrader.js';
 import { gradeGridironWeek } from './gridironGrader.js';
@@ -116,6 +117,7 @@ export function startAutoSyncJob() {
              );
            } catch (err: any) {
              console.error(`[AutoSync] Error syncing ${league}: ${err.message}`);
+             logServerError(`AutoSync Sync League (${league})`, err);
            }
         }
       }
@@ -126,12 +128,14 @@ export function startAutoSyncJob() {
           await gradeGridironWeek(season, weekNumber);
         } catch (e: any) {
           console.error(`[AutoSync] Error during background Gridiron grading:`, e?.message || e);
+          logServerError('AutoSync Gridiron Grading', e);
         }
       }
 
       console.log("[AutoSync] Background schedule sync completed.");
     } catch (e) {
       console.error("[AutoSync] Error during background sync job:", e);
+      logServerError('AutoSync Background Job', e);
     }
   };
   

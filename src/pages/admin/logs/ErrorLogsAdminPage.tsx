@@ -23,8 +23,21 @@ export default function ErrorLogsAdminPage() {
       setErrors(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SystemError)));
       setLoading(false);
     }, (err) => {
-      console.error("ErrorLogsAdminPage snapshot error:", err);
-      setLoading(false);
+      console.warn("ErrorLogsAdminPage ordered query failed, falling back to unordered query:", err);
+      const fallbackQ = query(collection(db, 'system_errors'), limit(100));
+      onSnapshot(fallbackQ, (fallbackSnap) => {
+        const items = fallbackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SystemError));
+        items.sort((a, b) => {
+          const timeA = a.timestamp?.seconds ? a.timestamp.seconds * 1000 : new Date(a.timestamp || 0).getTime();
+          const timeB = b.timestamp?.seconds ? b.timestamp.seconds * 1000 : new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+        setErrors(items);
+        setLoading(false);
+      }, (fallbackErr) => {
+        console.error("ErrorLogsAdminPage fallback snapshot error:", fallbackErr);
+        setLoading(false);
+      });
     });
     return () => unsub();
   }, []);
@@ -45,8 +58,12 @@ export default function ErrorLogsAdminPage() {
   };
 
   const formatTime = (ts: any) => {
-    if (!ts || !ts.toDate) return 'Unknown';
-    return ts.toDate().toLocaleString();
+    if (!ts) return 'Unknown';
+    if (typeof ts.toDate === 'function') return ts.toDate().toLocaleString();
+    if (typeof ts === 'number') return new Date(ts).toLocaleString();
+    if (typeof ts === 'string') return new Date(ts).toLocaleString();
+    if (ts.seconds) return new Date(ts.seconds * 1000).toLocaleString();
+    return 'Unknown';
   };
 
   return (

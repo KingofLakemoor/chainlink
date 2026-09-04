@@ -7,6 +7,7 @@ import compression from "compression";
 import helmet from "helmet";
 import { initializeApp, cert } from 'firebase-admin/app';
 import { apiRouter } from './src/apiRouter.js';
+import { logServerError } from './src/lib/serverErrorLogger.js';
 import { startNotificationListener } from './src/services/notificationProcessor.js';
 import { startMonthlyRolloverJob } from './src/services/monthlyRollover.js';
 import { startAutoSyncJob } from './src/services/autoSync.js';
@@ -175,6 +176,14 @@ async function startServer() {
   // Catch-all 404 handler specifically for /api routes to prevent Vite fallback
   app.use('/api', (req, res) => {
     res.status(404).json({ success: false, error: 'Not Found' });
+  });
+
+  // Global Express error handling middleware
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    logServerError('Express API Error', err, req);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
   });
 
   const noCacheRoutes = ['/sw.js', '/manifest.json', '/index.html'];

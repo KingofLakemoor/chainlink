@@ -43,18 +43,26 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
-  // Fetch all contest groups
+  // Fetch all contest groups via Admin Backend
   const fetchContests = async () => {
     setLoadingContests(true);
     try {
-      const snap = await getDocs(collection(db, 'gridiron_3x3_contests'));
-      const list: GridironContest[] = snap.docs.map(d => ({ contestId: d.id, ...d.data() } as GridironContest));
-      setContests(list);
-      if (list.length > 0 && !selectedContestId) {
-        const first = list[0];
-        setSelectedContestId(first.contestId);
-        if (first.season) setSeason(first.season);
-        if (first.weekNumber) setWeekNumber(first.weekNumber);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/gridiron-3x3/contests', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list: GridironContest[] = data.contests || [];
+        setContests(list);
+        if (list.length > 0 && !selectedContestId) {
+          const first = list[0];
+          setSelectedContestId(first.contestId);
+          if (first.season) setSeason(first.season);
+          if (first.weekNumber) setWeekNumber(first.weekNumber);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching gridiron contests:', err);
@@ -63,7 +71,7 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
-  // Fetch user entries for selected contest
+  // Fetch user entries for selected contest via Admin Backend
   const fetchEntries = async () => {
     if (!selectedContestId) {
       setEntries([]);
@@ -71,14 +79,16 @@ export default function Gridiron3x3AdminPage() {
     }
     setLoadingEntries(true);
     try {
-      const q = query(
-        collection(db, 'gridiron_3x3_entries'),
-        where('contestId', '==', selectedContestId),
-        where('weekNumber', '==', weekNumber)
-      );
-      const snap = await getDocs(q);
-      const list: GridironEntry[] = snap.docs.map(d => ({ entryId: d.id, ...d.data() } as GridironEntry));
-      setEntries(list);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/gridiron-3x3/entries?contestId=${selectedContestId}&weekNumber=${weekNumber}&season=${season}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(data.entries || []);
+      }
     } catch (err: any) {
       console.error('Error fetching gridiron entries:', err);
     } finally {

@@ -88,25 +88,27 @@ export async function gradeGridironWeek(
     snapshotGames.map((g: any) => [String(g.gameId), g])
   );
 
-  // Scrape live game scores
+  // Scrape live game scores (skip in unit tests to prevent network timeout)
   let liveGamesMap = new Map<string, { homeScore: number; awayScore: number; status: string }>();
-  try {
-    const [nflRes, cfbRes] = await Promise.all([
-      scrapeLeagueSchedules("NFL", true),
-      scrapeLeagueSchedules("CFB", true)
-    ]);
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      const [nflRes, cfbRes] = await Promise.all([
+        scrapeLeagueSchedules("NFL", true),
+        scrapeLeagueSchedules("CFB", true)
+      ]);
 
-    for (const g of [...(nflRes?.data || []), ...(cfbRes?.data || [])]) {
-      if (g.gameId) {
-        liveGamesMap.set(String(g.gameId), {
-          homeScore: g.homeTeam?.score || 0,
-          awayScore: g.awayTeam?.score || 0,
-          status: g.status || "STATUS_SCHEDULED"
-        });
+      for (const g of [...(nflRes?.data || []), ...(cfbRes?.data || [])]) {
+        if (g.gameId) {
+          liveGamesMap.set(String(g.gameId), {
+            homeScore: g.homeTeam?.score || 0,
+            awayScore: g.awayTeam?.score || 0,
+            status: g.status || "STATUS_SCHEDULED"
+          });
+        }
       }
+    } catch (err) {
+      console.warn("[GridironGrader] Live schedule scrape error:", err);
     }
-  } catch (err) {
-    console.warn("[GridironGrader] Live schedule scrape error:", err);
   }
 
   // Fetch DB matchups collection as additional fallback

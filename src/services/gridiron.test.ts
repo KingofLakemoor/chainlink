@@ -314,5 +314,38 @@ describe('Gridiron Service Tests', () => {
       const lbDoc = mockStore['gridiron_3x3_contests/contest_1/leaderboard']?.['u1'];
       expect(lbDoc).toBeDefined();
     });
+
+    it('immediately grades two completed games for Test 1 entries', async () => {
+      mockStore.gridiron_3x3_lines['2026_week_01'] = {
+        season: 2026,
+        weekNumber: 1,
+        games: [
+          { gameId: 'g1', league: 'NFL', awayTeam: { name: 'MIA', score: 20 }, homeTeam: { name: 'BUF', score: 27 }, status: 'final', spread: { awaySpread: 3.5, homeSpread: -3.5 }, total: { line: 48.5 } },
+          { gameId: 'g2', league: 'NFL', awayTeam: { name: 'DAL', score: 28 }, homeTeam: { name: 'PHI', score: 24 }, status: 'final', spread: { awaySpread: 3.0, homeSpread: -3.0 }, total: { line: 47.5 } },
+          { gameId: 'g3', league: 'NFL', awayTeam: { name: 'KC' }, homeTeam: { name: 'DEN' }, status: 'scheduled', spread: { awaySpread: 6.0, homeSpread: -6.0 }, total: { line: 45.0 } }
+        ]
+      };
+      mockStore.gridiron_3x3_contests['test_1'] = { contestId: 'test_1', name: 'Test 1', participants: ['u1', 'u2'] };
+      mockStore.gridiron_3x3_entries['test_1_u1_1'] = {
+        entryId: 'test_1_u1_1',
+        contestId: 'test_1',
+        userId: 'u1',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'pending' },
+          { gameId: 'g2', league: 'NFL', pickType: 'total', selection: 'over', value: 47.5, kickoffTime: Date.now() - 1800000, status: 'pending' },
+          { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'away_spread', value: 6.0, kickoffTime: Date.now() + 86400000, status: 'pending' }
+        ]
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'test_1' });
+      expect(res.success).toBe(true);
+
+      const updatedEntry = mockStore.gridiron_3x3_entries['test_1_u1_1'];
+      expect(updatedEntry.picks[0].status).toBe('won'); // BUF won 27-20 (-3.5)
+      expect(updatedEntry.picks[1].status).toBe('won'); // 28 + 24 = 52 > 47.5 over
+      expect(updatedEntry.picks[2].status).toBe('pending'); // g3 is still scheduled
+    });
   });
 });

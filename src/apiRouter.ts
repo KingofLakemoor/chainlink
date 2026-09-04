@@ -393,6 +393,154 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.get("/admin/gridiron-3x3/contests", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const snap = await adminDb.collection("gridiron_3x3_contests").get();
+    let contests: any[] = snap.docs.map(doc => ({ contestId: doc.id, ...doc.data() }));
+
+    // Ensure "Test 1" contest group exists in Firestore if not already created
+    const hasTest1 = contests.some((c: any) => c.name === "Test 1" || c.contestId === "test_1");
+    if (!hasTest1) {
+      const test1Contest = {
+        contestId: "test_1",
+        name: "Test 1",
+        createdBy: (req as any).uid || "admin",
+        inviteCode: "TEST01",
+        season: 2026,
+        weekNumber: 1,
+        participants: [(req as any).uid || "admin", "test_user_1", "test_user_2"],
+        createdAt: Date.now()
+      };
+      await adminDb.collection("gridiron_3x3_contests").doc("test_1").set(test1Contest, { merge: true });
+      contests = [test1Contest, ...contests];
+    }
+
+    res.json({ success: true, contests });
+  } catch (e: any) {
+    console.error("Fetch Admin Gridiron 3x3 contests error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.get("/admin/gridiron-3x3/entries", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const { contestId, weekNumber, season } = req.query;
+
+    const weekNum = parseInt(String(weekNumber || 1), 10);
+    const seasonNum = parseInt(String(season || 2026), 10);
+
+    let entries: GridironEntry[] = [];
+
+    if (contestId && typeof contestId === 'string') {
+      const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
+        .where("contestId", "==", contestId)
+        .where("weekNumber", "==", weekNum)
+        .get();
+
+      if (!entriesSnap.empty) {
+        entries = entriesSnap.docs.map(d => ({ entryId: d.id, ...(d.data() as GridironEntry) }));
+      } else {
+        const docId = `${seasonNum}_week_${weekNum.toString().padStart(2, '0')}`;
+        const snapshotSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").doc(docId).get();
+        if (snapshotSnap.exists) {
+          const snapshotEntries: GridironEntry[] = snapshotSnap.data()?.entries || [];
+          entries = snapshotEntries.filter(e => e.contestId === contestId);
+        }
+      }
+    } else {
+      const entriesSnap = await adminDb.collection("gridiron_3x3_entries").get();
+      entries = entriesSnap.docs.map(d => ({ entryId: d.id, ...(d.data() as GridironEntry) }));
+    }
+
+    // Populate user entries for "Test 1" if empty and requested
+    if (entries.length === 0 && (contestId === "test_1" || !contestId)) {
+      const now = Date.now();
+      const testEntries: GridironEntry[] = [
+        {
+          entryId: "test_1_user_1_1",
+          contestId: "test_1",
+          userId: (req as any).uid || "admin",
+          displayName: "Admin Player",
+          season: seasonNum,
+          weekNumber: weekNum,
+          createdAt: now - 86400000,
+          updatedAt: now,
+          picks: [
+            { gameId: "g1", league: "NFL", pickType: "spread", selection: "home_spread", value: -3.5, kickoffTime: now - 7200000, status: "pending" },
+            { gameId: "g2", league: "NFL", pickType: "total", selection: "over", value: 47.5, kickoffTime: now - 3600000, status: "pending" },
+            { gameId: "g3", league: "NFL", pickType: "spread", selection: "away_spread", value: 6.0, kickoffTime: now + 86400000, status: "pending" },
+            { gameId: "g4", league: "CFB", pickType: "spread", selection: "home_spread", value: -10.5, kickoffTime: now + 86400000, status: "pending" },
+            { gameId: "g5", league: "CFB", pickType: "total", selection: "under", value: 52.0, kickoffTime: now + 86400000, status: "pending" },
+            { gameId: "g6", league: "CFB", pickType: "spread", selection: "away_spread", value: 3.5, kickoffTime: now + 86400000, status: "pending" }
+          ]
+        },
+        {
+          entryId: "test_1_user_2_1",
+          contestId: "test_1",
+          userId: "test_user_2",
+          displayName: "Gridiron Master",
+          season: seasonNum,
+          weekNumber: weekNum,
+          createdAt: now - 86400000,
+          updatedAt: now,
+          picks: [
+            { gameId: "g1", league: "NFL", pickType: "spread", selection: "away_spread", value: 3.5, kickoffTime: now - 7200000, status: "pending" },
+            { gameId: "g2", league: "NFL", pickType: "total", selection: "under", value: 47.5, kickoffTime: now - 3600000, status: "pending" },
+            { gameId: "g3", league: "NFL", pickType: "spread", selection: "home_spread", value: -6.0, kickoffTime: now + 86400000, status: "pending" },
+            { gameId: "g4", league: "CFB", pickType: "spread", selection: "away_spread", value: 10.5, kickoffTime: now + 86400000, status: "pending" },
+            { gameId: "g5", league: "CFB", pickType: "total", selection: "over", value: 52.0, kickoffTime: now + 86400000, status: "pending" },
+            { gameId: "g6", league: "CFB", pickType: "spread", selection: "home_spread", value: -3.5, kickoffTime: now + 86400000, status: "pending" }
+          ]
+        }
+      ];
+
+      for (const entry of testEntries) {
+        await adminDb.collection("gridiron_3x3_entries").doc(entry.entryId).set(entry, { merge: true });
+      }
+
+      // Ensure snapshot lines exist with completed game results for g1 and g2
+      const docId = `${seasonNum}_week_${weekNum.toString().padStart(2, '0')}`;
+      const linesRef = adminDb.collection("gridiron_3x3_lines").doc(docId);
+      const linesDoc = await linesRef.get();
+
+      if (!linesDoc.exists) {
+        await linesRef.set({
+          season: seasonNum,
+          weekNumber: weekNum,
+          snapshotTimestamp: now - 86400000,
+          games: [
+            { gameId: "g1", league: "NFL", awayTeam: { name: "Miami Dolphins", abbreviation: "MIA", score: 20 }, homeTeam: { name: "Buffalo Bills", abbreviation: "BUF", score: 27 }, kickoffTime: now - 7200000, status: "final", spread: { awaySpread: 3.5, homeSpread: -3.5 }, total: { line: 48.5, over: -110, under: -110 } },
+            { gameId: "g2", league: "NFL", awayTeam: { name: "Dallas Cowboys", abbreviation: "DAL", score: 28 }, homeTeam: { name: "Philadelphia Eagles", abbreviation: "PHI", score: 24 }, kickoffTime: now - 3600000, status: "final", spread: { awaySpread: 3.0, homeSpread: -3.0 }, total: { line: 47.5, over: -110, under: -110 } },
+            { gameId: "g3", league: "NFL", awayTeam: { name: "Kansas City Chiefs", abbreviation: "KC" }, homeTeam: { name: "Denver Broncos", abbreviation: "DEN" }, kickoffTime: now + 86400000, status: "scheduled", spread: { awaySpread: 6.0, homeSpread: -6.0 }, total: { line: 45.0, over: -110, under: -110 } },
+            { gameId: "g4", league: "CFB", awayTeam: { name: "Alabama Crimson Tide", abbreviation: "ALA" }, homeTeam: { name: "Georgia Bulldogs", abbreviation: "UGA" }, kickoffTime: now + 86400000, status: "scheduled", spread: { awaySpread: 10.5, homeSpread: -10.5 }, total: { line: 55.0, over: -110, under: -110 } },
+            { gameId: "g5", league: "CFB", awayTeam: { name: "Ohio State Buckeyes", abbreviation: "OSU" }, homeTeam: { name: "Michigan Wolverines", abbreviation: "MICH" }, kickoffTime: now + 86400000, status: "scheduled", spread: { awaySpread: -3.5, homeSpread: 3.5 }, total: { line: 52.0, over: -110, under: -110 } },
+            { gameId: "g6", league: "CFB", awayTeam: { name: "Texas Longhorns", abbreviation: "TEX" }, homeTeam: { name: "Oklahoma Sooners", abbreviation: "OU" }, kickoffTime: now + 86400000, status: "scheduled", spread: { awaySpread: 3.5, homeSpread: -3.5 }, total: { line: 58.0, over: -110, under: -110 } }
+          ]
+        }, { merge: true });
+      }
+
+      // Immediately grade completed games for Test 1
+      await gradeGridironWeek(seasonNum, weekNum, { contestId: "test_1" });
+
+      // Fetch graded entries
+      const updatedSnap = await adminDb.collection("gridiron_3x3_entries")
+        .where("contestId", "==", contestId || "test_1")
+        .where("weekNumber", "==", weekNum)
+        .get();
+      if (!updatedSnap.empty) {
+        entries = updatedSnap.docs.map(d => ({ entryId: d.id, ...(d.data() as GridironEntry) }));
+      }
+    }
+
+    res.json({ success: true, entries });
+  } catch (e: any) {
+    console.error("Fetch Admin Gridiron 3x3 entries error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/users/update-role", validateAdmin, async (req, res) => {
   try {
     const { targetUserId, role } = req.body;

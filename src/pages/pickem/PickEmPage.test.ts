@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
+import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup } from './PickEmPage';
 
 describe('PickEmPage Yes Day prize breakdown tests', () => {
   it('renders YES Day custom prize breakdown structure correctly', () => {
@@ -746,5 +747,53 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     handleTiebreakerChangeSim(matchup, '', tbOnlyPick);
 
     expect(clearedMatchupId).toBe('m-tb-2');
+  });
+
+  it('enables tiebreaker for campaign aUqhDhT3vKWfkPgSAVzf and campaigns with useTiebreaker: true', () => {
+    const campaignA = { id: 'aUqhDhT3vKWfkPgSAVzf', name: 'Campaign A' };
+    const campaignB = { id: 'other-camp', useTiebreaker: true };
+    const campaignC = { id: 'other-camp-2', useTiebreaker: 'true' };
+    const campaignD = { id: 'other-camp-3', useTiebreaker: false };
+
+    expect(isTiebreakerEnabledForCampaign(campaignA)).toBe(true);
+    expect(isTiebreakerEnabledForCampaign(campaignB)).toBe(true);
+    expect(isTiebreakerEnabledForCampaign(campaignC)).toBe(true);
+    expect(isTiebreakerEnabledForCampaign(campaignD)).toBe(false);
+  });
+
+  it('determines week tiebreaker matchup correctly using explicit flag or fallback to last game of week', () => {
+    const campaignA = { id: 'aUqhDhT3vKWfkPgSAVzf' };
+    const weekMatchups = [
+      { id: 'm1', startTime: 1000 },
+      { id: 'm2', startTime: 3000 },
+      { id: 'm3', startTime: 2000 }
+    ];
+
+    // Fallback to last chronological matchup (m2 with startTime 3000)
+    const tbMatchup = getWeekTiebreakerMatchup(campaignA, weekMatchups);
+    expect(tbMatchup?.id).toBe('m2');
+
+    // Explicit flag takes priority if set
+    const weekMatchupsWithExplicit = [
+      { id: 'm1', startTime: 1000 },
+      { id: 'm2', startTime: 3000 },
+      { id: 'm3', startTime: 2000, isTiebreaker: true }
+    ];
+    const explicitTb = getWeekTiebreakerMatchup(campaignA, weekMatchupsWithExplicit);
+    expect(explicitTb?.id).toBe('m3');
+  });
+
+  it('allows participants to edit tiebreaker selection until game kickoff time', () => {
+    const now = 5000;
+    const isLockedBeforeKickoff = (m: { status: string, startTime: number }) =>
+      m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && now >= m.startTime);
+
+    const upcomingMatchup = { id: 'm1', status: 'STATUS_SCHEDULED', startTime: 10000 };
+    const inProgressMatchup = { id: 'm2', status: 'STATUS_SCHEDULED', startTime: 4000 };
+    const finalMatchup = { id: 'm3', status: 'STATUS_FINAL', startTime: 1000 };
+
+    expect(isLockedBeforeKickoff(upcomingMatchup)).toBe(false); // editable!
+    expect(isLockedBeforeKickoff(inProgressMatchup)).toBe(true); // locked at kickoff
+    expect(isLockedBeforeKickoff(finalMatchup)).toBe(true); // locked when final
   });
 });

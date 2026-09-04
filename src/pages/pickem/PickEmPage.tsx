@@ -491,8 +491,17 @@ export default function PickEmPage() {
     const total = trimmed === '' ? null : parseInt(trimmed, 10);
     if (total !== null && (isNaN(total) || total < 0)) return;
 
-    const pickId = userPicksRef.current[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
     const existingPick = userPicksRef.current[matchup.id];
+
+    if (total === null && !existingPick?.pick?.teamId) {
+      if (tiebreakerTimeoutRef.current[matchup.id]) {
+        clearTimeout(tiebreakerTimeoutRef.current[matchup.id]);
+      }
+      handleClearPick(matchup);
+      return;
+    }
+
+    const pickId = existingPick?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
 
     const updatedPick = {
       ...existingPick,
@@ -552,6 +561,10 @@ export default function PickEmPage() {
     if (!user || !selectedCampaign) return;
     if (isEliminated && selectedCampaign.format === 'SURVIVOR') return;
     if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
+
+    if (tiebreakerTimeoutRef.current[matchup.id]) {
+      clearTimeout(tiebreakerTimeoutRef.current[matchup.id]);
+    }
 
     try {
       const pickId = userPicks[matchup.id]?.id || `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
@@ -830,6 +843,11 @@ export default function PickEmPage() {
               {matchups.map(m => {
                 const pick = userPicks[m.id];
                 const isLocked = m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime);
+                const hasSelection = !!(
+                  pick?.pick?.teamId ||
+                  (pick?.tiebreakerTotal !== undefined && pick?.tiebreakerTotal !== null) ||
+                  pick?.confidence
+                );
 
                 const isYesDay = selectedCampaign?.name === 'YES Day Walk for Autism 2026';
                 const isSpread = !isYesDay && m.type === 'SPREAD' && m.metadata?.spread !== undefined;
@@ -1012,7 +1030,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                         </div>
                       )}
 
-                      {pick && !isLocked && (
+                      {hasSelection && !isLocked && (
                         <button
                           onClick={() => handleClearPick(m)}
                           className="mt-2 text-xs text-zinc-500 hover:text-zinc-300 py-1 transition-colors underline"

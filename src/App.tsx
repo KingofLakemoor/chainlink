@@ -16,7 +16,7 @@ import {
   ShoppingCart, CheckCircle2, Users, LogOut, ShieldAlert, Menu, X, Flame, HelpCircle
 } from 'lucide-react';
 import {
-  MdOutlineSportsSoccer, MdOutlineSportsBasketball, MdOutlineSportsHockey, MdOutlineSportsBaseball, MdOutlineSportsTennis
+  MdOutlineSportsSoccer, MdOutlineSportsBasketball, MdOutlineSportsHockey, MdOutlineSportsBaseball, MdOutlineSportsTennis, MdOutlineSportsFootball
 } from 'react-icons/md';
 import { FaDiscord } from 'react-icons/fa';
 import { Download } from 'lucide-react';
@@ -117,7 +117,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
         <div className="mt-6 mb-2 px-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">ChainLink</div>
         <NavItem icon={PlayCircle} label="Play ChainLink" path="/" />
         <NavItem icon={Layers} label="Pick'em" path="/pickem" showBadge={hasActivePickEm} />
-        <NavItem icon={Flame} label="Gridiron 3x3" path="/gridiron-3x3" />
+        <NavItem icon={MdOutlineSportsFootball} label="Gridiron 3x3" path="/gridiron-3x3" />
         <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
         <NavItem icon={ShoppingCart} label="Link Shop" path="/shop" />
         {hasActiveLink4 && <NavItem icon={Grid} label="Link4" path="/link4" showBadge={false} isShimmer={true} />}

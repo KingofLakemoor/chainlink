@@ -66,7 +66,7 @@ export function evaluateGridironPick(
 export async function gradeGridironWeek(
   season: number,
   weekNumber: number,
-  options?: { finalizeAndPurge?: boolean }
+  options?: { finalizeAndPurge?: boolean; contestId?: string }
 ) {
   const adminDb = getAdminDb();
   if (!adminDb) {
@@ -241,6 +241,21 @@ export async function gradeGridironWeek(
       affectedContestIds.add(entry.contestId);
     }
   }
+
+if (options?.contestId) {
+  affectedContestIds.add(options.contestId);
+}
+
+// Query all contests matching this season/week to guarantee leaderboards refresh
+try {
+  const contestSnaps = await adminDb.collection("gridiron_3x3_contests")
+    .where("season", "==", season)
+    .where("weekNumber", "==", weekNumber)
+    .get();
+  contestSnaps.docs.forEach(doc => affectedContestIds.add(doc.id));
+} catch (e) {
+  console.warn("[GridironGrader] Error querying contests for season/week:", e);
+}
 
   // 1. Write / update leaderboard entries for all affected contests
   for (const contestId of affectedContestIds) {

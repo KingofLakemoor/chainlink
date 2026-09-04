@@ -125,11 +125,12 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
-  const handleGradeWeek = async (finalizeAndPurge: boolean = false, overrideSeason?: number, overrideWeek?: number) => {
+  const handleGradeWeek = async (finalizeAndPurge: boolean = false, overrideSeason?: number, overrideWeek?: number, overrideContestId?: string) => {
     setIsGrading(true);
     setStatusMessage(null);
     const targetSeason = overrideSeason || season;
     const targetWeek = overrideWeek || weekNumber;
+    const targetContestId = overrideContestId || selectedContestId || undefined;
 
     try {
       const token = await auth.currentUser?.getIdToken();
@@ -139,7 +140,7 @@ export default function Gridiron3x3AdminPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ season: targetSeason, weekNumber: targetWeek, finalizeAndPurge })
+        body: JSON.stringify({ season: targetSeason, weekNumber: targetWeek, contestId: targetContestId, finalizeAndPurge })
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -418,7 +419,7 @@ export default function Gridiron3x3AdminPage() {
                           setSelectedContestId(c.contestId);
                           if (c.season) setSeason(c.season);
                           if (c.weekNumber) setWeekNumber(c.weekNumber);
-                          handleGradeWeek(false, c.season || season, c.weekNumber || weekNumber);
+                          handleGradeWeek(false, c.season || season, c.weekNumber || weekNumber, c.contestId);
                         }}
                         disabled={isGrading}
                         className="text-xs bg-[#22c55e] hover:bg-[#22c55e]/90 text-zinc-950 font-semibold gap-1"

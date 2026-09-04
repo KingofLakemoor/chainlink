@@ -2648,7 +2648,7 @@ let chainsCacheTime = 0;
 apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) => {
   try {
     const uid = (req as any).uid;
-    const { name, season, weekNumber } = req.body;
+    const { name, season, weekNumber, logoUrl, primaryColor, secondaryColor } = req.body;
 
     if (!name || typeof name !== 'string') {
       return res.status(400).json({ success: false, error: "Contest name is required." });
@@ -2666,7 +2666,7 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
     const userData = userDoc.data();
     const displayName = userData?.username || userData?.name || "Player";
 
-    const contestData = {
+    const contestData: any = {
       contestId: contestRef.id,
       name: name.trim(),
       createdBy: uid,
@@ -2676,6 +2676,10 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
       participants: [uid],
       createdAt: Date.now()
     };
+
+    if (logoUrl && typeof logoUrl === 'string') contestData.logoUrl = logoUrl.trim();
+    if (primaryColor && typeof primaryColor === 'string') contestData.primaryColor = primaryColor.trim();
+    if (secondaryColor && typeof secondaryColor === 'string') contestData.secondaryColor = secondaryColor.trim();
 
     await contestRef.set(contestData);
 
@@ -2989,6 +2993,38 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
     res.json({ success: true, entryId, entry: entryData });
   } catch (e: any) {
     console.error("Submit Gridiron 3x3 entry error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, res) => {
+  try {
+    const { contestId, name, logoUrl, primaryColor, secondaryColor, season, weekNumber } = req.body;
+
+    if (!contestId) {
+      return res.status(400).json({ success: false, error: "contestId is required." });
+    }
+
+    const contestRef = adminDb.collection("gridiron_3x3_contests").doc(contestId);
+    const docSnap = await contestRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+
+    const updateData: any = {};
+    if (name && typeof name === 'string') updateData.name = name.trim();
+    if (logoUrl !== undefined) updateData.logoUrl = typeof logoUrl === 'string' ? logoUrl.trim() : null;
+    if (primaryColor !== undefined) updateData.primaryColor = typeof primaryColor === 'string' ? primaryColor.trim() : null;
+    if (secondaryColor !== undefined) updateData.secondaryColor = typeof secondaryColor === 'string' ? secondaryColor.trim() : null;
+    if (typeof season === 'number') updateData.season = season;
+    if (typeof weekNumber === 'number') updateData.weekNumber = weekNumber;
+
+    await contestRef.update(updateData);
+    const updatedDoc = await contestRef.get();
+
+    res.json({ success: true, contest: { contestId: updatedDoc.id, ...updatedDoc.data() } });
+  } catch (e: any) {
+    console.error("Update Gridiron 3x3 contest error:", e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

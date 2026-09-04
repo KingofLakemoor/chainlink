@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { filterAndNormalizeGridironGames } from './gridironIngestion';
-import { evaluateGridironPick, gradeGridironWeek, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
+import { evaluateGridironPick, gradeGridironWeek, updateGridironLeaderboard, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
 import { GridironPick, GridironEntry } from '../types/gridiron';
 
 describe('Gridiron Service Tests', () => {
@@ -346,6 +346,33 @@ describe('Gridiron Service Tests', () => {
       expect(updatedEntry.picks[0].status).toBe('won'); // BUF won 27-20 (-3.5)
       expect(updatedEntry.picks[1].status).toBe('won'); // 28 + 24 = 52 > 47.5 over
       expect(updatedEntry.picks[2].status).toBe('pending'); // g3 is still scheduled
+    });
+
+    it('correctly calculates leaderboard records including CFB wins and losses', async () => {
+      mockStore.gridiron_3x3_contests['contest_1'] = { contestId: 'contest_1', name: 'Group 1', participants: ['u1'] };
+      mockStore.gridiron_3x3_entries['contest_1_u1_1'] = {
+        entryId: 'contest_1_u1_1',
+        contestId: 'contest_1',
+        userId: 'u1',
+        displayName: 'ThePicks',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g1', league: 'CFB', pickType: 'total', selection: 'over', value: 60.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g2', league: 'CFB', pickType: 'total', selection: 'under', value: 54.5, kickoffTime: Date.now() - 1800000, status: 'lost' }
+        ]
+      };
+
+      await updateGridironLeaderboard('contest_1');
+
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_1/leaderboard']?.['u1'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.displayName).toBe('ThePicks');
+      expect(lbDoc.totalWins).toBe(1);
+      expect(lbDoc.totalLosses).toBe(1);
+      expect(lbDoc.cfbWins).toBe(1);
+      expect(lbDoc.cfbLosses).toBe(1);
+      expect(lbDoc.winPercentage).toBe(50);
     });
   });
 });

@@ -387,6 +387,9 @@ export async function updateGridironLeaderboard(contestId: string) {
     }
 
     const rec = userStatsMap.get(uid)!;
+    if (entry.displayName && (rec.displayName === "Player" || !rec.displayName)) {
+      rec.displayName = entry.displayName;
+    }
 
     for (const p of entry.picks || []) {
       if (p.status === "won") {

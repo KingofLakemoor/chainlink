@@ -2728,6 +2728,14 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
       return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
     }
 
+    // Grade week & refresh leaderboard for contest
+    const season = contestDoc.data()?.season || 2026;
+    try {
+      await gradeGridironWeek(season, weekNum, { contestId });
+    } catch (e) {
+      console.warn("[GridironEntries] Auto-grade on fetch entries error:", e);
+    }
+
     // 1. Check active individual entries
     const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
       .where("contestId", "==", contestId)
@@ -2905,6 +2913,7 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
     };
 
     await entryRef.set(entryData, { merge: true });
+    await updateGridironLeaderboard(contestId);
 
     res.json({ success: true, entryId, entry: entryData });
   } catch (e: any) {

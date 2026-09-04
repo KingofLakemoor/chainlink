@@ -378,19 +378,33 @@ export async function updateGridironLeaderboard(contestId: string) {
       .where("contestIds", "array-contains", contestId)
       .get();
 
-    weeklySnapshotsSnap.docs.forEach(doc => {
-      const snapData = doc.data();
-      const entriesList: GridironEntry[] = snapData?.entries || [];
-      entriesList.forEach(e => {
-        if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
-          snapshotEntries.push(e);
-        }
+    if (!weeklySnapshotsSnap.empty) {
+      weeklySnapshotsSnap.docs.forEach(doc => {
+        const snapData = doc.data();
+        const entriesList: GridironEntry[] = snapData?.entries || [];
+        entriesList.forEach(e => {
+          if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
+            snapshotEntries.push(e);
+          }
+        });
       });
-    });
+    } else {
+      // Fallback for snapshots missing contestIds array or created prior to contestIds indexing
+      const allSnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+      allSnapshotsSnap.docs.forEach(doc => {
+        const snapData = doc.data();
+        const entriesList: GridironEntry[] = snapData?.entries || [];
+        entriesList.forEach(e => {
+          if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
+            snapshotEntries.push(e);
+          }
+        });
+      });
+    }
   } catch (e) {
-    // Fallback for unindexed or legacy snapshots
-    const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
-    weeklySnapshotsSnap.docs.forEach(doc => {
+    // Fallback on query error
+    const allSnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+    allSnapshotsSnap.docs.forEach(doc => {
       const snapData = doc.data();
       const entriesList: GridironEntry[] = snapData?.entries || [];
       entriesList.forEach(e => {
@@ -437,6 +451,8 @@ export async function updateGridironLeaderboard(contestId: string) {
 
   for (const entry of allContestEntries) {
     const uid = entry.userId;
+    if (!uid) continue;
+
     if (!userStatsMap.has(uid)) {
       userStatsMap.set(uid, {
         userId: uid,
@@ -461,15 +477,17 @@ export async function updateGridironLeaderboard(contestId: string) {
 
     for (const p of entry.picks || []) {
       const lgUpper = p.league?.toUpperCase();
-      if (p.status === "won") {
+      const stLower = p.status?.toLowerCase();
+
+      if (stLower === "won" || stLower === "win") {
         rec.totalWins++;
         if (lgUpper === "NFL") rec.nflWins++;
         if (lgUpper === "CFB") rec.cfbWins++;
-      } else if (p.status === "lost") {
+      } else if (stLower === "lost" || stLower === "loss") {
         rec.totalLosses++;
         if (lgUpper === "NFL") rec.nflLosses++;
         if (lgUpper === "CFB") rec.cfbLosses++;
-      } else if (p.status === "push") {
+      } else if (stLower === "push" || stLower === "draw") {
         rec.totalPushes++;
         if (lgUpper === "NFL") rec.nflPushes++;
         if (lgUpper === "CFB") rec.cfbPushes++;

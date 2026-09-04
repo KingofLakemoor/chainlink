@@ -29,6 +29,7 @@ const SponsorsListPage = React.lazy(() => import('./sponsors/SponsorsListPage'))
 const CreateSponsorPage = React.lazy(() => import('./sponsors/CreateSponsorPage'));
 const EditSponsorPage = React.lazy(() => import('./sponsors/EditSponsorPage'));
 const PickEmAdminPage = React.lazy(() => import('./pickem/PickEmAdminPage'));
+const Gridiron3x3AdminPage = React.lazy(() => import('./gridiron/Gridiron3x3AdminPage'));
 const BracketsAdminPage = React.lazy(() => import('./brackets/BracketsAdminPage'));
 const AdminPicksPage = React.lazy(() => import('./picks/AdminPicksPage'));
 const ReferralsAdminPage = React.lazy(() => import('./referrals/ReferralsAdminPage'));
@@ -115,6 +116,7 @@ export default function AdminDashboard() {
 
                 {/* Flat routes */}
                 <Route path="pickem/*" element={<PickEmAdminPage />} />
+                <Route path="gridiron-3x3/*" element={<Gridiron3x3AdminPage />} />
                 <Route path="brackets/*" element={<BracketsAdminPage />} />
                 <Route path="challenges" element={<GenericTable collectionName="globalQuiz" />} />
                 <Route path="link4/*" element={<Link4AdminPage />} />

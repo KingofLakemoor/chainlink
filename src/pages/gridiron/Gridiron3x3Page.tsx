@@ -305,7 +305,7 @@ export default function Gridiron3x3Page() {
             activeTab === 'draft' ? "bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20" : "text-zinc-400 hover:text-zinc-200"
           )}
         >
-          <Layers className="w-4 h-4" /> Draft Board
+          <Layers className="w-4 h-4" /> Picks Board
         </button>
 
         <button
@@ -329,7 +329,7 @@ export default function Gridiron3x3Page() {
         </button>
       </div>
 
-      {/* TAB 1: DRAFT BOARD */}
+      {/* TAB 1: PICKS BOARD */}
       {activeTab === 'draft' && (
         <div className="space-y-4">
           {/* League Filter Pills */}
@@ -356,7 +356,7 @@ export default function Gridiron3x3Page() {
             </div>
           ) : filteredGames.length === 0 ? (
             <div className="p-12 text-center bg-[#121212] border border-[#27272a] rounded-xl text-zinc-400">
-              No games found for this week's draft board. Lines are captured every Tuesday at 12:00 PM EST.
+              No games found for this week's picks board. Lines are captured every Tuesday at 12:00 PM EST.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
@@ -375,7 +375,7 @@ export default function Gridiron3x3Page() {
 
       {/* TAB 2: GROUP ENTRIES (BLIND REVEAL) */}
       {activeTab === 'group' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {entries.length === 0 ? (
             <div className="col-span-full p-12 text-center bg-[#121212] border border-[#27272a] rounded-xl text-zinc-400">
               No participant entries submitted for this week yet.
@@ -388,21 +388,59 @@ export default function Gridiron3x3Page() {
                   <span className="text-xs font-mono text-zinc-400">{entry.picks?.length || 0} / 6 Picks</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {(entry.picks || []).map((p, i) => (
-                    <div key={i} className="bg-zinc-900 border border-[#27272a] rounded-lg p-2 text-xs flex items-center justify-between">
-                      <span className="font-bold uppercase text-zinc-400">{p.league}</span>
-                      {p.selection === "HIDDEN" ? (
-                        <span className="flex items-center gap-1 text-cyan-400 font-semibold bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
-                          <Lock className="w-3 h-3" /> HIDDEN
-                        </span>
-                      ) : (
-                        <span className="font-bold text-zinc-100 uppercase">
-                          {p.selection.replace('_', ' ')} ({p.value > 0 ? `+${p.value}` : p.value})
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  {(entry.picks || []).map((p, i) => {
+                    const isHidden = p.selection === "HIDDEN";
+                    const game = games.find(g => g.gameId === p.gameId);
+                    const matchupText = game ? `${game.awayTeam.name} @ ${game.homeTeam.name}` : 'Matchup';
+
+                    let pickText = '';
+                    if (!isHidden) {
+                      if (p.selection === 'away_spread') {
+                        const teamName = game?.awayTeam.name || 'Away';
+                        const spreadFormatted = p.value > 0 ? `+${p.value}` : `${p.value}`;
+                        pickText = `${teamName} ${spreadFormatted}`;
+                      } else if (p.selection === 'home_spread') {
+                        const teamName = game?.homeTeam.name || 'Home';
+                        const spreadFormatted = p.value > 0 ? `+${p.value}` : `${p.value}`;
+                        pickText = `${teamName} ${spreadFormatted}`;
+                      } else if (p.selection === 'over') {
+                        pickText = `OVER ${p.value}`;
+                      } else if (p.selection === 'under') {
+                        pickText = `UNDER ${p.value}`;
+                      } else {
+                        pickText = `${p.selection} (${p.value})`;
+                      }
+                    }
+
+                    return (
+                      <div key={i} className="bg-zinc-900 border border-[#27272a] rounded-lg p-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0",
+                            p.league === "NFL" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          )}>
+                            {p.league}
+                          </span>
+                          {!isHidden && (
+                            <span className="text-zinc-300 font-medium truncate">
+                              {matchupText}
+                            </span>
+                          )}
+                        </div>
+
+                        {isHidden ? (
+                          <span className="flex items-center gap-1 text-cyan-400 font-semibold bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+                            <Lock className="w-3 h-3" /> HIDDEN
+                          </span>
+                        ) : (
+                          <span className="font-bold text-zinc-100 uppercase ml-auto">
+                            {pickText}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))

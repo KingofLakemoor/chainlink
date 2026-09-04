@@ -113,8 +113,9 @@ export default function Gridiron3x3Page() {
 
   // Subscribe to real-time leaderboard subcollection
   useEffect(() => {
-    if (!selectedContest) return;
-    const q = query(collection(db, 'gridiron_3x3_contests', selectedContest.contestId, 'leaderboard'));
+    const contestId = selectedContest?.contestId;
+    if (!contestId) return;
+    const q = query(collection(db, 'gridiron_3x3_contests', contestId, 'leaderboard'));
     const unsub = onSnapshot(q, (snap) => {
       const records: GridironLeaderboardRecord[] = [];
       snap.forEach(doc => {
@@ -125,7 +126,7 @@ export default function Gridiron3x3Page() {
     }, (err) => console.error("Leaderboard listener error:", err));
 
     return () => unsub();
-  }, [selectedContest]);
+  }, [selectedContest?.contestId]);
 
   const handleCreateContest = async (e: React.FormEvent) => {
     e.preventDefault();

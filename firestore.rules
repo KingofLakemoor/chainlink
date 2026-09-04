@@ -311,11 +311,11 @@ service cloud.firestore {
     }
     match /gridiron_3x3_contests/{contestId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && incoming().createdBy == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
       allow update: if isSignedIn() && (
         isAdmin() ||
         (resource != null && request.auth.uid in resource.data.participants) ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['participants']))
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']))
       );
       allow delete: if isAdmin();
 
@@ -329,10 +329,7 @@ service cloud.firestore {
         isAdmin() ||
         (resource != null && resource.data.userId == request.auth.uid)
       );
-      allow write: if isSignedIn() && (
-        isAdmin() ||
-        (request.resource.data.userId == request.auth.uid)
-      );
+      allow write: if isAdmin();
     }
     
     match /orders/{orderId} {

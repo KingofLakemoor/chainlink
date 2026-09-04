@@ -2570,6 +2570,16 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
       return res.status(400).json({ success: false, error: "Invalid contestId or weekNumber." });
     }
 
+    const contestDoc = await adminDb.collection("gridiron_3x3_contests").doc(contestId).get();
+    if (!contestDoc.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+
+    const participants: string[] = contestDoc.data()?.participants || [];
+    if (!participants.includes(uid)) {
+      return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
+    }
+
     const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
       .where("contestId", "==", contestId)
       .where("weekNumber", "==", weekNum)
@@ -2646,43 +2656,69 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: "One-pick-per-game rule violated: Cannot select multiple picks from the same game." });
     }
 
+    // Verify participant in contest
+    const contestDoc = await adminDb.collection("gridiron_3x3_contests").doc(contestId).get();
+    if (!contestDoc.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+    const participants: string[] = contestDoc.data()?.participants || [];
+    if (!participants.includes(uid)) {
+      return res.status(403).json({ success: false, error: "You must join this contest before submitting an entry." });
+    }
+
+    // Load authoritative static snapshot lines document
+    const linesDocId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
+    const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+    if (!linesSnap.exists) {
+      return res.status(400).json({ success: false, error: `Lines snapshot not found for ${linesDocId}. Picks cannot be submitted without static lines.` });
+    }
+
+    const snapshotGamesMap = new Map<string, any>(
+      (linesSnap.data()?.games || []).map((g: any) => [g.gameId, g])
+    );
+
     const now = Date.now();
     const entryId = `${contestId}_${uid}_${weekNumber}`;
     const entryRef = adminDb.collection("gridiron_3x3_entries").doc(entryId);
     const existingEntryDoc = await entryRef.get();
-
-    if (existingEntryDoc.exists) {
-      const existingData = existingEntryDoc.data() as GridironEntry;
-      const existingPicksMap = new Map((existingData.picks || []).map(p => [p.gameId, p]));
-
-      // Verify locked picks from existing entry were not altered or removed
-      for (const [gameId, existingPick] of existingPicksMap.entries()) {
-        const kickoffTimeMs = typeof existingPick.kickoffTime === 'number'
-          ? existingPick.kickoffTime
-          : (existingPick.kickoffTime?.toMillis ? existingPick.kickoffTime.toMillis() : new Date(existingPick.kickoffTime).getTime());
-
-        if (now >= kickoffTimeMs) {
-          const matchingNewPick = picks.find((p: any) => p.gameId === gameId);
-          if (!matchingNewPick || matchingNewPick.selection !== existingPick.selection || matchingNewPick.value !== existingPick.value) {
-            return res.status(400).json({ success: false, error: `Game ${gameId} has already kicked off and its pick cannot be modified or removed.` });
-          }
-        }
-      }
-    }
-
-    // Verify all picks for games that have kicked off match the existing entry exactly
     const existingPicksList: GridironPick[] = existingEntryDoc.exists ? (existingEntryDoc.data() as GridironEntry).picks || [] : [];
-    for (const newPick of picks) {
-      const kickoffTimeMs = typeof newPick.kickoffTime === 'number'
-        ? newPick.kickoffTime
-        : (newPick.kickoffTime?.toMillis ? newPick.kickoffTime.toMillis() : new Date(newPick.kickoffTime).getTime());
 
+    const validatedPicks: GridironPick[] = [];
+
+    for (const p of picks) {
+      const snapGame = snapshotGamesMap.get(p.gameId);
+      if (!snapGame) {
+        return res.status(400).json({ success: false, error: `Game ${p.gameId} is not on the official Tuesday snapshot lines board.` });
+      }
+
+      const kickoffTimeMs = typeof snapGame.kickoffTime === 'number'
+        ? snapGame.kickoffTime
+        : (snapGame.kickoffTime?.toMillis ? snapGame.kickoffTime.toMillis() : new Date(snapGame.kickoffTime).getTime());
+
+      // Derive authoritative value from DB snapshot
+      let authoritativeValue = 0;
+      if (p.selection === "away_spread") authoritativeValue = snapGame.spread.awaySpread;
+      else if (p.selection === "home_spread") authoritativeValue = snapGame.spread.homeSpread;
+      else if (p.selection === "over" || p.selection === "under") authoritativeValue = snapGame.total.line;
+      else return res.status(400).json({ success: false, error: `Invalid selection type ${p.selection}` });
+
+      // Rolling Kickoff Lock check against authoritative DB kickoffTime
       if (now >= kickoffTimeMs) {
-        const existingPick = existingPicksList.find(p => p.gameId === newPick.gameId);
-        if (!existingPick || existingPick.selection !== newPick.selection || existingPick.value !== newPick.value) {
-          return res.status(400).json({ success: false, error: `Game ${newPick.gameId} has already kicked off and cannot be selected or modified.` });
+        const existingPick = existingPicksList.find(ep => ep.gameId === p.gameId);
+        if (!existingPick || existingPick.selection !== p.selection || existingPick.value !== authoritativeValue) {
+          return res.status(400).json({ success: false, error: `Game ${snapGame.awayTeam.name} @ ${snapGame.homeTeam.name} has already kicked off and cannot be picked or modified.` });
         }
       }
+
+      validatedPicks.push({
+        gameId: snapGame.gameId,
+        league: snapGame.league,
+        pickType: (p.selection === "away_spread" || p.selection === "home_spread") ? "spread" : "total",
+        selection: p.selection,
+        value: authoritativeValue,
+        kickoffTime: kickoffTimeMs,
+        status: "pending"
+      });
     }
 
     const userDoc = await adminDb.collection("users").doc(uid).get();
@@ -2698,15 +2734,7 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       weekNumber,
       createdAt: existingEntryDoc.exists ? existingEntryDoc.data()?.createdAt || now : now,
       updatedAt: now,
-      picks: picks.map((p: any) => ({
-        gameId: p.gameId,
-        league: p.league,
-        pickType: p.pickType,
-        selection: p.selection,
-        value: p.value,
-        kickoffTime: p.kickoffTime,
-        status: p.status || "pending"
-      }))
+      picks: validatedPicks
     };
 
     await entryRef.set(entryData, { merge: true });

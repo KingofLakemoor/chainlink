@@ -5,6 +5,7 @@ import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useGridironDraft } from '../../hooks/useGridironDraft';
 import { Gridiron3x3Card } from '../../components/gridiron/Gridiron3x3Card';
 import { GridironContest, Gridiron3x3Game, GridironEntry, GridironLeaderboardRecord } from '../../types/gridiron';
+import { getFootballWeekDateRange } from '../../utils/footballWeek';
 import { Button } from '../../components/ui/button';
 import { Trophy, Users, Plus, Key, Copy, Check, Lock, Shield, Layers, RefreshCw, CheckCircle2, XCircle, MinusCircle, ChevronLeft, ChevronRight, HelpCircle, ArrowLeft, Calendar, Flame } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -244,11 +245,27 @@ export default function Gridiron3x3Page() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const filteredGames = games.filter(g => {
-    if (leagueFilter === 'NFL') return g.league === 'NFL';
-    if (leagueFilter === 'CFB') return g.league === 'CFB';
-    return true;
-  });
+  const getKickoffMs = (kickoffTime: any): number => {
+    if (!kickoffTime) return 0;
+    if (typeof kickoffTime === 'number') return kickoffTime;
+    if (typeof kickoffTime?.toMillis === 'function') return kickoffTime.toMillis();
+    if (typeof kickoffTime?.seconds === 'number') return kickoffTime.seconds * 1000;
+    const parsed = new Date(kickoffTime).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const filteredGames = games
+    .filter(g => {
+      if (leagueFilter === 'NFL') return g.league === 'NFL';
+      if (leagueFilter === 'CFB') return g.league === 'CFB';
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = getKickoffMs(a.kickoffTime);
+      const timeB = getKickoffMs(b.kickoffTime);
+      if (timeA !== timeB) return timeA - timeB;
+      return a.gameId.localeCompare(b.gameId);
+    });
 
   if (viewMode === 'landing') {
     const myContests = contests;
@@ -517,25 +534,35 @@ export default function Gridiron3x3Page() {
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Week Selector */}
-          <div className="flex items-center bg-zinc-900 border border-[#3f3f46] rounded-xl px-2 py-1 gap-1">
-            <button
-              onClick={() => setWeekNumber(prev => Math.max(1, prev - 1))}
-              disabled={weekNumber <= 1}
-              className="p-1 text-zinc-400 hover:text-zinc-100 disabled:opacity-40 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-mono font-bold text-zinc-200 px-2 uppercase">
-              Week {weekNumber}
-            </span>
-            <button
-              onClick={() => setWeekNumber(prev => Math.min(20, prev + 1))}
-              disabled={weekNumber >= 20}
-              className="p-1 text-zinc-400 hover:text-zinc-100 disabled:opacity-40 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          {(() => {
+            const weekRange = getFootballWeekDateRange(season, weekNumber);
+            return (
+              <div className="flex items-center bg-zinc-900 border border-[#3f3f46] rounded-xl px-2 py-1 gap-1">
+                <button
+                  onClick={() => setWeekNumber(prev => Math.max(1, prev - 1))}
+                  disabled={weekNumber <= 1}
+                  className="p-1 text-zinc-400 hover:text-zinc-100 disabled:opacity-40 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex flex-col items-center px-1">
+                  <span className="text-xs font-mono font-bold text-zinc-200 uppercase">
+                    Week {weekNumber}
+                  </span>
+                  <span className="text-[10px] text-cyan-400 font-mono font-semibold">
+                    {weekRange.formattedRange}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setWeekNumber(prev => Math.min(20, prev + 1))}
+                  disabled={weekNumber >= 20}
+                  className="p-1 text-zinc-400 hover:text-zinc-100 disabled:opacity-40 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Contest Dropdown */}
           {contests.length > 0 && (

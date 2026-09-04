@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
 import { Gridiron3x3LinesDocument, GridironContest, GridironEntry } from '../../../types/gridiron';
+import { getFootballWeekDateRange } from '../../../utils/footballWeek';
 import { Button } from '../../../components/ui/button';
 import { RefreshCw, CheckCircle2, Trophy, Users, Layers, AlertCircle, Calendar, Shield, Clock } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -169,8 +170,23 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
+  const getKickoffMs = (kickoffTime: any): number => {
+    if (!kickoffTime) return 0;
+    if (typeof kickoffTime === 'number') return kickoffTime;
+    if (typeof kickoffTime?.toMillis === 'function') return kickoffTime.toMillis();
+    if (typeof kickoffTime?.seconds === 'number') return kickoffTime.seconds * 1000;
+    const parsed = new Date(kickoffTime).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const nflGames = linesDoc?.games?.filter(g => g.league === 'NFL') || [];
   const cfbGames = linesDoc?.games?.filter(g => g.league === 'CFB') || [];
+  const sortedGames = [...(linesDoc?.games || [])].sort((a, b) => {
+    const timeA = getKickoffMs(a.kickoffTime);
+    const timeB = getKickoffMs(b.kickoffTime);
+    if (timeA !== timeB) return timeA - timeB;
+    return a.gameId.localeCompare(b.gameId);
+  });
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8 space-y-6">
@@ -206,6 +222,9 @@ export default function Gridiron3x3AdminPage() {
               onChange={(e) => setWeekNumber(parseInt(e.target.value, 10) || 1)}
               className="w-14 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-zinc-100 text-center font-mono focus:outline-none focus:border-[#22c55e]"
             />
+            <span className="text-[10px] text-cyan-400 font-mono font-semibold px-1">
+              ({getFootballWeekDateRange(season, weekNumber).formattedRange})
+            </span>
           </div>
 
           <Button
@@ -345,7 +364,7 @@ export default function Gridiron3x3AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
-                    {(linesDoc.games || []).map((game) => (
+                    {sortedGames.map((game) => (
                       <tr key={game.gameId} className="hover:bg-zinc-800/40 transition-colors">
                         <td className="p-3">
                           <span className={cn(

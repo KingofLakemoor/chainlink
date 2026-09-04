@@ -1,9 +1,39 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { filterAndNormalizeGridironGames } from './gridironIngestion';
+import { filterAndNormalizeGridironGames, getFootballWeekDateRange, getCurrentFootballWeek } from './gridironIngestion';
 import { evaluateGridironPick, gradeGridironWeek, updateGridironLeaderboard, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
 import { GridironPick, GridironEntry } from '../types/gridiron';
 
 describe('Gridiron Service Tests', () => {
+  describe('NFL Week Date Ranges & getCurrentFootballWeek', () => {
+    it('accurately calculates 2026 NFL Week 1 date range starting Wed Sept 9th', () => {
+      const range = getFootballWeekDateRange(2026, 1);
+      expect(range.startDate.getFullYear()).toBe(2026);
+      expect(range.startDate.getMonth()).toBe(8); // September (0-indexed 8)
+      expect(range.startDate.getDate()).toBe(9); // Sept 9
+      expect(range.startDate.getDay()).toBe(3); // Wednesday (0=Sun, 3=Wed)
+
+      expect(range.formattedRange).toContain('Wed, Sep 9');
+      expect(range.dateStrings.length).toBe(7);
+      expect(range.dateStrings[0]).toBe('20260909');
+      expect(range.dateStrings[6]).toBe('20260915');
+    });
+
+    it('calculates 2026 NFL Week 2 date range starting Wed Sept 16th', () => {
+      const range = getFootballWeekDateRange(2026, 2);
+      expect(range.startDate.getDate()).toBe(16);
+      expect(range.startDate.getDay()).toBe(3); // Wednesday
+      expect(range.dateStrings[0]).toBe('20260916');
+    });
+
+    it('maps current date correctly to active week number', () => {
+      const wedSept9_2026 = new Date(2026, 8, 9, 12, 0, 0);
+      expect(getCurrentFootballWeek(wedSept9_2026)).toEqual({ season: 2026, weekNumber: 1 });
+
+      const friSept18_2026 = new Date(2026, 8, 18, 18, 0, 0);
+      expect(getCurrentFootballWeek(friSept18_2026)).toEqual({ season: 2026, weekNumber: 2 });
+    });
+  });
+
   describe('isGameStatusFinal', () => {
     it('identifies various final status strings as final', () => {
       expect(isGameStatusFinal('STATUS_FINAL')).toBe(true);
@@ -55,6 +85,63 @@ describe('Gridiron Service Tests', () => {
 
       const result = filterAndNormalizeGridironGames(rawMatchups, 'CFB');
       expect(result.length).toBe(0);
+    });
+
+    it('sorts games chronologically by start time (kickoffTime)', () => {
+      const t1 = 1700000000000;
+      const t2 = 1700003600000;
+      const t3 = 1700007200000;
+
+      const rawMatchupsNFL = [
+        {
+          gameId: 'nfl_late',
+          awayTeam: { name: 'NFL Late' },
+          homeTeam: { name: 'NFL Late Home' },
+          startTime: t3,
+          metadata: { spread: '-3.5', overUnder: '48.5' }
+        },
+        {
+          gameId: 'nfl_early',
+          awayTeam: { name: 'NFL Early' },
+          homeTeam: { name: 'NFL Early Home' },
+          startTime: t1,
+          metadata: { spread: '-2.5', overUnder: '45.0' }
+        }
+      ];
+
+      const rawMatchupsCFB = [
+        {
+          gameId: 'cfb_mid',
+          awayTeam: { name: 'CFB Mid' },
+          homeTeam: { name: 'CFB Mid Home' },
+          startTime: t2,
+          metadata: { spread: '-7.0', overUnder: '52.0' }
+        }
+      ];
+
+      const getKickoffMs = (kickoffTime: any): number => {
+        if (!kickoffTime) return 0;
+        if (typeof kickoffTime === 'number') return kickoffTime;
+        if (typeof kickoffTime?.toMillis === 'function') return kickoffTime.toMillis();
+        if (typeof kickoffTime?.seconds === 'number') return kickoffTime.seconds * 1000;
+        const parsed = new Date(kickoffTime).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      const nflGames = filterAndNormalizeGridironGames(rawMatchupsNFL, 'NFL');
+      const cfbGames = filterAndNormalizeGridironGames(rawMatchupsCFB, 'CFB');
+
+      const allGames = [...nflGames, ...cfbGames].sort((a, b) => {
+        const timeA = getKickoffMs(a.kickoffTime);
+        const timeB = getKickoffMs(b.kickoffTime);
+        if (timeA !== timeB) return timeA - timeB;
+        return a.gameId.localeCompare(b.gameId);
+      });
+
+      expect(allGames.length).toBe(3);
+      expect(allGames[0].gameId).toBe('nfl_early');
+      expect(allGames[1].gameId).toBe('cfb_mid');
+      expect(allGames[2].gameId).toBe('nfl_late');
     });
   });
 

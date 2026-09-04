@@ -2427,7 +2427,7 @@ let chainsCacheTime = 0;
    GRIDIRON 3X3 CONTEST ENGINE & API ROUTES
    ========================================== */
 
-apiRouter.post("/gridiron-3x3/create-contest", validateAuth, async (req, res) => {
+apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) => {
   try {
     const uid = (req as any).uid;
     const { name, season, weekNumber } = req.body;
@@ -2778,12 +2778,15 @@ apiRouter.post("/admin/gridiron-3x3/sync-lines", validateAdmin, async (req, res)
 
 apiRouter.post("/admin/gridiron-3x3/grade", validateAdmin, async (req, res) => {
   try {
-    const { season, weekNumber, finalizeAndPurge } = req.body;
+    const { season, weekNumber, contestId, finalizeAndPurge } = req.body;
     const fw = getCurrentFootballWeek();
     const activeSeason = season || fw.season;
     const activeWeek = weekNumber || fw.weekNumber;
 
-    const result = await gradeGridironWeek(activeSeason, activeWeek, { finalizeAndPurge: !!finalizeAndPurge });
+    const result = await gradeGridironWeek(activeSeason, activeWeek, {
+      finalizeAndPurge: !!finalizeAndPurge,
+      contestId: contestId ? String(contestId) : undefined
+    });
     res.json(result);
   } catch (e: any) {
     console.error("Admin grade Gridiron error:", e);

@@ -1,9 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { filterAndNormalizeGridironGames } from './gridironIngestion';
-import { evaluateGridironPick, gradeGridironWeek, setAdminDbMock } from './gridironGrader';
+import { evaluateGridironPick, gradeGridironWeek, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
 import { GridironPick, GridironEntry } from '../types/gridiron';
 
 describe('Gridiron Service Tests', () => {
+  describe('isGameStatusFinal', () => {
+    it('identifies various final status strings as final', () => {
+      expect(isGameStatusFinal('STATUS_FINAL')).toBe(true);
+      expect(isGameStatusFinal('final')).toBe(true);
+      expect(isGameStatusFinal('STATUS_FULL_TIME')).toBe(true);
+      expect(isGameStatusFinal('STATUS_FINAL_OVERTIME')).toBe(true);
+      expect(isGameStatusFinal('STATUS_SCHEDULED')).toBe(false);
+      expect(isGameStatusFinal('STATUS_IN_PROGRESS')).toBe(false);
+    });
+  });
   describe('filterAndNormalizeGridironGames', () => {
     it('retains games with BOTH valid spread AND valid total line', () => {
       const rawMatchups = [

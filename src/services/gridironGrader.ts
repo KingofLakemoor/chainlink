@@ -1,11 +1,22 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
-import { scrapeLeagueSchedules } from './espnScraper.js';
+import { scrapeLeagueSchedules, MATCHUP_FINAL_STATUSES } from './espnScraper.js';
 import { GridironEntry, GridironPick, GridironLeaderboardRecord } from '../types/gridiron.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 
 export function setAdminDbMock(mock: any) {
   getAdminDb = () => mock;
+}
+
+export function isGameStatusFinal(status: string | undefined): boolean {
+  if (!status) return false;
+  const sUpper = String(status).toUpperCase();
+  return (
+    sUpper === "STATUS_FINAL" ||
+    sUpper === "FINAL" ||
+    sUpper.includes("FINAL") ||
+    MATCHUP_FINAL_STATUSES.includes(sUpper)
+  );
 }
 
 export function evaluateGridironPick(
@@ -55,7 +66,7 @@ export function evaluateGridironPick(
 export async function gradeGridironWeek(
   season: number,
   weekNumber: number,
-  options?: { finalizeAndPurge?: boolean }
+  options?: { finalizeAndPurge?: boolean; contestId?: string }
 ) {
   const adminDb = getAdminDb();
   if (!adminDb) {
@@ -73,22 +84,52 @@ export async function gradeGridironWeek(
 
   const snapshotData = linesSnap.data();
   const snapshotGames: any[] = snapshotData?.games || [];
+  const snapshotGamesMap = new Map<string, any>(
+    snapshotGames.map((g: any) => [String(g.gameId), g])
+  );
 
   // Scrape live game scores
-  const [nflRes, cfbRes] = await Promise.all([
-    scrapeLeagueSchedules("NFL", true),
-    scrapeLeagueSchedules("CFB", true)
-  ]);
+  let liveGamesMap = new Map<string, { homeScore: number; awayScore: number; status: string }>();
+  try {
+    const [nflRes, cfbRes] = await Promise.all([
+      scrapeLeagueSchedules("NFL", true),
+      scrapeLeagueSchedules("CFB", true)
+    ]);
 
-  const liveGamesMap = new Map<string, { homeScore: number; awayScore: number; status: string }>();
+    for (const g of [...(nflRes?.data || []), ...(cfbRes?.data || [])]) {
+      if (g.gameId) {
+        liveGamesMap.set(String(g.gameId), {
+          homeScore: g.homeTeam?.score || 0,
+          awayScore: g.awayTeam?.score || 0,
+          status: g.status || "STATUS_SCHEDULED"
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[GridironGrader] Live schedule scrape error:", err);
+  }
 
-  for (const g of [...(nflRes?.data || []), ...(cfbRes?.data || [])]) {
-    if (g.gameId) {
-      liveGamesMap.set(String(g.gameId), {
-        homeScore: g.homeTeam?.score || 0,
-        awayScore: g.awayTeam?.score || 0,
-        status: g.status || "STATUS_SCHEDULED"
-      });
+  // Fetch DB matchups collection as additional fallback
+  const dbMatchupsMap = new Map<string, { homeScore: number; awayScore: number; status: string }>();
+  const gameIds = snapshotGames.map((g: any) => String(g.gameId)).filter(Boolean);
+  if (gameIds.length > 0) {
+    try {
+      for (let i = 0; i < gameIds.length; i += 30) {
+        const chunk = gameIds.slice(i, i + 30);
+        const mSnap = await adminDb.collection("matchups").where("gameId", "in", chunk).get();
+        mSnap.docs.forEach(d => {
+          const data = d.data();
+          if (data.gameId) {
+            dbMatchupsMap.set(String(data.gameId), {
+              homeScore: data.homeTeam?.score || 0,
+              awayScore: data.awayTeam?.score || 0,
+              status: data.status || "STATUS_SCHEDULED"
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("[GridironGrader] Matchups collection lookup error:", e);
     }
   }
 
@@ -126,13 +167,49 @@ export async function gradeGridironWeek(
     let entryUpdated = false;
 
     const updatedPicks = entry.picks.map((pick) => {
-      const gameInfo = liveGamesMap.get(pick.gameId);
-      if (!gameInfo || gameInfo.status !== "STATUS_FINAL") {
+      let homeScore = 0;
+      let awayScore = 0;
+      let isFinal = false;
+
+      // 1. Check liveGamesMap
+      const liveInfo = liveGamesMap.get(pick.gameId);
+      if (liveInfo && isGameStatusFinal(liveInfo.status)) {
+        homeScore = liveInfo.homeScore;
+        awayScore = liveInfo.awayScore;
+        isFinal = true;
+      }
+
+      // 2. Check snapshotGames
+      if (!isFinal) {
+        const snapGame = snapshotGamesMap.get(pick.gameId);
+        if (snapGame) {
+          const snapStatus = snapGame.status;
+          const snapHome = snapGame.homeTeam?.score;
+          const snapAway = snapGame.awayTeam?.score;
+          if (isGameStatusFinal(snapStatus) || (snapHome !== undefined && snapAway !== undefined && snapStatus !== 'STATUS_SCHEDULED' && snapStatus !== 'upcoming')) {
+            homeScore = snapHome || 0;
+            awayScore = snapAway || 0;
+            isFinal = isGameStatusFinal(snapStatus) || (snapHome > 0 || snapAway > 0);
+          }
+        }
+      }
+
+      // 3. Check dbMatchupsMap
+      if (!isFinal) {
+        const dbInfo = dbMatchupsMap.get(pick.gameId);
+        if (dbInfo && isGameStatusFinal(dbInfo.status)) {
+          homeScore = dbInfo.homeScore;
+          awayScore = dbInfo.awayScore;
+          isFinal = true;
+        }
+      }
+
+      if (!isFinal) {
         allGamesFinal = false;
         return pick;
       }
 
-      const newStatus = evaluateGridironPick(pick, gameInfo.homeScore, gameInfo.awayScore);
+      const newStatus = evaluateGridironPick(pick, homeScore, awayScore);
       if (newStatus !== pick.status) {
         entryUpdated = true;
       }
@@ -164,6 +241,21 @@ export async function gradeGridironWeek(
       affectedContestIds.add(entry.contestId);
     }
   }
+
+if (options?.contestId) {
+  affectedContestIds.add(options.contestId);
+}
+
+// Query all contests matching this season/week to guarantee leaderboards refresh
+try {
+  const contestSnaps = await adminDb.collection("gridiron_3x3_contests")
+    .where("season", "==", season)
+    .where("weekNumber", "==", weekNumber)
+    .get();
+  contestSnaps.docs.forEach(doc => affectedContestIds.add(doc.id));
+} catch (e) {
+  console.warn("[GridironGrader] Error querying contests for season/week:", e);
+}
 
   // 1. Write / update leaderboard entries for all affected contests
   for (const contestId of affectedContestIds) {

@@ -1,7 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { GridironPick, Gridiron3x3Game } from '../types/gridiron';
 
-export function useGridironDraft(initialPicks: GridironPick[] = []) {
+export function useGridironDraft(
+  initialPicks: GridironPick[] = [],
+  requiredNfl: number = 3,
+  requiredCfb: number = 3
+) {
   const [picks, setPicks] = useState<GridironPick[]>(initialPicks);
 
   const initialKey = useMemo(() => {
@@ -54,10 +58,11 @@ export function useGridironDraft(initialPicks: GridironPick[] = []) {
         };
         return updated;
       } else {
-        // Enforce max 3 picks per league
+        // Enforce max picks per league based on required split
         const currentLeagueCount = prev.filter(p => p.league === game.league).length;
-        if (currentLeagueCount >= 3) {
-          return prev; // Reached 3 picks limit for this league
+        const maxAllowed = game.league === "NFL" ? requiredNfl : requiredCfb;
+        if (currentLeagueCount >= maxAllowed) {
+          return prev; // Reached limit for this league
         }
 
         return [
@@ -81,8 +86,8 @@ export function useGridironDraft(initialPicks: GridironPick[] = []) {
   };
 
   const canSubmit = useMemo(() => {
-    return nflCount === 3 && cfbCount === 3 && picks.length === 6;
-  }, [nflCount, cfbCount, picks]);
+    return nflCount === requiredNfl && cfbCount === requiredCfb && picks.length === 6;
+  }, [nflCount, cfbCount, requiredNfl, requiredCfb, picks]);
 
   return {
     picks,

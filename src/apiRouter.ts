@@ -2642,18 +2642,10 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: "Missing required entry parameters." });
     }
 
-    // Must contain exactly 6 picks: 3 NFL picks, 3 CFB picks
-    const nflPicks = picks.filter((p: any) => p.league === "NFL");
-    const cfbPicks = picks.filter((p: any) => p.league === "CFB");
-
-    if (picks.length !== 6 || nflPicks.length !== 3 || cfbPicks.length !== 3) {
-      return res.status(400).json({ success: false, error: "Entry must contain exactly 3 NFL picks and 3 CFB picks (total 6 picks)." });
-    }
-
     // One-pick-per-game rule: ensure distinct gameIds
     const gameIds = new Set(picks.map((p: any) => p.gameId));
-    if (gameIds.size !== 6) {
-      return res.status(400).json({ success: false, error: "One-pick-per-game rule violated: Cannot select multiple picks from the same game." });
+    if (gameIds.size !== 6 || picks.length !== 6) {
+      return res.status(400).json({ success: false, error: "Entry must contain exactly 6 picks from 6 distinct games." });
     }
 
     // Verify participant in contest
@@ -2673,8 +2665,20 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: `Lines snapshot not found for ${linesDocId}. Picks cannot be submitted without static lines.` });
     }
 
+    const snapshotGames = linesSnap.data()?.games || [];
+    const availableCfbCount = snapshotGames.filter((g: any) => g.league === "CFB").length;
+    const requiredCfb = Math.min(3, availableCfbCount);
+    const requiredNfl = 6 - requiredCfb;
+
+    const nflPicks = picks.filter((p: any) => p.league === "NFL");
+    const cfbPicks = picks.filter((p: any) => p.league === "CFB");
+
+    if (nflPicks.length !== requiredNfl || cfbPicks.length !== requiredCfb) {
+      return res.status(400).json({ success: false, error: `Entry requires ${requiredNfl} NFL picks and ${requiredCfb} CFB picks.` });
+    }
+
     const snapshotGamesMap = new Map<string, any>(
-      (linesSnap.data()?.games || []).map((g: any) => [g.gameId, g])
+      snapshotGames.map((g: any) => [g.gameId, g])
     );
 
     const now = Date.now();

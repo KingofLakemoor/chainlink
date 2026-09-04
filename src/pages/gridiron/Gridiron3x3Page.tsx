@@ -39,9 +39,14 @@ export default function Gridiron3x3Page() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingLines, setLoadingLines] = useState(false);
 
+  // Compute dynamic required pick counts based on available CFB games on the snapshot board
+  const availableCfbCount = games.filter(g => g.league === "CFB").length;
+  const requiredCfb = Math.min(3, availableCfbCount);
+  const requiredNfl = 6 - requiredCfb;
+
   // User's existing entry for active contest & week
   const userEntry = entries.find(e => e.userId === user?.uid);
-  const draftHook = useGridironDraft(userEntry?.picks || []);
+  const draftHook = useGridironDraft(userEntry?.picks || [], requiredNfl, requiredCfb);
 
   // Fetch user's contests
   const fetchContests = async () => {
@@ -447,8 +452,8 @@ export default function Gridiron3x3Page() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-zinc-400 uppercase">NFL Picks:</span>
-              <span className={cn("font-mono text-sm font-bold", draftHook.nflCount === 3 ? "text-[#22c55e]" : "text-amber-400")}>
-                {draftHook.nflCount} / 3
+              <span className={cn("font-mono text-sm font-bold", draftHook.nflCount === requiredNfl ? "text-[#22c55e]" : "text-amber-400")}>
+                {draftHook.nflCount} / {requiredNfl}
               </span>
             </div>
 
@@ -456,8 +461,8 @@ export default function Gridiron3x3Page() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-zinc-400 uppercase">CFB Picks:</span>
-              <span className={cn("font-mono text-sm font-bold", draftHook.cfbCount === 3 ? "text-[#22c55e]" : "text-amber-400")}>
-                {draftHook.cfbCount} / 3
+              <span className={cn("font-mono text-sm font-bold", draftHook.cfbCount === requiredCfb ? "text-[#22c55e]" : "text-amber-400")}>
+                {draftHook.cfbCount} / {requiredCfb}
               </span>
             </div>
           </div>

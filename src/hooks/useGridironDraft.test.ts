@@ -123,7 +123,7 @@ describe('useGridironDraft Logic', () => {
     expect(picks.length).toBe(0);
   });
 
-  it('validates 6 pick entry requirement (3 NFL, 3 CFB)', () => {
+  it('validates 6 pick entry requirement (3 NFL, 3 CFB default)', () => {
     let picks: GridironPick[] = [];
     picks = processTogglePick(picks, mockNflGame1, 'spread', 'home_spread', -3.5);
     picks = processTogglePick(picks, mockNflGame2, 'spread', 'home_spread', -3.5);
@@ -131,15 +131,34 @@ describe('useGridironDraft Logic', () => {
     picks = processTogglePick(picks, mockCfbGame1, 'spread', 'home_spread', -3.5);
     picks = processTogglePick(picks, mockCfbGame2, 'spread', 'home_spread', -3.5);
 
-    const checkCanSubmit = (p: GridironPick[]) => {
+    const checkCanSubmit = (p: GridironPick[], reqNfl = 3, reqCfb = 3) => {
       const nfl = p.filter(item => item.league === 'NFL').length;
       const cfb = p.filter(item => item.league === 'CFB').length;
-      return nfl === 3 && cfb === 3 && p.length === 6;
+      return nfl === reqNfl && cfb === reqCfb && p.length === 6;
     };
 
     expect(checkCanSubmit(picks)).toBe(false);
 
     picks = processTogglePick(picks, mockCfbGame3, 'spread', 'home_spread', -3.5);
     expect(checkCanSubmit(picks)).toBe(true);
+  });
+
+  it('supports dynamic pick shifts when 0 CFB games are available (6 NFL, 0 CFB)', () => {
+    const checkCanSubmit = (p: GridironPick[], reqNfl = 6, reqCfb = 0) => {
+      const nfl = p.filter(item => item.league === 'NFL').length;
+      const cfb = p.filter(item => item.league === 'CFB').length;
+      return nfl === reqNfl && cfb === reqCfb && p.length === 6;
+    };
+
+    const dummyPicks: GridironPick[] = [
+      { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+      { gameId: 'g2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+      { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+      { gameId: 'g4', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+      { gameId: 'g5', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+      { gameId: 'g6', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 }
+    ];
+
+    expect(checkCanSubmit(dummyPicks, 6, 0)).toBe(true);
   });
 });

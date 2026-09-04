@@ -79,6 +79,9 @@ export async function gradeGridironWeek(
   const linesSnap = await linesDocRef.get();
 
   if (!linesSnap.exists) {
+    if (options?.contestId) {
+      await updateGridironLeaderboard(options.contestId);
+    }
     return { success: false, error: `Lines snapshot not found for ${docId}` };
   }
 
@@ -156,6 +159,9 @@ export async function gradeGridironWeek(
   }
 
   if (allEntries.length === 0) {
+    if (options?.contestId) {
+      await updateGridironLeaderboard(options.contestId);
+    }
     return { success: true, gradedEntries: 0, message: "No entries found to grade." };
   }
 
@@ -266,12 +272,14 @@ try {
 
   // 2. Snapshot entire week into a single Firestore document to replace individual pick history
   const shouldPurge = options?.finalizeAndPurge || (allGamesFinal && snapshotGames.length > 0);
+  const snapshotContestIds = Array.from(new Set(updatedEntries.map(e => e.contestId).filter(Boolean)));
 
   await weeklySnapshotRef.set({
     season,
     weekNumber,
     snapshotTimestamp: Date.now(),
     isFinalized: shouldPurge,
+    contestIds: snapshotContestIds,
     entries: updatedEntries
   }, { merge: true });
 
@@ -317,21 +325,37 @@ export async function updateGridironLeaderboard(contestId: string) {
 
   const activeEntries: GridironEntry[] = activeEntriesSnap.docs.map(d => d.data() as GridironEntry);
 
-  // 2. Query weekly snapshots for purged entries
-  const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+  // 2. Query weekly snapshots filtered by contestId to avoid scanning all historical snapshots
   const snapshotEntries: GridironEntry[] = [];
-
   const activeEntryIds = new Set(activeEntries.map(e => e.entryId));
 
-  weeklySnapshotsSnap.docs.forEach(doc => {
-    const snapData = doc.data();
-    const entriesList: GridironEntry[] = snapData?.entries || [];
-    entriesList.forEach(e => {
-      if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
-        snapshotEntries.push(e);
-      }
+  try {
+    const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots")
+      .where("contestIds", "array-contains", contestId)
+      .get();
+
+    weeklySnapshotsSnap.docs.forEach(doc => {
+      const snapData = doc.data();
+      const entriesList: GridironEntry[] = snapData?.entries || [];
+      entriesList.forEach(e => {
+        if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
+          snapshotEntries.push(e);
+        }
+      });
     });
-  });
+  } catch (e) {
+    // Fallback for unindexed or legacy snapshots
+    const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+    weeklySnapshotsSnap.docs.forEach(doc => {
+      const snapData = doc.data();
+      const entriesList: GridironEntry[] = snapData?.entries || [];
+      entriesList.forEach(e => {
+        if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
+          snapshotEntries.push(e);
+        }
+      });
+    });
+  }
 
   const allContestEntries = [...activeEntries, ...snapshotEntries];
 
@@ -392,32 +416,57 @@ export async function updateGridironLeaderboard(contestId: string) {
     }
 
     for (const p of entry.picks || []) {
+      const lgUpper = p.league?.toUpperCase();
       if (p.status === "won") {
         rec.totalWins++;
-        if (p.league === "NFL") rec.nflWins++;
-        if (p.league === "CFB") rec.cfbWins++;
+        if (lgUpper === "NFL") rec.nflWins++;
+        if (lgUpper === "CFB") rec.cfbWins++;
       } else if (p.status === "lost") {
         rec.totalLosses++;
-        if (p.league === "NFL") rec.nflLosses++;
-        if (p.league === "CFB") rec.cfbLosses++;
+        if (lgUpper === "NFL") rec.nflLosses++;
+        if (lgUpper === "CFB") rec.cfbLosses++;
       } else if (p.status === "push") {
         rec.totalPushes++;
-        if (p.league === "NFL") rec.nflPushes++;
-        if (p.league === "CFB") rec.cfbPushes++;
+        if (lgUpper === "NFL") rec.nflPushes++;
+        if (lgUpper === "CFB") rec.cfbPushes++;
       }
     }
   }
 
-  // Calculate win percentages & store in Firestore
+  // 3. Fetch existing leaderboard records to skip unnecessary Firestore writes if stats haven't changed
+  const existingLbSnap = await adminDb.collection("gridiron_3x3_contests").doc(contestId).collection("leaderboard").get();
+  const existingLbMap = new Map<string, any>();
+  existingLbSnap.docs.forEach(d => existingLbMap.set(d.id, d.data()));
+
   const batch = adminDb.batch();
+  let hasWrites = false;
 
   for (const [uid, rec] of userStatsMap.entries()) {
     const decided = rec.totalWins + rec.totalLosses;
     rec.winPercentage = decided > 0 ? parseFloat(((rec.totalWins / decided) * 100).toFixed(1)) : 0;
 
-    const lbRef = adminDb.collection("gridiron_3x3_contests").doc(contestId).collection("leaderboard").doc(uid);
-    batch.set(lbRef, rec, { merge: true });
+    const existing = existingLbMap.get(uid);
+    const isUnchanged = existing &&
+      existing.displayName === rec.displayName &&
+      existing.totalWins === rec.totalWins &&
+      existing.totalLosses === rec.totalLosses &&
+      existing.totalPushes === rec.totalPushes &&
+      existing.nflWins === rec.nflWins &&
+      existing.nflLosses === rec.nflLosses &&
+      existing.nflPushes === rec.nflPushes &&
+      existing.cfbWins === rec.cfbWins &&
+      existing.cfbLosses === rec.cfbLosses &&
+      existing.cfbPushes === rec.cfbPushes &&
+      existing.winPercentage === rec.winPercentage;
+
+    if (!isUnchanged) {
+      const lbRef = adminDb.collection("gridiron_3x3_contests").doc(contestId).collection("leaderboard").doc(uid);
+      batch.set(lbRef, rec, { merge: true });
+      hasWrites = true;
+    }
   }
 
-  await batch.commit();
+  if (hasWrites) {
+    await batch.commit();
+  }
 }

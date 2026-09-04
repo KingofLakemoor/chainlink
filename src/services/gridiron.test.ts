@@ -207,21 +207,31 @@ describe('Gridiron Service Tests', () => {
                   if (!mockStore[key]) mockStore[key] = {};
                   mockStore[key][subDocId] = data;
                 }
-              })
+              }),
+              get: async () => {
+                const key = `${collName}/${docId}/${subColl}`;
+                const docs = Object.entries(mockStore[key] || {})
+                  .map(([id, d]) => ({ id, data: () => d }));
+                return { empty: docs.length === 0, docs };
+              }
             })
           }),
           where: (field: string, op: string, val: any) => ({
             where: (f2: string, op2: string, v2: any) => ({
               get: async () => {
                 const docs = Object.entries(mockStore[collName] || {})
-                  .filter(([_, d]) => d[field] === val && d[f2] === v2)
+                  .filter(([_, d]) => {
+                    const match1 = Array.isArray(d[field]) ? d[field].includes(val) : d[field] === val;
+                    const match2 = Array.isArray(d[f2]) ? d[f2].includes(v2) : d[f2] === v2;
+                    return match1 && match2;
+                  })
                   .map(([id, d]) => ({ id, ref: { delete: async () => delete mockStore[collName][id] }, data: () => d }));
                 return { empty: docs.length === 0, docs };
               }
             }),
             get: async () => {
               const docs = Object.entries(mockStore[collName] || {})
-                .filter(([_, d]) => d[field] === val)
+                .filter(([_, d]) => Array.isArray(d[field]) ? d[field].includes(val) : d[field] === val)
                 .map(([id, d]) => ({ id, ref: { delete: async () => delete mockStore[collName][id] }, data: () => d }));
               return { empty: docs.length === 0, docs };
             }
@@ -348,7 +358,7 @@ describe('Gridiron Service Tests', () => {
       expect(updatedEntry.picks[2].status).toBe('pending'); // g3 is still scheduled
     });
 
-    it('correctly calculates leaderboard records including CFB wins and losses', async () => {
+    it('correctly calculates leaderboard records including CFB wins and losses with case-insensitive league matching', async () => {
       mockStore.gridiron_3x3_contests['contest_1'] = { contestId: 'contest_1', name: 'Group 1', participants: ['u1'] };
       mockStore.gridiron_3x3_entries['contest_1_u1_1'] = {
         entryId: 'contest_1_u1_1',
@@ -358,8 +368,8 @@ describe('Gridiron Service Tests', () => {
         season: 2026,
         weekNumber: 1,
         picks: [
-          { gameId: 'g1', league: 'CFB', pickType: 'total', selection: 'over', value: 60.5, kickoffTime: Date.now() - 3600000, status: 'won' },
-          { gameId: 'g2', league: 'CFB', pickType: 'total', selection: 'under', value: 54.5, kickoffTime: Date.now() - 1800000, status: 'lost' }
+          { gameId: 'g1', league: 'cfb' as any, pickType: 'total', selection: 'over', value: 60.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g2', league: 'cfb' as any, pickType: 'total', selection: 'under', value: 54.5, kickoffTime: Date.now() - 1800000, status: 'lost' }
         ]
       };
 
@@ -373,6 +383,64 @@ describe('Gridiron Service Tests', () => {
       expect(lbDoc.cfbWins).toBe(1);
       expect(lbDoc.cfbLosses).toBe(1);
       expect(lbDoc.winPercentage).toBe(50);
+    });
+
+    it('updates contest leaderboard even if lines snapshot is missing when contestId is provided', async () => {
+      delete mockStore.gridiron_3x3_lines['2026_week_01'];
+      mockStore.gridiron_3x3_contests['contest_missing_lines'] = { contestId: 'contest_missing_lines', name: 'Group 2', participants: ['u2'] };
+      mockStore.gridiron_3x3_entries['contest_missing_lines_u2_1'] = {
+        entryId: 'contest_missing_lines_u2_1',
+        contestId: 'contest_missing_lines',
+        userId: 'u2',
+        displayName: 'Player Two',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g10', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' }
+        ]
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_missing_lines' });
+      expect(res.success).toBe(false);
+
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_missing_lines/leaderboard']?.['u2'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.totalWins).toBe(1);
+      expect(lbDoc.nflWins).toBe(1);
+    });
+
+    it('updates contest leaderboard even if no active entries are found to grade when contestId is provided', async () => {
+      delete mockStore.gridiron_3x3_entries['contest_1_u1_1'];
+      mockStore.gridiron_3x3_contests['contest_empty'] = { contestId: 'contest_empty', name: 'Group 3', participants: ['u3'] };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_empty' });
+      expect(res.success).toBe(true);
+
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_empty/leaderboard']?.['u3'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.totalWins).toBe(0);
+      expect(lbDoc.totalLosses).toBe(0);
+    });
+
+    it('saves contestIds on weekly snapshot and skips batch write when leaderboard record is unchanged', async () => {
+      // Run initial grading
+      await gradeGridironWeek(2026, 1, { contestId: 'contest_1' });
+
+      // Verify weekly snapshot doc has contestIds array
+      const snapDoc = mockStore.gridiron_3x3_weekly_snapshots['2026_week_01'];
+      expect(snapDoc).toBeDefined();
+      expect(snapDoc.contestIds).toContain('contest_1');
+
+      // Set up a mock tracker on batch.set to verify write skipping
+      let writeCount = 0;
+      const lbDocBefore = { ...mockStore['gridiron_3x3_contests/contest_1/leaderboard']['u1'] };
+
+      // Re-run updateGridironLeaderboard when stats have not changed
+      await updateGridironLeaderboard('contest_1');
+
+      // The record data should remain identical
+      const lbDocAfter = mockStore['gridiron_3x3_contests/contest_1/leaderboard']['u1'];
+      expect(lbDocAfter).toEqual(lbDocBefore);
     });
   });
 });

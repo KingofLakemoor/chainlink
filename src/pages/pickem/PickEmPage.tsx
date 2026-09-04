@@ -11,6 +11,27 @@ import { Button } from '../../components/ui/button';
 import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
+export const isTiebreakerEnabledForCampaign = (campaign: any): boolean => {
+  if (!campaign) return false;
+  if (campaign.id === 'aUqhDhT3vKWfkPgSAVzf') return true;
+  return campaign.useTiebreaker === true || campaign.useTiebreaker === 'true';
+};
+
+export const getWeekTiebreakerMatchup = (campaign: any, weekMatchups: any[]): any | null => {
+  if (!weekMatchups || weekMatchups.length === 0) return null;
+  const explicit = weekMatchups.find((m: any) => m.isTiebreaker === true || m.isTiebreaker === 'true');
+  if (explicit) return explicit;
+  if (isTiebreakerEnabledForCampaign(campaign)) {
+    const sorted = [...weekMatchups].sort((a: any, b: any) => {
+      const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+      const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+      return timeA - timeB;
+    });
+    return sorted[sorted.length - 1] || null;
+  }
+  return null;
+};
+
 export default function PickEmPage() {
   const getPickStyle = (pick: any, isLocked: boolean) => {
     if (!pick) return null;
@@ -404,7 +425,7 @@ export default function PickEmPage() {
 
            if (leaderboardView === 'week') {
              const weekMatchups = campaignMatchups.filter((m: any) => m.week === selectedWeek);
-             const weekTbMatchup = weekMatchups.find((m: any) => m.isTiebreaker);
+             const weekTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, weekMatchups);
              if (weekTbMatchup) {
                const tbPick = participantStats[uid].picks.find((p: any) => p.matchupId === weekTbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
                if (weekTbMatchup.status === 'STATUS_FINAL') {
@@ -424,7 +445,16 @@ export default function PickEmPage() {
              }
            } else {
              // Season view: running total of absolute values from completed tiebreaker weeks
-             const completedTbMatchups = campaignMatchups.filter((m: any) => m.isTiebreaker && m.status === 'STATUS_FINAL');
+             const weeksPresent = Array.from(new Set(campaignMatchups.map((m: any) => m.week)));
+             const completedTbMatchups: any[] = [];
+             weeksPresent.forEach((w: number) => {
+               const wMatchups = campaignMatchups.filter((m: any) => m.week === w);
+               const wTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, wMatchups);
+               if (wTbMatchup && wTbMatchup.status === 'STATUS_FINAL') {
+                 completedTbMatchups.push(wTbMatchup);
+               }
+             });
+
              if (completedTbMatchups.length > 0) {
                let runningTotal = 0;
                completedTbMatchups.forEach((m: any) => {
@@ -840,9 +870,12 @@ export default function PickEmPage() {
         </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {matchups.map(m => {
+              {(() => {
+                const weekTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, matchups);
+                return matchups.map(m => {
                 const pick = userPicks[m.id];
                 const isLocked = m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime);
+                const isTiebreakerGame = weekTbMatchup?.id === m.id;
                 const hasSelection = !!(
                   pick?.pick?.teamId ||
                   (pick?.tiebreakerTotal !== undefined && pick?.tiebreakerTotal !== null) ||
@@ -983,7 +1016,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                       </button>
 
                       
-                      {m.isTiebreaker && (
+                      {isTiebreakerGame && (
                         <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                            <label className="block text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">Tiebreaker Matchup</label>
                            <p className="text-zinc-400 text-sm mb-2">Predict the total combined score for this game.</p>
@@ -1041,7 +1074,8 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                     </div>
                   </div>
                 );
-              })}
+              });
+              })()}
             </div>
           )}
             </>
@@ -1165,8 +1199,8 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
               <table className="w-full text-left text-sm whitespace-nowrap">
                 {(() => {
                   const showTiebreakerCol = leaderboardView === 'week'
-                    ? matchups.some((m: any) => m.isTiebreaker)
-                    : allCampaignMatchups.some((m: any) => m.isTiebreaker);
+                    ? !!getWeekTiebreakerMatchup(selectedCampaign, matchups)
+                    : isTiebreakerEnabledForCampaign(selectedCampaign) || allCampaignMatchups.some((m: any) => m.isTiebreaker);
 
                   return (
                     <>
@@ -1215,7 +1249,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                               <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
                                 {(() => {
                                   if (leaderboardView === 'week') {
-                                    const weekTbMatchup = matchups.find((m: any) => m.isTiebreaker);
+                                    const weekTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, matchups);
                                     if (!weekTbMatchup) return '-';
                                     const tbPick = participant.picks?.find((p: any) => p.matchupId === weekTbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
                                     const isFinal = weekTbMatchup.status === 'STATUS_FINAL';

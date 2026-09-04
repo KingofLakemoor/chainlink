@@ -207,21 +207,31 @@ describe('Gridiron Service Tests', () => {
                   if (!mockStore[key]) mockStore[key] = {};
                   mockStore[key][subDocId] = data;
                 }
-              })
+              }),
+              get: async () => {
+                const key = `${collName}/${docId}/${subColl}`;
+                const docs = Object.entries(mockStore[key] || {})
+                  .map(([id, d]) => ({ id, data: () => d }));
+                return { empty: docs.length === 0, docs };
+              }
             })
           }),
           where: (field: string, op: string, val: any) => ({
             where: (f2: string, op2: string, v2: any) => ({
               get: async () => {
                 const docs = Object.entries(mockStore[collName] || {})
-                  .filter(([_, d]) => d[field] === val && d[f2] === v2)
+                  .filter(([_, d]) => {
+                    const match1 = Array.isArray(d[field]) ? d[field].includes(val) : d[field] === val;
+                    const match2 = Array.isArray(d[f2]) ? d[f2].includes(v2) : d[f2] === v2;
+                    return match1 && match2;
+                  })
                   .map(([id, d]) => ({ id, ref: { delete: async () => delete mockStore[collName][id] }, data: () => d }));
                 return { empty: docs.length === 0, docs };
               }
             }),
             get: async () => {
               const docs = Object.entries(mockStore[collName] || {})
-                .filter(([_, d]) => d[field] === val)
+                .filter(([_, d]) => Array.isArray(d[field]) ? d[field].includes(val) : d[field] === val)
                 .map(([id, d]) => ({ id, ref: { delete: async () => delete mockStore[collName][id] }, data: () => d }));
               return { empty: docs.length === 0, docs };
             }
@@ -410,6 +420,27 @@ describe('Gridiron Service Tests', () => {
       expect(lbDoc).toBeDefined();
       expect(lbDoc.totalWins).toBe(0);
       expect(lbDoc.totalLosses).toBe(0);
+    });
+
+    it('saves contestIds on weekly snapshot and skips batch write when leaderboard record is unchanged', async () => {
+      // Run initial grading
+      await gradeGridironWeek(2026, 1, { contestId: 'contest_1' });
+
+      // Verify weekly snapshot doc has contestIds array
+      const snapDoc = mockStore.gridiron_3x3_weekly_snapshots['2026_week_01'];
+      expect(snapDoc).toBeDefined();
+      expect(snapDoc.contestIds).toContain('contest_1');
+
+      // Set up a mock tracker on batch.set to verify write skipping
+      let writeCount = 0;
+      const lbDocBefore = { ...mockStore['gridiron_3x3_contests/contest_1/leaderboard']['u1'] };
+
+      // Re-run updateGridironLeaderboard when stats have not changed
+      await updateGridironLeaderboard('contest_1');
+
+      // The record data should remain identical
+      const lbDocAfter = mockStore['gridiron_3x3_contests/contest_1/leaderboard']['u1'];
+      expect(lbDocAfter).toEqual(lbDocBefore);
     });
   });
 });

@@ -2732,7 +2732,6 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
     const season = contestDoc.data()?.season || 2026;
     try {
       await gradeGridironWeek(season, weekNum, { contestId });
-      await updateGridironLeaderboard(contestId);
     } catch (e) {
       console.warn("[GridironEntries] Auto-grade on fetch entries error:", e);
     }

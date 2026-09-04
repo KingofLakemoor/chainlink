@@ -1,18 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs, doc, updateDoc , limit } from "firebase/firestore";
-import { db } from '../../../lib/firebase';
+import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 
 export default function OrdersAdminPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchOrders = async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
+      const token = await auth.currentUser?.getIdToken();
+      if (token) {
+        const res = await fetch('/api/admin/orders', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.orders)) {
+            setOrders(data.orders);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Fallback to client Firestore query if API request fails or is unauthenticated
       const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(100));
       const snap = await getDocs(q);
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -31,6 +49,26 @@ export default function OrdersAdminPage() {
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
+      const token = await auth.currentUser?.getIdToken();
+      if (token) {
+        const res = await fetch('/api/admin/orders/update-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ orderId, status: newStatus })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+            return;
+          }
+        }
+      }
+
+      // Fallback to client updateDoc
       await updateDoc(doc(db, 'orders', orderId), { status: newStatus, updatedAt: Date.now() });
       setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (e) {

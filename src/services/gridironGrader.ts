@@ -48,7 +48,15 @@ export function evaluateGridironPick(
 /**
  * Grades user entries for a specific week across contests and updates group leaderboards.
  */
-export async function gradeGridironWeek(season: number, weekNumber: number) {
+/**
+ * Grades user entries for a specific week across contests, updates group leaderboards,
+ * snapshots all entries into a single weekly Firestore document, and purges individual entries.
+ */
+export async function gradeGridironWeek(
+  season: number,
+  weekNumber: number,
+  options?: { finalizeAndPurge?: boolean }
+) {
   const adminDb = getAdminDb();
   if (!adminDb) {
     console.warn("[GridironGrader] adminDb not initialized.");
@@ -84,26 +92,43 @@ export async function gradeGridironWeek(season: number, weekNumber: number) {
     }
   }
 
-  // Fetch all entries for this season & week
+  // Fetch active unpurged entries for this season & week
   const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
     .where("season", "==", season)
     .where("weekNumber", "==", weekNumber)
     .get();
 
-  if (entriesSnap.empty) {
-    return { success: true, gradedEntries: 0, message: "No entries to grade." };
+  const weeklySnapshotRef = adminDb.collection("gridiron_3x3_weekly_snapshots").doc(docId);
+  const existingSnapshotSnap = await weeklySnapshotRef.get();
+
+  let allEntries: GridironEntry[] = [];
+  let isFromSnapshot = false;
+
+  if (!entriesSnap.empty) {
+    allEntries = entriesSnap.docs.map(d => d.data() as GridironEntry);
+  } else if (existingSnapshotSnap.exists) {
+    // Fallback to existing weekly snapshot if individual entries were already purged
+    allEntries = (existingSnapshotSnap.data()?.entries as GridironEntry[]) || [];
+    isFromSnapshot = true;
+  }
+
+  if (allEntries.length === 0) {
+    return { success: true, gradedEntries: 0, message: "No entries found to grade." };
   }
 
   let gradedCount = 0;
   const affectedContestIds = new Set<string>();
+  const updatedEntries: GridironEntry[] = [];
 
-  for (const entryDoc of entriesSnap.docs) {
-    const entry = entryDoc.data() as GridironEntry;
+  let allGamesFinal = snapshotGames.length > 0;
+
+  for (const entry of allEntries) {
     let entryUpdated = false;
 
     const updatedPicks = entry.picks.map((pick) => {
       const gameInfo = liveGamesMap.get(pick.gameId);
       if (!gameInfo || gameInfo.status !== "STATUS_FINAL") {
+        allGamesFinal = false;
         return pick;
       }
 
@@ -115,11 +140,24 @@ export async function gradeGridironWeek(season: number, weekNumber: number) {
     });
 
     if (entryUpdated) {
-      await entryDoc.ref.update({
+      gradedCount++;
+    }
+
+    const updatedEntry: GridironEntry = {
+      ...entry,
+      picks: updatedPicks,
+      updatedAt: entryUpdated ? Date.now() : entry.updatedAt
+    };
+
+    updatedEntries.push(updatedEntry);
+
+    // Save individual updated document if not yet purged
+    if (entryUpdated && !isFromSnapshot) {
+      const entryRef = adminDb.collection("gridiron_3x3_entries").doc(entry.entryId);
+      await entryRef.update({
         picks: updatedPicks,
         updatedAt: Date.now()
       });
-      gradedCount++;
     }
 
     if (entry.contestId) {
@@ -127,16 +165,46 @@ export async function gradeGridironWeek(season: number, weekNumber: number) {
     }
   }
 
-  // Recalculate leaderboards for affected contests
+  // 1. Write / update leaderboard entries for all affected contests
   for (const contestId of affectedContestIds) {
     await updateGridironLeaderboard(contestId);
   }
 
-  return { success: true, gradedEntries: gradedCount, updatedContests: affectedContestIds.size };
+  // 2. Snapshot entire week into a single Firestore document to replace individual pick history
+  const shouldPurge = options?.finalizeAndPurge || (allGamesFinal && snapshotGames.length > 0);
+
+  await weeklySnapshotRef.set({
+    season,
+    weekNumber,
+    snapshotTimestamp: Date.now(),
+    isFinalized: shouldPurge,
+    entries: updatedEntries
+  }, { merge: true });
+
+  // 3. Purge individual pick documents in favor of the weekly snapshot document
+  let purgedCount = 0;
+  if (shouldPurge && !entriesSnap.empty) {
+    const batch = adminDb.batch();
+    for (const doc of entriesSnap.docs) {
+      batch.delete(doc.ref);
+      purgedCount++;
+    }
+    await batch.commit();
+  }
+
+  return {
+    success: true,
+    gradedEntries: gradedCount,
+    updatedContests: affectedContestIds.size,
+    snapshottedEntries: updatedEntries.length,
+    purgedEntries: purgedCount,
+    isFinalized: shouldPurge
+  };
 }
 
 /**
- * Recalculates leaderboard for a contest and stores records in `gridiron_3x3_contests/{contestId}/leaderboard/{userId}`.
+ * Recalculates leaderboard for a contest by scanning both active individual entries
+ * and consolidated weekly snapshots, then stores records in `gridiron_3x3_contests/{contestId}/leaderboard/{userId}`.
  */
 export async function updateGridironLeaderboard(contestId: string) {
   const adminDb = getAdminDb();
@@ -148,10 +216,30 @@ export async function updateGridironLeaderboard(contestId: string) {
   const contestData = contestDoc.data();
   const participantUids: string[] = contestData?.participants || [];
 
-  // Fetch all entries for this contest
-  const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
+  // 1. Query active individual entries
+  const activeEntriesSnap = await adminDb.collection("gridiron_3x3_entries")
     .where("contestId", "==", contestId)
     .get();
+
+  const activeEntries: GridironEntry[] = activeEntriesSnap.docs.map(d => d.data() as GridironEntry);
+
+  // 2. Query weekly snapshots for purged entries
+  const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+  const snapshotEntries: GridironEntry[] = [];
+
+  const activeEntryIds = new Set(activeEntries.map(e => e.entryId));
+
+  weeklySnapshotsSnap.docs.forEach(doc => {
+    const snapData = doc.data();
+    const entriesList: GridironEntry[] = snapData?.entries || [];
+    entriesList.forEach(e => {
+      if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
+        snapshotEntries.push(e);
+      }
+    });
+  });
+
+  const allContestEntries = [...activeEntries, ...snapshotEntries];
 
   const userStatsMap = new Map<string, GridironLeaderboardRecord>();
 
@@ -185,8 +273,7 @@ export async function updateGridironLeaderboard(contestId: string) {
     });
   }
 
-  for (const entryDoc of entriesSnap.docs) {
-    const entry = entryDoc.data() as GridironEntry;
+  for (const entry of allContestEntries) {
     const uid = entry.userId;
     if (!userStatsMap.has(uid)) {
       userStatsMap.set(uid, {

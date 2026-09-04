@@ -6,7 +6,7 @@ import { useGridironDraft } from '../../hooks/useGridironDraft';
 import { Gridiron3x3Card } from '../../components/gridiron/Gridiron3x3Card';
 import { GridironContest, Gridiron3x3Game, GridironEntry, GridironLeaderboardRecord } from '../../types/gridiron';
 import { Button } from '../../components/ui/button';
-import { Trophy, Users, Plus, Key, Copy, Check, Lock, Shield, Layers, RefreshCw } from 'lucide-react';
+import { Trophy, Users, Plus, Key, Copy, Check, Lock, Shield, Layers, RefreshCw, CheckCircle2, XCircle, MinusCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useToast } from '../../components/ui/Toast';
 
@@ -250,6 +250,27 @@ export default function Gridiron3x3Page() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Week Selector */}
+          <div className="flex items-center bg-zinc-900 border border-[#3f3f46] rounded-xl px-2 py-1 gap-1">
+            <button
+              onClick={() => setWeekNumber(prev => Math.max(1, prev - 1))}
+              disabled={weekNumber <= 1}
+              className="p-1 text-zinc-400 hover:text-zinc-100 disabled:opacity-40 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-mono font-bold text-zinc-200 px-2 uppercase">
+              Week {weekNumber}
+            </span>
+            <button
+              onClick={() => setWeekNumber(prev => Math.min(20, prev + 1))}
+              disabled={weekNumber >= 20}
+              className="p-1 text-zinc-400 hover:text-zinc-100 disabled:opacity-40 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Contest Dropdown */}
           {contests.length > 0 && (
             <select
@@ -413,8 +434,35 @@ export default function Gridiron3x3Page() {
                       }
                     }
 
+                    // Color coding logic based on pick grading status (won = green, lost = red, push = grey)
+                    let statusBgClass = "bg-zinc-900 border-[#27272a]";
+                    let badgeNode = null;
+
+                    if (p.status === 'won') {
+                      statusBgClass = "bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e]";
+                      badgeNode = (
+                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#22c55e]/20 border border-[#22c55e]/40 text-[#22c55e]">
+                          <CheckCircle2 className="w-3 h-3" /> W
+                        </span>
+                      );
+                    } else if (p.status === 'lost') {
+                      statusBgClass = "bg-red-500/10 border-red-500/30 text-red-400";
+                      badgeNode = (
+                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-400">
+                          <XCircle className="w-3 h-3" /> L
+                        </span>
+                      );
+                    } else if (p.status === 'push') {
+                      statusBgClass = "bg-zinc-800/80 border-zinc-700 text-zinc-300";
+                      badgeNode = (
+                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-700/50 border border-zinc-600 text-zinc-300">
+                          <MinusCircle className="w-3 h-3" /> DRAW
+                        </span>
+                      );
+                    }
+
                     return (
-                      <div key={i} className="bg-zinc-900 border border-[#27272a] rounded-lg p-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
+                      <div key={i} className={cn("border rounded-lg p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 transition-colors", statusBgClass)}>
                         <div className="flex items-center gap-2 min-w-0">
                           <span className={cn(
                             "px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0",
@@ -434,9 +482,12 @@ export default function Gridiron3x3Page() {
                             <Lock className="w-3 h-3" /> HIDDEN
                           </span>
                         ) : (
-                          <span className="font-bold text-zinc-100 uppercase ml-auto">
-                            {pickText}
-                          </span>
+                          <div className="flex items-center gap-2 ml-auto">
+                            <span className="font-bold text-zinc-100 uppercase">
+                              {pickText}
+                            </span>
+                            {badgeNode}
+                          </div>
                         )}
                       </div>
                     );

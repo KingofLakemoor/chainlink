@@ -447,6 +447,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     '/': 'Play',
     '/profile': 'My Profile',
     '/pickem': "Pick'em",
+    '/gridiron-3x3': 'Gridiron 3x3',
     '/leaderboards': 'Leaderboards',
   }[location.pathname] || 'ChainLink';
 
@@ -528,6 +529,7 @@ const BracketsPage = React.lazy(() => import('./pages/brackets/BracketsPage').th
 const Link4Page = React.lazy(() => import('./pages/link4/Link4Page'));
 const PickEmPage = React.lazy(() => import('./pages/pickem/PickEmPage'));
 const PickEmLandingPage = React.lazy(() => import('./pages/pickem/PickEmLandingPage'));
+const Gridiron3x3Page = React.lazy(() => import('./pages/gridiron/Gridiron3x3Page'));
 const SponsorPage = React.lazy(() => import('./pages/SponsorPage'));
 const HelpPage = React.lazy(() => import('./pages/help/HelpPage'));
 const OnboardingPage = React.lazy(() => import('./pages/onboarding/OnboardingPage'));
@@ -567,6 +569,7 @@ export default function App() {
           <Route path="/dashboard" element={<PrivateRoute><MainLayout><DashboardPage /></MainLayout></PrivateRoute>} />
                               <Route path="/pickem" element={<PrivateRoute><MainLayout><PickEmLandingPage /></MainLayout></PrivateRoute>} />
           <Route path="/pickem/:campaignId" element={<PrivateRoute><MainLayout><PickEmPage /></MainLayout></PrivateRoute>} />
+          <Route path="/gridiron-3x3" element={<PrivateRoute><MainLayout><Gridiron3x3Page /></MainLayout></PrivateRoute>} />
           <Route path="/brackets" element={<MainLayout><BracketsPage /></MainLayout>} />
           <Route path="/brackets/:bracketId" element={<MainLayout><BracketsPage /></MainLayout>} />
           <Route path="/link4" element={<PrivateRoute><MainLayout><Link4Page /></MainLayout></PrivateRoute>} />

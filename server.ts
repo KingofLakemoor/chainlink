@@ -12,6 +12,7 @@ import { startMonthlyRolloverJob } from './src/services/monthlyRollover.js';
 import { startAutoSyncJob } from './src/services/autoSync.js';
 import { startPickemRemindersJob } from './src/services/pickemReminders.js';
 import { startPickemEnforcerJob } from './src/services/pickemEnforcer.js';
+import { startGridironIngestionJob } from './src/services/gridironIngestion.js';
 
 async function startServer() {
   const app = express();
@@ -224,11 +225,12 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
-    startNotificationListener();
-    startMonthlyRolloverJob();
-    startAutoSyncJob();
-    startPickemRemindersJob();
-    startPickemEnforcerJob();
+    try { startNotificationListener(); } catch (e) { console.error('Error starting notification listener:', e); }
+    try { startMonthlyRolloverJob(); } catch (e) { console.error('Error starting monthly rollover job:', e); }
+    try { startAutoSyncJob(); } catch (e) { console.error('Error starting auto sync job:', e); }
+    try { startPickemRemindersJob(); } catch (e) { console.error('Error starting pickem reminders job:', e); }
+    try { startPickemEnforcerJob(); } catch (e) { console.error('Error starting pickem enforcer job:', e); }
+    try { startGridironIngestionJob(); } catch (e) { console.error('Error starting gridiron ingestion job:', e); }
   });
 
   const SECONDARY_PORT = PORT === 8080 ? 3000 : (PORT === 3000 ? 8080 : null);

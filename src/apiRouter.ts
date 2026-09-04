@@ -1,6 +1,9 @@
 import { executeRollover } from './services/monthlyRollover.js';
 import { processPendingNotifications } from './services/notificationProcessor.js';
 import { gradeBrackets } from './services/bracketGrader.js';
+import { fetchAndStoreTuesdayGridironLines, getCurrentFootballWeek } from './services/gridironIngestion.js';
+import { gradeGridironWeek, updateGridironLeaderboard } from './services/gridironGrader.js';
+import { GridironPick, GridironEntry } from './types/gridiron.js';
 import express from 'express';
 import { adminAuth, adminDb, adminMessaging } from './lib/firebase-admin.js';
 import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleProcessor.js';
@@ -2419,6 +2422,359 @@ apiRouter.post("/admin/force-grade-brackets", validateAdmin, async (req, res) =>
 
 let chainsCache: any = null;
 let chainsCacheTime = 0;
+
+/* ==========================================
+   GRIDIRON 3X3 CONTEST ENGINE & API ROUTES
+   ========================================== */
+
+apiRouter.post("/gridiron-3x3/create-contest", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { name, season, weekNumber } = req.body;
+
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ success: false, error: "Contest name is required." });
+    }
+
+    const fw = getCurrentFootballWeek();
+    const activeSeason = season || fw.season;
+    const activeWeek = weekNumber || fw.weekNumber;
+
+    // Generate unique 6-character uppercase alphanumeric invite code
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const contestRef = adminDb.collection("gridiron_3x3_contests").doc();
+
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    const userData = userDoc.data();
+    const displayName = userData?.username || userData?.name || "Player";
+
+    const contestData = {
+      contestId: contestRef.id,
+      name: name.trim(),
+      createdBy: uid,
+      inviteCode,
+      season: activeSeason,
+      weekNumber: activeWeek,
+      participants: [uid],
+      createdAt: Date.now()
+    };
+
+    await contestRef.set(contestData);
+
+    // Initialize leaderboard entry for creator
+    await updateGridironLeaderboard(contestRef.id);
+
+    res.json({ success: true, contest: contestData });
+  } catch (e: any) {
+    console.error("Create Gridiron 3x3 contest error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/gridiron-3x3/join-contest", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { inviteCode } = req.body;
+
+    if (!inviteCode || typeof inviteCode !== 'string') {
+      return res.status(400).json({ success: false, error: "Invite code is required." });
+    }
+
+    const cleanCode = inviteCode.trim().toUpperCase();
+    const snap = await adminDb.collection("gridiron_3x3_contests")
+      .where("inviteCode", "==", cleanCode)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      return res.status(404).json({ success: false, error: "Contest not found with that invite code." });
+    }
+
+    const contestDoc = snap.docs[0];
+    const contestData = contestDoc.data();
+    const participants: string[] = contestData.participants || [];
+
+    if (!participants.includes(uid)) {
+      const { FieldValue } = await import('firebase-admin/firestore');
+      await contestDoc.ref.update({
+        participants: FieldValue.arrayUnion(uid)
+      });
+      await updateGridironLeaderboard(contestDoc.id);
+    }
+
+    res.json({
+      success: true,
+      contest: {
+        ...contestData,
+        contestId: contestDoc.id,
+        participants: Array.from(new Set([...participants, uid]))
+      }
+    });
+  } catch (e: any) {
+    console.error("Join Gridiron 3x3 contest error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.get("/gridiron-3x3/contests", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const snap = await adminDb.collection("gridiron_3x3_contests")
+      .where("participants", "array-contains", uid)
+      .get();
+
+    const contests = snap.docs.map(doc => ({ contestId: doc.id, ...doc.data() }));
+    res.json({ success: true, contests });
+  } catch (e: any) {
+    console.error("Fetch Gridiron 3x3 contests error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (req, res) => {
+  try {
+    const season = parseInt(req.params.season, 10);
+    const weekNumber = parseInt(req.params.weekNumber, 10);
+
+    if (isNaN(season) || isNaN(weekNumber)) {
+      return res.status(400).json({ success: false, error: "Invalid season or weekNumber parameters." });
+    }
+
+    const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
+    let docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
+
+    if (!docSnap.exists) {
+      // Auto-trigger ingestion if snapshot lines document is missing
+      await fetchAndStoreTuesdayGridironLines(season, weekNumber);
+      docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
+    }
+
+    if (!docSnap.exists) {
+      return res.status(404).json({ success: false, error: `No static lines snapshot found for ${docId}` });
+    }
+
+    res.json({ success: true, lines: docSnap.data() });
+  } catch (e: any) {
+    console.error("Fetch Gridiron 3x3 lines error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { contestId, weekNumber } = req.params;
+    const weekNum = parseInt(weekNumber, 10);
+
+    if (!contestId || isNaN(weekNum)) {
+      return res.status(400).json({ success: false, error: "Invalid contestId or weekNumber." });
+    }
+
+    const contestDoc = await adminDb.collection("gridiron_3x3_contests").doc(contestId).get();
+    if (!contestDoc.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+
+    const participants: string[] = contestDoc.data()?.participants || [];
+    if (!participants.includes(uid)) {
+      return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
+    }
+
+    const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
+      .where("contestId", "==", contestId)
+      .where("weekNumber", "==", weekNum)
+      .get();
+
+    const now = Date.now();
+
+    // BLIND REVEAL SECURITY: Mask competitor picks if kickoffTime > now
+    const entries = entriesSnap.docs.map(doc => {
+      const data = doc.data() as GridironEntry;
+      const isOwner = data.userId === uid;
+
+      const maskedPicks = (data.picks || []).map(p => {
+        const kickoffTimeMs = typeof p.kickoffTime === 'number'
+          ? p.kickoffTime
+          : (p.kickoffTime?.toMillis ? p.kickoffTime.toMillis() : new Date(p.kickoffTime).getTime());
+
+        const isLocked = now >= kickoffTimeMs;
+
+        if (isOwner || isLocked) {
+          return {
+            ...p,
+            isLocked
+          };
+        } else {
+          // Competitor pick before kickoff lock => MASK IT!
+          return {
+            gameId: p.gameId,
+            league: p.league,
+            pickType: p.pickType,
+            selection: "HIDDEN",
+            value: 0,
+            kickoffTime: p.kickoffTime,
+            status: "pending",
+            isLocked: false
+          };
+        }
+      });
+
+      return {
+        ...data,
+        entryId: doc.id,
+        picks: maskedPicks
+      };
+    });
+
+    res.json({ success: true, entries });
+  } catch (e: any) {
+    console.error("Fetch Gridiron 3x3 entries error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { contestId, season, weekNumber, picks } = req.body;
+
+    if (!contestId || !season || !weekNumber || !Array.isArray(picks)) {
+      return res.status(400).json({ success: false, error: "Missing required entry parameters." });
+    }
+
+    // One-pick-per-game rule: ensure distinct gameIds
+    const gameIds = new Set(picks.map((p: any) => p.gameId));
+    if (gameIds.size !== 6 || picks.length !== 6) {
+      return res.status(400).json({ success: false, error: "Entry must contain exactly 6 picks from 6 distinct games." });
+    }
+
+    // Verify participant in contest
+    const contestDoc = await adminDb.collection("gridiron_3x3_contests").doc(contestId).get();
+    if (!contestDoc.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+    const participants: string[] = contestDoc.data()?.participants || [];
+    if (!participants.includes(uid)) {
+      return res.status(403).json({ success: false, error: "You must join this contest before submitting an entry." });
+    }
+
+    // Load authoritative static snapshot lines document
+    const linesDocId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
+    const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+    if (!linesSnap.exists) {
+      return res.status(400).json({ success: false, error: `Lines snapshot not found for ${linesDocId}. Picks cannot be submitted without static lines.` });
+    }
+
+    const snapshotGames = linesSnap.data()?.games || [];
+    const availableCfbCount = snapshotGames.filter((g: any) => g.league === "CFB").length;
+    const requiredCfb = Math.min(3, availableCfbCount);
+    const requiredNfl = 6 - requiredCfb;
+
+    const nflPicks = picks.filter((p: any) => p.league === "NFL");
+    const cfbPicks = picks.filter((p: any) => p.league === "CFB");
+
+    if (nflPicks.length !== requiredNfl || cfbPicks.length !== requiredCfb) {
+      return res.status(400).json({ success: false, error: `Entry requires ${requiredNfl} NFL picks and ${requiredCfb} CFB picks.` });
+    }
+
+    const snapshotGamesMap = new Map<string, any>(
+      snapshotGames.map((g: any) => [g.gameId, g])
+    );
+
+    const now = Date.now();
+    const entryId = `${contestId}_${uid}_${weekNumber}`;
+    const entryRef = adminDb.collection("gridiron_3x3_entries").doc(entryId);
+    const existingEntryDoc = await entryRef.get();
+    const existingPicksList: GridironPick[] = existingEntryDoc.exists ? (existingEntryDoc.data() as GridironEntry).picks || [] : [];
+
+    const validatedPicks: GridironPick[] = [];
+
+    for (const p of picks) {
+      const snapGame = snapshotGamesMap.get(p.gameId);
+      if (!snapGame) {
+        return res.status(400).json({ success: false, error: `Game ${p.gameId} is not on the official Tuesday snapshot lines board.` });
+      }
+
+      const kickoffTimeMs = typeof snapGame.kickoffTime === 'number'
+        ? snapGame.kickoffTime
+        : (snapGame.kickoffTime?.toMillis ? snapGame.kickoffTime.toMillis() : new Date(snapGame.kickoffTime).getTime());
+
+      // Derive authoritative value from DB snapshot
+      let authoritativeValue = 0;
+      if (p.selection === "away_spread") authoritativeValue = snapGame.spread.awaySpread;
+      else if (p.selection === "home_spread") authoritativeValue = snapGame.spread.homeSpread;
+      else if (p.selection === "over" || p.selection === "under") authoritativeValue = snapGame.total.line;
+      else return res.status(400).json({ success: false, error: `Invalid selection type ${p.selection}` });
+
+      // Rolling Kickoff Lock check against authoritative DB kickoffTime
+      if (now >= kickoffTimeMs) {
+        const existingPick = existingPicksList.find(ep => ep.gameId === p.gameId);
+        if (!existingPick || existingPick.selection !== p.selection || existingPick.value !== authoritativeValue) {
+          return res.status(400).json({ success: false, error: `Game ${snapGame.awayTeam.name} @ ${snapGame.homeTeam.name} has already kicked off and cannot be picked or modified.` });
+        }
+      }
+
+      validatedPicks.push({
+        gameId: snapGame.gameId,
+        league: snapGame.league,
+        pickType: (p.selection === "away_spread" || p.selection === "home_spread") ? "spread" : "total",
+        selection: p.selection,
+        value: authoritativeValue,
+        kickoffTime: kickoffTimeMs,
+        status: "pending"
+      });
+    }
+
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    const userData = userDoc.data();
+    const displayName = userData?.username || userData?.name || "Player";
+
+    const entryData: GridironEntry = {
+      entryId,
+      contestId,
+      userId: uid,
+      displayName,
+      season,
+      weekNumber,
+      createdAt: existingEntryDoc.exists ? existingEntryDoc.data()?.createdAt || now : now,
+      updatedAt: now,
+      picks: validatedPicks
+    };
+
+    await entryRef.set(entryData, { merge: true });
+
+    res.json({ success: true, entryId, entry: entryData });
+  } catch (e: any) {
+    console.error("Submit Gridiron 3x3 entry error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/gridiron-3x3/sync-lines", validateAdmin, async (req, res) => {
+  try {
+    const { season, weekNumber } = req.body;
+    const result = await fetchAndStoreTuesdayGridironLines(season, weekNumber);
+    res.json(result);
+  } catch (e: any) {
+    console.error("Admin sync Gridiron lines error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/gridiron-3x3/grade", validateAdmin, async (req, res) => {
+  try {
+    const { season, weekNumber } = req.body;
+    const fw = getCurrentFootballWeek();
+    const activeSeason = season || fw.season;
+    const activeWeek = weekNumber || fw.weekNumber;
+
+    const result = await gradeGridironWeek(activeSeason, activeWeek);
+    res.json(result);
+  } catch (e: any) {
+    console.error("Admin grade Gridiron error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 apiRouter.get("/chains", validateAuth, async (req, res) => {
   try {

@@ -303,6 +303,34 @@ service cloud.firestore {
     match /linkTransactions/{txId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /notifications/{notificationId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /systemSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+
+    // Gridiron 3x3
+    match /gridiron_3x3_lines/{linesId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /gridiron_3x3_contests/{contestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (resource != null && request.auth.uid in resource.data.participants) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']))
+      );
+      allow delete: if isAdmin();
+
+      match /leaderboard/{userId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+    }
+    match /gridiron_3x3_entries/{entryId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      );
+      allow write: if isAdmin();
+    }
     
     match /orders/{orderId} {
       allow read, write: if isAdmin();

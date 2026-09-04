@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { useAuth } from '../lib/auth-context';
+import { logError } from '../lib/errorLogger';
 
 interface Props {
   children?: ReactNode;
@@ -23,6 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    logError('React Error Boundary', error);
 
     // Check if it's a chunk load error
     if (

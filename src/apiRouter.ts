@@ -2427,7 +2427,7 @@ let chainsCacheTime = 0;
    GRIDIRON 3X3 CONTEST ENGINE & API ROUTES
    ========================================== */
 
-apiRouter.post("/gridiron-3x3/create-contest", validateAuth, async (req, res) => {
+apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) => {
   try {
     const uid = (req as any).uid;
     const { name, season, weekNumber } = req.body;

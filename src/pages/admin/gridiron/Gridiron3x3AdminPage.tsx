@@ -51,7 +51,10 @@ export default function Gridiron3x3AdminPage() {
       const list: GridironContest[] = snap.docs.map(d => ({ contestId: d.id, ...d.data() } as GridironContest));
       setContests(list);
       if (list.length > 0 && !selectedContestId) {
-        setSelectedContestId(list[0].contestId);
+        const first = list[0];
+        setSelectedContestId(first.contestId);
+        if (first.season) setSeason(first.season);
+        if (first.weekNumber) setWeekNumber(first.weekNumber);
       }
     } catch (err: any) {
       console.error('Error fetching gridiron contests:', err);
@@ -122,9 +125,12 @@ export default function Gridiron3x3AdminPage() {
     }
   };
 
-  const handleGradeWeek = async (finalizeAndPurge: boolean = false) => {
+  const handleGradeWeek = async (finalizeAndPurge: boolean = false, overrideSeason?: number, overrideWeek?: number) => {
     setIsGrading(true);
     setStatusMessage(null);
+    const targetSeason = overrideSeason || season;
+    const targetWeek = overrideWeek || weekNumber;
+
     try {
       const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/admin/gridiron-3x3/grade', {
@@ -133,13 +139,13 @@ export default function Gridiron3x3AdminPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ season, weekNumber, finalizeAndPurge })
+        body: JSON.stringify({ season: targetSeason, weekNumber: targetWeek, finalizeAndPurge })
       });
       const data = await res.json();
       if (res.ok && data.success) {
         const msg = finalizeAndPurge
-          ? `Week Finalized & Purged! Snapshotted ${data.snapshottedEntries || 0} entries into consolidated snapshot and purged ${data.purgedEntries || 0} individual records.`
-          : `Grading completed! Graded ${data.gradedEntries || 0} entries across ${data.updatedContests || 0} contests.`;
+          ? `Week Finalized & Purged! Snapshotted ${data.snapshottedEntries || 0} entries into consolidated snapshot and purged ${data.purgedEntries || 0} individual records for Season ${targetSeason} Week ${targetWeek}.`
+          : `Grading completed! Graded ${data.gradedEntries || 0} entries across ${data.updatedContests || 0} contests for Season ${targetSeason} Week ${targetWeek}.`;
         setStatusMessage({ type: 'success', text: msg });
         await fetchEntries();
       } else {
@@ -389,20 +395,35 @@ export default function Gridiron3x3AdminPage() {
                   <tr key={c.contestId} className={cn("hover:bg-zinc-800/40 transition-colors", c.contestId === selectedContestId && "bg-[#22c55e]/5")}>
                     <td className="p-3 font-bold text-zinc-100">{c.name}</td>
                     <td className="p-3 font-mono font-bold text-cyan-400">{c.inviteCode}</td>
-                    <td className="p-3 font-mono text-zinc-300">{c.season} Week {c.weekNumber}</td>
+                    <td className="p-3 font-mono text-zinc-300">{c.season || 2026} Week {c.weekNumber || 1}</td>
                     <td className="p-3 font-mono text-zinc-400 truncate max-w-[150px]">{c.createdBy}</td>
                     <td className="p-3 font-mono font-bold text-zinc-200">{c.participants?.length || 0} Users</td>
-                    <td className="p-3 text-right">
+                    <td className="p-3 text-right flex items-center justify-end gap-2">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => {
                           setSelectedContestId(c.contestId);
+                          if (c.season) setSeason(c.season);
+                          if (c.weekNumber) setWeekNumber(c.weekNumber);
                           setActiveAdminTab('entries');
                         }}
                         className="text-xs border-zinc-700 hover:bg-zinc-800"
                       >
-                        View Entries
+                        Select & View Entries
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedContestId(c.contestId);
+                          if (c.season) setSeason(c.season);
+                          if (c.weekNumber) setWeekNumber(c.weekNumber);
+                          handleGradeWeek(false, c.season || season, c.weekNumber || weekNumber);
+                        }}
+                        disabled={isGrading}
+                        className="text-xs bg-[#22c55e] hover:bg-[#22c55e]/90 text-zinc-950 font-semibold gap-1"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Grade Contest
                       </Button>
                     </td>
                   </tr>
@@ -417,17 +438,39 @@ export default function Gridiron3x3AdminPage() {
       {activeAdminTab === 'entries' && (
         <div className="space-y-4">
           {/* Contest Dropdown Selector */}
-          <div className="flex items-center gap-3 bg-[#121212] border border-zinc-800 rounded-xl p-4">
-            <span className="text-xs font-semibold text-zinc-400 uppercase">Selected Group:</span>
-            <select
-              value={selectedContestId || ''}
-              onChange={(e) => setSelectedContestId(e.target.value)}
-              className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
-            >
-              {contests.map(c => (
-                <option key={c.contestId} value={c.contestId}>{c.name} ({c.inviteCode})</option>
-              ))}
-            </select>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[#121212] border border-zinc-800 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-zinc-400 uppercase">Selected Group:</span>
+              <select
+                value={selectedContestId || ''}
+                onChange={(e) => {
+                  const targetId = e.target.value;
+                  setSelectedContestId(targetId);
+                  const found = contests.find(c => c.contestId === targetId);
+                  if (found) {
+                    if (found.season) setSeason(found.season);
+                    if (found.weekNumber) setWeekNumber(found.weekNumber);
+                  }
+                }}
+                className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+              >
+                {contests.map(c => (
+                  <option key={c.contestId} value={c.contestId}>{c.name} ({c.inviteCode}) - S{c.season || 2026} W{c.weekNumber || 1}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedContestId && (
+              <Button
+                size="sm"
+                onClick={() => handleGradeWeek(false)}
+                disabled={isGrading}
+                className="gap-2 font-semibold bg-[#22c55e] hover:bg-[#22c55e]/90 text-zinc-950"
+              >
+                {isGrading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Grade Selected Contest ({season} Week {weekNumber})
+              </Button>
+            )}
           </div>
 
           <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden shadow-md">

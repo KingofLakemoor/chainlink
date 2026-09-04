@@ -262,9 +262,11 @@ export default function Gridiron3x3Page() {
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Button onClick={() => setIsCreating(true)} className="gap-2 font-bold shadow-[0_0_20px_rgba(34,197,94,0.2)]">
-                <Plus className="w-4 h-4" /> Create Private Group
-              </Button>
+              {profile?.role === 'ADMIN' && (
+                <Button onClick={() => setIsCreating(true)} className="gap-2 font-bold shadow-[0_0_20px_rgba(34,197,94,0.2)]">
+                  <Plus className="w-4 h-4" /> Create Private Group
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setIsJoining(true)} className="gap-2 border-[#3f3f46]">
                 <Key className="w-4 h-4" /> Join with Code
               </Button>
@@ -326,7 +328,7 @@ export default function Gridiron3x3Page() {
               landingTab === 'join_create' ? "bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20" : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Plus className="w-4 h-4" /> Join or Create Group
+            <Plus className="w-4 h-4" /> {profile?.role === 'ADMIN' ? 'Join or Create Group' : 'Join Group'}
           </button>
         </div>
 
@@ -341,9 +343,11 @@ export default function Gridiron3x3Page() {
                   Create your own private football group to compete with friends, or join an existing group with an invite code.
                 </p>
                 <div className="pt-2 flex justify-center gap-3">
-                  <Button onClick={() => setIsCreating(true)} size="sm" className="font-bold">
-                    Create Group
-                  </Button>
+                  {profile?.role === 'ADMIN' && (
+                    <Button onClick={() => setIsCreating(true)} size="sm" className="font-bold">
+                      Create Group
+                    </Button>
+                  )}
                   <Button onClick={() => setIsJoining(true)} variant="outline" size="sm" className="border-[#3f3f46]">
                     Join Code
                   </Button>
@@ -388,7 +392,7 @@ export default function Gridiron3x3Page() {
 
         {/* TAB 2: JOIN OR CREATE GROUP */}
         {landingTab === 'join_create' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className={cn("grid grid-cols-1 gap-6", profile?.role === 'ADMIN' && "md:grid-cols-2")}>
             {/* Join Form Card */}
             <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-100 font-bold text-lg">
@@ -408,24 +412,26 @@ export default function Gridiron3x3Page() {
               </form>
             </div>
 
-            {/* Create Form Card */}
-            <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-2 text-zinc-100 font-bold text-lg">
-                <Plus className="w-5 h-5 text-[#22c55e]" /> Create Private Group
+            {/* Create Form Card (Admins Only) */}
+            {profile?.role === 'ADMIN' && (
+              <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2 text-zinc-100 font-bold text-lg">
+                  <Plus className="w-5 h-5 text-[#22c55e]" /> Create Private Group
+                </div>
+                <p className="text-xs text-zinc-400">Create your own group, invite friends, and run a weekly Gridiron 3x3 contest.</p>
+                <form onSubmit={handleCreateContest} className="space-y-4">
+                  <input
+                    type="text"
+                    value={newContestName}
+                    onChange={(e) => setNewContestName(e.target.value)}
+                    placeholder="e.g. Sunday Football Legends"
+                    className="w-full bg-zinc-900 border border-[#3f3f46] rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                    required
+                  />
+                  <Button type="submit" className="w-full font-bold">Create Group</Button>
+                </form>
               </div>
-              <p className="text-xs text-zinc-400">Create your own group, invite friends, and run a weekly Gridiron 3x3 contest.</p>
-              <form onSubmit={handleCreateContest} className="space-y-4">
-                <input
-                  type="text"
-                  value={newContestName}
-                  onChange={(e) => setNewContestName(e.target.value)}
-                  placeholder="e.g. Sunday Football Legends"
-                  className="w-full bg-zinc-900 border border-[#3f3f46] rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
-                  required
-                />
-                <Button type="submit" className="w-full font-bold">Create Group</Button>
-              </form>
-            </div>
+            )}
           </div>
         )}
 
@@ -541,9 +547,11 @@ export default function Gridiron3x3Page() {
             </select>
           )}
 
-          <Button size="sm" onClick={() => setIsCreating(true)} className="gap-2 font-semibold">
-            <Plus className="w-4 h-4" /> Create Group
-          </Button>
+          {profile?.role === 'ADMIN' && (
+            <Button size="sm" onClick={() => setIsCreating(true)} className="gap-2 font-semibold">
+              <Plus className="w-4 h-4" /> Create Group
+            </Button>
+          )}
 
           <Button size="sm" variant="outline" onClick={() => setIsJoining(true)} className="gap-2 border-[#3f3f46]">
             <Key className="w-4 h-4" /> Join Code
@@ -822,7 +830,7 @@ export default function Gridiron3x3Page() {
       </div>
 
       {/* Create Contest Modal */}
-      {isCreating && (
+      {isCreating && profile?.role === 'ADMIN' && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 max-w-md w-full space-y-4">
             <h3 className="text-lg font-bold text-zinc-100">Create Private Gridiron Group</h3>

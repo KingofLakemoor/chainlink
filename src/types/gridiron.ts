@@ -33,6 +33,15 @@ export interface GridironPick {
   status: "pending" | "won" | "lost" | "push";
 }
 
+export interface GridironRaceTo25Settings {
+  active: boolean;
+  startWeek: number;
+  targetWins: number; // default 25
+  winnerUserId?: string;
+  winnerDisplayName?: string;
+  winnerWeek?: number;
+}
+
 export interface GridironContest {
   contestId: string;
   name: string;
@@ -46,6 +55,7 @@ export interface GridironContest {
   logoUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  raceTo25?: GridironRaceTo25Settings;
 }
 
 export interface GridironEntry {
@@ -63,6 +73,8 @@ export interface GridironEntry {
 export interface GridironLeaderboardRecord {
   userId: string;
   displayName: string;
+  // Definitive Standings Score (1 pt per win, 0.5 pt per push)
+  points: number;
   // Total Record
   totalWins: number;
   totalLosses: number;
@@ -77,6 +89,8 @@ export interface GridironLeaderboardRecord {
   cfbPushes: number;
   // Calculated Win Percentage
   winPercentage: number;
+  // Optional Side Pot Race Wins (since contest raceTo25.startWeek)
+  raceWins?: number;
 }
 
 export interface GridironWeeklySnapshot {

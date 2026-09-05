@@ -2648,7 +2648,7 @@ let chainsCacheTime = 0;
 apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) => {
   try {
     const uid = (req as any).uid;
-    const { name, season, weekNumber, isPublic, logoUrl, primaryColor, secondaryColor } = req.body;
+    const { name, season, weekNumber, isPublic, logoUrl, primaryColor, secondaryColor, raceTo25 } = req.body;
 
     if (!name || typeof name !== 'string') {
       return res.status(400).json({ success: false, error: "Contest name is required." });
@@ -2677,6 +2677,14 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
     if (logoUrl && typeof logoUrl === 'string') contestData.logoUrl = logoUrl.trim();
     if (primaryColor && typeof primaryColor === 'string') contestData.primaryColor = primaryColor.trim();
     if (secondaryColor && typeof secondaryColor === 'string') contestData.secondaryColor = secondaryColor.trim();
+
+    if (raceTo25 && typeof raceTo25 === 'object') {
+      contestData.raceTo25 = {
+        active: !!raceTo25.active,
+        startWeek: typeof raceTo25.startWeek === 'number' ? raceTo25.startWeek : activeWeek,
+        targetWins: typeof raceTo25.targetWins === 'number' ? raceTo25.targetWins : 25
+      };
+    }
 
     await contestRef.set(contestData);
 
@@ -3068,7 +3076,7 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
 
 apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, res) => {
   try {
-    const { contestId, name, isPublic, logoUrl, primaryColor, secondaryColor, season, weekNumber } = req.body;
+    const { contestId, name, isPublic, logoUrl, primaryColor, secondaryColor, season, weekNumber, raceTo25 } = req.body;
 
     if (!contestId) {
       return res.status(400).json({ success: false, error: "contestId is required." });
@@ -3080,6 +3088,7 @@ apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, 
       return res.status(404).json({ success: false, error: "Contest not found." });
     }
 
+    const existingData = docSnap.data();
     const updateData: any = {};
     if (name && typeof name === 'string') updateData.name = name.trim();
     if (isPublic !== undefined) updateData.isPublic = !!isPublic;
@@ -3089,7 +3098,20 @@ apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, 
     if (typeof season === 'number') updateData.season = season;
     if (typeof weekNumber === 'number') updateData.weekNumber = weekNumber;
 
+    if (raceTo25 && typeof raceTo25 === 'object') {
+      const resetWinner = raceTo25.resetWinner || raceTo25.startWeek !== existingData?.raceTo25?.startWeek;
+      updateData.raceTo25 = {
+        active: !!raceTo25.active,
+        startWeek: typeof raceTo25.startWeek === 'number' ? raceTo25.startWeek : (existingData?.raceTo25?.startWeek || existingData?.weekNumber || 1),
+        targetWins: typeof raceTo25.targetWins === 'number' ? raceTo25.targetWins : (existingData?.raceTo25?.targetWins || 25),
+        winnerUserId: resetWinner ? null : (existingData?.raceTo25?.winnerUserId || null),
+        winnerDisplayName: resetWinner ? null : (existingData?.raceTo25?.winnerDisplayName || null),
+        winnerWeek: resetWinner ? null : (existingData?.raceTo25?.winnerWeek || null)
+      };
+    }
+
     await contestRef.update(updateData);
+    await updateGridironLeaderboard(contestId);
     const updatedDoc = await contestRef.get();
 
     res.json({ success: true, contest: { contestId: updatedDoc.id, ...updatedDoc.data() } });

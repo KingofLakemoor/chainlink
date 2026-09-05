@@ -171,7 +171,7 @@ export default function Gridiron3x3Page() {
       snap.forEach(doc => {
         records.push(doc.data() as GridironLeaderboardRecord);
       });
-      records.sort((a, b) => (b.winPercentage - a.winPercentage) || (b.totalWins - a.totalWins));
+      records.sort((a, b) => (b.points - a.points) || (b.totalWins - a.totalWins) || (b.winPercentage - a.winPercentage));
       setLeaderboard(records);
     }, (err) => console.error("Leaderboard listener error:", err));
 
@@ -1012,37 +1012,149 @@ export default function Gridiron3x3Page() {
 
       {/* TAB 3: STANDINGS & LEADERBOARD */}
       {activeTab === 'leaderboard' && (
-        <div className="bg-[#121212] border border-[#27272a] rounded-xl overflow-hidden shadow-md">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-900/80 border-b border-[#27272a] text-zinc-400 uppercase font-semibold">
-              <tr>
-                <th className="p-3">Rank</th>
-                <th className="p-3">Player</th>
-                <th className="p-3">Total Record</th>
-                <th className="p-3">NFL Record</th>
-                <th className="p-3">CFB Record</th>
-                <th className="p-3 text-right">Win %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#27272a]">
-              {leaderboard.length === 0 ? (
+        <div className="space-y-6">
+          {/* Race to 25 Wins Side Pot Hero Widget */}
+          {selectedContest?.raceTo25?.active && (() => {
+            const race = selectedContest.raceTo25;
+            const targetWins = race.targetWins || 25;
+            const sortedByRace = [...leaderboard].sort((a, b) => ((b.raceWins || 0) - (a.raceWins || 0)) || (b.totalWins - a.totalWins));
+            const raceLeader = sortedByRace[0];
+            const runnerUp = sortedByRace[1];
+
+            const winnerName = race.winnerDisplayName || (raceLeader && (raceLeader.raceWins || 0) >= targetWins ? raceLeader.displayName : null);
+            const isFinished = !!winnerName;
+
+            return (
+              <div className="bg-gradient-to-r from-amber-950/40 via-[#18181b] to-orange-950/30 border border-amber-500/30 rounded-2xl p-5 md:p-6 shadow-xl relative overflow-hidden space-y-4">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+                      <Flame className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black font-display text-zinc-100 flex items-center gap-2">
+                        Race to {targetWins} Wins Side Pot
+                      </h2>
+                      <p className="text-xs text-zinc-400">
+                        Tracking total wins from <span className="text-amber-400 font-semibold font-mono">Week {race.startWeek}</span> onwards
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className={cn(
+                    "text-xs font-bold font-mono px-3 py-1 rounded-full border shadow-sm",
+                    isFinished
+                      ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  )}>
+                    {isFinished ? "🏆 RACE FINISHED" : "🔥 RACE IN PROGRESS"}
+                  </span>
+                </div>
+
+                {/* Winner Crown Banner if finished */}
+                {isFinished ? (
+                  <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Trophy className="w-8 h-8 text-amber-400 shrink-0 animate-bounce" />
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">Side Pot Champion</span>
+                        <span className="text-base font-black text-zinc-100">{winnerName}</span>
+                      </div>
+                    </div>
+                    <div className="text-right font-mono">
+                      <span className="text-xs text-amber-300 font-bold block">{targetWins} Wins Reached!</span>
+                      <span className="text-[10px] text-zinc-400">
+                        {race.winnerWeek ? `Claimed in Week ${race.winnerWeek}` : 'Target Achieved'}
+                      </span>
+                    </div>
+                  </div>
+                ) : raceLeader ? (
+                  <div className="bg-zinc-900/80 border border-[#27272a] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-zinc-300 flex items-center gap-1.5 font-bold">
+                        <Trophy className="w-4 h-4 text-amber-400" /> Current Leader: <span className="text-zinc-100 font-extrabold">{raceLeader.displayName}</span>
+                      </span>
+                      <span className="font-mono text-amber-400 font-extrabold text-sm">
+                        {raceLeader.raceWins || 0} / {targetWins} Wins
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-zinc-800 rounded-full h-3.5 overflow-hidden p-0.5 border border-zinc-700">
+                      <div
+                        className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 h-2.5 rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                        style={{ width: `${Math.min(100, Math.max(4, (((raceLeader.raceWins || 0) / targetWins) * 100)))}%` }}
+                      />
+                    </div>
+
+                    {runnerUp && (
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-zinc-800">
+                        <span>Chasing: <strong className="text-zinc-200">{runnerUp.displayName}</strong></span>
+                        <span className="font-mono text-zinc-300">{runnerUp.raceWins || 0} Wins ({targetWins - (raceLeader.raceWins || 0)} wins behind leader)</span>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })()}
+
+          {/* Main Standings Table */}
+          <div className="bg-[#121212] border border-[#27272a] rounded-xl overflow-hidden shadow-md">
+            <div className="p-4 border-b border-[#27272a] flex items-center justify-between bg-zinc-900/40">
+              <div>
+                <h3 className="font-bold text-sm text-zinc-100 font-display">Definitive Standings</h3>
+                <p className="text-[11px] text-zinc-400">Scoring: 1.0 point per win • 0.5 points per tie (push) • Tiebreaker: Total Wins</p>
+              </div>
+            </div>
+
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-900/80 border-b border-[#27272a] text-zinc-400 uppercase font-semibold">
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-zinc-500">No standings calculated yet.</td>
+                  <th className="p-3">Rank</th>
+                  <th className="p-3">Player</th>
+                  <th className="p-3 text-emerald-400 font-bold">PTS</th>
+                  <th className="p-3">Total Record</th>
+                  {selectedContest?.raceTo25?.active && (
+                    <th className="p-3 text-amber-400 font-bold flex items-center gap-1">
+                      <Flame className="w-3.5 h-3.5" /> Race Wins
+                    </th>
+                  )}
+                  <th className="p-3">NFL Record</th>
+                  <th className="p-3">CFB Record</th>
+                  <th className="p-3 text-right">Win %</th>
                 </tr>
-              ) : (
-                leaderboard.map((rec, idx) => (
-                  <tr key={rec.userId} className={cn("hover:bg-zinc-800/40 transition-colors", rec.userId === user?.uid && "bg-[#22c55e]/5")}>
-                    <td className="p-3 font-mono font-bold text-zinc-400">#{idx + 1}</td>
-                    <td className="p-3 font-bold text-zinc-100">{rec.displayName}</td>
-                    <td className="p-3 font-mono text-zinc-200">{rec.totalWins}-{rec.totalLosses}{rec.totalPushes > 0 ? `-${rec.totalPushes}` : ''}</td>
-                    <td className="p-3 font-mono text-blue-400">{rec.nflWins}-{rec.nflLosses}</td>
-                    <td className="p-3 font-mono text-amber-400">{rec.cfbWins}-{rec.cfbLosses}</td>
-                    <td className="p-3 text-right font-mono font-bold text-[#22c55e]">{rec.winPercentage}%</td>
+              </thead>
+              <tbody className="divide-y divide-[#27272a]">
+                {leaderboard.length === 0 ? (
+                  <tr>
+                    <td colSpan={selectedContest?.raceTo25?.active ? 8 : 7} className="p-6 text-center text-zinc-500">
+                      No standings calculated yet.
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  leaderboard.map((rec, idx) => (
+                    <tr key={rec.userId} className={cn("hover:bg-zinc-800/40 transition-colors", rec.userId === user?.uid && "bg-[#22c55e]/5")}>
+                      <td className="p-3 font-mono font-bold text-zinc-400">#{idx + 1}</td>
+                      <td className="p-3 font-bold text-zinc-100">{rec.displayName}</td>
+                      <td className="p-3 font-mono font-extrabold text-[#22c55e] text-sm">{rec.points ?? (rec.totalWins * 1.0 + rec.totalPushes * 0.5)}</td>
+                      <td className="p-3 font-mono text-zinc-200">{rec.totalWins}-{rec.totalLosses}{rec.totalPushes > 0 ? `-${rec.totalPushes}` : ''}</td>
+                      {selectedContest?.raceTo25?.active && (
+                        <td className="p-3 font-mono font-bold text-amber-400">
+                          {rec.raceWins || 0} / {selectedContest.raceTo25.targetWins || 25}
+                        </td>
+                      )}
+                      <td className="p-3 font-mono text-blue-400">{rec.nflWins}-{rec.nflLosses}</td>
+                      <td className="p-3 font-mono text-amber-400">{rec.cfbWins}-{rec.cfbLosses}</td>
+                      <td className="p-3 text-right font-mono font-bold text-zinc-300">{rec.winPercentage}%</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

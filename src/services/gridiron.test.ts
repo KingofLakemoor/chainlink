@@ -710,5 +710,112 @@ describe('Gridiron Service Tests', () => {
       expect(lbDoc.displayName).toBe('New Player');
       expect(lbDoc.totalWins).toBe(1);
     });
+
+    it('calculates points correctly (1 pt per win, 0.5 pt per push/tie) and sorts standings by points with wins as tiebreaker', async () => {
+      mockStore.gridiron_3x3_contests['contest_pts'] = {
+        contestId: 'contest_pts',
+        name: 'Points Contest',
+        participants: ['u_high_wins', 'u_high_pushes']
+      };
+
+      // User A: 3 wins, 0 pushes = 3.0 points
+      mockStore.gridiron_3x3_entries['contest_pts_u1'] = {
+        entryId: 'contest_pts_u1',
+        contestId: 'contest_pts',
+        userId: 'u_high_wins',
+        displayName: 'Wins Player',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' }
+        ]
+      };
+
+      // User B: 2 wins, 2 pushes = 3.0 points (same points, fewer wins => rank #2)
+      mockStore.gridiron_3x3_entries['contest_pts_u2'] = {
+        entryId: 'contest_pts_u2',
+        contestId: 'contest_pts',
+        userId: 'u_high_pushes',
+        displayName: 'Pushes Player',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.0, kickoffTime: Date.now() - 3600000, status: 'push' },
+          { gameId: 'g4', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.0, kickoffTime: Date.now() - 3600000, status: 'push' }
+        ]
+      };
+
+      const leaderboard = await updateGridironLeaderboard('contest_pts');
+      expect(leaderboard).toBeDefined();
+      expect(leaderboard!.length).toBe(2);
+
+      // Verify points
+      const p1 = leaderboard!.find(r => r.userId === 'u_high_wins')!;
+      const p2 = leaderboard!.find(r => r.userId === 'u_high_pushes')!;
+
+      expect(p1.points).toBe(3.0);
+      expect(p2.points).toBe(3.0);
+
+      // Sorting order check: p1 has 3 wins vs p2's 2 wins, so p1 is #1
+      expect(leaderboard![0].userId).toBe('u_high_wins');
+      expect(leaderboard![1].userId).toBe('u_high_pushes');
+    });
+
+    it('tracks Race to 25 Wins side pot from startWeek and detects winner', async () => {
+      mockStore.gridiron_3x3_contests['contest_race'] = {
+        contestId: 'contest_race',
+        name: 'Race Contest',
+        participants: ['r1'],
+        weekNumber: 2,
+        raceTo25: {
+          active: true,
+          startWeek: 2,
+          targetWins: 2
+        }
+      };
+
+      // Week 1 entry (before startWeek 2 => ignored for raceWins)
+      mockStore.gridiron_3x3_entries['contest_race_r1_w1'] = {
+        entryId: 'contest_race_r1_w1',
+        contestId: 'contest_race',
+        userId: 'r1',
+        displayName: 'Racer One',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'gw1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 86400000, status: 'won' }
+        ]
+      };
+
+      // Week 2 entry (startWeek 2 => counted for raceWins)
+      mockStore.gridiron_3x3_entries['contest_race_r1_w2'] = {
+        entryId: 'contest_race_r1_w2',
+        contestId: 'contest_race',
+        userId: 'r1',
+        displayName: 'Racer One',
+        season: 2026,
+        weekNumber: 2,
+        picks: [
+          { gameId: 'gw2_1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' },
+          { gameId: 'gw2_2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' }
+        ]
+      };
+
+      const leaderboard = await updateGridironLeaderboard('contest_race');
+      expect(leaderboard).toBeDefined();
+
+      const racer = leaderboard!.find(r => r.userId === 'r1')!;
+      expect(racer.totalWins).toBe(3); // 1 from week 1 + 2 from week 2
+      expect(racer.raceWins).toBe(2);  // 2 from week 2 onwards
+
+      // Check that winner was auto-recorded on contest doc when reaching targetWins (2)
+      const contestData = mockStore.gridiron_3x3_contests['contest_race'];
+      expect(contestData.raceTo25.winnerUserId).toBe('r1');
+      expect(contestData.raceTo25.winnerDisplayName).toBe('Racer One');
+    });
   });
 });

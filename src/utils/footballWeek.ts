@@ -57,6 +57,16 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
 }
 
 /**
+ * Calculates the exact Tuesday 12:00 PM EST timestamp when snapshot lines lock / pick window opens for a week.
+ * This is 12 hours prior to Week N Wednesday 00:00:00 EST.
+ */
+export function getGridironLinesLockTime(season: number = 2026, weekNumber: number = 1): number {
+  const weekRange = getFootballWeekDateRange(season, weekNumber);
+  // 12 hours (43,200,000 ms) before Wednesday 00:00:00 EST = Tuesday 12:00:00 PM EST
+  return weekRange.startMs - (12 * 60 * 60 * 1000);
+}
+
+/**
  * Calculates current football season and week number based on active NFL week dates.
  */
 export function getCurrentFootballWeek(now: Date = new Date()): { season: number; weekNumber: number } {

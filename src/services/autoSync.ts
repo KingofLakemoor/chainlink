@@ -2,7 +2,7 @@ import { adminDb } from '../lib/firebase-admin.js';
 import { logServerError } from '../lib/serverErrorLogger.js';
 import { syncLeagueSchedules } from './scheduleProcessor.js';
 import { updateAllProps } from './propGrader.js';
-import { gradeGridironWeek } from './gridironGrader.js';
+import { gradeGridironWeek, updateGridironLeaderboard } from './gridironGrader.js';
 import { getCurrentFootballWeek } from './gridironIngestion.js';
 
 let syncInterval: NodeJS.Timeout | null = null;
@@ -121,10 +121,11 @@ export function startAutoSyncJob() {
            }
         }
       }
-      // Automatically grade Gridiron 3x3 active week games on every autoSync cycle
+      // Automatically grade Gridiron 3x3 active week games and update Test 1 standings on every autoSync cycle
       try {
         const { season, weekNumber } = getCurrentFootballWeek();
-        await gradeGridironWeek(season, weekNumber);
+        await gradeGridironWeek(season, weekNumber, { contestId: 'test_1' });
+        await updateGridironLeaderboard('test_1');
       } catch (e: any) {
         console.error(`[AutoSync] Error during background Gridiron grading:`, e?.message || e);
         logServerError('AutoSync Gridiron Grading', e);

@@ -2,9 +2,9 @@ import cron from 'node-cron';
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { scrapeLeagueSchedules } from './espnScraper.js';
 import { Gridiron3x3Game, Gridiron3x3LinesDocument } from '../types/gridiron.js';
-import { getFootballWeekDateRange, getCurrentFootballWeek } from '../utils/footballWeek.js';
+import { getFootballWeekDateRange, getCurrentFootballWeek, getGridironLinesLockTime } from '../utils/footballWeek.js';
 
-export { getFootballWeekDateRange, getCurrentFootballWeek };
+export { getFootballWeekDateRange, getCurrentFootballWeek, getGridironLinesLockTime };
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 

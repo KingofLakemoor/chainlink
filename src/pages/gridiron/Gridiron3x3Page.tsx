@@ -46,6 +46,7 @@ export default function Gridiron3x3Page() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingLines, setLoadingLines] = useState(false);
+  const [linesMessage, setLinesMessage] = useState<string | null>(null);
 
   // Compute dynamic required pick counts based on available CFB games on the snapshot board
   const availableCfbCount = games.filter(g => g.league === "CFB").length;
@@ -83,6 +84,7 @@ export default function Gridiron3x3Page() {
   const fetchLines = async () => {
     if (!user) return;
     setLoadingLines(true);
+    setLinesMessage(null);
     try {
       const res = await fetch(`/api/gridiron-3x3/lines/${season}/${weekNumber}`, {
         headers: { Authorization: `Bearer ${await user.getIdToken()}` }
@@ -90,6 +92,9 @@ export default function Gridiron3x3Page() {
       if (res.ok) {
         const data = await res.json();
         setGames(data.lines?.games || []);
+        if (data.message && !data.lines) {
+          setLinesMessage(data.message);
+        }
       }
     } catch (e) {
       console.error('Error fetching lines:', e);
@@ -851,6 +856,12 @@ export default function Gridiron3x3Page() {
           {loadingLines ? (
             <div className="p-12 text-center text-zinc-500 flex items-center justify-center gap-2">
               <RefreshCw className="w-5 h-5 animate-spin text-[#22c55e]" /> Loading static Tuesday lines...
+            </div>
+          ) : linesMessage ? (
+            <div className="p-12 text-center bg-[#121212] border border-[#27272a] rounded-xl text-zinc-300 space-y-3">
+              <Lock className="w-10 h-10 text-cyan-400 mx-auto" />
+              <h3 className="font-bold text-base text-zinc-100">Pick Window Closed</h3>
+              <p className="text-xs text-zinc-400 max-w-md mx-auto">{linesMessage}</p>
             </div>
           ) : filteredGames.length === 0 ? (
             <div className="p-12 text-center bg-[#121212] border border-[#27272a] rounded-xl text-zinc-400">

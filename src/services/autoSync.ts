@@ -15,6 +15,8 @@ let cachedLeagueSettingsMap = new Map<string, any>();
 let lastMetadataFetchTime = 0;
 const METADATA_TTL_MS = 60 * 60 * 1000;
 
+let finalizedGridironWeeksCache = new Set<string>();
+
 export function startAutoSyncJob() {
   if (syncInterval) return;
   
@@ -121,11 +123,24 @@ export function startAutoSyncJob() {
            }
         }
       }
-      // Automatically grade Gridiron 3x3 active week games and update Test 1 standings on every autoSync cycle
+      // Automatically grade Gridiron 3x3 active week games in background (skipping if week is already finalized)
       try {
         const { season, weekNumber } = getCurrentFootballWeek();
-        await gradeGridironWeek(season, weekNumber, { contestId: 'test_1' });
-        await updateGridironLeaderboard('test_1');
+        const weekKey = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
+
+        if (!finalizedGridironWeeksCache.has(weekKey)) {
+          const snapRef = adminDb.collection('gridiron_3x3_weekly_snapshots').doc(weekKey);
+          const snapDoc = await snapRef.get();
+
+          if (snapDoc.exists && snapDoc.data()?.isFinalized === true) {
+            finalizedGridironWeeksCache.add(weekKey);
+          } else {
+            const result = await gradeGridironWeek(season, weekNumber, { contestId: 'test_1' });
+            if (result && result.isFinalized) {
+              finalizedGridironWeeksCache.add(weekKey);
+            }
+          }
+        }
       } catch (e: any) {
         console.error(`[AutoSync] Error during background Gridiron grading:`, e?.message || e);
         logServerError('AutoSync Gridiron Grading', e);

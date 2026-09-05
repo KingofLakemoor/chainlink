@@ -2761,15 +2761,6 @@ apiRouter.get("/gridiron-3x3/contests", validateAuth, async (req, res) => {
 
     const contests = Array.from(contestMap.values());
 
-    // Asynchronously trigger leaderboard calculation for all user contests (including test_1)
-    for (const c of contests) {
-      if (c.contestId) {
-        updateGridironLeaderboard(c.contestId).catch(e => {
-          console.warn(`[GridironContests] Leaderboard background refresh error for ${c.contestId}:`, e);
-        });
-      }
-    }
-
     res.json({ success: true, contests });
   } catch (e: any) {
     console.error("Fetch Gridiron 3x3 contests error:", e);

@@ -46,8 +46,15 @@ function PlayerSelector({ label, onSelect }: { label: string, onSelect: (data: a
       const config = LEAGUES[league];
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.path}/scoreboard?dates=${dateStr}`);
-      const data = await res.json();
+      const url = league === 'CFB'
+        ? `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300&dates=${dateStr}`
+        : `https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.path}/scoreboard?limit=300&dates=${dateStr}`;
+      const res = await fetch(url);
+      let data = await res.json();
+      if ((!data.events || data.events.length === 0) && league === 'CFB') {
+        const fallbackRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300`);
+        data = await fallbackRes.json();
+      }
       
       const g = (data.events || []).map((e: any) => {
         const comp = e.competitions[0];
@@ -297,10 +304,35 @@ export default function PlayerPropBuilderPage() {
           };
           await setDoc(doc(db, 'matchups', matchupData.gameId), matchupData);
       } else {
+          const parsedTargetLine = parseFloat(formData.targetLine) || 0.5;
+          const isYesOnly = formData.propType === 'YES_ONLY';
+
+          const metadata: Record<string, any> = {
+            isPropMatchup: true,
+            isSoloProp: true,
+            isYesOnly,
+            propType: formData.propType,
+            targetLine: parsedTargetLine,
+            overUnder: parsedTargetLine,
+            timeframe: formData.timeframe,
+            optionA: {
+              league: optionA.league,
+              gameId: optionA.gameId,
+              playerId: optionA.playerId,
+              teamId: optionA.teamId,
+              statType: formData.statTypeA,
+              playerName: optionA.playerName
+            }
+          };
+
+          if (isYesOnly) {
+            metadata.yesOnlyLabel = formData.statTypeA.replace(/_/g, ' ');
+          }
+
           const matchupData = {
             title: formData.title,
             league: optionA.league,
-            type: 'STATS',
+            type: formData.propType === 'OVER_UNDER' ? 'OVER_UNDER' : 'STATS',
             typeDetails: 'PLAYER_STAT',
             cost: 0,
             startTime: optionA.startTime,
@@ -314,7 +346,7 @@ export default function PlayerPropBuilderPage() {
               id: formData.propType === 'OVER_UNDER' ? 'under' : 'no',
               name: formData.propType === 'OVER_UNDER' ? `Under ${formData.targetLine}` : 'No',
               image: `https://ui-avatars.com/api/?name=${formData.propType === 'OVER_UNDER' ? 'U' : 'N'}&background=random`,
-              score: parseFloat(formData.targetLine) || 0.5
+              score: parsedTargetLine
             },
             awayTeam: {
               id: formData.propType === 'OVER_UNDER' ? 'over' : 'yes',
@@ -322,23 +354,7 @@ export default function PlayerPropBuilderPage() {
               image: optionA.playerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(optionA.playerName)}&background=random`,
               score: 0
             },
-            metadata: {
-              isPropMatchup: true,
-              isSoloProp: true,
-              isYesOnly: formData.propType === 'YES_ONLY',
-              yesOnlyLabel: formData.propType === 'YES_ONLY' ? formData.statTypeA.replace(/_/g, ' ') : undefined,
-              propType: formData.propType,
-              targetLine: parseFloat(formData.targetLine) || 0.5,
-              timeframe: formData.timeframe,
-              optionA: {
-                league: optionA.league,
-                gameId: optionA.gameId,
-                playerId: optionA.playerId,
-                teamId: optionA.teamId,
-                statType: formData.statTypeA,
-                playerName: optionA.playerName
-              }
-            }
+            metadata
           };
           await setDoc(doc(db, 'matchups', matchupData.gameId), matchupData);
       }

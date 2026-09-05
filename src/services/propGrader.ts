@@ -298,7 +298,7 @@ export async function updateAllProps() {
                     currentScoreB = valueB;
                 }
                 
-                if ((m.metadata.isSinglePlayerProp || m.metadata.isSoloProp) && (m.type === 'OVER_UNDER' || m.metadata.isYesOnly)) {
+                if ((m.metadata.isSinglePlayerProp || m.metadata.isSoloProp) && (m.type === 'OVER_UNDER' || m.metadata.propType === 'OVER_UNDER' || m.metadata.isYesOnly)) {
                      const ou = m.metadata.overUnder || m.metadata.targetLine || 0;
                      // If the prop is Yes Only, and it hit the mark, grade it immediately
                      if (currentScoreA > ou && newStatus !== 'STATUS_FINAL' && m.metadata.isYesOnly) {

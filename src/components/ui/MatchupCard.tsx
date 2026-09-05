@@ -200,21 +200,21 @@ export const MatchupCard = React.memo(function MatchupCard({
       ) : (
         <div className="flex items-center justify-between">
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'OVER' : getTeamShortName(m, false)}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : getTeamShortName(m, false)}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}
-                 onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, m.type === 'OVER_UNDER' ? { id: 'OVER', name: 'OVER', image: '/images/over.png' } : m.awayTeam)}
-                 className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex items-center justify-center p-1.5 bg-[#1a1a1a] transition-all", pickData?.pick?.id === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? 'border-[#22c55e] shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] opacity-80 cursor-pointer' : 'border-[#3f3f46] cursor-default opacity-50')))}
+                 onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, (m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? { id: 'OVER', name: 'OVER', image: '/images/over.png' } : m.awayTeam)}
+                 className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex items-center justify-center p-1.5 bg-[#1a1a1a] transition-all", pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.id) ? 'border-[#22c55e] shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] opacity-80 cursor-pointer' : 'border-[#3f3f46] cursor-default opacity-50')))}
                >
-                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} src={m.type === 'OVER_UNDER' ? '/images/over.png' : (m.awayTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.name} />
+                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} src={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? '/images/over.png' : (m.awayTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.name} />
                </button>
-               {pickData?.pick?.id === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) && (
+               {pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.id) && (
                  <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#22c55e] flex items-center justify-center shadow-lg z-10">
                    <Link2 className="w-3 h-3 text-zinc-950 stroke-[3]" />
                  </div>
                )}
-               {activeProfile?.premium && isAwayFavorite && m.type !== 'OVER_UNDER' && (
+               {activeProfile?.premium && isAwayFavorite && m.type !== 'OVER_UNDER' && !m.metadata?.propType && (
                  <div className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-lg border border-[#131415] z-10" title="Betting Favorite">
                    <Star className="w-3 h-3 text-white fill-current" />
                  </div>
@@ -349,21 +349,21 @@ export const MatchupCard = React.memo(function MatchupCard({
            </div>
 
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{m.type === 'OVER_UNDER' ? 'UNDER' : `@${getTeamShortName(m, true)}`}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : `@${getTeamShortName(m, true)}`}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}
-                 onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, m.type === 'OVER_UNDER' ? { id: 'UNDER', name: 'UNDER', image: '/images/under.png' } : m.homeTeam)}
-                 className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex items-center justify-center p-1.5 bg-[#1a1a1a] transition-all", pickData?.pick?.id === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? 'border-[#22c55e] shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] opacity-80 cursor-pointer' : 'border-[#3f3f46] cursor-default opacity-50')))}
+                 onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, (m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? { id: 'UNDER', name: 'UNDER', image: '/images/under.png' } : m.homeTeam)}
+                 className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex items-center justify-center p-1.5 bg-[#1a1a1a] transition-all", pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.id) ? 'border-[#22c55e] shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] opacity-80 cursor-pointer' : 'border-[#3f3f46] cursor-default opacity-50')))}
                >
-                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} src={m.type === 'OVER_UNDER' ? '/images/under.png' : (m.homeTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.name} />
+                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} src={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? '/images/under.png' : (m.homeTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.name} />
                </button>
-               {pickData?.pick?.id === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) && (
+               {pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.id) && (
                  <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#22c55e] flex items-center justify-center shadow-lg z-10">
                    <Link2 className="w-3 h-3 text-zinc-950 stroke-[3]" />
                  </div>
                )}
-               {activeProfile?.premium && isHomeFavorite && m.type !== 'OVER_UNDER' && (
+               {activeProfile?.premium && isHomeFavorite && m.type !== 'OVER_UNDER' && !m.metadata?.propType && (
                  <div className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-lg border border-[#131415] z-10" title="Betting Favorite">
                    <Star className="w-3 h-3 text-white fill-current" />
                  </div>

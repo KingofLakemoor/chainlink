@@ -121,15 +121,13 @@ export function startAutoSyncJob() {
            }
         }
       }
-      // Automatically grade Gridiron 3x3 active week games when NFL/CFB are synced
-      if (activeLeaguesSet.has('NFL') || activeLeaguesSet.has('CFB')) {
-        try {
-          const { season, weekNumber } = getCurrentFootballWeek();
-          await gradeGridironWeek(season, weekNumber);
-        } catch (e: any) {
-          console.error(`[AutoSync] Error during background Gridiron grading:`, e?.message || e);
-          logServerError('AutoSync Gridiron Grading', e);
-        }
+      // Automatically grade Gridiron 3x3 active week games on every autoSync cycle
+      try {
+        const { season, weekNumber } = getCurrentFootballWeek();
+        await gradeGridironWeek(season, weekNumber);
+      } catch (e: any) {
+        console.error(`[AutoSync] Error during background Gridiron grading:`, e?.message || e);
+        logServerError('AutoSync Gridiron Grading', e);
       }
 
       console.log("[AutoSync] Background schedule sync completed.");

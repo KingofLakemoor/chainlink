@@ -333,15 +333,12 @@ if (linesUpdated) {
   }
 }
 
-// Query all contests matching this season/week to guarantee leaderboards refresh
+// Query all contests to guarantee all group leaderboards refresh
 try {
-  const contestSnaps = await adminDb.collection("gridiron_3x3_contests")
-    .where("season", "==", season)
-    .where("weekNumber", "==", weekNumber)
-    .get();
+  const contestSnaps = await adminDb.collection("gridiron_3x3_contests").get();
   contestSnaps.docs.forEach(doc => affectedContestIds.add(doc.id));
 } catch (e) {
-  console.warn("[GridironGrader] Error querying contests for season/week:", e);
+  console.warn("[GridironGrader] Error querying all contests:", e);
 }
 
   // 1. Write / update leaderboard entries for all affected contests
@@ -485,7 +482,7 @@ export async function updateGridironLeaderboard(contestId: string) {
     }
   }
 
-  for (const uid of participantUids) {
+  for (const uid of effectiveParticipantUids) {
     userStatsMap.set(uid, {
       userId: uid,
       displayName: displayNameMap.get(uid) || "Player",

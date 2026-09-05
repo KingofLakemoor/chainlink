@@ -1,7 +1,7 @@
 import { executeRollover } from './services/monthlyRollover.js';
 import { processPendingNotifications } from './services/notificationProcessor.js';
 import { gradeBrackets } from './services/bracketGrader.js';
-import { fetchAndStoreTuesdayGridironLines, getCurrentFootballWeek } from './services/gridironIngestion.js';
+import { fetchAndStoreTuesdayGridironLines, getCurrentFootballWeek, getGridironLinesLockTime } from './services/gridironIngestion.js';
 import { gradeGridironWeek, updateGridironLeaderboard } from './services/gridironGrader.js';
 import { GridironPick, GridironEntry } from './types/gridiron.js';
 import express from 'express';
@@ -2752,6 +2752,16 @@ apiRouter.get("/gridiron-3x3/contests", validateAuth, async (req, res) => {
     publicSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
 
     const contests = Array.from(contestMap.values());
+
+    // Asynchronously trigger leaderboard calculation for all user contests (including test_1)
+    for (const c of contests) {
+      if (c.contestId) {
+        updateGridironLeaderboard(c.contestId).catch(e => {
+          console.warn(`[GridironContests] Leaderboard background refresh error for ${c.contestId}:`, e);
+        });
+      }
+    }
+
     res.json({ success: true, contests });
   } catch (e: any) {
     console.error("Fetch Gridiron 3x3 contests error:", e);
@@ -2771,8 +2781,24 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
     const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
     let docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
 
+    const lockTime = getGridironLinesLockTime(season, weekNumber);
+    const now = Date.now();
+
     if (!docSnap.exists) {
-      // Auto-trigger ingestion if snapshot lines document is missing
+      // Do not auto-generate snapshot lines for future weeks before Tuesday 12:00 PM EST odds finalization
+      if (now < lockTime) {
+        const lockDate = new Date(lockTime);
+        const formattedLockDate = lockDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        return res.json({
+          success: true,
+          lines: null,
+          isLocked: true,
+          lockTime,
+          message: `Picks for Week ${weekNumber} open after Tuesday odds finalization on ${formattedLockDate}.`
+        });
+      }
+
+      // Auto-trigger ingestion if snapshot lines document is missing and current time >= Tuesday 12:00 PM EST
       await fetchAndStoreTuesdayGridironLines(season, weekNumber);
       docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
     }
@@ -2781,7 +2807,7 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
       return res.status(404).json({ success: false, error: `No static lines snapshot found for ${docId}` });
     }
 
-    res.json({ success: true, lines: docSnap.data() });
+    res.json({ success: true, lines: docSnap.data(), isLocked: false });
   } catch (e: any) {
     console.error("Fetch Gridiron 3x3 lines error:", e);
     res.status(500).json({ success: false, error: e.message });
@@ -2913,7 +2939,13 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
     // Load authoritative static snapshot lines document
     const linesDocId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
     const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+    const lockTime = getGridironLinesLockTime(season, weekNumber);
+    const now = Date.now();
+
     if (!linesSnap.exists) {
+      if (now < lockTime) {
+        return res.status(400).json({ success: false, error: `Picks for Week ${weekNumber} are not open yet. Pick window opens after Tuesday odds finalization.` });
+      }
       return res.status(400).json({ success: false, error: `Lines snapshot not found for ${linesDocId}. Picks cannot be submitted without static lines.` });
     }
 

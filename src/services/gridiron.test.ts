@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { filterAndNormalizeGridironGames, getFootballWeekDateRange, getCurrentFootballWeek } from './gridironIngestion';
+import { filterAndNormalizeGridironGames, getFootballWeekDateRange, getCurrentFootballWeek, getGridironLinesLockTime } from './gridironIngestion';
 import { evaluateGridironPick, gradeGridironWeek, updateGridironLeaderboard, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
 import { GridironPick, GridironEntry } from '../types/gridiron';
 
@@ -31,6 +31,17 @@ describe('Gridiron Service Tests', () => {
 
       const friSept18_2026 = new Date(2026, 8, 18, 18, 0, 0);
       expect(getCurrentFootballWeek(friSept18_2026)).toEqual({ season: 2026, weekNumber: 2 });
+    });
+
+    it('calculates getGridironLinesLockTime as Tuesday 12:00 PM EST prior to Wednesday start', () => {
+      const lockTimeW2 = getGridironLinesLockTime(2026, 2);
+      const lockDateW2 = new Date(lockTimeW2);
+
+      // Week 2 Wednesday is Sept 16, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM
+      expect(lockDateW2.getFullYear()).toBe(2026);
+      expect(lockDateW2.getMonth()).toBe(8); // September
+      expect(lockDateW2.getDate()).toBe(15); // Tuesday Sept 15
+      expect(lockDateW2.getHours()).toBe(12); // 12:00 PM
     });
   });
 

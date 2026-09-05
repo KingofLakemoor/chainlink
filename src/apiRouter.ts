@@ -2648,7 +2648,7 @@ let chainsCacheTime = 0;
 apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) => {
   try {
     const uid = (req as any).uid;
-    const { name, season, weekNumber, logoUrl, primaryColor, secondaryColor } = req.body;
+    const { name, season, weekNumber, isPublic, logoUrl, primaryColor, secondaryColor } = req.body;
 
     if (!name || typeof name !== 'string') {
       return res.status(400).json({ success: false, error: "Contest name is required." });
@@ -2662,10 +2662,6 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const contestRef = adminDb.collection("gridiron_3x3_contests").doc();
 
-    const userDoc = await adminDb.collection("users").doc(uid).get();
-    const userData = userDoc.data();
-    const displayName = userData?.username || userData?.name || "Player";
-
     const contestData: any = {
       contestId: contestRef.id,
       name: name.trim(),
@@ -2674,6 +2670,7 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
       season: activeSeason,
       weekNumber: activeWeek,
       participants: [uid],
+      isPublic: !!isPublic,
       createdAt: Date.now()
     };
 
@@ -2741,11 +2738,20 @@ apiRouter.post("/gridiron-3x3/join-contest", validateAuth, async (req, res) => {
 apiRouter.get("/gridiron-3x3/contests", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;
-    const snap = await adminDb.collection("gridiron_3x3_contests")
-      .where("participants", "array-contains", uid)
-      .get();
+    const [userSnap, publicSnap] = await Promise.all([
+      adminDb.collection("gridiron_3x3_contests")
+        .where("participants", "array-contains", uid)
+        .get(),
+      adminDb.collection("gridiron_3x3_contests")
+        .where("isPublic", "==", true)
+        .get()
+    ]);
 
-    const contests = snap.docs.map(doc => ({ contestId: doc.id, ...doc.data() }));
+    const contestMap = new Map<string, any>();
+    userSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
+    publicSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
+
+    const contests = Array.from(contestMap.values());
     res.json({ success: true, contests });
   } catch (e: any) {
     console.error("Fetch Gridiron 3x3 contests error:", e);
@@ -2999,7 +3005,7 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
 
 apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, res) => {
   try {
-    const { contestId, name, logoUrl, primaryColor, secondaryColor, season, weekNumber } = req.body;
+    const { contestId, name, isPublic, logoUrl, primaryColor, secondaryColor, season, weekNumber } = req.body;
 
     if (!contestId) {
       return res.status(400).json({ success: false, error: "contestId is required." });
@@ -3013,6 +3019,7 @@ apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, 
 
     const updateData: any = {};
     if (name && typeof name === 'string') updateData.name = name.trim();
+    if (isPublic !== undefined) updateData.isPublic = !!isPublic;
     if (logoUrl !== undefined) updateData.logoUrl = typeof logoUrl === 'string' ? logoUrl.trim() : null;
     if (primaryColor !== undefined) updateData.primaryColor = typeof primaryColor === 'string' ? primaryColor.trim() : null;
     if (secondaryColor !== undefined) updateData.secondaryColor = typeof secondaryColor === 'string' ? secondaryColor.trim() : null;
@@ -3025,6 +3032,44 @@ apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, 
     res.json({ success: true, contest: { contestId: updatedDoc.id, ...updatedDoc.data() } });
   } catch (e: any) {
     console.error("Update Gridiron 3x3 contest error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/gridiron-3x3/delete-contest", validateAdmin, async (req, res) => {
+  try {
+    const { contestId } = req.body;
+
+    if (!contestId) {
+      return res.status(400).json({ success: false, error: "contestId is required." });
+    }
+
+    const contestRef = adminDb.collection("gridiron_3x3_contests").doc(contestId);
+    const contestDoc = await contestRef.get();
+    if (!contestDoc.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+
+    const batch = adminDb.batch();
+
+    // 1. Delete Leaderboard subcollection
+    const lbSnap = await contestRef.collection("leaderboard").get();
+    lbSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // 2. Delete active entries
+    const entriesSnap = await adminDb.collection("gridiron_3x3_entries")
+      .where("contestId", "==", contestId)
+      .get();
+    entriesSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // 3. Delete contest doc
+    batch.delete(contestRef);
+
+    await batch.commit();
+
+    res.json({ success: true, deletedContestId: contestId });
+  } catch (e: any) {
+    console.error("Delete Gridiron 3x3 contest error:", e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

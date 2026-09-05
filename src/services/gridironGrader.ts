@@ -224,9 +224,10 @@ export async function gradeGridironWeek(
       let homeScore = 0;
       let awayScore = 0;
       let isFinal = false;
+      const pickGameId = String(pick.gameId);
 
       // 1. Check liveGamesMap
-      const liveInfo = liveGamesMap.get(pick.gameId);
+      const liveInfo = liveGamesMap.get(pickGameId);
       if (liveInfo && isGameStatusFinal(liveInfo.status)) {
         homeScore = liveInfo.homeScore;
         awayScore = liveInfo.awayScore;
@@ -235,22 +236,22 @@ export async function gradeGridironWeek(
 
       // 2. Check snapshotGames
       if (!isFinal) {
-        const snapGame = snapshotGamesMap.get(pick.gameId);
+        const snapGame = snapshotGamesMap.get(pickGameId);
         if (snapGame) {
           const snapStatus = snapGame.status;
           const snapHome = snapGame.homeTeam?.score;
           const snapAway = snapGame.awayTeam?.score;
-          if (isGameStatusFinal(snapStatus) || (snapHome !== undefined && snapAway !== undefined && snapStatus !== 'STATUS_SCHEDULED' && snapStatus !== 'upcoming')) {
-            homeScore = snapHome || 0;
-            awayScore = snapAway || 0;
-            isFinal = isGameStatusFinal(snapStatus) || (snapHome > 0 || snapAway > 0);
+          if (isGameStatusFinal(snapStatus) || (snapHome !== undefined && snapAway !== undefined && snapStatus !== 'STATUS_SCHEDULED' && snapStatus !== 'upcoming' && snapStatus !== 'scheduled')) {
+            homeScore = typeof snapHome === 'number' ? snapHome : 0;
+            awayScore = typeof snapAway === 'number' ? snapAway : 0;
+            isFinal = true;
           }
         }
       }
 
       // 3. Check dbMatchupsMap
       if (!isFinal) {
-        const dbInfo = dbMatchupsMap.get(pick.gameId);
+        const dbInfo = dbMatchupsMap.get(pickGameId);
         if (dbInfo && isGameStatusFinal(dbInfo.status)) {
           homeScore = dbInfo.homeScore;
           awayScore = dbInfo.awayScore;
@@ -451,11 +452,29 @@ export async function updateGridironLeaderboard(contestId: string) {
 
   const allContestEntries = [...activeEntries, ...snapshotEntries];
 
+  // Auto-heal contest participants list if any entry exists for a user not yet in participants
+  const allEntryUserIds = new Set<string>(participantUids);
+  for (const entry of allContestEntries) {
+    if (entry.userId) {
+      allEntryUserIds.add(entry.userId);
+    }
+  }
+
+  const effectiveParticipantUids = Array.from(allEntryUserIds);
+  if (effectiveParticipantUids.length > participantUids.length) {
+    try {
+      const contestRef = adminDb.collection("gridiron_3x3_contests").doc(contestId);
+      await contestRef.update({ participants: effectiveParticipantUids });
+    } catch (e) {
+      console.warn("[GridironLeaderboard] Auto-heal participants error:", e);
+    }
+  }
+
   const userStatsMap = new Map<string, GridironLeaderboardRecord>();
 
   // Fetch user display names
-  const userDocs = participantUids.length > 0
-    ? await adminDb.getAll(...participantUids.map(uid => adminDb.collection("users").doc(uid)))
+  const userDocs = effectiveParticipantUids.length > 0
+    ? await adminDb.getAll(...effectiveParticipantUids.map(uid => adminDb.collection("users").doc(uid)))
     : [];
 
   const displayNameMap = new Map<string, string>();

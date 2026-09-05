@@ -36,10 +36,12 @@ export default function Gridiron3x3Page() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [newContestName, setNewContestName] = useState('');
+  const [newIsPublic, setNewIsPublic] = useState(false);
   const [newLogoUrl, setNewLogoUrl] = useState('');
   const [newPrimaryColor, setNewPrimaryColor] = useState('#22c55e');
   const [newSecondaryColor, setNewSecondaryColor] = useState('#06b6d4');
   const [joinInviteCode, setJoinInviteCode] = useState('');
+  const [deletingContestId, setDeletingContestId] = useState<string | null>(null);
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -163,6 +165,7 @@ export default function Gridiron3x3Page() {
           name: newContestName,
           season,
           weekNumber,
+          isPublic: newIsPublic,
           logoUrl: newLogoUrl.trim() || undefined,
           primaryColor: newPrimaryColor || undefined,
           secondaryColor: newSecondaryColor || undefined
@@ -171,9 +174,10 @@ export default function Gridiron3x3Page() {
 
       const data = await res.json();
       if (data.success) {
-        showToast('Private contest created!', 'success');
+        showToast(`${newIsPublic ? 'Public' : 'Private'} group created!`, 'success');
         setIsCreating(false);
         setNewContestName('');
+        setNewIsPublic(false);
         setNewLogoUrl('');
         setNewPrimaryColor('#22c55e');
         setNewSecondaryColor('#06b6d4');
@@ -181,7 +185,35 @@ export default function Gridiron3x3Page() {
         setSelectedContest(data.contest);
         setLandingViewMode('workspace');
       } else {
-        showToast(data.error || 'Failed to create contest', 'error');
+        showToast(data.error || 'Failed to create group', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleDeleteContest = async (contestId: string) => {
+    if (!profile || profile.role !== 'ADMIN') return;
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/admin/gridiron-3x3/delete-contest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ contestId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Group deleted successfully', 'success');
+        setDeletingContestId(null);
+        if (selectedContest?.contestId === contestId) {
+          setSelectedContest(null);
+        }
+        await fetchContests();
+      } else {
+        showToast(data.error || 'Failed to delete group', 'error');
       }
     } catch (err: any) {
       showToast(err.message, 'error');
@@ -376,7 +408,7 @@ export default function Gridiron3x3Page() {
                 <Trophy className="w-12 h-12 text-zinc-600 mx-auto" />
                 <h3 className="text-zinc-200 font-bold text-lg">No Gridiron Groups Joined Yet</h3>
                 <p className="text-zinc-400 text-xs max-w-md mx-auto">
-                  Create your own private football group to compete with friends, or join an existing group with an invite code.
+                  Create your own football group to compete with friends, or join an existing group with an invite code.
                 </p>
                 <div className="pt-2 flex justify-center gap-3">
                   {profile?.role === 'ADMIN' && (
@@ -391,71 +423,126 @@ export default function Gridiron3x3Page() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myContests.map(c => (
-                  <div
-                    key={c.contestId}
-                    style={{ borderColor: c.primaryColor ? `${c.primaryColor}30` : undefined }}
-                    className="bg-[#121212] border border-[#27272a] hover:border-zinc-700 rounded-2xl p-5 space-y-4 transition-all shadow-lg flex flex-col justify-between relative overflow-hidden"
-                  >
-                    {c.primaryColor && (
-                      <div
-                        className="absolute top-0 left-0 right-0 h-1"
-                        style={{ backgroundColor: c.primaryColor }}
-                      />
-                    )}
+                {myContests.map(c => {
+                  const isJoined = c.participants?.includes(user?.uid || '');
+                  return (
+                    <div
+                      key={c.contestId}
+                      style={{ borderColor: c.primaryColor ? `${c.primaryColor}30` : undefined }}
+                      className="bg-[#121212] border border-[#27272a] hover:border-zinc-700 rounded-2xl p-5 space-y-4 transition-all shadow-lg flex flex-col justify-between relative overflow-hidden"
+                    >
+                      {c.primaryColor && (
+                        <div
+                          className="absolute top-0 left-0 right-0 h-1"
+                          style={{ backgroundColor: c.primaryColor }}
+                        />
+                      )}
 
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
-                          {c.inviteCode}
-                        </span>
-                        <span className="text-xs font-semibold text-zinc-400">
-                          Season {c.season} • Wk {c.weekNumber}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        {c.logoUrl ? (
-                          <img
-                            src={c.logoUrl}
-                            alt={c.name}
-                            className="w-10 h-10 rounded-lg object-cover border border-[#27272a] shrink-0"
-                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div
-                            className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs text-zinc-100 shrink-0"
-                            style={{ backgroundColor: c.primaryColor || '#27272a' }}
-                          >
-                            <Trophy className="w-5 h-5 text-zinc-900" />
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+                              {c.inviteCode}
+                            </span>
+                            {c.isPublic && (
+                              <span className="text-[10px] font-bold uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                                Public
+                              </span>
+                            )}
                           </div>
-                        )}
-                        <div>
-                          <h3 className="text-lg font-bold text-zinc-100">{c.name}</h3>
-                          <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
-                            <Users className="w-3.5 h-3.5 text-zinc-500" /> {c.participants?.length || 0} Members
-                          </p>
+                          <span className="text-xs font-semibold text-zinc-400">
+                            Season {c.season} • Wk {c.weekNumber}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {c.logoUrl ? (
+                            <img
+                              src={c.logoUrl}
+                              alt={c.name}
+                              className="w-10 h-10 rounded-lg object-cover border border-[#27272a] shrink-0"
+                              onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div
+                              className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs text-zinc-100 shrink-0"
+                              style={{ backgroundColor: c.primaryColor || '#27272a' }}
+                            >
+                              <Trophy className="w-5 h-5 text-zinc-900" />
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="text-lg font-bold text-zinc-100">{c.name}</h3>
+                            <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                              <Users className="w-3.5 h-3.5 text-zinc-500" /> {c.participants?.length || 0} Members
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <Button
-                      onClick={() => {
-                        setSelectedContest(c);
-                        setSeason(c.season || 2026);
-                        setWeekNumber(c.weekNumber || 1);
-                        setLandingViewMode('workspace');
-                      }}
-                      style={{
-                        backgroundColor: c.primaryColor || undefined,
-                        color: c.primaryColor ? '#09090b' : undefined
-                      }}
-                      className="w-full font-bold gap-2"
-                    >
-                      Open Group Board <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
+                      <div className="space-y-2">
+                        {isJoined ? (
+                          <Button
+                            onClick={() => {
+                              setSelectedContest(c);
+                              setSeason(c.season || 2026);
+                              setWeekNumber(c.weekNumber || 1);
+                              setLandingViewMode('workspace');
+                            }}
+                            style={{
+                              backgroundColor: c.primaryColor || undefined,
+                              color: c.primaryColor ? '#09090b' : undefined
+                            }}
+                            className="w-full font-bold gap-2"
+                          >
+                            Open Group Board <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={async () => {
+                              setJoinInviteCode(c.inviteCode);
+                              try {
+                                const res = await fetch('/api/gridiron-3x3/join-contest', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${await user?.getIdToken()}`
+                                  },
+                                  body: JSON.stringify({ inviteCode: c.inviteCode })
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  showToast(`Joined public group "${c.name}"!`, 'success');
+                                  await fetchContests();
+                                  setSelectedContest(data.contest);
+                                  setLandingViewMode('workspace');
+                                } else {
+                                  showToast(data.error || 'Failed to join group', 'error');
+                                }
+                              } catch (e: any) {
+                                showToast(e.message, 'error');
+                              }
+                            }}
+                            className="w-full font-bold gap-2 bg-emerald-600 hover:bg-emerald-500 text-zinc-950"
+                          >
+                            Join Public Group <Plus className="w-4 h-4" />
+                          </Button>
+                        )}
+
+                        {profile?.role === 'ADMIN' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeletingContestId(c.contestId)}
+                            className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                          >
+                            Delete Group
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -510,7 +597,7 @@ export default function Gridiron3x3Page() {
         {isCreating && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
             <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 max-w-md w-full space-y-4">
-              <h3 className="text-lg font-bold text-zinc-100">Create Private Gridiron Group</h3>
+              <h3 className="text-lg font-bold text-zinc-100">Create Gridiron Group</h3>
               <form onSubmit={handleCreateContest} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Group Name</label>
@@ -524,11 +611,44 @@ export default function Gridiron3x3Page() {
                   />
                 </div>
 
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="isPublicCheck"
+                    checked={newIsPublic}
+                    onChange={(e) => setNewIsPublic(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#3f3f46] bg-zinc-900 text-[#22c55e] focus:ring-[#22c55e]"
+                  />
+                  <label htmlFor="isPublicCheck" className="text-xs font-semibold text-zinc-300 cursor-pointer">
+                    Make this a Public Group (visible on board)
+                  </label>
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>
                   <Button type="submit">Create Group</Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deletingContestId && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 max-w-md w-full space-y-4">
+              <h3 className="text-lg font-bold text-red-400 flex items-center gap-2">
+                Delete Gridiron Group?
+              </h3>
+              <p className="text-xs text-zinc-300">
+                Are you sure you want to delete this group? This action will remove all standings, leaderboard records, and submitted user entries for this contest.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setDeletingContestId(null)}>Cancel</Button>
+                <Button onClick={() => handleDeleteContest(deletingContestId)} className="bg-red-600 hover:bg-red-500 font-bold">
+                  Confirm Delete
+                </Button>
+              </div>
             </div>
           </div>
         )}

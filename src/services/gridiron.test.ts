@@ -666,5 +666,38 @@ describe('Gridiron Service Tests', () => {
       expect(lbDoc.cfbLosses).toBe(1);
       expect(lbDoc.winPercentage).toBe(0);
     });
+
+    it('auto-heals contest participants list when a user submits an entry not yet in participants', async () => {
+      mockStore.gridiron_3x3_contests['contest_autoheal'] = {
+        contestId: 'contest_autoheal',
+        name: 'Autoheal Contest',
+        participants: ['u1']
+      };
+
+      mockStore.gridiron_3x3_entries['contest_autoheal_u2_1'] = {
+        entryId: 'contest_autoheal_u2_1',
+        contestId: 'contest_autoheal',
+        userId: 'u2',
+        displayName: 'New Player',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' }
+        ]
+      };
+
+      await updateGridironLeaderboard('contest_autoheal');
+
+      // Check that contest.participants now includes u2
+      const contestDoc = mockStore.gridiron_3x3_contests['contest_autoheal'];
+      expect(contestDoc.participants).toContain('u1');
+      expect(contestDoc.participants).toContain('u2');
+
+      // Check that leaderboard was created for u2
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_autoheal/leaderboard']?.['u2'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.displayName).toBe('New Player');
+      expect(lbDoc.totalWins).toBe(1);
+    });
   });
 });

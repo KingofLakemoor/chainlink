@@ -42,6 +42,7 @@ export interface GridironContest {
   weekNumber: number;
   participants: string[]; // userIds
   createdAt?: number;
+  isPublic?: boolean;
   logoUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;

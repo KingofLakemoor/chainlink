@@ -581,4 +581,8 @@ export async function updateGridironLeaderboard(contestId: string) {
   if (hasWrites) {
     await batch.commit();
   }
+
+  const leaderboardRecords = Array.from(userStatsMap.values());
+  leaderboardRecords.sort((a, b) => (b.winPercentage - a.winPercentage) || (b.totalWins - a.totalWins));
+  return leaderboardRecords;
 }

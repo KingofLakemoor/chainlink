@@ -13,23 +13,21 @@ import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export const isTiebreakerEnabledForCampaign = (campaign: any): boolean => {
   if (!campaign) return false;
-  if (campaign.id === 'aUqhDhT3vKWfkPgSAVzf') return true;
-  return campaign.useTiebreaker === true || campaign.useTiebreaker === 'true';
+  // Tiebreakers are disabled for YES Day campaign and for the current season
+  return false;
 };
 
 export const getWeekTiebreakerMatchup = (campaign: any, weekMatchups: any[]): any | null => {
   if (!weekMatchups || weekMatchups.length === 0) return null;
+  if (!isTiebreakerEnabledForCampaign(campaign)) return null;
   const explicit = weekMatchups.find((m: any) => m.isTiebreaker === true || m.isTiebreaker === 'true');
   if (explicit) return explicit;
-  if (isTiebreakerEnabledForCampaign(campaign)) {
-    const sorted = [...weekMatchups].sort((a: any, b: any) => {
-      const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
-      const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
-      return timeA - timeB;
-    });
-    return sorted[sorted.length - 1] || null;
-  }
-  return null;
+  const sorted = [...weekMatchups].sort((a: any, b: any) => {
+    const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
+    const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+    return timeA - timeB;
+  });
+  return sorted[sorted.length - 1] || null;
 };
 
 export default function PickEmPage() {
@@ -1198,9 +1196,11 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 {(() => {
-                  const showTiebreakerCol = leaderboardView === 'week'
-                    ? !!getWeekTiebreakerMatchup(selectedCampaign, matchups)
-                    : isTiebreakerEnabledForCampaign(selectedCampaign) || allCampaignMatchups.some((m: any) => m.isTiebreaker);
+                  const showTiebreakerCol = isTiebreakerEnabledForCampaign(selectedCampaign) && (
+                    leaderboardView === 'week'
+                      ? !!getWeekTiebreakerMatchup(selectedCampaign, matchups)
+                      : allCampaignMatchups.some((m: any) => m.isTiebreaker)
+                  );
 
                   return (
                     <>

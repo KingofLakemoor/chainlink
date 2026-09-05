@@ -1,6 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { scrapeLeagueSchedules, MATCHUP_FINAL_STATUSES } from './espnScraper.js';
-import { fetchAndStoreTuesdayGridironLines } from './gridironIngestion.js';
+import { fetchAndStoreTuesdayGridironLines, getFootballWeekDateRange } from './gridironIngestion.js';
 import { GridironEntry, GridironPick, GridironLeaderboardRecord } from '../types/gridiron.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
@@ -103,13 +103,15 @@ export async function gradeGridironWeek(
     snapshotGames.map((g: any) => [String(g.gameId), g])
   );
 
-  // Scrape live game scores (skip in unit tests to prevent network timeout)
+  const weekRange = getFootballWeekDateRange(season, weekNumber);
+
+  // Scrape live game scores across all dates in the active football week
   let liveGamesMap = new Map<string, { homeScore: number; awayScore: number; status: string }>();
   if (process.env.NODE_ENV !== 'test') {
     try {
       const [nflRes, cfbRes] = await Promise.all([
-        scrapeLeagueSchedules("NFL", true),
-        scrapeLeagueSchedules("CFB", true)
+        scrapeLeagueSchedules("NFL", true, undefined, weekRange.dateStrings),
+        scrapeLeagueSchedules("CFB", true, undefined, weekRange.dateStrings)
       ]);
 
       for (const g of [...(nflRes?.data || []), ...(cfbRes?.data || [])]) {
@@ -296,6 +298,38 @@ export async function gradeGridironWeek(
 
 if (options?.contestId) {
   affectedContestIds.add(options.contestId);
+}
+
+// Update snapshot games in gridiron_3x3_lines if live scores or game statuses changed
+let linesUpdated = false;
+const updatedSnapshotGames = snapshotGames.map((g: any) => {
+  const liveInfo = liveGamesMap.get(String(g.gameId)) || dbMatchupsMap.get(String(g.gameId));
+  if (liveInfo) {
+    const isFinal = isGameStatusFinal(liveInfo.status);
+    const newStatus = isFinal ? "final" : (liveInfo.status.includes("IN_PROGRESS") ? "in_progress" : g.status);
+    if (
+      g.status !== newStatus ||
+      g.homeTeam?.score !== liveInfo.homeScore ||
+      g.awayTeam?.score !== liveInfo.awayScore
+    ) {
+      linesUpdated = true;
+      return {
+        ...g,
+        status: newStatus,
+        homeTeam: { ...g.homeTeam, score: liveInfo.homeScore },
+        awayTeam: { ...g.awayTeam, score: liveInfo.awayScore }
+      };
+    }
+  }
+  return g;
+});
+
+if (linesUpdated) {
+  try {
+    await linesDocRef.update({ games: updatedSnapshotGames });
+  } catch (e) {
+    console.warn("[GridironGrader] Error updating snapshot lines scores:", e);
+  }
 }
 
 // Query all contests matching this season/week to guarantee leaderboards refresh

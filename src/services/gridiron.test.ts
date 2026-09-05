@@ -604,5 +604,67 @@ describe('Gridiron Service Tests', () => {
       const lbDocAfter = mockStore['gridiron_3x3_contests/contest_1/leaderboard']['u1'];
       expect(lbDocAfter).toEqual(lbDocBefore);
     });
+
+    it('updates snapshot lines in gridiron_3x3_lines and recalculates leaderboard mid-week when games finish', async () => {
+      mockStore.matchups = {
+        'cfb_midweek': {
+          gameId: 'cfb_midweek',
+          homeTeam: { score: 10 },
+          awayTeam: { score: 35 },
+          status: 'STATUS_FINAL'
+        }
+      };
+
+      mockStore.gridiron_3x3_lines['2026_week_01'] = {
+        season: 2026,
+        weekNumber: 1,
+        games: [
+          { gameId: 'cfb_midweek', league: 'CFB', awayTeam: { name: 'EAGLES', score: 0 }, homeTeam: { name: 'SPARTANS', score: 0 }, status: 'scheduled', spread: { awaySpread: -3.0, homeSpread: 3.0 }, total: { line: 50.0 } },
+          { gameId: 'nfl_sunday', league: 'NFL', awayTeam: { name: 'CHIEFS' }, homeTeam: { name: 'BRONCOS' }, status: 'scheduled', spread: { awaySpread: -6.0, homeSpread: 6.0 }, total: { line: 45.0 } }
+        ]
+      };
+
+      mockStore.gridiron_3x3_contests['contest_midweek'] = {
+        contestId: 'contest_midweek',
+        name: 'Midweek Contest',
+        participants: ['u_midweek']
+      };
+
+      mockStore.gridiron_3x3_entries['contest_midweek_u1'] = {
+        entryId: 'contest_midweek_u1',
+        contestId: 'contest_midweek',
+        userId: 'u_midweek',
+        displayName: 'DavidWilliamson',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'cfb_midweek', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: 3.0, kickoffTime: Date.now() - 3600000, status: 'pending' },
+          { gameId: 'nfl_sunday', league: 'NFL', pickType: 'spread', selection: 'away_spread', value: -6.0, kickoffTime: Date.now() + 86400000, status: 'pending' }
+        ]
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_midweek' });
+      expect(res.success).toBe(true);
+
+      // Verify gridiron_3x3_lines snapshot game was updated with final score & status
+      const updatedLines = mockStore.gridiron_3x3_lines['2026_week_01'];
+      expect(updatedLines.games[0].status).toBe('final');
+      expect(updatedLines.games[0].awayTeam.score).toBe(35);
+      expect(updatedLines.games[0].homeTeam.score).toBe(10);
+
+      // Verify pick status updated to lost (home team 10 + 3.0 = 13 < away team 35)
+      const updatedEntry = mockStore.gridiron_3x3_entries['contest_midweek_u1'];
+      expect(updatedEntry.picks[0].status).toBe('lost');
+      expect(updatedEntry.picks[1].status).toBe('pending');
+
+      // Verify leaderboard updated with 0 wins, 1 loss, 0% win percentage
+      const lbDoc = mockStore['gridiron_3x3_contests/contest_midweek/leaderboard']?.['u_midweek'];
+      expect(lbDoc).toBeDefined();
+      expect(lbDoc.displayName).toBe('DavidWilliamson');
+      expect(lbDoc.totalWins).toBe(0);
+      expect(lbDoc.totalLosses).toBe(1);
+      expect(lbDoc.cfbLosses).toBe(1);
+      expect(lbDoc.winPercentage).toBe(0);
+    });
   });
 });

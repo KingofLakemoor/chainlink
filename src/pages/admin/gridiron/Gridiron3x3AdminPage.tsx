@@ -19,10 +19,12 @@ export default function Gridiron3x3AdminPage() {
   // White label editing state
   const [editingContest, setEditingContest] = useState<GridironContest | null>(null);
   const [editName, setEditName] = useState('');
+  const [editIsPublic, setEditIsPublic] = useState(false);
   const [editLogoUrl, setEditLogoUrl] = useState('');
   const [editPrimaryColor, setEditPrimaryColor] = useState('#22c55e');
   const [editSecondaryColor, setEditSecondaryColor] = useState('#06b6d4');
   const [isSavingContest, setIsSavingContest] = useState(false);
+  const [deletingContestId, setDeletingContestId] = useState<string | null>(null);
 
   const [loadingLines, setLoadingLines] = useState(false);
   const [loadingContests, setLoadingContests] = useState(false);
@@ -147,6 +149,7 @@ export default function Gridiron3x3AdminPage() {
   const handleOpenEditContest = (c: GridironContest) => {
     setEditingContest(c);
     setEditName(c.name || '');
+    setEditIsPublic(!!c.isPublic);
     setEditLogoUrl(c.logoUrl || '');
     setEditPrimaryColor(c.primaryColor || '#22c55e');
     setEditSecondaryColor(c.secondaryColor || '#06b6d4');
@@ -169,6 +172,7 @@ export default function Gridiron3x3AdminPage() {
         body: JSON.stringify({
           contestId: editingContest.contestId,
           name: editName,
+          isPublic: editIsPublic,
           logoUrl: editLogoUrl,
           primaryColor: editPrimaryColor,
           secondaryColor: editSecondaryColor
@@ -187,6 +191,34 @@ export default function Gridiron3x3AdminPage() {
       setStatusMessage({ type: 'error', text: err.message || 'Error updating group.' });
     } finally {
       setIsSavingContest(false);
+    }
+  };
+
+  const handleDeleteContest = async (contestId: string) => {
+    setStatusMessage(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/gridiron-3x3/delete-contest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ contestId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStatusMessage({ type: 'success', text: 'Contest group deleted successfully.' });
+        setDeletingContestId(null);
+        if (selectedContestId === contestId) {
+          setSelectedContestId(null);
+        }
+        await fetchContests();
+      } else {
+        setStatusMessage({ type: 'error', text: data.error || 'Failed to delete contest.' });
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || 'Error deleting contest.' });
     }
   };
 
@@ -515,6 +547,14 @@ export default function Gridiron3x3AdminPage() {
                       </Button>
                       <Button
                         size="sm"
+                        variant="ghost"
+                        onClick={() => setDeletingContestId(c.contestId)}
+                        className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                      >
+                        Delete
+                      </Button>
+                      <Button
+                        size="sm"
                         onClick={() => {
                           setSelectedContestId(c.contestId);
                           if (c.season) setSeason(c.season);
@@ -552,6 +592,19 @@ export default function Gridiron3x3AdminPage() {
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
                   required
                 />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="editIsPublicCheck"
+                  checked={editIsPublic}
+                  onChange={(e) => setEditIsPublic(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-[#22c55e] focus:ring-[#22c55e]"
+                />
+                <label htmlFor="editIsPublicCheck" className="text-xs font-semibold text-zinc-300 cursor-pointer">
+                  Public Group (Visible to all users)
+                </label>
               </div>
 
               <div>
@@ -600,6 +653,26 @@ export default function Gridiron3x3AdminPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingContestId && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 max-w-md w-full space-y-4">
+            <h3 className="text-lg font-bold text-red-400 flex items-center gap-2">
+              Delete Gridiron Group?
+            </h3>
+            <p className="text-xs text-zinc-300">
+              Are you sure you want to delete this group? This action will permanently remove all leaderboard standings and submitted user entries for this contest.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setDeletingContestId(null)}>Cancel</Button>
+              <Button onClick={() => handleDeleteContest(deletingContestId)} className="bg-red-600 hover:bg-red-500 font-bold">
+                Confirm Delete
+              </Button>
+            </div>
           </div>
         </div>
       )}

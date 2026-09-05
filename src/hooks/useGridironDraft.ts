@@ -13,9 +13,7 @@ export function useGridironDraft(
   }, [initialPicks]);
 
   useEffect(() => {
-    if (initialPicks && initialPicks.length > 0) {
-      setPicks(initialPicks);
-    }
+    setPicks(initialPicks || []);
   }, [initialKey]);
 
   const nflCount = useMemo(() => picks.filter(p => p.league === "NFL").length, [picks]);

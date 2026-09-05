@@ -2965,7 +2965,6 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       snapshotGames.map((g: any) => [g.gameId, g])
     );
 
-    const now = Date.now();
     const entryId = `${contestId}_${uid}_${weekNumber}`;
     const entryRef = adminDb.collection("gridiron_3x3_entries").doc(entryId);
     const existingEntryDoc = await entryRef.get();

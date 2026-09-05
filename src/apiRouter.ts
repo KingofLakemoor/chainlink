@@ -2814,6 +2814,37 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
   }
 });
 
+apiRouter.get("/gridiron-3x3/leaderboard/:contestId", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { contestId } = req.params;
+
+    if (!contestId) {
+      return res.status(400).json({ success: false, error: "Invalid contestId." });
+    }
+
+    const contestDoc = await adminDb.collection("gridiron_3x3_contests").doc(contestId).get();
+    if (!contestDoc.exists) {
+      return res.status(404).json({ success: false, error: "Contest not found." });
+    }
+
+    const participants: string[] = contestDoc.data()?.participants || [];
+    if (!participants.includes(uid)) {
+      return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
+    }
+
+    const season = contestDoc.data()?.season || 2026;
+    const weekNum = contestDoc.data()?.weekNumber || 1;
+    await gradeGridironWeek(season, weekNum, { contestId });
+    const leaderboard = (await updateGridironLeaderboard(contestId)) || [];
+
+    res.json({ success: true, leaderboard });
+  } catch (e: any) {
+    console.error("Fetch Gridiron 3x3 leaderboard error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;
@@ -2836,9 +2867,10 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
 
     // Grade week & refresh leaderboard for contest
     const season = contestDoc.data()?.season || 2026;
+    let leaderboard: any[] = [];
     try {
       await gradeGridironWeek(season, weekNum, { contestId });
-      await updateGridironLeaderboard(contestId);
+      leaderboard = (await updateGridironLeaderboard(contestId)) || [];
     } catch (e) {
       console.warn("[GridironEntries] Auto-grade on fetch entries error:", e);
     }
@@ -2904,7 +2936,7 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
       };
     });
 
-    res.json({ success: true, entries });
+    res.json({ success: true, entries, leaderboard });
   } catch (e: any) {
     console.error("Fetch Gridiron 3x3 entries error:", e);
     res.status(500).json({ success: false, error: e.message });

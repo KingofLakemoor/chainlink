@@ -113,9 +113,30 @@ export default function Gridiron3x3Page() {
       if (res.ok) {
         const data = await res.json();
         setEntries(data.entries || []);
+        if (Array.isArray(data.leaderboard) && data.leaderboard.length > 0) {
+          setLeaderboard(data.leaderboard);
+        }
       }
     } catch (e) {
       console.error('Error fetching entries:', e);
+    }
+  };
+
+  // Fetch calculated standings / leaderboard directly from REST API endpoint
+  const fetchLeaderboard = async () => {
+    if (!user || !selectedContest) return;
+    try {
+      const res = await fetch(`/api/gridiron-3x3/leaderboard/${selectedContest.contestId}`, {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.leaderboard)) {
+          setLeaderboard(data.leaderboard);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching leaderboard:', e);
     }
   };
 
@@ -129,12 +150,14 @@ export default function Gridiron3x3Page() {
     if (selectedContest) {
       fetchLines();
       fetchEntries();
+      fetchLeaderboard();
     }
   }, [selectedContest, season, weekNumber]);
 
   useEffect(() => {
     if (selectedContest && (activeTab === 'leaderboard' || activeTab === 'group')) {
       fetchEntries();
+      fetchLeaderboard();
     }
   }, [activeTab]);
 

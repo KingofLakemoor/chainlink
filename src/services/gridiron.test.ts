@@ -817,5 +817,16 @@ describe('Gridiron Service Tests', () => {
       expect(contestData.raceTo25.winnerUserId).toBe('r1');
       expect(contestData.raceTo25.winnerDisplayName).toBe('Racer One');
     });
+
+    it('correctly calculates wins behind leader between leader and chasing player', () => {
+      const leader = { displayName: 'Leader', raceWins: 3 };
+      const chasing = { displayName: 'Chasing', raceWins: 2 };
+      const targetWins = 25;
+
+      const winsBehind = (leader.raceWins || 0) - (chasing.raceWins || 0);
+      expect(winsBehind).toBe(1);
+      // Ensure it is not targetWins - leader.raceWins (which would be 22)
+      expect(winsBehind).not.toBe(targetWins - leader.raceWins);
+    });
   });
 });

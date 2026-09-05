@@ -1089,12 +1089,17 @@ export default function Gridiron3x3Page() {
                       />
                     </div>
 
-                    {runnerUp && (
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-zinc-800">
-                        <span>Chasing: <strong className="text-zinc-200">{runnerUp.displayName}</strong></span>
-                        <span className="font-mono text-zinc-300">{runnerUp.raceWins || 0} Wins ({targetWins - (raceLeader.raceWins || 0)} wins behind leader)</span>
-                      </div>
-                    )}
+                    {runnerUp && (() => {
+                      const winsBehind = (raceLeader.raceWins || 0) - (runnerUp.raceWins || 0);
+                      return (
+                        <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-zinc-800">
+                          <span>Chasing: <strong className="text-zinc-200">{runnerUp.displayName}</strong></span>
+                          <span className="font-mono text-zinc-300">
+                            {runnerUp.raceWins || 0} Wins ({winsBehind} {winsBehind === 1 ? 'win' : 'wins'} behind leader)
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : null}
               </div>

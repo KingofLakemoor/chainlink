@@ -16,13 +16,17 @@ export default function Gridiron3x3AdminPage() {
   const [selectedContestId, setSelectedContestId] = useState<string | null>(null);
   const [entries, setEntries] = useState<GridironEntry[]>([]);
 
-  // White label editing state
+  // White label & Race to 25 editing state
   const [editingContest, setEditingContest] = useState<GridironContest | null>(null);
   const [editName, setEditName] = useState('');
   const [editIsPublic, setEditIsPublic] = useState(false);
   const [editLogoUrl, setEditLogoUrl] = useState('');
   const [editPrimaryColor, setEditPrimaryColor] = useState('#22c55e');
   const [editSecondaryColor, setEditSecondaryColor] = useState('#06b6d4');
+  const [editRaceActive, setEditRaceActive] = useState(false);
+  const [editRaceStartWeek, setEditRaceStartWeek] = useState(1);
+  const [editRaceTargetWins, setEditRaceStartTargetWins] = useState(25);
+  const [editResetRaceWinner, setEditResetRaceWinner] = useState(false);
   const [isSavingContest, setIsSavingContest] = useState(false);
   const [deletingContestId, setDeletingContestId] = useState<string | null>(null);
 
@@ -153,6 +157,10 @@ export default function Gridiron3x3AdminPage() {
     setEditLogoUrl(c.logoUrl || '');
     setEditPrimaryColor(c.primaryColor || '#22c55e');
     setEditSecondaryColor(c.secondaryColor || '#06b6d4');
+    setEditRaceActive(!!c.raceTo25?.active);
+    setEditRaceStartWeek(c.raceTo25?.startWeek || c.weekNumber || 1);
+    setEditRaceStartTargetWins(c.raceTo25?.targetWins || 25);
+    setEditResetRaceWinner(false);
   };
 
   const handleSaveContest = async (e: React.FormEvent) => {
@@ -175,7 +183,13 @@ export default function Gridiron3x3AdminPage() {
           isPublic: editIsPublic,
           logoUrl: editLogoUrl,
           primaryColor: editPrimaryColor,
-          secondaryColor: editSecondaryColor
+          secondaryColor: editSecondaryColor,
+          raceTo25: {
+            active: editRaceActive,
+            startWeek: editRaceStartWeek,
+            targetWins: editRaceTargetWins,
+            resetWinner: editResetRaceWinner
+          }
         })
       });
 
@@ -644,6 +658,65 @@ export default function Gridiron3x3AdminPage() {
                     <span className="text-xs font-mono text-zinc-300">{editSecondaryColor}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Race to 25 Wins Side Pot Controls */}
+              <div className="border-t border-zinc-800 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="editRaceActiveCheck" className="text-xs font-bold text-amber-400 cursor-pointer flex items-center gap-1.5">
+                    <Trophy className="w-4 h-4 text-amber-400" /> Race to 25 Wins Side Pot
+                  </label>
+                  <input
+                    type="checkbox"
+                    id="editRaceActiveCheck"
+                    checked={editRaceActive}
+                    onChange={(e) => setEditRaceActive(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                  />
+                </div>
+
+                {editRaceActive && (
+                  <div className="bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-400 mb-1">Start Tracking From Week</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={editRaceStartWeek}
+                          onChange={(e) => setEditRaceStartWeek(parseInt(e.target.value, 10) || 1)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-400 mb-1">Target Wins Goal</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={editRaceTargetWins}
+                          onChange={(e) => setEditRaceStartTargetWins(parseInt(e.target.value, 10) || 25)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
+                      <input
+                        type="checkbox"
+                        id="editResetWinnerCheck"
+                        checked={editResetRaceWinner}
+                        onChange={(e) => setEditResetRaceWinner(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-amber-500"
+                      />
+                      <label htmlFor="editResetWinnerCheck" className="text-[11px] text-zinc-300 font-semibold cursor-pointer">
+                        Start New Race (Reset previous winner & count fresh wins)
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

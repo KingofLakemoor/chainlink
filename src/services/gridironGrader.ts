@@ -486,6 +486,7 @@ export async function updateGridironLeaderboard(contestId: string) {
     userStatsMap.set(uid, {
       userId: uid,
       displayName: displayNameMap.get(uid) || "Player",
+      points: 0,
       totalWins: 0,
       totalLosses: 0,
       totalPushes: 0,
@@ -507,6 +508,7 @@ export async function updateGridironLeaderboard(contestId: string) {
       userStatsMap.set(uid, {
         userId: uid,
         displayName: entry.displayName || displayNameMap.get(uid) || "Player",
+        points: 0,
         totalWins: 0,
         totalLosses: 0,
         totalPushes: 0,
@@ -545,6 +547,72 @@ export async function updateGridironLeaderboard(contestId: string) {
     }
   }
 
+  // Race to 25 settings evaluation
+  const raceSettings = contestData?.raceTo25;
+  const isRaceActive = !!raceSettings?.active;
+  const raceStartWeek = raceSettings?.startWeek || 1;
+  const raceTargetWins = raceSettings?.targetWins || 25;
+
+  // Calculate raceWins if race is active
+  const userRaceWinsMap = new Map<string, number>();
+  if (isRaceActive) {
+    for (const entry of allContestEntries) {
+      if ((entry.weekNumber || 1) >= raceStartWeek) {
+        const uid = entry.userId;
+        if (!uid) continue;
+        let count = userRaceWinsMap.get(uid) || 0;
+        for (const p of entry.picks || []) {
+          const stLower = p.status?.toLowerCase();
+          if (stLower === "won" || stLower === "win") {
+            count++;
+          }
+        }
+        userRaceWinsMap.set(uid, count);
+      }
+    }
+  }
+
+  let newlyFoundWinner: { uid: string; displayName: string; week: number } | null = null;
+
+  for (const [uid, rec] of userStatsMap.entries()) {
+    // Definitive scoring: 1 point for a win, 0.5 points for a tie (push)
+    rec.points = parseFloat((rec.totalWins * 1.0 + rec.totalPushes * 0.5).toFixed(1));
+
+    const decided = rec.totalWins + rec.totalLosses;
+    rec.winPercentage = decided > 0 ? parseFloat(((rec.totalWins / decided) * 100).toFixed(1)) : 0;
+
+    if (isRaceActive) {
+      rec.raceWins = userRaceWinsMap.get(uid) || 0;
+      if (rec.raceWins >= raceTargetWins && !raceSettings.winnerUserId) {
+        if (!newlyFoundWinner || rec.raceWins > (userRaceWinsMap.get(newlyFoundWinner.uid) || 0)) {
+          newlyFoundWinner = {
+            uid: rec.userId,
+            displayName: rec.displayName,
+            week: contestData.weekNumber || 1
+          };
+        }
+      }
+    } else if ('raceWins' in rec) {
+      delete rec.raceWins;
+    }
+  }
+
+  if (newlyFoundWinner && !raceSettings?.winnerUserId) {
+    try {
+      const contestRef = adminDb.collection("gridiron_3x3_contests").doc(contestId);
+      await contestRef.update({
+        raceTo25: {
+          ...raceSettings,
+          winnerUserId: newlyFoundWinner.uid,
+          winnerDisplayName: newlyFoundWinner.displayName,
+          winnerWeek: newlyFoundWinner.week
+        }
+      });
+    } catch (e) {
+      console.warn("[GridironLeaderboard] Error recording race winner:", e);
+    }
+  }
+
   // 3. Fetch existing leaderboard records to skip unnecessary Firestore writes if stats haven't changed
   const existingLbSnap = await adminDb.collection("gridiron_3x3_contests").doc(contestId).collection("leaderboard").get();
   const existingLbMap = new Map<string, any>();
@@ -554,12 +622,10 @@ export async function updateGridironLeaderboard(contestId: string) {
   let hasWrites = false;
 
   for (const [uid, rec] of userStatsMap.entries()) {
-    const decided = rec.totalWins + rec.totalLosses;
-    rec.winPercentage = decided > 0 ? parseFloat(((rec.totalWins / decided) * 100).toFixed(1)) : 0;
-
     const existing = existingLbMap.get(uid);
     const isUnchanged = existing &&
       existing.displayName === rec.displayName &&
+      existing.points === rec.points &&
       existing.totalWins === rec.totalWins &&
       existing.totalLosses === rec.totalLosses &&
       existing.totalPushes === rec.totalPushes &&
@@ -569,7 +635,8 @@ export async function updateGridironLeaderboard(contestId: string) {
       existing.cfbWins === rec.cfbWins &&
       existing.cfbLosses === rec.cfbLosses &&
       existing.cfbPushes === rec.cfbPushes &&
-      existing.winPercentage === rec.winPercentage;
+      existing.winPercentage === rec.winPercentage &&
+      existing.raceWins === rec.raceWins;
 
     if (!isUnchanged) {
       const lbRef = adminDb.collection("gridiron_3x3_contests").doc(contestId).collection("leaderboard").doc(uid);
@@ -583,6 +650,7 @@ export async function updateGridironLeaderboard(contestId: string) {
   }
 
   const leaderboardRecords = Array.from(userStatsMap.values());
-  leaderboardRecords.sort((a, b) => (b.winPercentage - a.winPercentage) || (b.totalWins - a.totalWins));
+  // Definitive standings order: Points descending, then total wins descending (tiebreaker), then win percentage descending
+  leaderboardRecords.sort((a, b) => (b.points - a.points) || (b.totalWins - a.totalWins) || (b.winPercentage - a.winPercentage));
   return leaderboardRecords;
 }

@@ -749,19 +749,21 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(clearedMatchupId).toBe('m-tb-2');
   });
 
-  it('enables tiebreaker for campaign aUqhDhT3vKWfkPgSAVzf and campaigns with useTiebreaker: true', () => {
+  it('disables tiebreakers for YES Day campaign and for all campaigns for the current season', () => {
     const campaignA = { id: 'aUqhDhT3vKWfkPgSAVzf', name: 'Campaign A' };
     const campaignB = { id: 'other-camp', useTiebreaker: true };
     const campaignC = { id: 'other-camp-2', useTiebreaker: 'true' };
     const campaignD = { id: 'other-camp-3', useTiebreaker: false };
+    const yesDayCampaign = { id: 'charity', name: 'YES Day Walk for Autism 2026', isCharity: true };
 
-    expect(isTiebreakerEnabledForCampaign(campaignA)).toBe(true);
-    expect(isTiebreakerEnabledForCampaign(campaignB)).toBe(true);
-    expect(isTiebreakerEnabledForCampaign(campaignC)).toBe(true);
+    expect(isTiebreakerEnabledForCampaign(campaignA)).toBe(false);
+    expect(isTiebreakerEnabledForCampaign(campaignB)).toBe(false);
+    expect(isTiebreakerEnabledForCampaign(campaignC)).toBe(false);
     expect(isTiebreakerEnabledForCampaign(campaignD)).toBe(false);
+    expect(isTiebreakerEnabledForCampaign(yesDayCampaign)).toBe(false);
   });
 
-  it('determines week tiebreaker matchup correctly using explicit flag or fallback to last game of week', () => {
+  it('returns null for getWeekTiebreakerMatchup when tiebreakers are disabled', () => {
     const campaignA = { id: 'aUqhDhT3vKWfkPgSAVzf' };
     const weekMatchups = [
       { id: 'm1', startTime: 1000 },
@@ -769,18 +771,16 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
       { id: 'm3', startTime: 2000 }
     ];
 
-    // Fallback to last chronological matchup (m2 with startTime 3000)
     const tbMatchup = getWeekTiebreakerMatchup(campaignA, weekMatchups);
-    expect(tbMatchup?.id).toBe('m2');
+    expect(tbMatchup).toBeNull();
 
-    // Explicit flag takes priority if set
     const weekMatchupsWithExplicit = [
       { id: 'm1', startTime: 1000 },
       { id: 'm2', startTime: 3000 },
       { id: 'm3', startTime: 2000, isTiebreaker: true }
     ];
     const explicitTb = getWeekTiebreakerMatchup(campaignA, weekMatchupsWithExplicit);
-    expect(explicitTb?.id).toBe('m3');
+    expect(explicitTb).toBeNull();
   });
 
   it('allows participants to edit tiebreaker selection until game kickoff time', () => {

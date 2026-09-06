@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { gradeSingleMatchup, setAdminDbMock as setGraderAdminDbMock } from './grader';
 import { gradeSinglePickemMatchup, setAdminDbMock as setPickemAdminDbMock } from './pickemGrader';
+import { updateAllProps, setAdminDbMock as setPropAdminDbMock } from './propGrader';
 
 describe('Solo Over/Under Prop Grading Tests', () => {
   let mockAdminDb: any;
@@ -143,5 +144,108 @@ describe('Solo Over/Under Prop Grading Tests', () => {
     await gradeSinglePickemMatchup(matchup);
 
     expect(mockAdminDb.collection).toHaveBeenCalledWith('pickemPicks');
+  });
+});
+
+describe('Player Prop Scheduled Status Tests', () => {
+  it('updateAllProps preserves STATUS_SCHEDULED when parent game is scheduled and startTime is in future', async () => {
+    const futureTime = Date.now() + 30 * 60 * 1000;
+    const propDocData = {
+      gameId: 'prop_1',
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: futureTime,
+      awayTeam: { id: 'over', score: 0 },
+      homeTeam: { id: 'under', score: 0 },
+      metadata: {
+        isPropMatchup: true,
+        isSoloProp: true,
+        optionA: {
+          league: 'CFB',
+          gameId: 'parent_game_123',
+          playerId: '999',
+          statType: 'PASSING_TOUCHDOWNS'
+        }
+      }
+    };
+
+    const parentGameData = {
+      gameId: 'parent_game_123',
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: futureTime
+    };
+
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const mockDb = {
+      collection: (coll: string) => {
+        if (coll === 'matchups') {
+          return {
+            where: () => ({
+              where: () => ({
+                get: async () => ({
+                  docs: [
+                    {
+                      id: 'prop_1',
+                      data: () => propDocData,
+                      ref: { id: 'prop_1' }
+                    }
+                  ]
+                })
+              })
+            }),
+            doc: (docId: string) => ({
+              get: async () => {
+                if (docId === 'parent_game_123') {
+                  return { exists: true, data: () => parentGameData };
+                }
+                return { exists: false };
+              }
+            })
+          };
+        }
+        return {};
+      },
+      batch: () => batchSpy
+    };
+
+    setPropAdminDbMock(mockDb);
+
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        boxscore: {
+          players: [
+            {
+              statistics: [
+                {
+                  name: 'passing',
+                  labels: ['TD'],
+                  athletes: [{ athlete: { id: '999' }, stats: ['0'] }]
+                }
+              ]
+            }
+          ]
+        }
+      })
+    } as any);
+
+    try {
+      await updateAllProps();
+
+      if (updateSpy.mock.calls.length > 0) {
+        const updateArgs = updateSpy.mock.calls[0][1];
+        expect(updateArgs.status).not.toBe('STATUS_IN_PROGRESS');
+        expect(updateArgs.status).toBe('STATUS_SCHEDULED');
+      }
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

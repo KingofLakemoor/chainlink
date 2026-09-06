@@ -196,8 +196,11 @@ export async function fetchPlayerStat(config: PropAthleteConfig, timeframe: Prop
 
 
 
+let getAdminDb = () => firebaseAdmin.adminDb;
+export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
+
 export async function updateAllProps() {
-    const adminDb = firebaseAdmin.adminDb;
+    const adminDb = getAdminDb();
     if (!adminDb) return;
     
     try {
@@ -261,7 +264,11 @@ export async function updateAllProps() {
                 if (isAFinal && isBFinal) {
                     newStatus = 'STATUS_FINAL';
                     statusDesc = 'Final';
-                } else {
+                } else if (statusA.status === 'STATUS_POSTPONED' || statusB.status === 'STATUS_POSTPONED') {
+                    newStatus = 'STATUS_POSTPONED';
+                    statusDesc = 'Postponed';
+                } else if (statusA.status === 'STATUS_IN_PROGRESS' || statusB.status === 'STATUS_IN_PROGRESS' || (m.startTime && Date.now() >= m.startTime)) {
+                    newStatus = 'STATUS_IN_PROGRESS';
                     if (!m.metadata.optionB || m.metadata.optionA.gameId === m.metadata.optionB.gameId) {
                          statusDesc = statusA.detail || 'In Progress';
                     } else {
@@ -279,6 +286,9 @@ export async function updateAllProps() {
                          }
                          statusDesc = farthest.detail || 'In Progress';
                     }
+                } else {
+                    newStatus = 'STATUS_SCHEDULED';
+                    statusDesc = m.statusDesc && m.statusDesc !== 'In Progress' && m.statusDesc !== 'Final' ? m.statusDesc : 'Upcoming';
                 }
                 
                 const updateData: any = {
@@ -421,9 +431,19 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig, timefram
         }
         
         if (data) {
+            let status = 'STATUS_SCHEDULED';
+            if (data.status === 'STATUS_FINAL') {
+                status = 'STATUS_FINAL';
+            } else if (data.status === 'STATUS_IN_PROGRESS') {
+                status = 'STATUS_IN_PROGRESS';
+            } else if (data.status === 'STATUS_POSTPONED' || data.status === 'STATUS_CANCELED') {
+                status = 'STATUS_POSTPONED';
+            } else if (data.startTime && Date.now() >= data.startTime) {
+                status = 'STATUS_IN_PROGRESS';
+            }
             return {
-                status: data.status === 'STATUS_FINAL' ? 'STATUS_FINAL' : 'STATUS_IN_PROGRESS',
-                detail: data.statusDesc || 'In Progress',
+                status,
+                detail: data.statusDesc || (status === 'STATUS_FINAL' ? 'Final' : (status === 'STATUS_IN_PROGRESS' ? 'In Progress' : 'Scheduled')),
                 period: data.metadata?.period || 0
             };
         }
@@ -461,14 +481,23 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig, timefram
         }
 
         const statusObj = data?.header?.competitions?.[0]?.status;
-        const rawStatus = statusObj?.type?.name;
-        if (rawStatus === 'STATUS_FINAL') return { status: 'STATUS_FINAL', detail: statusObj?.type?.detail || 'Final' };
-        return { 
-           status: 'STATUS_IN_PROGRESS', 
-           detail: statusObj?.type?.shortDetail || statusObj?.type?.detail,
-           period: statusObj?.period
-        };
+        const rawStatus = statusObj?.type?.name || '';
+        const state = statusObj?.type?.state;
+        if (rawStatus.includes('FINAL') || state === 'post') {
+            return { status: 'STATUS_FINAL', detail: statusObj?.type?.detail || 'Final' };
+        }
+        if (rawStatus.includes('POSTPONED') || rawStatus.includes('CANCELED')) {
+            return { status: 'STATUS_POSTPONED', detail: statusObj?.type?.detail || 'Postponed' };
+        }
+        if (rawStatus.includes('IN_PROGRESS') || rawStatus === 'STATUS_HALFTIME' || state === 'in') {
+            return {
+               status: 'STATUS_IN_PROGRESS',
+               detail: statusObj?.type?.shortDetail || statusObj?.type?.detail || 'In Progress',
+               period: statusObj?.period
+            };
+        }
+        return { status: 'STATUS_SCHEDULED', detail: 'Scheduled' };
     } catch {
-        return { status: 'STATUS_IN_PROGRESS' };
+        return { status: 'STATUS_SCHEDULED' };
     }
 }

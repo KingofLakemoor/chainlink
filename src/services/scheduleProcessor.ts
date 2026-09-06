@@ -696,6 +696,8 @@ export async function syncLeagueSchedules(
 
             if (hasPicks) {
               finalActive = true;
+            } else if (existingData.manuallyActivated) {
+              finalActive = true;
             } else if (existingData.active && !scraperActive) {
               if (thirdPartyLeagues.includes(scrapedMatchup.league) || hasValidMlOdds) {
                 finalActive = true;
@@ -719,7 +721,7 @@ export async function syncLeagueSchedules(
             }
           }
 
-          if (hasPicks && newStatus !== 'STATUS_FINAL' && newStatus !== 'STATUS_POSTPONED') {
+          if ((hasPicks || existingData.manuallyActivated) && newStatus !== 'STATUS_FINAL' && newStatus !== 'STATUS_POSTPONED') {
             finalActive = true;
           } else if (newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
             finalActive = false;
@@ -808,6 +810,7 @@ export async function syncLeagueSchedules(
               league: updateData.league,
               type: updateData.type,
               active: updateData.active,
+              manuallyActivated: updateData.manuallyActivated,
               status: updateData.status,
               statusDesc: updateData.statusDesc,
               startTime: updateData.startTime,

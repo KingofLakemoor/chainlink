@@ -59,6 +59,7 @@ export default function CreateMatchupPage() {
         cost: Number(formData.cost),
         startTime: new Date(formData.startTime).getTime(),
         active: formData.active,
+        manuallyActivated: formData.active,
         featured: formData.featured,
         featuredType: formData.featured ? formData.featuredType : '',
         status: formData.status,

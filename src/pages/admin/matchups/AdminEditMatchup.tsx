@@ -88,6 +88,9 @@ export function AdminEditMatchup() {
   const handleChange = (field: string, value: any) => {
     setMatchup((prev: any) => {
         const newData = { ...prev };
+        if (field === 'active') {
+            newData.manuallyActivated = value;
+        }
         const keys = field.split('.');
         let current = newData;
         for (let i = 0; i < keys.length - 1; i++) {

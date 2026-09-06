@@ -107,11 +107,13 @@ export function AdminMatchups() {
 
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
+      const nextActive = !currentActive;
       await updateDoc(doc(db, 'matchups', id), {
-        active: !currentActive,
+        active: nextActive,
+        manuallyActivated: nextActive,
         updatedAt: Date.now()
       });
-      setData(prev => prev.map(m => m.id === id ? { ...m, active: !currentActive } : m));
+      setData(prev => prev.map(m => m.id === id ? { ...m, active: nextActive, manuallyActivated: nextActive } : m));
     } catch (e) {
       console.error("Error toggling active status", e);
       alert("Failed to toggle active status");

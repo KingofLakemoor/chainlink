@@ -262,43 +262,17 @@ export const MatchupCard = React.memo(function MatchupCard({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start gap-2">
-                  <div className="flex flex-col items-center gap-1.5 w-auto min-w-[3rem] sm:min-w-[4rem]">
-                    <div className={cn("w-full h-10 px-1 sm:px-2 rounded flex items-center justify-center font-mono font-bold text-sm sm:text-lg shadow-inner relative overflow-hidden gap-1 sm:gap-2",
-                      m.status === 'STATUS_IN_PROGRESS' ? "bg-[#27272a] text-white ring-1 ring-zinc-700" : "bg-[#1a1a1a]",
-                      (m.metadata?.lowerScoreWins ? m.awayTeam.score < m.homeTeam.score : m.awayTeam.score > m.homeTeam.score) ? "text-zinc-100" : (m.status === 'STATUS_IN_PROGRESS' ? "text-zinc-200" : "text-zinc-500")
-                    )}>
-                       {(m.metadata?.lowerScoreWins ? m.awayTeam.score < m.homeTeam.score : m.awayTeam.score > m.homeTeam.score) && <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-yellow-300"></div>}
-                       {(m.league === 'ATP' || m.league === 'WTA') && m.metadata?.awayLinescores && m.metadata.awayLinescores.length > 0 ? (
-                         m.metadata.awayLinescores.map((score: number, i: number) => (
-                           <React.Fragment key={i}>
-                             {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
-                             <span>{isNaN(Number(score)) ? 0 : String(score)}</span>
-                           </React.Fragment>
-                         ))
-                       ) : (
-                         (typeof m.awayTeam.score === "number" && !isNaN(m.awayTeam.score) ? String(m.awayTeam.score) : 0)
-                       )}
-                    </div>
-
-                    {/* Away Hot Bar */}
-                    {mCounts.total > 0 && (
-                      <div className="w-full flex flex-col items-center relative -mt-0.5">
-                        <div className="w-10 sm:w-12 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-end shadow-sm">
-                           <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${Math.max(awayHotPct, awayHotPct > 0 ? 5 : 0)}%` }}></div>
-                        </div>
-                        {awayHotPct >= 50 && (
-                           <div className="absolute top-2 w-full flex justify-center">
-                             <div className="text-[10px] font-bold text-red-500 flex items-center justify-center tracking-wider gap-0.5 drop-shadow-md">Hot <span className="text-xs">🔥</span></div>
-                           </div>
-                        )}
+                ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') && (m.metadata?.isSoloProp || m.metadata?.isSinglePlayerProp || m.homeTeam?.id === 'under')) ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-1.5 w-auto min-w-[3rem] sm:min-w-[4rem]">
+                      <div className={cn("w-full h-10 px-2 rounded flex items-center justify-center font-mono font-bold text-sm sm:text-lg shadow-inner relative overflow-hidden gap-1 text-zinc-100",
+                        m.status === 'STATUS_IN_PROGRESS' ? "bg-[#27272a] ring-1 ring-zinc-700" : "bg-[#1a1a1a]"
+                      )}>
+                         {typeof m.awayTeam.score === "number" && !isNaN(m.awayTeam.score) ? String(m.awayTeam.score) : 0}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-center justify-start min-w-[40px] pt-1">
+                    </div>
                     {m.status === 'STATUS_IN_PROGRESS' && (
-                      <>
+                      <div className="flex flex-col items-center justify-start min-w-[40px] pt-1">
                         <span className="relative flex h-2.5 w-2.5 mb-1">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
@@ -308,43 +282,94 @@ export const MatchupCard = React.memo(function MatchupCard({
                         ) : (
                           <span className="text-[9px] font-bold text-red-500 tracking-wider">LIVE</span>
                         )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-center gap-1.5 w-auto min-w-[3rem] sm:min-w-[4rem]">
-                    <div className={cn("w-full h-10 px-1 sm:px-2 rounded flex items-center justify-center font-mono font-bold text-sm sm:text-lg shadow-inner relative overflow-hidden gap-1 sm:gap-2",
-                      m.status === 'STATUS_IN_PROGRESS' ? "bg-[#27272a] text-white ring-1 ring-zinc-700" : "bg-[#1a1a1a]",
-                      (m.metadata?.lowerScoreWins ? m.homeTeam.score < m.awayTeam.score : m.homeTeam.score > m.awayTeam.score) ? "text-zinc-100" : (m.status === 'STATUS_IN_PROGRESS' ? "text-zinc-200" : "text-zinc-500")
-                    )}>
-                       {(m.metadata?.lowerScoreWins ? m.homeTeam.score < m.awayTeam.score : m.homeTeam.score > m.awayTeam.score) && <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-yellow-300"></div>}
-                       {(m.league === 'ATP' || m.league === 'WTA') && m.metadata?.homeLinescores && m.metadata.homeLinescores.length > 0 ? (
-                         m.metadata.homeLinescores.map((score: number, i: number) => (
-                           <React.Fragment key={i}>
-                             {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
-                             <span>{isNaN(Number(score)) ? 0 : String(score)}</span>
-                           </React.Fragment>
-                         ))
-                       ) : (
-                         (typeof m.homeTeam.score === "number" && !isNaN(m.homeTeam.score) ? String(m.homeTeam.score) : 0)
-                       )}
-                    </div>
-
-                    {/* Home Hot Bar */}
-                    {mCounts.total > 0 && (
-                      <div className="w-full flex flex-col items-center relative -mt-0.5">
-                        <div className="w-10 sm:w-12 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-start shadow-sm">
-                           <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(homeHotPct))} style={{ width: `${Math.max(homeHotPct, homeHotPct > 0 ? 5 : 0)}%` }}></div>
-                        </div>
-                        {homeHotPct >= 50 && (
-                           <div className="absolute top-2 w-full flex justify-center">
-                              <div className="text-[10px] font-bold text-red-500 flex items-center justify-center tracking-wider gap-0.5 drop-shadow-md">Hot <span className="text-xs">🔥</span></div>
-                           </div>
-                        )}
                       </div>
                     )}
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-start gap-2">
+                    <div className="flex flex-col items-center gap-1.5 w-auto min-w-[3rem] sm:min-w-[4rem]">
+                      <div className={cn("w-full h-10 px-1 sm:px-2 rounded flex items-center justify-center font-mono font-bold text-sm sm:text-lg shadow-inner relative overflow-hidden gap-1 sm:gap-2",
+                        m.status === 'STATUS_IN_PROGRESS' ? "bg-[#27272a] text-white ring-1 ring-zinc-700" : "bg-[#1a1a1a]",
+                        (m.type !== 'OVER_UNDER' && m.metadata?.propType !== 'OVER_UNDER' && (m.metadata?.lowerScoreWins ? m.awayTeam.score < m.homeTeam.score : m.awayTeam.score > m.homeTeam.score)) ? "text-zinc-100" : (m.status === 'STATUS_IN_PROGRESS' ? "text-zinc-200" : "text-zinc-500")
+                      )}>
+                         {(m.type !== 'OVER_UNDER' && m.metadata?.propType !== 'OVER_UNDER' && (m.metadata?.lowerScoreWins ? m.awayTeam.score < m.homeTeam.score : m.awayTeam.score > m.homeTeam.score)) && <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-yellow-300"></div>}
+                         {(m.league === 'ATP' || m.league === 'WTA') && m.metadata?.awayLinescores && m.metadata.awayLinescores.length > 0 ? (
+                           m.metadata.awayLinescores.map((score: number, i: number) => (
+                             <React.Fragment key={i}>
+                               {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
+                               <span>{isNaN(Number(score)) ? 0 : String(score)}</span>
+                             </React.Fragment>
+                           ))
+                         ) : (
+                           (typeof m.awayTeam.score === "number" && !isNaN(m.awayTeam.score) ? String(m.awayTeam.score) : 0)
+                         )}
+                      </div>
+
+                      {/* Away Hot Bar */}
+                      {mCounts.total > 0 && (
+                        <div className="w-full flex flex-col items-center relative -mt-0.5">
+                          <div className="w-10 sm:w-12 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-end shadow-sm">
+                             <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(awayHotPct))} style={{ width: `${Math.max(awayHotPct, awayHotPct > 0 ? 5 : 0)}%` }}></div>
+                          </div>
+                          {awayHotPct >= 50 && (
+                             <div className="absolute top-2 w-full flex justify-center">
+                               <div className="text-[10px] font-bold text-red-500 flex items-center justify-center tracking-wider gap-0.5 drop-shadow-md">Hot <span className="text-xs">🔥</span></div>
+                             </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-center justify-start min-w-[40px] pt-1">
+                      {m.status === 'STATUS_IN_PROGRESS' && (
+                        <>
+                          <span className="relative flex h-2.5 w-2.5 mb-1">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                          </span>
+                          { m.statusDesc && m.statusDesc.toUpperCase() !== 'IN PROGRESS' ? (
+                            <span className="text-[9px] font-bold text-red-500 tracking-wider whitespace-nowrap text-center px-1">{m.statusDesc.toUpperCase()}</span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-red-500 tracking-wider">LIVE</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-center gap-1.5 w-auto min-w-[3rem] sm:min-w-[4rem]">
+                      <div className={cn("w-full h-10 px-1 sm:px-2 rounded flex items-center justify-center font-mono font-bold text-sm sm:text-lg shadow-inner relative overflow-hidden gap-1 sm:gap-2",
+                        m.status === 'STATUS_IN_PROGRESS' ? "bg-[#27272a] text-white ring-1 ring-zinc-700" : "bg-[#1a1a1a]",
+                        (m.type !== 'OVER_UNDER' && m.metadata?.propType !== 'OVER_UNDER' && (m.metadata?.lowerScoreWins ? m.homeTeam.score < m.awayTeam.score : m.homeTeam.score > m.awayTeam.score)) ? "text-zinc-100" : (m.status === 'STATUS_IN_PROGRESS' ? "text-zinc-200" : "text-zinc-500")
+                      )}>
+                         {(m.type !== 'OVER_UNDER' && m.metadata?.propType !== 'OVER_UNDER' && (m.metadata?.lowerScoreWins ? m.homeTeam.score < m.awayTeam.score : m.homeTeam.score > m.awayTeam.score)) && <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-yellow-300"></div>}
+                         {(m.league === 'ATP' || m.league === 'WTA') && m.metadata?.homeLinescores && m.metadata.homeLinescores.length > 0 ? (
+                           m.metadata.homeLinescores.map((score: number, i: number) => (
+                             <React.Fragment key={i}>
+                               {i > 0 && <div className="w-px h-3 sm:h-4 bg-zinc-600 mx-0.5 sm:mx-1"></div>}
+                               <span>{isNaN(Number(score)) ? 0 : String(score)}</span>
+                             </React.Fragment>
+                           ))
+                         ) : (
+                           (typeof m.homeTeam.score === "number" && !isNaN(m.homeTeam.score) ? String(m.homeTeam.score) : 0)
+                         )}
+                      </div>
+
+                      {/* Home Hot Bar */}
+                      {mCounts.total > 0 && (
+                        <div className="w-full flex flex-col items-center relative -mt-0.5">
+                          <div className="w-10 sm:w-12 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden flex justify-start shadow-sm">
+                             <div className={cn("h-full rounded-full transition-all duration-500", getHotBarClass(homeHotPct))} style={{ width: `${Math.max(homeHotPct, homeHotPct > 0 ? 5 : 0)}%` }}></div>
+                          </div>
+                          {homeHotPct >= 50 && (
+                             <div className="absolute top-2 w-full flex justify-center">
+                                <div className="text-[10px] font-bold text-red-500 flex items-center justify-center tracking-wider gap-0.5 drop-shadow-md">Hot <span className="text-xs">🔥</span></div>
+                             </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
               )}
            </div>
 

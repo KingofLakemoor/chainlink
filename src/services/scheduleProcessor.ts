@@ -1373,8 +1373,8 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
             let bRes = { score: 0, status: 'STATUS_SCHEDULED' };
             
             if (isSoloProp) {
-                // For solo props, B is just the static line
-                bRes.score = data.metadata?.targetLine || 0.5;
+                // For solo props, B is just the static line (do not populate as homeTeam score)
+                bRes.score = 0;
                 bRes.status = aRes.status;
             } else {
                 bRes = await fetchStat(optionB);

@@ -346,7 +346,7 @@ export default function PlayerPropBuilderPage() {
               id: formData.propType === 'OVER_UNDER' ? 'under' : 'no',
               name: formData.propType === 'OVER_UNDER' ? `Under ${formData.targetLine}` : 'No',
               image: `https://ui-avatars.com/api/?name=${formData.propType === 'OVER_UNDER' ? 'U' : 'N'}&background=random`,
-              score: parsedTargetLine
+              score: 0
             },
             awayTeam: {
               id: formData.propType === 'OVER_UNDER' ? 'over' : 'yes',

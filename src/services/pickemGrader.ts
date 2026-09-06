@@ -54,13 +54,14 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     }
   } else if (isPostponed) {
     isTie = true; // Treats postponed as a push
-  } else if (matchup.type === 'OVER_UNDER' && matchup.metadata?.overUnder !== undefined && matchup.metadata?.overUnder !== null) {
-    const combinedScore = homeScore + awayScore;
-    const overUnderLine = Number(matchup.metadata.overUnder);
+  } else if (matchup.type === 'OVER_UNDER' && (matchup.metadata?.overUnder !== undefined || matchup.metadata?.targetLine !== undefined)) {
+    const isSolo = matchup.metadata?.isSoloProp || matchup.metadata?.isSinglePlayerProp;
+    const statScore = isSolo ? awayScore : (homeScore + awayScore);
+    const overUnderLine = Number(matchup.metadata?.overUnder ?? matchup.metadata?.targetLine ?? 0);
 
-    if (combinedScore === overUnderLine) {
+    if (statScore === overUnderLine) {
       isTie = true;
-    } else if (combinedScore > overUnderLine) {
+    } else if (statScore > overUnderLine) {
       winnerId = 'OVER';
     } else {
       winnerId = 'UNDER';

@@ -130,6 +130,7 @@ export default function PGABuilderPage() {
         cost: 0,
         startTime: finalStartTime,
         active: true,
+        manuallyActivated: true,
         featured: false,
         featuredType: '',
         status: 'STATUS_SCHEDULED',

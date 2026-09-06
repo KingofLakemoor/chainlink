@@ -150,14 +150,12 @@ export default function Gridiron3x3Page() {
     if (selectedContest) {
       fetchLines();
       fetchEntries();
-      fetchLeaderboard();
     }
   }, [selectedContest, season, weekNumber]);
 
   useEffect(() => {
     if (selectedContest && (activeTab === 'leaderboard' || activeTab === 'group')) {
       fetchEntries();
-      fetchLeaderboard();
     }
   }, [activeTab]);
 

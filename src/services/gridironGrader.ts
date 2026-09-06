@@ -5,8 +5,13 @@ import { GridironEntry, GridironPick, GridironLeaderboardRecord } from '../types
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 
+// In-memory cache for user display names (TTL 1 hour) to minimize Firestore user document reads
+const displayNameCache = new Map<string, { displayName: string; timestamp: number }>();
+const DISPLAY_NAME_CACHE_TTL_MS = 60 * 60 * 1000;
+
 export function setAdminDbMock(mock: any) {
   getAdminDb = () => mock;
+  displayNameCache.clear();
 }
 
 export function isGameStatusFinal(status: string | undefined): boolean {
@@ -128,15 +133,18 @@ export async function gradeGridironWeek(
     }
   }
 
-  // Fetch DB matchups collection as additional fallback
+  // Fetch DB matchups collection as additional fallback ONLY for games not found in live scrape
   const dbMatchupsMap = new Map<string, { homeScore: number; awayScore: number; status: string }>();
-  const gameIds = snapshotGames.map((g: any) => String(g.gameId)).filter(Boolean);
-  if (gameIds.length > 0) {
-    try {
-      for (let i = 0; i < gameIds.length; i += 30) {
-        const chunk = gameIds.slice(i, i + 30);
+  const missingGameIds = snapshotGames
+    .map((g: any) => String(g.gameId))
+    .filter(id => Boolean(id) && !liveGamesMap.has(id));
 
-        // 1. Fetch by document ID
+  if (missingGameIds.length > 0) {
+    try {
+      for (let i = 0; i < missingGameIds.length; i += 30) {
+        const chunk = missingGameIds.slice(i, i + 30);
+
+        // Fetch by document ID
         try {
           const docRefs = chunk.map(id => adminDb.collection("matchups").doc(id));
           const docs = await adminDb.getAll(...docRefs);
@@ -159,7 +167,7 @@ export async function gradeGridironWeek(
           console.warn("[GridironGrader] getAll matchups lookup error:", e);
         }
 
-        // 2. Fetch by gameId field query
+        // Fetch by gameId field query
         try {
           const mSnap = await adminDb.collection("matchups").where("gameId", "in", chunk).get();
           mSnap.docs.forEach(d => {
@@ -333,13 +341,6 @@ if (linesUpdated) {
   }
 }
 
-// Query all contests to guarantee all group leaderboards refresh
-try {
-  const contestSnaps = await adminDb.collection("gridiron_3x3_contests").get();
-  contestSnaps.docs.forEach(doc => affectedContestIds.add(doc.id));
-} catch (e) {
-  console.warn("[GridironGrader] Error querying all contests:", e);
-}
 
   // 1. Write / update leaderboard entries for all affected contests
   for (const contestId of affectedContestIds) {
@@ -469,16 +470,33 @@ export async function updateGridironLeaderboard(contestId: string) {
 
   const userStatsMap = new Map<string, GridironLeaderboardRecord>();
 
-  // Fetch user display names
-  const userDocs = effectiveParticipantUids.length > 0
-    ? await adminDb.getAll(...effectiveParticipantUids.map(uid => adminDb.collection("users").doc(uid)))
-    : [];
-
+  // Fetch user display names with in-memory caching to minimize Firestore reads
+  const now = Date.now();
   const displayNameMap = new Map<string, string>();
-  for (const uDoc of userDocs) {
-    if (uDoc.exists) {
-      const uData = uDoc.data();
-      displayNameMap.set(uDoc.id, uData?.username || uData?.name || "Player");
+  const missingUids: string[] = [];
+
+  for (const uid of effectiveParticipantUids) {
+    const cached = displayNameCache.get(uid);
+    if (cached && (now - cached.timestamp) < DISPLAY_NAME_CACHE_TTL_MS) {
+      displayNameMap.set(uid, cached.displayName);
+    } else {
+      missingUids.push(uid);
+    }
+  }
+
+  if (missingUids.length > 0) {
+    try {
+      const userDocs = await adminDb.getAll(...missingUids.map(uid => adminDb.collection("users").doc(uid)));
+      for (const uDoc of userDocs) {
+        if (uDoc.exists) {
+          const uData = uDoc.data();
+          const dName = uData?.username || uData?.name || "Player";
+          displayNameMap.set(uDoc.id, dName);
+          displayNameCache.set(uDoc.id, { displayName: dName, timestamp: now });
+        }
+      }
+    } catch (e) {
+      console.warn("[GridironLeaderboard] Error fetching user display names:", e);
     }
   }
 

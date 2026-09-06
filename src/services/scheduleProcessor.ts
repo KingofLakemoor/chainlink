@@ -1263,7 +1263,6 @@ export async function syncLeagueSchedules(
 async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], matchupsToSyncToPickem: any[]) {
     try {
         const propsSnap = await adminDb.collection('matchups')
-            .where('type', '==', 'STATS')
             .where('metadata.isPropMatchup', '==', true)
             .get();
 
@@ -1305,9 +1304,11 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
                     const summary = await res.json();
                     
                     let status = summary.header?.competitions?.[0]?.status?.type?.name || 'STATUS_SCHEDULED';
-                    if (status.includes('FINAL')) status = 'STATUS_FINAL';
-                    else if (status.includes('IN_PROGRESS') || status === 'STATUS_HALFTIME') status = 'STATUS_IN_PROGRESS';
+                    const state = summary.header?.competitions?.[0]?.status?.type?.state;
+                    if (status.includes('FINAL') || state === 'post') status = 'STATUS_FINAL';
+                    else if (status.includes('IN_PROGRESS') || status === 'STATUS_HALFTIME' || state === 'in') status = 'STATUS_IN_PROGRESS';
                     else if (status.includes('POSTPONED') || status.includes('CANCELED')) status = 'STATUS_POSTPONED';
+                    else status = 'STATUS_SCHEDULED';
 
                     let score = 0;
                     if (summary.boxscore && summary.boxscore.players) {
@@ -1385,18 +1386,18 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
             if (aRes.status !== 'STATUS_SCHEDULED') aStatus = aRes.status;
             if (bRes.status !== 'STATUS_SCHEDULED') bStatus = bRes.status;
 
-            let newStatus = data.status;
-            if (aStatus === 'STATUS_IN_PROGRESS' || bStatus === 'STATUS_IN_PROGRESS') {
-                newStatus = 'STATUS_IN_PROGRESS';
-            }
+            let newStatus = data.status || 'STATUS_SCHEDULED';
             if (aStatus === 'STATUS_FINAL' && bStatus === 'STATUS_FINAL') {
                 newStatus = 'STATUS_FINAL';
-            }
-            if (aStatus === 'STATUS_POSTPONED' || bStatus === 'STATUS_POSTPONED') {
+            } else if (aStatus === 'STATUS_POSTPONED' || bStatus === 'STATUS_POSTPONED') {
                 newStatus = 'STATUS_POSTPONED';
+            } else if (aStatus === 'STATUS_IN_PROGRESS' || bStatus === 'STATUS_IN_PROGRESS' || (data.startTime && Date.now() >= data.startTime)) {
+                newStatus = 'STATUS_IN_PROGRESS';
+            } else {
+                newStatus = 'STATUS_SCHEDULED';
             }
 
-            const newStatusDesc = newStatus === 'STATUS_FINAL' ? 'Final' : (newStatus === 'STATUS_IN_PROGRESS' ? 'In Progress' : data.statusDesc);
+            const newStatusDesc = newStatus === 'STATUS_FINAL' ? 'Final' : (newStatus === 'STATUS_IN_PROGRESS' ? 'In Progress' : (newStatus === 'STATUS_POSTPONED' ? 'Postponed' : (data.statusDesc && data.statusDesc !== 'In Progress' && data.statusDesc !== 'Final' ? data.statusDesc : 'Upcoming')));
 
             const needsPropUpdate = (
                 aStatus !== data.metadata?.optionAStatus ||

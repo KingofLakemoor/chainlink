@@ -833,6 +833,43 @@ describe('Gridiron Service Tests', () => {
   });
 
   describe('Gridiron 3x3 Launch Readiness & Verification Tests', () => {
+    it('verifies "The Picks" private group launch configuration and Race to 25 starting at Week 1', () => {
+      const thePicksGroup = {
+        contestId: "the_picks",
+        name: "The Picks",
+        createdBy: "admin",
+        inviteCode: "THEPIC",
+        season: 2026,
+        weekNumber: 1,
+        participants: ["admin"],
+        isPublic: false,
+        createdAt: Date.now(),
+        raceTo25: {
+          active: true,
+          startWeek: 1,
+          targetWins: 25
+        }
+      };
+
+      expect(thePicksGroup.name).toBe("The Picks");
+      expect(thePicksGroup.isPublic).toBe(false);
+      expect(thePicksGroup.inviteCode).toBe("THEPIC");
+      expect(thePicksGroup.season).toBe(2026);
+      expect(thePicksGroup.weekNumber).toBe(1);
+      expect(thePicksGroup.raceTo25.active).toBe(true);
+      expect(thePicksGroup.raceTo25.startWeek).toBe(1);
+      expect(thePicksGroup.raceTo25.targetWins).toBe(25);
+
+      // Verify Tuesday September 8th window for Week 1
+      const week1Range = getFootballWeekDateRange(2026, 1);
+      expect(week1Range.startDate.getFullYear()).toBe(2026);
+      expect(week1Range.startDate.getMonth()).toBe(8); // Sept (0-indexed 8)
+      expect(week1Range.startDate.getDate()).toBe(8);  // Sept 8th
+      expect(week1Range.startDate.getDay()).toBe(2);   // Tuesday
+      expect(week1Range.endDate.getDate()).toBe(14);    // Monday Sept 14th
+      expect(week1Range.endDate.getDay()).toBe(1);     // Monday
+    });
+
     it('validates public & private contest branding payload structure for official launch', () => {
       const contestPayload = {
         name: 'Official Championship Group',

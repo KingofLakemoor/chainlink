@@ -40,6 +40,7 @@ export default function Gridiron3x3Page() {
   const [newLogoUrl, setNewLogoUrl] = useState('');
   const [newPrimaryColor, setNewPrimaryColor] = useState('#22c55e');
   const [newSecondaryColor, setNewSecondaryColor] = useState('#06b6d4');
+  const [newRaceActive, setNewRaceActive] = useState(true);
   const [joinInviteCode, setJoinInviteCode] = useState('');
   const [deletingContestId, setDeletingContestId] = useState<string | null>(null);
 
@@ -194,7 +195,12 @@ export default function Gridiron3x3Page() {
           isPublic: newIsPublic,
           logoUrl: newLogoUrl.trim() || undefined,
           primaryColor: newPrimaryColor || undefined,
-          secondaryColor: newSecondaryColor || undefined
+          secondaryColor: newSecondaryColor || undefined,
+          raceTo25: {
+            active: newRaceActive,
+            startWeek: weekNumber || 1,
+            targetWins: 25
+          }
         })
       });
 
@@ -647,6 +653,19 @@ export default function Gridiron3x3Page() {
                   />
                   <label htmlFor="isPublicCheck" className="text-xs font-semibold text-zinc-300 cursor-pointer">
                     Make this a Public Group (visible on board)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="raceActiveCheck"
+                    checked={newRaceActive}
+                    onChange={(e) => setNewRaceActive(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#3f3f46] bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                  />
+                  <label htmlFor="raceActiveCheck" className="text-xs font-semibold text-amber-400 cursor-pointer flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5 text-amber-400" /> Enable Race to 25 Wins Side Pot (Week {weekNumber})
                   </label>
                 </div>
 
@@ -1249,6 +1268,19 @@ export default function Gridiron3x3Page() {
                     </div>
                   </div>
                 </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="raceActiveCheckWorkspace"
+                  checked={newRaceActive}
+                  onChange={(e) => setNewRaceActive(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#3f3f46] bg-zinc-900 text-amber-500 focus:ring-amber-500"
+                />
+                <label htmlFor="raceActiveCheckWorkspace" className="text-xs font-semibold text-amber-400 cursor-pointer flex items-center gap-1">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" /> Enable Race to 25 Wins Side Pot (Week {weekNumber})
+                </label>
+              </div>
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>

@@ -56,13 +56,28 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     setSettingsMessage(null);
     try {
       const userRef = doc(db, 'users', user.uid);
-      if (!newUsername.trim() || !newName.trim()) {
-        throw new Error("Username and Display Name cannot be empty.");
+      const trimmedUsername = newUsername.trim();
+      const trimmedName = newName.trim();
+
+      if (!trimmedUsername) {
+        throw new Error("Username cannot be empty.");
+      }
+      if (!trimmedName) {
+        throw new Error("Display Name cannot be empty.");
+      }
+      if (trimmedUsername.length < 3) {
+        throw new Error("Username must be at least 3 characters.");
+      }
+      if (trimmedUsername.length > 20) {
+        throw new Error("Username must be 20 characters or less.");
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
+        throw new Error("Username can only contain letters, numbers, and underscores.");
       }
       
       let token = await auth.currentUser?.getIdToken();
-      if (newUsername !== profile?.username) {
-        const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(newUsername)}`, {
+      if (trimmedUsername.toLowerCase() !== profile?.username?.toLowerCase()) {
+        const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(trimmedUsername)}&excludeUid=${encodeURIComponent(user.uid)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error("Failed to check username availability.");
@@ -75,9 +90,11 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
       }
       
       const updateData: any = {
-        username: newUsername.trim(),
-        name: newName.trim(),
-        notificationsEnabled
+        username: trimmedUsername,
+        usernameLower: trimmedUsername.toLowerCase(),
+        name: trimmedName,
+        notificationsEnabled,
+        updatedAt: Date.now()
       };
       
       if (!notificationsEnabled) {

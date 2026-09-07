@@ -411,33 +411,7 @@ export async function updateGridironLeaderboard(contestId: string) {
       .where("contestIds", "array-contains", contestId)
       .get();
 
-    if (!weeklySnapshotsSnap.empty) {
-      weeklySnapshotsSnap.docs.forEach(doc => {
-        const snapData = doc.data();
-        const entriesList: GridironEntry[] = snapData?.entries || [];
-        entriesList.forEach(e => {
-          if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
-            snapshotEntries.push(e);
-          }
-        });
-      });
-    } else {
-      // Fallback for snapshots missing contestIds array or created prior to contestIds indexing
-      const allSnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
-      allSnapshotsSnap.docs.forEach(doc => {
-        const snapData = doc.data();
-        const entriesList: GridironEntry[] = snapData?.entries || [];
-        entriesList.forEach(e => {
-          if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
-            snapshotEntries.push(e);
-          }
-        });
-      });
-    }
-  } catch (e) {
-    // Fallback on query error
-    const allSnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
-    allSnapshotsSnap.docs.forEach(doc => {
+    weeklySnapshotsSnap.docs.forEach(doc => {
       const snapData = doc.data();
       const entriesList: GridironEntry[] = snapData?.entries || [];
       entriesList.forEach(e => {
@@ -446,6 +420,8 @@ export async function updateGridironLeaderboard(contestId: string) {
         }
       });
     });
+  } catch (e) {
+    console.warn("[GridironLeaderboard] Error querying weekly snapshots for contest:", contestId, e);
   }
 
   const allContestEntries = [...activeEntries, ...snapshotEntries];

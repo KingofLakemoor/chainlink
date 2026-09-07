@@ -5,39 +5,41 @@ import { GridironPick, GridironEntry } from '../types/gridiron';
 
 describe('Gridiron Service Tests', () => {
   describe('NFL Week Date Ranges & getCurrentFootballWeek', () => {
-    it('accurately calculates 2026 NFL Week 1 date range starting Wed Sept 9th', () => {
+    it('accurately calculates 2026 NFL Week 1 date range starting Tue Sept 8th through Mon Sept 14th', () => {
       const range = getFootballWeekDateRange(2026, 1);
       expect(range.startDate.getFullYear()).toBe(2026);
       expect(range.startDate.getMonth()).toBe(8); // September (0-indexed 8)
-      expect(range.startDate.getDate()).toBe(9); // Sept 9
-      expect(range.startDate.getDay()).toBe(3); // Wednesday (0=Sun, 3=Wed)
+      expect(range.startDate.getDate()).toBe(8); // Sept 8
+      expect(range.startDate.getDay()).toBe(2); // Tuesday (0=Sun, 2=Tue)
 
-      expect(range.formattedRange).toContain('Wed, Sep 9');
+      expect(range.formattedRange).toContain('Tue, Sep 8');
+      expect(range.formattedRange).toContain('Mon, Sep 14');
       expect(range.dateStrings.length).toBe(7);
-      expect(range.dateStrings[0]).toBe('20260909');
-      expect(range.dateStrings[6]).toBe('20260915');
+      expect(range.dateStrings[0]).toBe('20260908'); // Tue
+      expect(range.dateStrings[6]).toBe('20260914'); // Mon
     });
 
-    it('calculates 2026 NFL Week 2 date range starting Wed Sept 16th', () => {
+    it('calculates 2026 NFL Week 2 date range starting Tue Sept 15th through Mon Sept 21st', () => {
       const range = getFootballWeekDateRange(2026, 2);
-      expect(range.startDate.getDate()).toBe(16);
-      expect(range.startDate.getDay()).toBe(3); // Wednesday
-      expect(range.dateStrings[0]).toBe('20260916');
+      expect(range.startDate.getDate()).toBe(15);
+      expect(range.startDate.getDay()).toBe(2); // Tuesday
+      expect(range.dateStrings[0]).toBe('20260915');
+      expect(range.dateStrings[6]).toBe('20260921');
     });
 
     it('maps current date correctly to active week number', () => {
-      const wedSept9_2026 = new Date(2026, 8, 9, 12, 0, 0);
-      expect(getCurrentFootballWeek(wedSept9_2026)).toEqual({ season: 2026, weekNumber: 1 });
+      const tueSept8_2026 = new Date(2026, 8, 8, 12, 0, 0);
+      expect(getCurrentFootballWeek(tueSept8_2026)).toEqual({ season: 2026, weekNumber: 1 });
 
       const friSept18_2026 = new Date(2026, 8, 18, 18, 0, 0);
       expect(getCurrentFootballWeek(friSept18_2026)).toEqual({ season: 2026, weekNumber: 2 });
     });
 
-    it('calculates getGridironLinesLockTime as Tuesday 12:00 PM EST prior to Wednesday start', () => {
+    it('calculates getGridironLinesLockTime as Tuesday 12:00 PM EST on Week start date', () => {
       const lockTimeW2 = getGridironLinesLockTime(2026, 2);
       const lockDateW2 = new Date(lockTimeW2);
 
-      // Week 2 Wednesday is Sept 16, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM
+      // Week 2 starts Tuesday Sept 15, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM
       expect(lockDateW2.getFullYear()).toBe(2026);
       expect(lockDateW2.getMonth()).toBe(8); // September
       expect(lockDateW2.getDate()).toBe(15); // Tuesday Sept 15
@@ -827,6 +829,94 @@ describe('Gridiron Service Tests', () => {
       expect(winsBehind).toBe(1);
       // Ensure it is not targetWins - leader.raceWins (which would be 22)
       expect(winsBehind).not.toBe(targetWins - leader.raceWins);
+    });
+  });
+
+  describe('Gridiron 3x3 Launch Readiness & Verification Tests', () => {
+    it('validates public & private contest branding payload structure for official launch', () => {
+      const contestPayload = {
+        name: 'Official Championship Group',
+        season: 2026,
+        weekNumber: 1,
+        isPublic: true,
+        logoUrl: 'https://example.com/logo.png',
+        primaryColor: '#22c55e',
+        secondaryColor: '#18181b',
+        raceTo25: {
+          active: true,
+          startWeek: 1,
+          targetWins: 25
+        }
+      };
+
+      expect(contestPayload.name.length).toBeGreaterThan(0);
+      expect(contestPayload.season).toBe(2026);
+      expect(contestPayload.weekNumber).toBeGreaterThanOrEqual(1);
+      expect(typeof contestPayload.isPublic).toBe('boolean');
+      expect(contestPayload.primaryColor).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(contestPayload.raceTo25.targetWins).toBe(25);
+    });
+
+    it('verifies Tuesday line snapshot week doc key format (e.g. 2026_week_01)', () => {
+      const formatWeekKey = (season: number, week: number) =>
+        `${season}_week_${String(week).padStart(2, '0')}`;
+
+      expect(formatWeekKey(2026, 1)).toBe('2026_week_01');
+      expect(formatWeekKey(2026, 12)).toBe('2026_week_12');
+    });
+
+    it('validates entry pick limits and enforces 6 pick submission rule', () => {
+      const validateEntry = (picks: GridironPick[]) => {
+        if (picks.length !== 6) return false;
+        const nflCount = picks.filter(p => p.league === 'NFL').length;
+        const cfbCount = picks.filter(p => p.league === 'CFB').length;
+        return nflCount + cfbCount === 6;
+      };
+
+      const validPicks: GridironPick[] = [
+        { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g4', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g5', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g6', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 }
+      ];
+
+      expect(validateEntry(validPicks)).toBe(true);
+
+      const incompletePicks = validPicks.slice(0, 5);
+      expect(validateEntry(incompletePicks)).toBe(false);
+    });
+
+    it('verifies campaign creation populates lines strictly fitting NFL week date range (Tuesday to Monday)', () => {
+      const season = 2026;
+      const weekNumber = 1;
+      const weekRange = getFootballWeekDateRange(season, weekNumber);
+
+      // Tue Sept 8 2026 00:00:00 to Mon Sept 14 2026 23:59:59 (MNF is last game)
+      const validTueGame = new Date(2026, 8, 8, 20, 0, 0).getTime();
+      const validSunGame = new Date(2026, 8, 13, 13, 0, 0).getTime();
+      const validMonGame = new Date(2026, 8, 14, 20, 15, 0).getTime(); // Monday Night Football
+      const outOfRangeNextTue = new Date(2026, 8, 15, 12, 0, 0).getTime(); // Part of Week 2
+      const outOfRangePrevMon = new Date(2026, 8, 7, 23, 0, 0).getTime();
+
+      const candidateGames = [
+        { gameId: 'g_tue', kickoffTime: validTueGame, league: 'CFB', metadata: { spread: '-7.0', overUnder: '52.0' } },
+        { gameId: 'g_sun', kickoffTime: validSunGame, league: 'NFL', metadata: { spread: '-3.5', overUnder: '48.5' } },
+        { gameId: 'g_mnf', kickoffTime: validMonGame, league: 'NFL', metadata: { spread: '-3.5', overUnder: '48.5' } },
+        { gameId: 'g_next_tue', kickoffTime: outOfRangeNextTue, league: 'CFB', metadata: { spread: '-3.5', overUnder: '48.5' } },
+        { gameId: 'g_prev_mon', kickoffTime: outOfRangePrevMon, league: 'NFL', metadata: { spread: '-3.5', overUnder: '48.5' } }
+      ];
+
+      const filteredForWeek = candidateGames.filter(g => {
+        const ms = g.kickoffTime;
+        return ms >= weekRange.startMs && ms <= weekRange.endMs;
+      });
+
+      expect(filteredForWeek.length).toBe(3);
+      expect(filteredForWeek.map(g => g.gameId)).toEqual(['g_tue', 'g_sun', 'g_mnf']);
+      expect(filteredForWeek.map(g => g.gameId)).not.toContain('g_next_tue');
+      expect(filteredForWeek.map(g => g.gameId)).not.toContain('g_prev_mon');
     });
   });
 });

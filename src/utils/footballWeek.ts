@@ -1,6 +1,7 @@
 /**
- * Calculates the exact date range (Wednesday 00:00:00 to Tuesday 23:59:59) for a given NFL season & week.
- * Week 1 Wednesday is 2 days after Labor Day (the first Monday of September).
+ * Calculates the exact date range (Tuesday 00:00:00 to Monday 23:59:59) for a given NFL season & week.
+ * Week 1 Tuesday is 1 day after Labor Day (the first Monday of September).
+ * Covers Tuesday night through Monday Night Football as the last game of the week.
  */
 export function getFootballWeekDateRange(season: number = 2026, weekNumber: number = 1): {
   startMs: number;
@@ -15,21 +16,21 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
   while (d.getDay() !== 1) { // 1 = Monday
     d.setDate(d.getDate() + 1);
   }
-  // First Monday + 2 days = Wednesday of Week 1
-  const week1Wed = new Date(d);
-  week1Wed.setDate(d.getDate() + 2);
-  week1Wed.setHours(0, 0, 0, 0);
+  // First Monday + 1 day = Tuesday of Week 1
+  const week1Tue = new Date(d);
+  week1Tue.setDate(d.getDate() + 1);
+  week1Tue.setHours(0, 0, 0, 0);
 
-  // Week N Wednesday start
-  const start = new Date(week1Wed);
-  start.setDate(week1Wed.getDate() + (weekNumber - 1) * 7);
+  // Week N Tuesday start
+  const start = new Date(week1Tue);
+  start.setDate(week1Tue.getDate() + (weekNumber - 1) * 7);
 
-  // Week N Tuesday end (6 days later at 23:59:59.999)
+  // Week N Monday end (6 days later at 23:59:59.999)
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   end.setHours(23, 59, 59, 999);
 
-  // Date strings (YYYYMMDD) for all 7 days in this week (Wed through Tue)
+  // Date strings (YYYYMMDD) for all 7 days in this week (Tue through Mon)
   const dateStrings: string[] = [];
   const curr = new Date(start);
   for (let i = 0; i < 7; i++) {
@@ -41,9 +42,7 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
   }
 
   const startStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const monEnd = new Date(start);
-  monEnd.setDate(start.getDate() + 5);
-  const endStr = monEnd.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const endStr = end.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const formattedRange = `${startStr} - ${endStr}`;
 
   return {
@@ -57,13 +56,13 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
 }
 
 /**
- * Calculates the exact Tuesday 12:00 PM EST timestamp when snapshot lines lock / pick window opens for a week.
- * This is 12 hours prior to Week N Wednesday 00:00:00 EST.
+ * Calculates the Tuesday 12:00 PM EST timestamp when snapshot lines release / pick window opens for a week.
+ * This is 12 hours after Week N Tuesday 00:00:00 EST.
  */
 export function getGridironLinesLockTime(season: number = 2026, weekNumber: number = 1): number {
   const weekRange = getFootballWeekDateRange(season, weekNumber);
-  // 12 hours (43,200,000 ms) before Wednesday 00:00:00 EST = Tuesday 12:00:00 PM EST
-  return weekRange.startMs - (12 * 60 * 60 * 1000);
+  // Tuesday 12:00:00 PM EST = Tuesday 00:00:00 + 12 hours (43,200,000 ms)
+  return weekRange.startMs + (12 * 60 * 60 * 1000);
 }
 
 /**

@@ -1264,12 +1264,10 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
     try {
         const propsSnap = await adminDb.collection('matchups')
             .where('metadata.isPropMatchup', '==', true)
+            .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS'])
             .get();
 
-        const activeProps = propsSnap.docs.filter((d: any) => {
-            const status = d.data().status;
-            return status !== 'STATUS_FINAL' && status !== 'STATUS_POSTPONED';
-        });
+        const activeProps = propsSnap.docs.filter((d: any) => !d.data().abandoned);
 
         if (activeProps.length === 0) return;
 

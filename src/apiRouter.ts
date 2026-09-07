@@ -2691,6 +2691,15 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
     // Initialize leaderboard entry for creator
     await updateGridironLeaderboard(contestRef.id);
 
+    // Auto-populate line snapshot for this campaign week if missing
+    const linesDocId = `${activeSeason}_week_${activeWeek.toString().padStart(2, '0')}`;
+    const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+    if (!linesSnap.exists) {
+      fetchAndStoreTuesdayGridironLines(activeSeason, activeWeek).catch(err => {
+        console.warn("[CreateContest] Auto line snapshot sync warning:", err?.message || err);
+      });
+    }
+
     res.json({ success: true, contest: contestData });
   } catch (e: any) {
     console.error("Create Gridiron 3x3 contest error:", e);

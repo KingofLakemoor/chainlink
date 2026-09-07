@@ -885,5 +885,37 @@ describe('Gridiron Service Tests', () => {
       const incompletePicks = validPicks.slice(0, 5);
       expect(validateEntry(incompletePicks)).toBe(false);
     });
+
+    it('verifies campaign creation populates lines strictly fitting NFL week date range (Wednesday to Tuesday)', () => {
+      const season = 2026;
+      const weekNumber = 1;
+      const weekRange = getFootballWeekDateRange(season, weekNumber);
+
+      // Wed Sept 9 2026 00:00:00 to Tue Sept 15 2026 23:59:59
+      const validWedGame = new Date(2026, 8, 9, 19, 0, 0).getTime();
+      const validSunGame = new Date(2026, 8, 13, 13, 0, 0).getTime();
+      const validTueGame = new Date(2026, 8, 15, 20, 0, 0).getTime();
+      const outOfRangeNextWed = new Date(2026, 8, 16, 12, 0, 0).getTime();
+      const outOfRangePrevTue = new Date(2026, 8, 8, 23, 0, 0).getTime();
+
+      const candidateGames = [
+        { gameId: 'g_wed', kickoffTime: validWedGame, league: 'NFL', metadata: { spread: '-3.5', overUnder: '48.5' } },
+        { gameId: 'g_sun', kickoffTime: validSunGame, league: 'NFL', metadata: { spread: '-3.5', overUnder: '48.5' } },
+        { gameId: 'g_tue', kickoffTime: validTueGame, league: 'CFB', metadata: { spread: '-7.0', overUnder: '52.0' } },
+        { gameId: 'g_next_wed', kickoffTime: outOfRangeNextWed, league: 'NFL', metadata: { spread: '-3.5', overUnder: '48.5' } },
+        { gameId: 'g_prev_tue', kickoffTime: outOfRangePrevTue, league: 'CFB', metadata: { spread: '-3.5', overUnder: '48.5' } }
+      ];
+
+      const normalized = filterAndNormalizeGridironGames(candidateGames as any[], 'NFL');
+      const filteredForWeek = candidateGames.filter(g => {
+        const ms = g.kickoffTime;
+        return ms >= weekRange.startMs && ms <= weekRange.endMs;
+      });
+
+      expect(filteredForWeek.length).toBe(3);
+      expect(filteredForWeek.map(g => g.gameId)).toEqual(['g_wed', 'g_sun', 'g_tue']);
+      expect(filteredForWeek.map(g => g.gameId)).not.toContain('g_next_wed');
+      expect(filteredForWeek.map(g => g.gameId)).not.toContain('g_prev_tue');
+    });
   });
 });

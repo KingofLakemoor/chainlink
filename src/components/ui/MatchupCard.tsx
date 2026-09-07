@@ -222,11 +222,6 @@ export const MatchupCard = React.memo(function MatchupCard({
                {m.type === 'SPREAD' && m.metadata?.spread !== undefined && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
                    {m.metadata.spread > 0 ? `-${m.metadata.spread}` : `+${Math.abs(m.metadata.spread)}`}
-                   {activeProfile?.premium && m.metadata.previousSpread !== undefined && m.metadata.previousSpread !== null && m.metadata.previousSpread !== m.metadata.spread && (
-                     <span className="text-zinc-500 line-through text-[10px] ml-1 font-medium">
-                       {m.metadata.previousSpread > 0 ? `-${m.metadata.previousSpread}` : `+${Math.abs(m.metadata.previousSpread)}`}
-                     </span>
-                   )}
                  </div>
                )}
                {isLink4 && m.type !== "SPREAD" && m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && (
@@ -396,11 +391,6 @@ export const MatchupCard = React.memo(function MatchupCard({
                {m.type === 'SPREAD' && m.metadata?.spread !== undefined && (
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1f1f22] text-zinc-300 text-[11px] font-bold px-2 py-0.5 rounded-md border border-[#3f3f46] shadow-sm">
                    {m.metadata.spread > 0 ? `+${m.metadata.spread}` : `-${Math.abs(m.metadata.spread)}`}
-                   {activeProfile?.premium && m.metadata.previousSpread !== undefined && m.metadata.previousSpread !== null && m.metadata.previousSpread !== m.metadata.spread && (
-                     <span className="text-zinc-500 line-through text-[10px] ml-1 font-medium">
-                       {m.metadata.previousSpread > 0 ? `+${m.metadata.previousSpread}` : `-${Math.abs(m.metadata.previousSpread)}`}
-                     </span>
-                   )}
                  </div>
                )}
                {isLink4 && m.type !== "SPREAD" && m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && (

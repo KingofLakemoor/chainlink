@@ -145,7 +145,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md z-10 bg-[#121212] border border-[#27272a] rounded-2xl p-8 shadow-xl">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#22c55e]/10 mb-6 border border-[#22c55e]/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
-            <Link2 className="w-8 h-8 text-[#22c55e]" />
+            <img src="/logo.png" alt="ChainLink" className="w-9 h-9 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-zinc-100 mb-2 font-display">Welcome to ChainLink!</h1>
           <p className="text-zinc-400">Let's set up your profile. Choose a unique username to get started.</p>

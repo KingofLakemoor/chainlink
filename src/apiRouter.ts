@@ -450,13 +450,16 @@ export async function ensureThePicksContest() {
       await contestRef.set(contestData, { merge: true });
       await updateGridironLeaderboard("the_picks");
 
-      // Auto-populate line snapshot for 2026 Week 1 (Tuesday September 8th) if missing
-      const linesDocId = "2026_week_01";
-      const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
-      if (!linesSnap.exists) {
-        fetchAndStoreTuesdayGridironLines(2026, 1).catch(err => {
-          console.warn("[ThePicks] Auto line snapshot sync warning:", err?.message || err);
-        });
+      // Auto-populate line snapshot for 2026 Week 1 (Tuesday September 8th) if missing AND lock time reached
+      const lockTime = getGridironLinesLockTime(2026, 1);
+      if (Date.now() >= lockTime) {
+        const linesDocId = "2026_week_01";
+        const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+        if (!linesSnap.exists) {
+          fetchAndStoreTuesdayGridironLines(2026, 1).catch(err => {
+            console.warn("[ThePicks] Auto line snapshot sync warning:", err?.message || err);
+          });
+        }
       }
     }
   } catch (err: any) {
@@ -2731,13 +2734,16 @@ apiRouter.post("/gridiron-3x3/create-contest", validateAdmin, async (req, res) =
     // Initialize leaderboard entry for creator
     await updateGridironLeaderboard(contestRef.id);
 
-    // Auto-populate line snapshot for this campaign week if missing
-    const linesDocId = `${activeSeason}_week_${activeWeek.toString().padStart(2, '0')}`;
-    const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
-    if (!linesSnap.exists) {
-      fetchAndStoreTuesdayGridironLines(activeSeason, activeWeek).catch(err => {
-        console.warn("[CreateContest] Auto line snapshot sync warning:", err?.message || err);
-      });
+    // Auto-populate line snapshot for this campaign week if missing AND lock time reached
+    const lockTime = getGridironLinesLockTime(activeSeason, activeWeek);
+    if (Date.now() >= lockTime) {
+      const linesDocId = `${activeSeason}_week_${activeWeek.toString().padStart(2, '0')}`;
+      const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+      if (!linesSnap.exists) {
+        fetchAndStoreTuesdayGridironLines(activeSeason, activeWeek).catch(err => {
+          console.warn("[CreateContest] Auto line snapshot sync warning:", err?.message || err);
+        });
+      }
     }
 
     res.json({ success: true, contest: contestData });
@@ -2843,20 +2849,20 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
     const lockTime = getGridironLinesLockTime(season, weekNumber);
     const now = Date.now();
 
-    if (!docSnap.exists) {
-      // Do not auto-generate snapshot lines for future weeks before Tuesday 12:00 PM EST odds finalization
-      if (now < lockTime) {
-        const lockDate = new Date(lockTime);
-        const formattedLockDate = lockDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-        return res.json({
-          success: true,
-          lines: null,
-          isLocked: true,
-          lockTime,
-          message: `Picks for Week ${weekNumber} open after Tuesday odds finalization on ${formattedLockDate}.`
-        });
-      }
+    // Do not show or generate snapshot lines before Tuesday 12:00 PM EST odds finalization
+    if (now < lockTime) {
+      const lockDate = new Date(lockTime);
+      const formattedLockDate = lockDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return res.json({
+        success: true,
+        lines: null,
+        isLocked: true,
+        lockTime,
+        message: `Picks for Week ${weekNumber} open after Tuesday odds finalization on ${formattedLockDate}.`
+      });
+    }
 
+    if (!docSnap.exists) {
       // Auto-trigger ingestion if snapshot lines document is missing and current time >= Tuesday 12:00 PM EST
       await fetchAndStoreTuesdayGridironLines(season, weekNumber);
       docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();

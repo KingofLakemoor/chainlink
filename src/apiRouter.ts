@@ -425,9 +425,49 @@ apiRouter.get("/admin/link-transactions", validateAdmin, async (req, res) => {
   }
 });
 
+export async function ensureThePicksContest() {
+  if (!adminDb) return;
+  try {
+    const contestRef = adminDb.collection("gridiron_3x3_contests").doc("the_picks");
+    const docSnap = await contestRef.get();
+    if (!docSnap.exists) {
+      const contestData = {
+        contestId: "the_picks",
+        name: "The Picks",
+        createdBy: "admin",
+        inviteCode: "THEPIC",
+        season: 2026,
+        weekNumber: 1,
+        participants: ["admin"],
+        isPublic: false,
+        createdAt: Date.now(),
+        raceTo25: {
+          active: true,
+          startWeek: 1,
+          targetWins: 25
+        }
+      };
+      await contestRef.set(contestData, { merge: true });
+      await updateGridironLeaderboard("the_picks");
+
+      // Auto-populate line snapshot for 2026 Week 1 (Tuesday September 8th) if missing
+      const linesDocId = "2026_week_01";
+      const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+      if (!linesSnap.exists) {
+        fetchAndStoreTuesdayGridironLines(2026, 1).catch(err => {
+          console.warn("[ThePicks] Auto line snapshot sync warning:", err?.message || err);
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn("[ThePicks] Error ensuring contest setup:", err?.message || err);
+  }
+}
+
 apiRouter.get("/admin/gridiron-3x3/contests", validateAdmin, async (req, res) => {
   try {
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    await ensureThePicksContest();
     const snap = await adminDb.collection("gridiron_3x3_contests").get();
     let contests: any[] = snap.docs.map(doc => ({ contestId: doc.id, ...doc.data() }));
 
@@ -2755,6 +2795,7 @@ apiRouter.post("/gridiron-3x3/join-contest", validateAuth, async (req, res) => {
 apiRouter.get("/gridiron-3x3/contests", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;
+    await ensureThePicksContest();
     const [userSnap, publicSnap] = await Promise.all([
       adminDb.collection("gridiron_3x3_contests")
         .where("participants", "array-contains", uid)

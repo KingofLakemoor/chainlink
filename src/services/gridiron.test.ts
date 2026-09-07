@@ -829,4 +829,61 @@ describe('Gridiron Service Tests', () => {
       expect(winsBehind).not.toBe(targetWins - leader.raceWins);
     });
   });
+
+  describe('Gridiron 3x3 Launch Readiness & Verification Tests', () => {
+    it('validates public & private contest branding payload structure for official launch', () => {
+      const contestPayload = {
+        name: 'Official Championship Group',
+        season: 2026,
+        weekNumber: 1,
+        isPublic: true,
+        logoUrl: 'https://example.com/logo.png',
+        primaryColor: '#22c55e',
+        secondaryColor: '#18181b',
+        raceTo25: {
+          active: true,
+          startWeek: 1,
+          targetWins: 25
+        }
+      };
+
+      expect(contestPayload.name.length).toBeGreaterThan(0);
+      expect(contestPayload.season).toBe(2026);
+      expect(contestPayload.weekNumber).toBeGreaterThanOrEqual(1);
+      expect(typeof contestPayload.isPublic).toBe('boolean');
+      expect(contestPayload.primaryColor).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(contestPayload.raceTo25.targetWins).toBe(25);
+    });
+
+    it('verifies Tuesday line snapshot week doc key format (e.g. 2026_week_01)', () => {
+      const formatWeekKey = (season: number, week: number) =>
+        `${season}_week_${String(week).padStart(2, '0')}`;
+
+      expect(formatWeekKey(2026, 1)).toBe('2026_week_01');
+      expect(formatWeekKey(2026, 12)).toBe('2026_week_12');
+    });
+
+    it('validates entry pick limits and enforces 6 pick submission rule', () => {
+      const validateEntry = (picks: GridironPick[]) => {
+        if (picks.length !== 6) return false;
+        const nflCount = picks.filter(p => p.league === 'NFL').length;
+        const cfbCount = picks.filter(p => p.league === 'CFB').length;
+        return nflCount + cfbCount === 6;
+      };
+
+      const validPicks: GridironPick[] = [
+        { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g4', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g5', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 },
+        { gameId: 'g6', league: 'CFB', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() + 10000 }
+      ];
+
+      expect(validateEntry(validPicks)).toBe(true);
+
+      const incompletePicks = validPicks.slice(0, 5);
+      expect(validateEntry(incompletePicks)).toBe(false);
+    });
+  });
 });

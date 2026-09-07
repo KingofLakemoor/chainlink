@@ -50,8 +50,9 @@ export default function Gridiron3x3Page() {
   const [linesMessage, setLinesMessage] = useState<string | null>(null);
 
   // Compute dynamic required pick counts based on available CFB games on the snapshot board
+  // Ahead of pulling in actual games (games.length === 0), default to a 3/3 split (3 NFL / 3 CFB)
   const availableCfbCount = games.filter(g => g.league === "CFB").length;
-  const requiredCfb = Math.min(3, availableCfbCount);
+  const requiredCfb = games.length === 0 ? 3 : Math.min(3, availableCfbCount);
   const requiredNfl = 6 - requiredCfb;
 
   // User's existing entry for active contest & week

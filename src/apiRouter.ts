@@ -3057,7 +3057,7 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
 
     const snapshotGames = linesSnap.data()?.games || [];
     const availableCfbCount = snapshotGames.filter((g: any) => g.league === "CFB").length;
-    const requiredCfb = Math.min(3, availableCfbCount);
+    const requiredCfb = snapshotGames.length === 0 ? 3 : Math.min(3, availableCfbCount);
     const requiredNfl = 6 - requiredCfb;
 
     const nflPicks = picks.filter((p: any) => p.league === "NFL");

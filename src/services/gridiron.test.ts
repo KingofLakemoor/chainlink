@@ -978,6 +978,50 @@ describe('Gridiron Service Tests', () => {
       expect(formatWeekKey(2026, 12)).toBe('2026_week_12');
     });
 
+    it('defaults requiredCfb to 3 and requiredNfl to 3 when no games are loaded on snapshot board', () => {
+      const calculateSplit = (games: any[]) => {
+        const availableCfbCount = games.filter((g: any) => g.league === 'CFB').length;
+        const requiredCfb = games.length === 0 ? 3 : Math.min(3, availableCfbCount);
+        const requiredNfl = 6 - requiredCfb;
+        return { requiredNfl, requiredCfb };
+      };
+
+      // When games array is empty (before games/lines are pulled in)
+      const emptySplit = calculateSplit([]);
+      expect(emptySplit.requiredNfl).toBe(3);
+      expect(emptySplit.requiredCfb).toBe(3);
+
+      // When games array has 0 CFB games but contains NFL games
+      const nflOnlyGames = [
+        { gameId: 'g1', league: 'NFL' },
+        { gameId: 'g2', league: 'NFL' }
+      ];
+      const nflOnlySplit = calculateSplit(nflOnlyGames);
+      expect(nflOnlySplit.requiredNfl).toBe(6);
+      expect(nflOnlySplit.requiredCfb).toBe(0);
+
+      // When games array has 1 CFB game
+      const oneCfbGames = [
+        { gameId: 'g1', league: 'NFL' },
+        { gameId: 'g2', league: 'CFB' }
+      ];
+      const oneCfbSplit = calculateSplit(oneCfbGames);
+      expect(oneCfbSplit.requiredNfl).toBe(5);
+      expect(oneCfbSplit.requiredCfb).toBe(1);
+
+      // When games array has 5 CFB games
+      const manyCfbGames = [
+        { gameId: 'g1', league: 'CFB' },
+        { gameId: 'g2', league: 'CFB' },
+        { gameId: 'g3', league: 'CFB' },
+        { gameId: 'g4', league: 'CFB' },
+        { gameId: 'g5', league: 'CFB' }
+      ];
+      const manyCfbSplit = calculateSplit(manyCfbGames);
+      expect(manyCfbSplit.requiredNfl).toBe(3);
+      expect(manyCfbSplit.requiredCfb).toBe(3);
+    });
+
     it('validates entry pick limits and enforces 6 pick submission rule', () => {
       const validateEntry = (picks: GridironPick[]) => {
         if (picks.length !== 6) return false;

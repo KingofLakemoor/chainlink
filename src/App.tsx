@@ -101,7 +101,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
       )}>
         <div className="h-16 flex items-center justify-between px-6 border-b border-[#27272a] bg-[#121212] shrink-0">
           <div className="flex items-center gap-2">
-            <Link2 className="w-6 h-6 text-[#22c55e]" />
+            <img src="/logo.png" alt="ChainLink" className="w-6 h-6 object-contain" />
             <span className="font-bold text-xl font-display text-zinc-100">ChainLink</span>
           </div>
           <button className="md:hidden text-zinc-400" onClick={() => setOpen(false)}>
@@ -251,7 +251,7 @@ function Landing() {
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#22c55e]/10 mb-6 border border-[#22c55e]/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
-            <Link2 className="w-8 h-8 text-[#22c55e]" />
+            <img src="/logo.png" alt="ChainLink" className="w-9 h-9 object-contain" />
           </div>
           <h1 className="text-4xl font-bold text-zinc-100 mb-3 font-display">ChainLink</h1>
           <p className="text-zinc-400 text-base">Build your chain. Earn Links. Climb the ranks.</p>
@@ -466,7 +466,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                  <Menu className="w-5 h-5" />
                </button>
              )}
-             {!user && <Link2 className="w-6 h-6 text-[#22c55e]" />}
+             {!user && <img src="/logo.png" alt="ChainLink" className="w-6 h-6 object-contain" />}
              <span className="font-bold text-lg font-display text-zinc-100">{pageTitle}</span>
            </div>
            <div className="flex items-center gap-3">

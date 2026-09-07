@@ -16,7 +16,7 @@ export default function SponsorPage() {
       <header className="h-20 border-b border-[#27272a] bg-[#121212]/80 backdrop-blur-xl flex items-center px-6 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Link2 className="w-6 h-6 text-[#22c55e]" />
+            <img src="/logo.png" alt="ChainLink" className="w-6 h-6 object-contain" />
             <span className="font-bold text-xl font-display text-zinc-100 tracking-tight">ChainLink</span>
           </Link>
           <Link to="/">

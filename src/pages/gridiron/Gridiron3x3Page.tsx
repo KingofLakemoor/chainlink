@@ -457,6 +457,7 @@ export default function Gridiron3x3Page() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContests.map(c => {
                   const isJoined = c.participants?.includes(user?.uid || '');
+                  const isAdmin = profile?.role === 'ADMIN';
                   return (
                     <div
                       key={c.contestId}
@@ -479,6 +480,11 @@ export default function Gridiron3x3Page() {
                             {c.isPublic && (
                               <span className="text-[10px] font-bold uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
                                 Public
+                              </span>
+                            )}
+                            {isAdmin && !isJoined && (
+                              <span className="text-[10px] font-bold uppercase text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                                Admin View
                               </span>
                             )}
                           </div>
@@ -513,7 +519,7 @@ export default function Gridiron3x3Page() {
                       </div>
 
                       <div className="space-y-2">
-                        {isJoined ? (
+                        {isJoined || isAdmin ? (
                           <Button
                             onClick={() => {
                               setSelectedContest(c);
@@ -788,7 +794,9 @@ export default function Gridiron3x3Page() {
               className="bg-zinc-900 border border-[#3f3f46] rounded-xl px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
             >
               {contests.map(c => (
-                <option key={c.contestId} value={c.contestId}>{c.name}</option>
+                <option key={c.contestId} value={c.contestId}>
+                  {c.name}{!c.participants?.includes(user?.uid || '') ? ' (Admin View)' : ''}
+                </option>
               ))}
             </select>
           )}

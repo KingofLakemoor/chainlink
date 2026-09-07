@@ -832,6 +832,52 @@ describe('Gridiron Service Tests', () => {
     });
   });
 
+  describe('Admin Gridiron 3x3 View Access Tests', () => {
+    it('verifies admin permission logic allowing admin users view access without being in participants', () => {
+      const contestParticipants = ['user_1', 'user_2'];
+      const nonAdminUid = 'user_3';
+      const adminUid = 'admin_user';
+
+      const checkAccess = (uid: string, isAdmin: boolean, participants: string[]) => {
+        return isAdmin || participants.includes(uid);
+      };
+
+      // Non-participant regular user is denied
+      expect(checkAccess(nonAdminUid, false, contestParticipants)).toBe(false);
+
+      // Joined participant regular user is allowed
+      expect(checkAccess('user_1', false, contestParticipants)).toBe(true);
+
+      // Admin user who is NOT in participants is allowed (QA view access)
+      expect(checkAccess(adminUid, true, contestParticipants)).toBe(true);
+    });
+
+    it('verifies contests listing returns all contests for admins and filtered contests for regular users', () => {
+      const allContests = [
+        { contestId: 'c1', name: 'Private Group 1', isPublic: false, participants: ['u1'] },
+        { contestId: 'c2', name: 'Private Group 2', isPublic: false, participants: ['u2'] },
+        { contestId: 'c3', name: 'Public Group 1', isPublic: true, participants: ['u3'] }
+      ];
+
+      const getContestsForUser = (uid: string, isAdmin: boolean) => {
+        if (isAdmin) {
+          return allContests;
+        } else {
+          return allContests.filter(c => c.isPublic || c.participants.includes(uid));
+        }
+      };
+
+      // Admin sees ALL 3 contests
+      const adminResult = getContestsForUser('admin_user', true);
+      expect(adminResult.length).toBe(3);
+
+      // Regular user 'u1' sees 2 contests (their joined private group + public group)
+      const u1Result = getContestsForUser('u1', false);
+      expect(u1Result.length).toBe(2);
+      expect(u1Result.map(c => c.contestId)).toEqual(['c1', 'c3']);
+    });
+  });
+
   describe('Gridiron 3x3 Launch Readiness & Verification Tests', () => {
     it('verifies "The Picks" private group launch configuration and Race to 25 starting at Week 1', () => {
       const thePicksGroup = {

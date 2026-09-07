@@ -2796,20 +2796,30 @@ apiRouter.get("/gridiron-3x3/contests", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;
     await ensureThePicksContest();
-    const [userSnap, publicSnap] = await Promise.all([
-      adminDb.collection("gridiron_3x3_contests")
-        .where("participants", "array-contains", uid)
-        .get(),
-      adminDb.collection("gridiron_3x3_contests")
-        .where("isPublic", "==", true)
-        .get()
-    ]);
 
-    const contestMap = new Map<string, any>();
-    userSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
-    publicSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    const isAdmin = userDoc.exists && userDoc.data()?.role === "ADMIN";
 
-    const contests = Array.from(contestMap.values());
+    let contests: any[] = [];
+    if (isAdmin) {
+      const snap = await adminDb.collection("gridiron_3x3_contests").get();
+      contests = snap.docs.map(doc => ({ contestId: doc.id, ...doc.data() }));
+    } else {
+      const [userSnap, publicSnap] = await Promise.all([
+        adminDb.collection("gridiron_3x3_contests")
+          .where("participants", "array-contains", uid)
+          .get(),
+        adminDb.collection("gridiron_3x3_contests")
+          .where("isPublic", "==", true)
+          .get()
+      ]);
+
+      const contestMap = new Map<string, any>();
+      userSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
+      publicSnap.docs.forEach(doc => contestMap.set(doc.id, { contestId: doc.id, ...doc.data() }));
+
+      contests = Array.from(contestMap.values());
+    }
 
     res.json({ success: true, contests });
   } catch (e: any) {
@@ -2878,7 +2888,10 @@ apiRouter.get("/gridiron-3x3/leaderboard/:contestId", validateAuth, async (req, 
     }
 
     const participants: string[] = contestDoc.data()?.participants || [];
-    if (!participants.includes(uid)) {
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    const isAdmin = userDoc.exists && userDoc.data()?.role === "ADMIN";
+
+    if (!isAdmin && !participants.includes(uid)) {
       return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
     }
 
@@ -2910,7 +2923,10 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
     }
 
     const participants: string[] = contestDoc.data()?.participants || [];
-    if (!participants.includes(uid)) {
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    const isAdmin = userDoc.exists && userDoc.data()?.role === "ADMIN";
+
+    if (!isAdmin && !participants.includes(uid)) {
       return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
     }
 
@@ -3013,7 +3029,10 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: "Contest not found." });
     }
     const participants: string[] = contestDoc.data()?.participants || [];
-    if (!participants.includes(uid)) {
+    const userDoc = await adminDb.collection("users").doc(uid).get();
+    const isAdmin = userDoc.exists && userDoc.data()?.role === "ADMIN";
+
+    if (!isAdmin && !participants.includes(uid)) {
       return res.status(403).json({ success: false, error: "You must join this contest before submitting an entry." });
     }
 
@@ -3089,7 +3108,6 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
       });
     }
 
-    const userDoc = await adminDb.collection("users").doc(uid).get();
     const userData = userDoc.data();
     const displayName = userData?.username || userData?.name || "Player";
 

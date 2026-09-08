@@ -35,15 +35,17 @@ describe('Gridiron Service Tests', () => {
       expect(getCurrentFootballWeek(friSept18_2026)).toEqual({ season: 2026, weekNumber: 2 });
     });
 
-    it('calculates getGridironLinesLockTime as Tuesday 12:00 PM EST on Week start date', () => {
+    it('calculates getGridironLinesLockTime as Tuesday 12:00 PM Eastern Time on Week start date', () => {
       const lockTimeW2 = getGridironLinesLockTime(2026, 2);
-      const lockDateW2 = new Date(lockTimeW2);
+      const weekRangeW2 = getFootballWeekDateRange(2026, 2);
+      expect(lockTimeW2).toBe(weekRangeW2.startMs + 12 * 3600 * 1000);
 
-      // Week 2 starts Tuesday Sept 15, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM EST (17:00 UTC)
+      const lockDateW2 = new Date(lockTimeW2);
+      // Week 2 starts Tuesday Sept 15, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM EDT (16:00 UTC)
       expect(lockDateW2.getUTCFullYear()).toBe(2026);
       expect(lockDateW2.getUTCMonth()).toBe(8); // September
       expect(lockDateW2.getUTCDate()).toBe(15); // Tuesday Sept 15
-      expect(lockDateW2.getUTCHours()).toBe(17); // 17:00 UTC = 12:00 PM EST
+      expect(lockDateW2.getUTCHours()).toBe(16); // 16:00 UTC = 12:00 PM EDT
     });
 
     it('enforces that lines are locked and return lines: null when now < getGridironLinesLockTime', () => {

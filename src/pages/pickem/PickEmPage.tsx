@@ -580,6 +580,7 @@ export default function PickEmPage() {
         const payload: any = {
           campaignId: selectedCampaign.id,
           participantId: user.uid,
+          userId: user.uid,
           matchupId: matchup.id,
           week: selectedWeek,
           tiebreakerTotal: total,
@@ -594,8 +595,30 @@ export default function PickEmPage() {
 
         await setDoc(pickRef, payload, { merge: true });
       } catch (e: any) {
-        console.error("Failed to update tiebreaker", e);
-        alert("Failed to save tiebreaker score: " + (e.message || String(e)));
+        console.warn("Direct Firestore update tiebreaker failed, falling back to API:", e?.message || e);
+        try {
+          const token = await user.getIdToken();
+          const res = await fetch('/api/pickem/submit-pick', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              campaignId: selectedCampaign.id,
+              matchupId: matchup.id,
+              week: selectedWeek,
+              tiebreakerTotal: total
+            })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to update tiebreaker via server.');
+          }
+        } catch (apiErr: any) {
+          console.error("Failed to update tiebreaker", apiErr);
+          alert("Failed to save tiebreaker score: " + (apiErr.message || String(apiErr)));
+        }
       }
     }, 400);
   };
@@ -683,6 +706,7 @@ export default function PickEmPage() {
       const newPick: any = {
         campaignId: selectedCampaign.id,
         participantId: user.uid,
+        userId: user.uid,
         matchupId: matchup.id,
         week: selectedWeek,
         pick: { teamId },
@@ -701,8 +725,31 @@ export default function PickEmPage() {
         newPick.pointsEarned = existingPick.confidence;
       }
 
-      await setDoc(pickRef, newPick, { merge: true });
-      setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick } }));
+      try {
+        await setDoc(pickRef, newPick, { merge: true });
+        setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick } }));
+      } catch (clientErr: any) {
+        console.warn('Direct Firestore save pick failed, falling back to API:', clientErr?.message || clientErr);
+        const token = await user.getIdToken();
+        const res = await fetch('/api/pickem/submit-pick', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            campaignId: selectedCampaign.id,
+            matchupId: matchup.id,
+            week: selectedWeek,
+            pick: { teamId }
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to save pick via server.');
+        }
+        setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick, ...data.pick } }));
+      }
     } catch (err: any) {
       console.error('Failed to save pick', err);
       alert('Failed to save pick: ' + (err.message || String(err)));

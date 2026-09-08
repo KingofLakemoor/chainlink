@@ -2904,7 +2904,7 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
     // Do not show or generate snapshot lines before Tuesday 12:00 PM EST odds finalization
     if (now < lockTime) {
       const lockDate = new Date(lockTime);
-      const formattedLockDate = lockDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const formattedLockDate = lockDate.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
       return res.json({
         success: true,
         lines: null,

@@ -95,7 +95,18 @@ export default function Gridiron3x3Page() {
         const data = await res.json();
         setGames(data.lines?.games || []);
         if (data.message && !data.lines) {
-          setLinesMessage(data.message);
+          if (data.lockTime) {
+            const userLocalLockStr = new Date(data.lockTime).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            });
+            setLinesMessage(`Picks for Week ${weekNumber} open after Tuesday odds finalization on ${userLocalLockStr}.`);
+          } else {
+            setLinesMessage(data.message);
+          }
         }
       }
     } catch (e) {

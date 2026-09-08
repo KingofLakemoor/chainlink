@@ -70,14 +70,12 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
 }
 
 /**
- * Calculates the Tuesday 12:00 PM EST timestamp when snapshot lines release / pick window opens for a week.
- * This is 12 hours after Week N Tuesday 00:00:00 EST.
+ * Calculates the Tuesday 12:00 PM Eastern Time timestamp when snapshot lines release / pick window opens for a week.
+ * This is 12 hours after Week N Tuesday 00:00:00 Eastern Time (startMs).
  */
 export function getGridironLinesLockTime(season: number = 2026, weekNumber: number = 1): number {
   const weekRange = getFootballWeekDateRange(season, weekNumber);
-  const tueDate = weekRange.startDate;
-  // Tuesday 12:00 PM EST = 17:00 UTC (matches Tuesday 12:00 PM EST cron schedule '0 17 * * 2')
-  return Date.UTC(tueDate.getUTCFullYear(), tueDate.getUTCMonth(), tueDate.getUTCDate(), 17, 0, 0, 0);
+  return weekRange.startMs + 12 * 3600 * 1000;
 }
 
 /**

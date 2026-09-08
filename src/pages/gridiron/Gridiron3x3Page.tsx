@@ -172,10 +172,10 @@ export default function Gridiron3x3Page() {
     }
   }, [activeTab]);
 
-  // Subscribe to real-time leaderboard subcollection
+  // Subscribe to real-time leaderboard subcollection only when Standings tab or workspace view is active
   useEffect(() => {
     const contestId = selectedContest?.contestId;
-    if (!contestId) return;
+    if (!contestId || viewMode !== 'workspace' || activeTab !== 'leaderboard') return;
     const q = query(collection(db, 'gridiron_3x3_contests', contestId, 'leaderboard'));
     const unsub = onSnapshot(q, (snap) => {
       const records: GridironLeaderboardRecord[] = [];
@@ -187,7 +187,7 @@ export default function Gridiron3x3Page() {
     }, (err) => console.error("Leaderboard listener error:", err));
 
     return () => unsub();
-  }, [selectedContest?.contestId]);
+  }, [selectedContest?.contestId, viewMode, activeTab]);
 
   const handleCreateContest = async (e: React.FormEvent) => {
     e.preventDefault();

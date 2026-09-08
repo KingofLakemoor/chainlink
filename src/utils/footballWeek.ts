@@ -45,9 +45,23 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
   const endStr = end.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const formattedRange = `${startStr} - ${endStr}`;
 
+  // Start boundary: Tuesday 00:00:00 Eastern Time
+  const startY = start.getFullYear();
+  const startM = String(start.getMonth() + 1).padStart(2, '0');
+  const startD = String(start.getDate()).padStart(2, '0');
+  const isStartEDT = new Date(`${startY}-${startM}-${startD}T00:00:00Z`).toLocaleString('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' }).includes('EDT');
+  const startMs = new Date(`${startY}-${startM}-${startD}T00:00:00${isStartEDT ? '-04:00' : '-05:00'}`).getTime();
+
+  // End boundary: Monday 23:59:59.999 Eastern Time + 4 hours buffer (03:59:59.999 UTC Tuesday morning) to cover Monday Night Football
+  const endY = end.getFullYear();
+  const endM = String(end.getMonth() + 1).padStart(2, '0');
+  const endD = String(end.getDate()).padStart(2, '0');
+  const isEndEDT = new Date(`${endY}-${endM}-${endD}T23:59:59Z`).toLocaleString('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' }).includes('EDT');
+  const endMs = new Date(`${endY}-${endM}-${endD}T23:59:59.999${isEndEDT ? '-04:00' : '-05:00'}`).getTime() + 4 * 3600000;
+
   return {
-    startMs: start.getTime(),
-    endMs: end.getTime(),
+    startMs,
+    endMs,
     startDate: start,
     endDate: end,
     dateStrings,

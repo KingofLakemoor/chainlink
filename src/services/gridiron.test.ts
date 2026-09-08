@@ -52,7 +52,7 @@ describe('Gridiron Service Tests', () => {
       const lockTime = getGridironLinesLockTime(season, weekNumber);
 
       // Time before lockTime (e.g. Monday Sept 7, 2026 8:00 PM)
-      const nowBeforeLock = new Date(2026, 8, 7, 20, 0, 0).getTime();
+      const nowBeforeLock = new Date("2026-09-07T20:00:00.000Z").getTime();
       expect(nowBeforeLock < lockTime).toBe(true);
 
       const checkLinesAvailability = (now: number, linesDoc: any) => {
@@ -69,8 +69,8 @@ describe('Gridiron Service Tests', () => {
       expect(resBefore.lines).toBeNull();
       expect(resBefore.isLocked).toBe(true);
 
-      // Time after lockTime (e.g. Tuesday Sept 8, 2026 1:00 PM)
-      const nowAfterLock = new Date(2026, 8, 8, 13, 0, 0).getTime();
+      // Time after lockTime (e.g. Tuesday Sept 8, 2026 1:00 PM EDT / 17:00 UTC)
+      const nowAfterLock = new Date("2026-09-08T17:00:00.000Z").getTime();
       const resAfter = checkLinesAvailability(nowAfterLock, mockLinesDoc);
       expect(resAfter.lines).toEqual(mockLinesDoc);
       expect(resAfter.isLocked).toBe(false);

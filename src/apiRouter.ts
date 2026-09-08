@@ -2898,9 +2898,6 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
       return res.status(400).json({ success: false, error: "Invalid season or weekNumber parameters." });
     }
 
-    const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
-    let docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
-
     const lockTime = getGridironLinesLockTime(season, weekNumber);
     const now = Date.now();
 
@@ -2916,6 +2913,9 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
         message: `Picks for Week ${weekNumber} open after Tuesday odds finalization on ${formattedLockDate}.`
       });
     }
+
+    const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
+    let docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
 
     if (!docSnap.exists) {
       // Auto-trigger ingestion if snapshot lines document is missing and current time >= Tuesday 12:00 PM EST

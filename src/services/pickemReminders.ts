@@ -76,6 +76,9 @@ export function startPickemRemindersJob() {
 
             if (!expectedLimit || expectedLimit <= 0) continue;
 
+            let notifBatch = adminDb.batch();
+            let notifOpCount = 0;
+
             for (const pDoc of participantsSnap.docs) {
                const pData = pDoc.data();
                const pId = pData.participantId;
@@ -86,8 +89,9 @@ export function startPickemRemindersJob() {
                if (userPickCount < expectedLimit) {
                   const missing = expectedLimit - userPickCount;
                   const dedupeId = `pickem_remind_${campaignDoc.id}_w${campaign.currentWeek}_${pId}`;
+                  const notifRef = adminDb.collection('notifications').doc();
 
-                  await adminDb.collection('notifications').add({
+                  notifBatch.set(notifRef, {
                      userId: pId,
                      title: `Missing Picks: ${campaign.name}`,
                      message: `You still have ${missing} pick${missing > 1 ? 's' : ''} to make for Week ${campaign.currentWeek}! Games lock soon.`,
@@ -96,7 +100,18 @@ export function startPickemRemindersJob() {
                      createdAt: Date.now(),
                      dedupeId: dedupeId
                   });
+                  notifOpCount++;
+
+                  if (notifOpCount >= 450) {
+                     await notifBatch.commit();
+                     notifBatch = adminDb.batch();
+                     notifOpCount = 0;
+                  }
                }
+            }
+
+            if (notifOpCount > 0) {
+               await notifBatch.commit();
             }
          }
       }

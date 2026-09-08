@@ -393,6 +393,81 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { campaignId, matchupId, week, pick, tiebreakerTotal, confidence } = req.body;
+
+    if (!campaignId || !matchupId) {
+      return res.status(400).json({ success: false, error: "Missing campaignId or matchupId" });
+    }
+
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    // Look up matchup to check if game is locked
+    const matchupDoc = await adminDb.collection('pickemMatchups').doc(matchupId).get();
+    if (matchupDoc.exists) {
+      const matchup = matchupDoc.data()!;
+      const startTime = matchup.startTime ? (typeof matchup.startTime === 'number' ? matchup.startTime : new Date(matchup.startTime).getTime()) : 0;
+      const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (startTime > 0 && Date.now() >= startTime);
+      if (isLocked) {
+        return res.status(400).json({ success: false, error: "Game is locked. Cannot submit pick." });
+      }
+    }
+
+    // Auto-heal participant record if missing
+    const pairId = `${campaignId}_${uid}`;
+    const partRef = adminDb.collection('pickemParticipants').doc(pairId);
+    const partDoc = await partRef.get();
+    if (!partDoc.exists) {
+      await partRef.set({
+        campaignId,
+        participantId: uid,
+        joinedAt: Date.now()
+      }, { merge: true });
+    }
+
+    // Save or update pick document
+    const docId = `${campaignId}_${week || ''}_${matchupId}_${uid}`;
+    const pickRef = adminDb.collection('pickemPicks').doc(docId);
+    const existingSnap = await pickRef.get();
+    const existingData = existingSnap.exists ? existingSnap.data() : {};
+
+    const payload: any = {
+      campaignId,
+      participantId: uid,
+      userId: uid,
+      matchupId,
+      week: week || 1,
+      status: existingData?.status || 'PENDING',
+      pointsEarned: existingData?.pointsEarned || 0,
+      submittedAt: Date.now(),
+      createdAt: existingData?.createdAt || Date.now(),
+      updatedAt: Date.now()
+    };
+
+    if (pick !== undefined) payload.pick = pick;
+    else if (existingData?.pick) payload.pick = existingData.pick;
+
+    if (tiebreakerTotal !== undefined) payload.tiebreakerTotal = tiebreakerTotal;
+    else if (existingData?.tiebreakerTotal !== undefined) payload.tiebreakerTotal = existingData.tiebreakerTotal;
+
+    if (confidence !== undefined) {
+      payload.confidence = confidence;
+      payload.pointsEarned = confidence;
+    } else if (existingData?.confidence !== undefined) {
+      payload.confidence = existingData.confidence;
+    }
+
+    await pickRef.set(payload, { merge: true });
+
+    res.json({ success: true, pickId: docId, pick: payload });
+  } catch (e: any) {
+    console.error("Submit pickem pick error:", e.message, e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/pickem/clear-pick", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;

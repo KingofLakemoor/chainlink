@@ -169,18 +169,22 @@ service cloud.firestore {
     }
         match /pickemPicks/{pickId} {
       function isMatchupOpen(mId) {
+        let matchupData = get(/databases/$(database)/documents/pickemMatchups/$(mId)).data;
+        let st = matchupData.get('startTime', 0);
+        let stMs = (st is number && st < 10000000000) ? st * 1000 : st;
         return mId != null && mId != '' && (
           !exists(/databases/$(database)/documents/pickemMatchups/$(mId)) ||
           (
-            get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('status', 'STATUS_SCHEDULED') != 'STATUS_IN_PROGRESS' &&
-            get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('status', 'STATUS_SCHEDULED') != 'STATUS_FINAL' &&
-            get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('status', 'STATUS_SCHEDULED') != 'STATUS_POSTPONED' &&
-            get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('status', 'STATUS_SCHEDULED') != 'STATUS_CANCELED' &&
+            matchupData.get('status', 'STATUS_SCHEDULED') != 'STATUS_IN_PROGRESS' &&
+            matchupData.get('status', 'STATUS_SCHEDULED') != 'STATUS_FINAL' &&
+            matchupData.get('status', 'STATUS_SCHEDULED') != 'STATUS_POSTPONED' &&
+            matchupData.get('status', 'STATUS_SCHEDULED') != 'STATUS_CANCELED' &&
+            matchupData.get('status', 'STATUS_SCHEDULED') != 'STATUS_CLOSED' &&
             (
-              get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) == null ||
-              get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) == 0 ||
-              !(get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) is number) ||
-              get(/databases/$(database)/documents/pickemMatchups/$(mId)).data.get('startTime', 0) > request.time.toMillis()
+              st == null ||
+              st == 0 ||
+              !(stMs is number) ||
+              stMs > request.time.toMillis()
             )
           )
         );

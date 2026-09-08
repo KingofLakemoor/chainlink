@@ -23,12 +23,13 @@ export function startPickemEnforcerJob() {
          if (campaign.format === 'SURVIVOR') expectedLimit = 1;
          if (!expectedLimit || expectedLimit <= 0) continue; // No limit to enforce
          
-         // Fetch all picks for this campaign and week in a single query
+         // Fetch picks for this campaign and current week in a single query
          const picksSnap = await adminDb.collection('pickemPicks')
             .where('campaignId', '==', campaignDoc.id)
+            .where('week', '==', campaign.currentWeek)
             .get();
          
-         const pickDocs = picksSnap.docs.filter(d => d.data().week === campaign.currentWeek);
+         const pickDocs = picksSnap.docs;
          if (pickDocs.length === 0) continue;
 
          // Group picks by participantId

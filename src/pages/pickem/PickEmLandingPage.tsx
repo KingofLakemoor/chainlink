@@ -160,14 +160,23 @@ export default function PickEmLandingPage() {
           const camp = camps.find(c => c.id === cid);
           if (!camp) return;
 
-          const mQuery = query(collection(db, 'pickemMatchups'), where('campaignId', '==', cid));
-          const pQuery = query(collection(db, 'pickemPicks'), where('participantId', '==', user.uid));
+          const week = camp.currentWeek ?? 1;
+          const mQuery = query(
+            collection(db, 'pickemMatchups'),
+            where('campaignId', '==', cid),
+            where('week', '==', week)
+          );
+          const pQuery = query(
+            collection(db, 'pickemPicks'),
+            where('participantId', '==', user.uid),
+            where('campaignId', '==', cid),
+            where('week', '==', week)
+          );
 
           const [mSnap, pSnap] = await Promise.all([getDocs(mQuery), getDocs(pQuery)]);
 
-          const week = camp.currentWeek ?? 1;
-          const matchups = mSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).filter(m => m.week === week).sort((a, b) => a.startTime - b.startTime);
-          const picks = pSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).filter(p => p.campaignId === cid && p.week === week);
+          const matchups = mSnap.docs.map(d => ({ id: d.id, ...d.data() as any })).sort((a, b) => a.startTime - b.startTime);
+          const picks = pSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
 
           details[cid] = { matchups, picks };
         }));

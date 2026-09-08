@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react
 import { AuthProvider, useAuth } from './lib/auth-context';
 import { FirebaseImage } from './components/ui/FirebaseImage';
 import { loginWithGoogle, loginWithEmail, signupWithEmail, logout, db, auth } from './lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Button } from './components/ui/button';
 import { SidebarProgress } from './components/SidebarProgress';
 import { cn } from './lib/utils';
@@ -36,8 +36,9 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
   useEffect(() => {
     if (!user) return;
     
-    // Check for active PickEm using getDocs instead of a global websocket listener to save massive reads
-    getDocs(collection(db, 'pickemCampaigns')).then((snap) => {
+    // Check for active PickEm using getDocs with limit to save reads
+    const q = query(collection(db, 'pickemCampaigns'), limit(10));
+    getDocs(q).then((snap) => {
        let active = false;
        snap.forEach(doc => {
           const c = doc.data();

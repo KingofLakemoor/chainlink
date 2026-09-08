@@ -256,23 +256,24 @@ export default function PickEmPage() {
     try {
       const mQuery = query(
         collection(db, 'pickemMatchups'),
-        where('campaignId', '==', campaignId)
+        where('campaignId', '==', campaignId),
+        where('week', '==', week)
       );
       const mSnap = await getDocs(mQuery);
-      setMatchups(mSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => m.week === week).sort((a: any, b: any) => a.startTime - b.startTime));
+      setMatchups(mSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => a.startTime - b.startTime));
 
       if (user) {
         const pQuery = query(
           collection(db, 'pickemPicks'),
-          where('participantId', '==', user.uid)
+          where('participantId', '==', user.uid),
+          where('campaignId', '==', campaignId),
+          where('week', '==', week)
         );
         const pSnap = await getDocs(pQuery);
         const picksMap: Record<string, any> = {};
         pSnap.docs.forEach(d => {
           const data = d.data();
-          if (data.campaignId === campaignId && data.week === week) {
-             picksMap[data.matchupId] = { id: d.id, ...data };
-          }
+          picksMap[data.matchupId] = { id: d.id, ...data };
         });
         setUserPicks(picksMap);
       }
@@ -301,7 +302,8 @@ export default function PickEmPage() {
       try {
         const pQuery = query(
           collection(db, 'pickemPicks'),
-          where('participantId', '==', user.uid)
+          where('participantId', '==', user.uid),
+          where('campaignId', '==', selectedCampaign.id)
         );
         const pSnap = await getDocs(pQuery);
 
@@ -352,11 +354,18 @@ export default function PickEmPage() {
         });
 
         // Limited to recent picks to prevent O(N) client-side memory lockups
-        const pQuery = query(
-          collection(db, 'pickemPicks'),
-          where('campaignId', '==', selectedCampaign.id),
-          limit(3000)
-        );
+        const pQuery = leaderboardView === 'week' && selectedWeek !== undefined
+          ? query(
+              collection(db, 'pickemPicks'),
+              where('campaignId', '==', selectedCampaign.id),
+              where('week', '==', selectedWeek),
+              limit(3000)
+            )
+          : query(
+              collection(db, 'pickemPicks'),
+              where('campaignId', '==', selectedCampaign.id),
+              limit(3000)
+            );
         const pSnap = await getDocs(pQuery);
 
         pSnap.docs.forEach(d => {
@@ -408,11 +417,17 @@ export default function PickEmPage() {
             }
           }));
 
-        // Fetch all campaign matchups to evaluate tiebreaker games for all weeks or selected week
-        const allMQuery = query(
-          collection(db, 'pickemMatchups'),
-          where('campaignId', '==', selectedCampaign.id)
-        );
+        // Fetch campaign matchups to evaluate tiebreaker games for all weeks or selected week
+        const allMQuery = leaderboardView === 'week' && selectedWeek !== undefined
+          ? query(
+              collection(db, 'pickemMatchups'),
+              where('campaignId', '==', selectedCampaign.id),
+              where('week', '==', selectedWeek)
+            )
+          : query(
+              collection(db, 'pickemMatchups'),
+              where('campaignId', '==', selectedCampaign.id)
+            );
         const allMSnap = await getDocs(allMQuery);
         const campaignMatchups = allMSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
         setAllCampaignMatchups(campaignMatchups);

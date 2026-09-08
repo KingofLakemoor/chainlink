@@ -393,6 +393,61 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/pickem/clear-pick", validateAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    const { campaignId, matchupId, week } = req.body;
+
+    if (!campaignId || !matchupId) {
+      return res.status(400).json({ success: false, error: "Missing campaignId or matchupId" });
+    }
+
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    // Look up matchup to check if game is locked
+    const matchupDoc = await adminDb.collection('pickemMatchups').doc(matchupId).get();
+    if (matchupDoc.exists) {
+      const matchup = matchupDoc.data()!;
+      const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (matchup.startTime && Date.now() >= matchup.startTime);
+      if (isLocked) {
+        return res.status(400).json({ success: false, error: "Game is locked. Cannot clear pick." });
+      }
+    }
+
+    // Delete pick document(s) for this user, campaign, and matchup
+    const docId = `${campaignId}_${week || ''}_${matchupId}_${uid}`;
+    const directRef = adminDb.collection('pickemPicks').doc(docId);
+    const directDoc = await directRef.get();
+
+    if (directDoc.exists) {
+      await directRef.delete();
+    } else {
+      const query1 = adminDb.collection('pickemPicks')
+        .where('campaignId', '==', campaignId)
+        .where('matchupId', '==', matchupId)
+        .where('participantId', '==', uid);
+      const query2 = adminDb.collection('pickemPicks')
+        .where('campaignId', '==', campaignId)
+        .where('matchupId', '==', matchupId)
+        .where('userId', '==', uid);
+
+      const [snap1, snap2] = await Promise.all([query1.get(), query2.get()]);
+      const docsToDelete = [...snap1.docs, ...snap2.docs];
+
+      if (docsToDelete.length > 0) {
+        const batch = adminDb.batch();
+        docsToDelete.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    }
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("Clear pickem pick error:", e.message, e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.get("/admin/link-transactions", validateAdmin, async (req, res) => {
   try {
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });

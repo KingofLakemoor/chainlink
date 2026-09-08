@@ -604,11 +604,33 @@ export default function PickEmPage() {
         return next;
       });
     } catch (err: any) {
-      console.error(err);
-      if (err.message && err.message.includes("Missing or insufficient permissions")) {
-         alert('Unable to clear pick. Missing permission or game is locked.');
-      } else {
-         alert('Failed to clear pick: ' + (err.message || String(err)));
+      console.warn('Direct Firestore delete failed, falling back to API:', err?.message || err);
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/pickem/clear-pick', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            campaignId: selectedCampaign.id,
+            matchupId: matchup.id,
+            week: selectedWeek
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to clear pick via server.');
+        }
+        setUserPicks(prev => {
+          const next = { ...prev };
+          delete next[matchup.id];
+          return next;
+        });
+      } catch (apiErr: any) {
+        console.error('Clear pick API error:', apiErr);
+        alert('Failed to clear pick: ' + (apiErr.message || String(apiErr)));
       }
     }
   };

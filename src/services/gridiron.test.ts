@@ -39,11 +39,11 @@ describe('Gridiron Service Tests', () => {
       const lockTimeW2 = getGridironLinesLockTime(2026, 2);
       const lockDateW2 = new Date(lockTimeW2);
 
-      // Week 2 starts Tuesday Sept 15, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM
-      expect(lockDateW2.getFullYear()).toBe(2026);
-      expect(lockDateW2.getMonth()).toBe(8); // September
-      expect(lockDateW2.getDate()).toBe(15); // Tuesday Sept 15
-      expect(lockDateW2.getHours()).toBe(12); // 12:00 PM
+      // Week 2 starts Tuesday Sept 15, 2026. Lock time is Tuesday Sept 15, 2026 12:00:00 PM EST (17:00 UTC)
+      expect(lockDateW2.getUTCFullYear()).toBe(2026);
+      expect(lockDateW2.getUTCMonth()).toBe(8); // September
+      expect(lockDateW2.getUTCDate()).toBe(15); // Tuesday Sept 15
+      expect(lockDateW2.getUTCHours()).toBe(17); // 17:00 UTC = 12:00 PM EST
     });
 
     it('enforces that lines are locked and return lines: null when now < getGridironLinesLockTime', () => {

@@ -61,8 +61,9 @@ export function getFootballWeekDateRange(season: number = 2026, weekNumber: numb
  */
 export function getGridironLinesLockTime(season: number = 2026, weekNumber: number = 1): number {
   const weekRange = getFootballWeekDateRange(season, weekNumber);
-  // Tuesday 12:00:00 PM EST = Tuesday 00:00:00 + 12 hours (43,200,000 ms)
-  return weekRange.startMs + (12 * 60 * 60 * 1000);
+  const tueDate = weekRange.startDate;
+  // Tuesday 12:00 PM EST = 17:00 UTC (matches Tuesday 12:00 PM EST cron schedule '0 17 * * 2')
+  return Date.UTC(tueDate.getUTCFullYear(), tueDate.getUTCMonth(), tueDate.getUTCDate(), 17, 0, 0, 0);
 }
 
 /**

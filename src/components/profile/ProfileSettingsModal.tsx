@@ -26,12 +26,12 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
   const [equipLoading, setEquipLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile) {
+    if (isOpen && profile) {
       setNewUsername(profile.username || '');
       setNewName(profile.name || '');
       setNotificationsEnabled(profile.notificationsEnabled !== false);
     }
-  }, [profile]);
+  }, [isOpen, profile?.id]);
 
   useEffect(() => {
     if (!isOpen) return;

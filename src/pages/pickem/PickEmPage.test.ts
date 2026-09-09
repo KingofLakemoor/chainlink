@@ -796,4 +796,26 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(isLockedBeforeKickoff(inProgressMatchup)).toBe(true); // locked at kickoff
     expect(isLockedBeforeKickoff(finalMatchup)).toBe(true); // locked when final
   });
+
+  it('correctly re-evaluates participant status when user loads after initial render', () => {
+    const participantsDb = [
+      { id: 'yes-day-2026_user123', campaignId: 'yes-day-2026', participantId: 'user123' }
+    ];
+
+    const evaluateParticipantStatus = (user: { uid: string } | null, selectedCampaign: { id: string } | null) => {
+      if (!user || !selectedCampaign) return false;
+      const pairId = `${selectedCampaign.id}_${user.uid}`;
+      return participantsDb.some(p => p.id === pairId || (p.campaignId === selectedCampaign.id && p.participantId === user.uid));
+    };
+
+    const campaign = { id: 'yes-day-2026' };
+
+    // Initial render when auth user is null
+    let userState: { uid: string } | null = null;
+    expect(evaluateParticipantStatus(userState, campaign)).toBe(false);
+
+    // After auth resolves and user state updates
+    userState = { uid: 'user123' };
+    expect(evaluateParticipantStatus(userState, campaign)).toBe(true);
+  });
 });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './firebase-error';
@@ -199,11 +199,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile((prev: any) => (prev ? { ...prev, ...partialProfile } : partialProfile));
   };
 
-  const activeProfile = profile ? {
+  const activeProfile = useMemo(() => profile ? {
     ...profile,
     realRole: profile.role,
     role: spoofedRole || profile.role,
-  } : null;
+  } : null, [profile, spoofedRole]);
 
   return (
     <AuthContext.Provider value={{

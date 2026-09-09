@@ -163,37 +163,6 @@ export default function PickEmPage() {
             ? initialCampaign.currentWeek
             : (initialCampaign.hasWeekZero ? 0 : 1);
           setSelectedWeek(defaultWeek);
-          if (user) {
-            const pairId = `${initialCampaign.id}_${user.uid}`;
-            const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
-            let userIsParticipant = docRef.exists();
-
-            if (!userIsParticipant) {
-              // Check if user has picks submitted for this campaign
-              const pCheckQuery = query(
-                collection(db, 'pickemPicks'),
-                where('participantId', '==', user.uid)
-              );
-              const pCheckSnap = await getDocs(pCheckQuery);
-              userIsParticipant = pCheckSnap.docs.some(d => d.data().campaignId === initialCampaign.id);
-
-              if (userIsParticipant) {
-                // Auto-heal missing participant record for this campaign
-                user.getIdToken().then(token => {
-                  fetch('/api/pickem/join', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ campaignId: initialCampaign.id })
-                  }).catch(err => console.error("Auto-heal join error in PickEmPage:", err));
-                }).catch(console.error);
-              }
-            }
-
-            setIsParticipant(userIsParticipant);
-          }
         }
       } catch (err) {
         console.error(err);
@@ -202,7 +171,84 @@ export default function PickEmPage() {
       }
     };
     fetchCampaigns();
-  }, []);
+  }, [user, campaignId]);
+
+  useEffect(() => {
+    const checkParticipantStatus = async () => {
+      if (!user || !selectedCampaign) {
+        setIsParticipant(false);
+        return;
+      }
+
+      try {
+        const pairId = `${selectedCampaign.id}_${user.uid}`;
+        const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
+        let userIsParticipant = docRef.exists();
+
+        if (!userIsParticipant) {
+          const partQuery = query(
+            collection(db, 'pickemParticipants'),
+            where('campaignId', '==', selectedCampaign.id),
+            where('participantId', '==', user.uid)
+          );
+          const partSnap = await getDocs(partQuery).catch(() => ({ empty: true }));
+
+          if (!partSnap.empty) {
+            userIsParticipant = true;
+          } else {
+            const partUserQuery = query(
+              collection(db, 'pickemParticipants'),
+              where('campaignId', '==', selectedCampaign.id),
+              where('userId', '==', user.uid)
+            );
+            const partUserSnap = await getDocs(partUserQuery).catch(() => ({ empty: true }));
+            if (!partUserSnap.empty) {
+              userIsParticipant = true;
+            }
+          }
+        }
+
+        if (!userIsParticipant) {
+          // Check if user has picks submitted for this campaign
+          const pCheckQuery = query(
+            collection(db, 'pickemPicks'),
+            where('participantId', '==', user.uid)
+          );
+          const pCheckSnap = await getDocs(pCheckQuery).catch(() => ({ docs: [] }));
+          userIsParticipant = pCheckSnap.docs.some(d => d.data().campaignId === selectedCampaign.id);
+
+          if (!userIsParticipant) {
+            const pUserCheckQuery = query(
+              collection(db, 'pickemPicks'),
+              where('userId', '==', user.uid)
+            );
+            const pUserCheckSnap = await getDocs(pUserCheckQuery).catch(() => ({ docs: [] }));
+            userIsParticipant = pUserCheckSnap.docs.some(d => d.data().campaignId === selectedCampaign.id);
+          }
+
+          if (userIsParticipant) {
+            // Auto-heal missing participant record for this campaign
+            user.getIdToken().then(token => {
+              fetch('/api/pickem/join', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ campaignId: selectedCampaign.id })
+              }).catch(err => console.error("Auto-heal join error in PickEmPage:", err));
+            }).catch(console.error);
+          }
+        }
+
+        setIsParticipant(userIsParticipant);
+      } catch (err) {
+        console.error("Error checking participant status:", err);
+      }
+    };
+
+    checkParticipantStatus();
+  }, [user, selectedCampaign]);
 
   
   const handleJoinCampaign = async () => {

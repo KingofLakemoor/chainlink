@@ -36,25 +36,51 @@ export default function ShopPage() {
   useEffect(() => {
     const fetchItems = async () => {
       try {
-        if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
-          setItems([
-            { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, image: 'Hexagons' },
-            { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, image: 'BullBearAvatarRing' },
-            { id: 'banner_neon', name: 'Neon Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
+        const defaultItems = [
+          { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, image: 'Hexagons' },
+          { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, image: 'BullBearAvatarRing' },
+          { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
+          { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
+          { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
+          { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
+          { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
+        ];
 
-            { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
-            { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
-          ]);
+        if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
+          setItems(defaultItems);
           setLoading(false);
           return;
         }
 
         const q = query(collection(db, 'shopItems'), where('active', '==', true));
         const snap = await getDocs(q);
-        const fetchedItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let fetchedItems: any[] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (fetchedItems.length === 0) {
+          fetchedItems = defaultItems;
+        } else {
+          // Ensure new regional banners are available if not seeded in Firestore collection yet
+          if (!fetchedItems.some(i => i.id === 'banner_emerald_storm')) {
+            fetchedItems.push({ id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' });
+          }
+          if (!fetchedItems.some(i => i.id === 'banner_winter_beacon')) {
+            fetchedItems.push({ id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' });
+          }
+        }
         setItems(fetchedItems);
       } catch (e) {
         console.error("Error fetching shop items", e);
+        if (import.meta.env.DEV) {
+          setItems([
+            { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, image: 'Hexagons' },
+            { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, image: 'BullBearAvatarRing' },
+            { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
+            { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
+            { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
+            { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
+            { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
+          ]);
+        }
       } finally {
         setLoading(false);
       }

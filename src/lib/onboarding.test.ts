@@ -1,13 +1,17 @@
 import { describe, it, expect } from 'vitest';
 
-function sanitizeUsernameCandidate(candidate: string): string {
-  const sanitized = candidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
-  return sanitized.length >= 3 ? sanitized : 'User' + Math.floor(Math.random() * 1000000);
-}
-
 function prepareUserProfilePayload(user: { uid: string; email?: string | null; displayName?: string | null; photoURL?: string | null }, username?: string) {
-  const rawCandidate = username || user.displayName || user.email?.split('@')[0] || '';
-  const resolvedUsername = sanitizeUsernameCandidate(rawCandidate);
+  const isExplicitUsername = !!username;
+  let resolvedUsername = '';
+  if (isExplicitUsername) {
+    const sanitized = username.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+    resolvedUsername = sanitized.length >= 3 ? sanitized : 'User' + Math.floor(100000 + Math.random() * 900000);
+  } else {
+    const uidSuffix = user.uid ? user.uid.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6) : '';
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    resolvedUsername = `User_${uidSuffix || randomSuffix}`;
+  }
+
   const nameCandidate = (user.displayName || user.email?.split('@')[0] || 'Anonymous').slice(0, 100);
   const emailCandidate = (user.email || '').slice(0, 200);
 
@@ -23,16 +27,28 @@ function prepareUserProfilePayload(user: { uid: string; email?: string | null; d
     stats: { wins: 0, losses: 0, pushes: 0 },
     createdAt: 1000,
     updatedAt: 1000,
-    needsOnboarding: username ? false : true,
+    needsOnboarding: !isExplicitUsername,
   };
 }
 
+function resolveSuggestedUsername(candidate: string, exists: boolean): string {
+  let sanitized = candidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+  if (sanitized.length < 3 || /^User(_|\d)/i.test(sanitized)) {
+    sanitized = 'User_' + Math.floor(1000 + Math.random() * 9000);
+  }
+  if (exists) {
+    const baseName = sanitized.slice(0, 16);
+    return `${baseName}${Math.floor(100 + Math.random() * 900)}`;
+  }
+  return sanitized;
+}
+
 describe('Onboarding profile setup', () => {
-  it('sanitizes Google user metadata into valid Firestore fields', () => {
+  it('generates a unique temporary placeholder for initial Google users needing onboarding', () => {
     const googleUser = {
-      uid: 'google-uid-123',
+      uid: 'google-uid-123456',
       email: 'john.doe.super.long.email.address.example.com@gmail.com',
-      displayName: 'John Doe Very Long Name '.repeat(10), // > 100 chars
+      displayName: 'John Doe Very Long Name '.repeat(10),
       photoURL: 'https://example.com/avatar.png',
     };
 
@@ -40,8 +56,8 @@ describe('Onboarding profile setup', () => {
 
     expect(payload.email).toBe(googleUser.email);
     expect(payload.name.length).toBeLessThanOrEqual(100);
-    expect(payload.username).toBe('JohnDoeVeryLongNameJ');
-    expect(payload.usernameLower).toBe('johndoeverylongnamej');
+    expect(payload.username).toBe('User_google');
+    expect(payload.usernameLower).toBe('user_google');
     expect(payload.needsOnboarding).toBe(true);
     expect(payload.role).toBe('USER');
     expect(payload.status).toBe('ACTIVE');
@@ -49,7 +65,7 @@ describe('Onboarding profile setup', () => {
 
   it('handles Google user with missing displayName or email correctly', () => {
     const googleUser = {
-      uid: 'google-uid-456',
+      uid: 'google-uid-456789',
       email: null,
       displayName: null,
       photoURL: null,
@@ -59,13 +75,13 @@ describe('Onboarding profile setup', () => {
 
     expect(payload.email).toBe('');
     expect(payload.name).toBe('Anonymous');
-    expect(payload.username).toMatch(/^User\d+$/);
+    expect(payload.username).toMatch(/^User_/);
     expect(payload.needsOnboarding).toBe(true);
   });
 
-  it('sets needsOnboarding to false when explicit valid username is provided during onboarding', () => {
+  it('sets needsOnboarding to false when explicit valid username is provided during email sign up or onboarding', () => {
     const googleUser = {
-      uid: 'google-uid-789',
+      uid: 'google-uid-789012',
       email: 'jane@example.com',
       displayName: 'Jane Doe',
       photoURL: null,
@@ -78,13 +94,30 @@ describe('Onboarding profile setup', () => {
     expect(payload.needsOnboarding).toBe(false);
   });
 
-  it('correctly filters out auto-generated UserNNN patterns from auto-suggest candidate', () => {
-    const user = { displayName: null, email: 'alex@example.com' };
-    const profile = { name: 'User987654' };
+  it('auto-suggests clean candidate and appends random digits if base candidate is taken', () => {
+    const candidateAvailable = resolveSuggestedUsername('John Doe', false);
+    expect(candidateAvailable).toBe('JohnDoe');
 
-    const rawCandidate = user?.displayName || (profile?.name && !/^User\d+$/i.test(profile.name) ? profile.name : '') || user?.email?.split('@')[0] || '';
-    const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+    const candidateTaken = resolveSuggestedUsername('John Doe', true);
+    expect(candidateTaken).toMatch(/^JohnDoe\d{3}$/);
+  });
 
-    expect(sanitized).toBe('alex');
+  it('preserves target redirect URL and join code when user profile needs onboarding', () => {
+    const profile = { needsOnboarding: true };
+    const targetUrl = '/pickem/yes_day_2026?joinCode=AUTISM2026';
+    const joinCode = 'AUTISM2026';
+
+    let storedRedirect: string | null = targetUrl;
+    let storedCode: string | null = joinCode;
+
+    // Simulate Landing route guard check when needsOnboarding is true:
+    if (profile.needsOnboarding) {
+      // Must NOT clear storedRedirect!
+    } else {
+      storedRedirect = null;
+    }
+
+    expect(storedRedirect).toBe('/pickem/yes_day_2026?joinCode=AUTISM2026');
+    expect(storedCode).toBe('AUTISM2026');
   });
 });

@@ -51,9 +51,9 @@ async function startServer() {
   }
 
   // Use raw body parser for auth proxy to preserve any custom content types / bodies
-  app.use('/__/auth/*', express.raw({ type: '*/*', limit: '10mb' }));
+  app.use('/__/auth', express.raw({ type: '*/*', limit: '10mb' }));
 
-  app.all('/__/auth/*', async (req, res) => {
+  app.all('/__/auth*', async (req, res) => {
     try {
       const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
       const inferredAuthDomain = projectId ? `${projectId}.firebaseapp.com` : '';

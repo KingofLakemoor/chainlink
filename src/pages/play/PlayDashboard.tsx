@@ -61,22 +61,38 @@ export default function PlayDashboard() {
       return;
     }
     
-    let unsubMatchups = () => {};
+    let fetchMatchupsTimer: any = null;
 
-    const setupMatchups = () => {
-      // Significantly reduce reads by only fetching non-final matches
-      const q = query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']));
-      unsubMatchups = onSnapshot(q, (snap) => {
+    const fetchMatchups = async () => {
+      try {
+        const q = query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']));
+        const snap = await getDocs(q);
         if (snap.empty) {
           setAllFetchedMatchups([]);
         } else {
-          const allMatchups = snap.docs.map(d => ({id: d.id, ...d.data()}));
+          const allMatchups = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           setAllFetchedMatchups(allMatchups);
         }
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'matchups');
-      });
+      } catch (error) {
+        handleFirestoreError(error as any, OperationType.LIST, 'matchups');
+      }
     };
+
+    const setupMatchups = () => {
+      fetchMatchups();
+      fetchMatchupsTimer = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchMatchups();
+        }
+      }, 60 * 1000);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMatchups();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
 
     let unsubPicks = () => {};
@@ -132,7 +148,8 @@ export default function PlayDashboard() {
     setupPicksListeners();
 
     return () => {
-      unsubMatchups();
+      if (fetchMatchupsTimer) clearInterval(fetchMatchupsTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       unsubPicks();
       unsubGlobalPicks();
       unsubSponsors();

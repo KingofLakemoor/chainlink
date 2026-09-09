@@ -492,8 +492,16 @@ export async function syncLeagueSchedules(
               // FORCE skip update if abandoned
           if (data.abandoned === true && !pickemMatchupIds.has(existingGameId) && !bracketMatchIds.has(existingGameId)) { continue; }
           const isProtected = pickemMatchupIds.has(existingGameId) || bracketMatchIds.has(existingGameId);
+          const expectedStatusDesc = newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming';
+          const isGolfClockOnlyChange = data.status === 'STATUS_IN_PROGRESS' &&
+                  newStatus === 'STATUS_IN_PROGRESS' &&
+                  data.homeTeam?.score === homeScore &&
+                  data.awayTeam?.score === awayScore &&
+                  data.statusDesc !== expectedStatusDesc &&
+                  (Date.now() - (data.updatedAt || 0)) < (10 * 60 * 1000);
+
           const needsUpdate = (data.abandoned === true && isProtected) || data.status !== newStatus ||
-                  data.statusDesc !== (newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming') ||
+                  (!isGolfClockOnlyChange && data.statusDesc !== expectedStatusDesc) ||
                   data.homeTeam?.score !== homeScore ||
                   data.awayTeam?.score !== awayScore ||
                   data.active !== newActive ||
@@ -745,7 +753,15 @@ export async function syncLeagueSchedules(
           // FORCE skip update if abandoned
           if (existingData.abandoned === true && !pickemMatchupIds.has(gameId) && !bracketMatchIds.has(gameId)) { continue; }
           const isProtected = pickemMatchupIds.has(gameId) || bracketMatchIds.has(gameId);
-          const needsUpdate = (existingData.abandoned === true && isProtected) || existingData.status !== newStatus || existingData.statusDesc !== newStatusDesc ||
+          const isClockOnlyChange = existingData.status === 'STATUS_IN_PROGRESS' &&
+              newStatus === 'STATUS_IN_PROGRESS' &&
+              existingData.homeTeam?.score === homeScore &&
+              existingData.awayTeam?.score === awayScore &&
+              existingData.statusDesc !== newStatusDesc &&
+              (Date.now() - (existingData.updatedAt || 0)) < (10 * 60 * 1000);
+
+          const needsUpdate = (existingData.abandoned === true && isProtected) || existingData.status !== newStatus ||
+              (!isClockOnlyChange && existingData.statusDesc !== newStatusDesc) ||
               existingData.startTime !== scrapedMatchup.startTime ||
               existingData.homeTeam?.score !== homeScore ||
               existingData.awayTeam?.score !== awayScore ||

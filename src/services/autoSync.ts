@@ -5,7 +5,7 @@ import { updateAllProps } from './propGrader.js';
 import { gradeGridironWeek, updateGridironLeaderboard } from './gridironGrader.js';
 import { getCurrentFootballWeek } from './gridironIngestion.js';
 
-let syncInterval: NodeJS.Timeout | null = null;
+let syncTimeout: NodeJS.Timeout | null = null;
 let loopCount = 0;
 let cachedBracketMatchIds = new Set<string>();
 let cachedPickemMatchupIds = new Set<string>();
@@ -18,10 +18,10 @@ const METADATA_TTL_MS = 60 * 60 * 1000;
 let finalizedGridironWeeksCache = new Set<string>();
 
 export function startAutoSyncJob() {
-  if (syncInterval) return;
-  
-  // Run every 3 minutes
+  if (syncTimeout) return;
+
   const runSync = async () => {
+    let hasLiveGames = false;
     const isFullSync = loopCount % 5 === 0;
     loopCount++;
     try {
@@ -70,6 +70,9 @@ export function startAutoSyncJob() {
       // ALWAYS sync leagues that have games currently in progress, to ensure they don't get stuck forever if a league is deactivated
       try {
           const inProgressSnap = await adminDb.collection('matchups').where('status', 'in', ['STATUS_IN_PROGRESS', 'STATUS_DELAYED']).get();
+          if (!inProgressSnap.empty) {
+              hasLiveGames = true;
+          }
           inProgressSnap.docs.forEach(doc => {
               if (doc.data().league) activeLeaguesSet.add(doc.data().league);
           });
@@ -150,10 +153,13 @@ export function startAutoSyncJob() {
     } catch (e) {
       console.error("[AutoSync] Error during background sync job:", e);
       logServerError('AutoSync Background Job', e);
+    } finally {
+      // Adaptive interval: 3 mins during live games, 10 mins during off-peak hours
+      const nextDelayMs = hasLiveGames ? 3 * 60 * 1000 : 10 * 60 * 1000;
+      syncTimeout = setTimeout(runSync, nextDelayMs);
     }
   };
-  
+
   // Run immediately on start
   runSync();
-  syncInterval = setInterval(runSync, 3 * 60 * 1000);
 }

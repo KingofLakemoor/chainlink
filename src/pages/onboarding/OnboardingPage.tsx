@@ -14,15 +14,40 @@ export default function OnboardingPage() {
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Auto-suggest an initial clean username from user profile/display name/email
+  // Auto-suggest an initial clean and available username from user profile/display name/email
   React.useEffect(() => {
-    if (!username && (user || profile)) {
-      const rawCandidate = user?.displayName || (profile?.name && !/^User\d+$/i.test(profile.name) ? profile.name : '') || user?.email?.split('@')[0] || '';
-      const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
-      if (sanitized.length >= 3 && !/^User\d+$/i.test(sanitized)) {
-        setUsername(sanitized);
+    let isMounted = true;
+    const suggestUsername = async () => {
+      if (!username && (user || profile)) {
+        const rawCandidate = user?.displayName || (profile?.name && !/^User(_|\d)/i.test(profile.name) ? profile.name : '') || user?.email?.split('@')[0] || '';
+        let sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+        if (sanitized.length < 3 || /^User(_|\d)/i.test(sanitized)) {
+          sanitized = 'User_' + Math.floor(1000 + Math.random() * 9000);
+        }
+
+        let availableName = sanitized;
+        try {
+          const idToken = user ? await user.getIdToken().catch(() => null) : null;
+          const headers: Record<string, string> = idToken ? { 'Authorization': `Bearer ${idToken}` } : {};
+          const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(sanitized)}&excludeUid=${encodeURIComponent(user?.uid || '')}`, { headers });
+          if (res.ok) {
+            const checkData = await res.json();
+            if (checkData.exists) {
+              const baseName = sanitized.slice(0, 16);
+              availableName = `${baseName}${Math.floor(100 + Math.random() * 900)}`;
+            }
+          }
+        } catch (e) {
+          console.warn("Error auto-suggesting username:", e);
+        }
+
+        if (isMounted) {
+          setUsername(availableName);
+        }
       }
-    }
+    };
+    suggestUsername();
+    return () => { isMounted = false; };
   }, [user, profile]);
 
   // If they somehow get here without needing onboarding, redirect to dashboard or target page
@@ -91,12 +116,14 @@ export default function OnboardingPage() {
           if (checkData.exists) {
             throw new Error("Username is already taken.");
           }
+        } else {
+          throw new Error("Unable to verify username availability. Please try again.");
         }
       } catch (checkErr: any) {
-        if (checkErr.message === "Username is already taken.") {
+        if (checkErr.message === "Username is already taken." || checkErr.message === "Unable to verify username availability. Please try again.") {
           throw checkErr;
         }
-        console.warn("Skipped remote username check due to error:", checkErr);
+        throw new Error("Network error checking username availability. Please try again.");
       }
 
       // 3. Ensure base user profile document exists before updating

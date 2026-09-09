@@ -154,7 +154,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
 });
 
 function Landing() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -176,6 +176,12 @@ function Landing() {
 
   if (loading) return null;
   if (user) {
+    if (profile === null) {
+      return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 text-zinc-500">Loading session...</div>;
+    }
+    if (profile?.needsOnboarding === true) {
+      return <Navigate to="/onboarding" replace />;
+    }
     const redirectUrl = localStorage.getItem('chainlink_redirect_after_login');
     if (redirectUrl) {
       localStorage.removeItem('chainlink_redirect_after_login');
@@ -507,7 +513,7 @@ function PrivateRoute({ children, allowOnboarding = false }: { children: React.R
   const { user, profile, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return null;
+  if (loading || (user && profile === null)) return null;
 
   if (!user) {
     const targetUrl = location.pathname + location.search;
@@ -524,6 +530,15 @@ function PrivateRoute({ children, allowOnboarding = false }: { children: React.R
 
   // Force onboarding if they need it and they aren't already on the onboarding page
   if (profile?.needsOnboarding === true && !allowOnboarding) {
+    const targetUrl = location.pathname + location.search;
+    if (targetUrl && targetUrl !== '/login' && targetUrl !== '/onboarding') {
+      localStorage.setItem('chainlink_redirect_after_login', targetUrl);
+    }
+    const params = new URLSearchParams(location.search);
+    const joinCode = params.get('joinCode') || params.get('code');
+    if (joinCode) {
+      localStorage.setItem('chainlink_join_code', joinCode.trim());
+    }
     return <Navigate to="/onboarding" replace />;
   }
 

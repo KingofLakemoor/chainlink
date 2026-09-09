@@ -97,9 +97,18 @@ export const ensureUserProfile = async (user: User, username?: string, referrerI
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
   if (!userSnap.exists()) {
-    const rawCandidate = username || user.displayName || user.email?.split('@')[0] || '';
-    const sanitized = rawCandidate.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
-    const resolvedUsername = sanitized.length >= 3 ? sanitized : 'User' + Math.floor(Math.random() * 1000000);
+    const isExplicitUsername = !!username;
+    let resolvedUsername = '';
+    if (isExplicitUsername) {
+      const sanitized = username.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+      resolvedUsername = sanitized.length >= 3 ? sanitized : 'User' + Math.floor(100000 + Math.random() * 900000);
+    } else {
+      // For initial Google/third-party sign-ins needing onboarding, generate a guaranteed unique temporary placeholder
+      const uidSuffix = user.uid ? user.uid.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6) : '';
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      resolvedUsername = `User_${uidSuffix || randomSuffix}`;
+    }
+
     const nameCandidate = (user.displayName || user.email?.split('@')[0] || 'Anonymous').slice(0, 100);
     const emailCandidate = (user.email || '').slice(0, 200);
 
@@ -115,7 +124,7 @@ export const ensureUserProfile = async (user: User, username?: string, referrerI
       stats: { wins: 0, losses: 0, pushes: 0 },
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      needsOnboarding: username ? false : true,
+      needsOnboarding: !isExplicitUsername,
     };
 
     if (referrerId) {

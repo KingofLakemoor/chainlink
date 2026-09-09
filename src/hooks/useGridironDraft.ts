@@ -4,17 +4,14 @@ import { GridironPick, Gridiron3x3Game } from '../types/gridiron';
 export function useGridironDraft(
   initialPicks: GridironPick[] = [],
   requiredNfl: number = 3,
-  requiredCfb: number = 3
+  requiredCfb: number = 3,
+  onPickChange?: (updatedPicks: GridironPick[]) => void
 ) {
-  const [picks, setPicks] = useState<GridironPick[]>(initialPicks);
-
-  const initialKey = useMemo(() => {
-    return (initialPicks || []).map(p => `${p.gameId}_${p.selection}_${p.value}`).sort().join('|');
-  }, [initialPicks]);
+  const [picks, setPicks] = useState<GridironPick[]>(initialPicks || []);
 
   useEffect(() => {
     setPicks(initialPicks || []);
-  }, [initialKey]);
+  }, [initialPicks]);
 
   const nflCount = useMemo(() => picks.filter(p => p.league === "NFL").length, [picks]);
   const cfbCount = useMemo(() => picks.filter(p => p.league === "CFB").length, [picks]);
@@ -33,18 +30,18 @@ export function useGridironDraft(
     // Lock check: cannot pick if game already kicked off
     if (now >= kickoffMs) return;
 
-    setPicks(prev => {
-      const existingIdx = prev.findIndex(p => p.gameId === game.gameId);
+    let nextPicks: GridironPick[] | null = null;
 
-      if (existingIdx >= 0) {
-        const existing = prev[existingIdx];
-        // If clicking the exact same option => deselect it
-        if (existing.selection === selection) {
-          return prev.filter(p => p.gameId !== game.gameId);
-        }
+    const existingIdx = picks.findIndex(p => p.gameId === game.gameId);
 
+    if (existingIdx >= 0) {
+      const existing = picks[existingIdx];
+      // If clicking the exact same option => deselect it
+      if (existing.selection === selection) {
+        nextPicks = picks.filter(p => p.gameId !== game.gameId);
+      } else {
         // Replacing selection on the same game (mutual exclusion)
-        const updated = [...prev];
+        const updated = [...picks];
         updated[existingIdx] = {
           gameId: game.gameId,
           league: game.league,
@@ -54,17 +51,15 @@ export function useGridironDraft(
           kickoffTime: game.kickoffTime,
           status: "pending"
         };
-        return updated;
-      } else {
-        // Enforce max picks per league based on required split
-        const currentLeagueCount = prev.filter(p => p.league === game.league).length;
-        const maxAllowed = game.league === "NFL" ? requiredNfl : requiredCfb;
-        if (currentLeagueCount >= maxAllowed) {
-          return prev; // Reached limit for this league
-        }
-
-        return [
-          ...prev,
+        nextPicks = updated;
+      }
+    } else {
+      // Enforce max picks per league based on required split
+      const currentLeagueCount = picks.filter(p => p.league === game.league).length;
+      const maxAllowed = game.league === "NFL" ? requiredNfl : requiredCfb;
+      if (currentLeagueCount < maxAllowed) {
+        nextPicks = [
+          ...picks,
           {
             gameId: game.gameId,
             league: game.league,
@@ -76,15 +71,26 @@ export function useGridironDraft(
           }
         ];
       }
-    });
+    }
+
+    if (nextPicks !== null) {
+      setPicks(nextPicks);
+      if (onPickChange) {
+        onPickChange(nextPicks);
+      }
+    }
   };
 
   const getPickForGame = (gameId: string): GridironPick | undefined => {
     return picks.find(p => p.gameId === gameId);
   };
 
-  const canSubmit = useMemo(() => {
+  const isComplete = useMemo(() => {
     return nflCount === requiredNfl && cfbCount === requiredCfb && picks.length === 6;
+  }, [nflCount, cfbCount, requiredNfl, requiredCfb, picks]);
+
+  const canSubmit = useMemo(() => {
+    return picks.length >= 0 && nflCount <= requiredNfl && cfbCount <= requiredCfb;
   }, [nflCount, cfbCount, requiredNfl, requiredCfb, picks]);
 
   return {

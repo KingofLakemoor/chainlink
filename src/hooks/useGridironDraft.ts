@@ -9,9 +9,13 @@ export function useGridironDraft(
 ) {
   const [picks, setPicks] = useState<GridironPick[]>(initialPicks || []);
 
+  const initialKey = useMemo(() => {
+    return (initialPicks || []).map(p => `${p.gameId}_${p.selection}_${p.value}`).sort().join('|');
+  }, [initialPicks]);
+
   useEffect(() => {
     setPicks(initialPicks || []);
-  }, [initialPicks]);
+  }, [initialKey]);
 
   const nflCount = useMemo(() => picks.filter(p => p.league === "NFL").length, [picks]);
   const cfbCount = useMemo(() => picks.filter(p => p.league === "CFB").length, [picks]);

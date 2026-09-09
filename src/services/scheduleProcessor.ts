@@ -694,8 +694,25 @@ export async function syncLeagueSchedules(
             const hasValidMlOdds = existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null &&
                                    existingData.metadata?.mlAway !== undefined && existingData.metadata?.mlAway !== null;
 
-            if (hasPicks) {
+            if (hasPicks || existingData.manuallyActivated) {
               finalActive = true;
+            } else if (['ATP', 'WTA'].includes(scrapedMatchup.league)) {
+              // For ATP and WTA tennis, require valid moneyline odds under the threshold to be active
+              if (hasValidMlOdds) {
+                let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
+                if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[scrapedMatchup.league] !== undefined) {
+                  threshold = Math.abs(scraperConfig.sportOverrides[scrapedMatchup.league]);
+                }
+                const mlH = parseInt(existingData.metadata.mlHome, 10);
+                const mlA = parseInt(existingData.metadata.mlAway, 10);
+                if (!isNaN(mlH) && !isNaN(mlA) && Math.abs(mlH) < threshold && Math.abs(mlA) < threshold) {
+                  finalActive = true;
+                } else {
+                  finalActive = false;
+                }
+              } else {
+                finalActive = false;
+              }
             } else if (existingData.active && !scraperActive) {
               if (thirdPartyLeagues.includes(scrapedMatchup.league) || hasValidMlOdds) {
                 finalActive = true;

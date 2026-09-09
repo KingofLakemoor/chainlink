@@ -1,5 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { logServerError } from '../lib/serverErrorLogger.js';
+import { teamsMatch } from '../utils/sportMapping.js';
 import fetch from 'node-fetch';
 import cron from 'node-cron';
 
@@ -74,7 +75,7 @@ export async function syncTennisOdds() {
     return { success: false, error: 'No admin db' };
   }
   
-  const apiKey = process.env.ODDS_API_KEY;
+  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY;
   if (!apiKey) {
     console.log("[OddsProcessor] ODDS_API_KEY is not set. Skipping tennis odds sync.");
     return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
@@ -125,6 +126,7 @@ export async function syncTennisOdds() {
     const batch = adminDb.batch();
     let batchCount = 0;
     const matchedIds = new Set<string>();
+    let fetchedAnyOddsSuccessfully = false;
 
     for (const sport of tennisSports) {
        const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${apiKey}&regions=us&markets=h2h&oddsFormat=american`);
@@ -132,6 +134,7 @@ export async function syncTennisOdds() {
           console.error(`[OddsProcessor] Failed to fetch odds for ${sport}`);
           continue;
        }
+       fetchedAnyOddsSuccessfully = true;
        const oddsData: any = await oddsRes.json();
        
        for (const event of oddsData) {
@@ -145,26 +148,36 @@ export async function syncTennisOdds() {
          const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
          if (!h2hMarket || !h2hMarket.outcomes) continue;
          
-         const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName);
-         const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName);
+         const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName || teamsMatch(homeTeamName, o.name, true));
+         const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName || teamsMatch(awayTeamName, o.name, true));
          
          if (!homeOutcome || !awayOutcome) continue;
          
          const mlHome = homeOutcome.price;
          const mlAway = awayOutcome.price;
 
+         let isSwapped = false;
+
          const match = dbMatchups.find((m: any) => {
             if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
             
-            // The Odds API usually uses standard names. 
-            // In ESPN, home and away could be swapped sometimes, so we check both combinations
             const espnHome = m.homeTeam.name;
             const espnAway = m.awayTeam.name;
             
+            if (teamsMatch(espnHome, homeTeamName, true) && teamsMatch(espnAway, awayTeamName, true)) {
+                isSwapped = false;
+                return true;
+            }
+            if (teamsMatch(espnHome, awayTeamName, true) && teamsMatch(espnAway, homeTeamName, true)) {
+                isSwapped = true;
+                return true;
+            }
             if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) {
+                isSwapped = false;
                 return true;
             }
             if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) {
+                isSwapped = true;
                 return true;
             }
             
@@ -177,7 +190,7 @@ export async function syncTennisOdds() {
             let finalMlAway = mlAway;
             
             // Swap odds if ESPN's home/away is flipped compared to Odds API
-            if (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName)) {
+            if (isSwapped) {
                 finalMlHome = mlAway;
                 finalMlAway = mlHome;
             }
@@ -228,6 +241,11 @@ export async function syncTennisOdds() {
        }
     }
     
+    if (!fetchedAnyOddsSuccessfully) {
+       console.warn("[OddsProcessor] Could not fetch odds for any tennis sport from Odds API.");
+       return { success: false, error: 'Could not fetch odds for any tennis sport' };
+    }
+
     // Mark any unmatched ATP/WTA matchups as inactive and abandoned if no picks exist
     for (const match of dbMatchups as any[]) {
        if (!matchedIds.has(match.id) && !match.abandoned) {
@@ -269,7 +287,7 @@ export async function syncTennisOdds() {
 export async function syncSoccerOdds() {
   const adminDb = getAdminDb();
   if (!adminDb) return { success: false, error: 'No admin db' };
-  const apiKey = process.env.ODDS_API_KEY;
+  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY;
   if (!apiKey) return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
 
   const leaguesToSync = [

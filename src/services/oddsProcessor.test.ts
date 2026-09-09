@@ -15,6 +15,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
   beforeEach(() => {
     delete process.env.ODDS_API_KEY;
+    delete process.env.THE_ODDS_API_KEY;
     mockAdminDb = {
       collection: vi.fn(),
       batch: vi.fn(),
@@ -22,9 +23,22 @@ describe('OddsProcessor Optimization Tests', () => {
     setAdminDbMock(mockAdminDb);
   });
 
-  it('syncTennisOdds skips if ODDS_API_KEY is missing', async () => {
+  it('syncTennisOdds skips if ODDS_API_KEY and THE_ODDS_API_KEY are missing', async () => {
     const res = await syncTennisOdds();
     expect(res).toEqual({ success: true, message: 'ODDS_API_KEY missing, skipping.' });
+  });
+
+  it('syncTennisOdds accepts THE_ODDS_API_KEY if ODDS_API_KEY is missing', async () => {
+    process.env.THE_ODDS_API_KEY = 'the-odds-key';
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: true, docs: [] }) }) }) };
+      return {};
+    });
+
+    const res = await syncTennisOdds();
+    expect(res).toEqual({ success: true, message: 'No scheduled tennis matches in DB.' });
   });
 
   it('syncSoccerOdds skips if ODDS_API_KEY is missing', async () => {
@@ -346,5 +360,119 @@ describe('OddsProcessor Optimization Tests', () => {
     expect(res).toEqual({ success: true, updatedCount: 0 });
     // Should NOT mark doc1Ref as inactive because a pick exists under gameId456
     expect(mockBatch.update).not.toHaveBeenCalledWith('doc1Ref', expect.objectContaining({ active: false }));
+  });
+
+  it('syncTennisOdds matches player initial formats (e.g., J. Sinner vs Jannik Sinner)', async () => {
+    process.env.THE_ODDS_API_KEY = 'test-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockMatchupDoc = {
+      id: 'matchInitial1',
+      data: () => ({
+        gameId: 'gameInitial123',
+        league: 'ATP',
+        active: false,
+        abandoned: true,
+        homeTeam: { name: 'J. Sinner' },
+        awayTeam: { name: 'C. Alcaraz' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'matchInitialRef' };
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('/v4/sports/?')) {
+        return { ok: true, json: async () => [{ key: 'tennis_atp_test', active: true }] } as any;
+      }
+      if (urlStr.includes('/v4/sports/tennis_atp_test/odds/?')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              home_team: 'Jannik Sinner',
+              away_team: 'Carlos Alcaraz',
+              bookmakers: [
+                {
+                  key: 'draftkings',
+                  markets: [
+                    {
+                      key: 'h2h',
+                      outcomes: [
+                        { name: 'Jannik Sinner', price: -110 },
+                        { name: 'Carlos Alcaraz', price: -110 },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as any;
+      }
+      return { ok: false, text: async () => 'error' } as any;
+    });
+
+    const res = await syncTennisOdds();
+    expect(res).toEqual({ success: true, updatedCount: 1 });
+    expect(mockBatch.update).toHaveBeenCalledWith('matchInitialRef', {
+      'metadata.mlHome': -110,
+      'metadata.mlAway': -110,
+      active: true,
+      abandoned: false,
+      updatedAt: expect.any(Number),
+    });
+  });
+
+  it('syncTennisOdds returns error and does not abandon matchups when odds fetch fails for all sports', async () => {
+    process.env.THE_ODDS_API_KEY = 'test-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockMatchupDoc = {
+      id: 'matchErr1',
+      data: () => ({
+        gameId: 'gameErr123',
+        league: 'ATP',
+        active: true,
+        abandoned: false,
+        homeTeam: { name: 'Player X' },
+        awayTeam: { name: 'Player Y' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'matchErrRef' };
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('/v4/sports/?')) {
+        return { ok: true, json: async () => [{ key: 'tennis_atp_test', active: true }] } as any;
+      }
+      if (urlStr.includes('/v4/sports/tennis_atp_test/odds/?')) {
+        return { ok: false, status: 500, text: async () => 'Internal Error' } as any;
+      }
+      return { ok: false, text: async () => 'error' } as any;
+    });
+
+    const res = await syncTennisOdds();
+    expect(res).toEqual({ success: false, error: 'Could not fetch odds for any tennis sport' });
+    expect(mockBatch.update).not.toHaveBeenCalled();
   });
 });

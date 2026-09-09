@@ -3155,8 +3155,12 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
 
     // One-pick-per-game rule: ensure distinct gameIds
     const gameIds = new Set(picks.map((p: any) => p.gameId));
-    if (gameIds.size !== 6 || picks.length !== 6) {
-      return res.status(400).json({ success: false, error: "Entry must contain exactly 6 picks from 6 distinct games." });
+    if (gameIds.size !== picks.length) {
+      return res.status(400).json({ success: false, error: "Entry cannot contain duplicate picks for the same game." });
+    }
+
+    if (picks.length > 6) {
+      return res.status(400).json({ success: false, error: "Entry cannot contain more than 6 picks." });
     }
 
     // Verify participant in contest
@@ -3190,13 +3194,6 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
     const requiredCfb = snapshotGames.length === 0 ? 3 : Math.min(3, availableCfbCount);
     const requiredNfl = 6 - requiredCfb;
 
-    const nflPicks = picks.filter((p: any) => p.league === "NFL");
-    const cfbPicks = picks.filter((p: any) => p.league === "CFB");
-
-    if (nflPicks.length !== requiredNfl || cfbPicks.length !== requiredCfb) {
-      return res.status(400).json({ success: false, error: `Entry requires ${requiredNfl} NFL picks and ${requiredCfb} CFB picks.` });
-    }
-
     const snapshotGamesMap = new Map<string, any>(
       snapshotGames.map((g: any) => [g.gameId, g])
     );
@@ -3206,9 +3203,43 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
     const existingEntryDoc = await entryRef.get();
     const existingPicksList: GridironPick[] = existingEntryDoc.exists ? (existingEntryDoc.data() as GridironEntry).picks || [] : [];
 
-    const validatedPicks: GridironPick[] = [];
+    const existingPicksMap = new Map<string, GridironPick>(
+      existingPicksList.map(ep => [ep.gameId, ep])
+    );
 
+    const incomingPicksMap = new Map<string, any>(
+      picks.map((p: any) => [p.gameId, p])
+    );
+
+    const validatedPicksMap = new Map<string, GridironPick>();
+
+    // 1. Process all locked existing picks first to prevent illegal removal or modification
+    for (const ep of existingPicksList) {
+      const snapGame = snapshotGamesMap.get(ep.gameId);
+      const kickoffTimeMs = snapGame ? (typeof snapGame.kickoffTime === 'number'
+        ? snapGame.kickoffTime
+        : (snapGame.kickoffTime?.toMillis ? snapGame.kickoffTime.toMillis() : new Date(snapGame.kickoffTime).getTime()))
+        : (typeof ep.kickoffTime === 'number' ? ep.kickoffTime : new Date(ep.kickoffTime).getTime());
+
+      if (now >= kickoffTimeMs) {
+        // Game has kicked off - pick is locked
+        const incoming = incomingPicksMap.get(ep.gameId);
+        if (incoming && (incoming.selection !== ep.selection || incoming.value !== ep.value)) {
+          const gameTitle = snapGame ? `${snapGame.awayTeam.name} @ ${snapGame.homeTeam.name}` : `Game ${ep.gameId}`;
+          return res.status(400).json({ success: false, error: `Game ${gameTitle} has already kicked off and cannot be modified.` });
+        }
+        // Auto-retain locked existing pick
+        validatedPicksMap.set(ep.gameId, ep);
+      }
+    }
+
+    // 2. Process incoming picks
     for (const p of picks) {
+      if (validatedPicksMap.has(p.gameId)) {
+        // Already validated as locked existing pick
+        continue;
+      }
+
       const snapGame = snapshotGamesMap.get(p.gameId);
       if (!snapGame) {
         return res.status(400).json({ success: false, error: `Game ${p.gameId} is not on the official Tuesday snapshot lines board.` });
@@ -3218,30 +3249,39 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
         ? snapGame.kickoffTime
         : (snapGame.kickoffTime?.toMillis ? snapGame.kickoffTime.toMillis() : new Date(snapGame.kickoffTime).getTime());
 
-      // Derive authoritative value from DB snapshot
+      if (now >= kickoffTimeMs) {
+        return res.status(400).json({ success: false, error: `Game ${snapGame.awayTeam.name} @ ${snapGame.homeTeam.name} has already kicked off and cannot be picked.` });
+      }
+
       let authoritativeValue = 0;
       if (p.selection === "away_spread") authoritativeValue = snapGame.spread.awaySpread;
       else if (p.selection === "home_spread") authoritativeValue = snapGame.spread.homeSpread;
       else if (p.selection === "over" || p.selection === "under") authoritativeValue = snapGame.total.line;
       else return res.status(400).json({ success: false, error: `Invalid selection type ${p.selection}` });
 
-      // Rolling Kickoff Lock check against authoritative DB kickoffTime
-      if (now >= kickoffTimeMs) {
-        const existingPick = existingPicksList.find(ep => ep.gameId === p.gameId);
-        if (!existingPick || existingPick.selection !== p.selection || existingPick.value !== authoritativeValue) {
-          return res.status(400).json({ success: false, error: `Game ${snapGame.awayTeam.name} @ ${snapGame.homeTeam.name} has already kicked off and cannot be picked or modified.` });
-        }
-      }
+      const existingPick = existingPicksMap.get(p.gameId);
 
-      validatedPicks.push({
+      validatedPicksMap.set(p.gameId, {
         gameId: snapGame.gameId,
         league: snapGame.league,
         pickType: (p.selection === "away_spread" || p.selection === "home_spread") ? "spread" : "total",
         selection: p.selection,
         value: authoritativeValue,
         kickoffTime: kickoffTimeMs,
-        status: "pending"
+        status: existingPick?.status || "pending"
       });
+    }
+
+    const validatedPicks = Array.from(validatedPicksMap.values());
+
+    const nflPicks = validatedPicks.filter((p) => p.league === "NFL");
+    const cfbPicks = validatedPicks.filter((p) => p.league === "CFB");
+
+    if (nflPicks.length > requiredNfl) {
+      return res.status(400).json({ success: false, error: `Entry cannot exceed ${requiredNfl} NFL picks.` });
+    }
+    if (cfbPicks.length > requiredCfb) {
+      return res.status(400).json({ success: false, error: `Entry cannot exceed ${requiredCfb} CFB picks.` });
     }
 
     const userData = userDoc.data();

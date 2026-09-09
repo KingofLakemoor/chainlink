@@ -46,6 +46,7 @@ export default function Gridiron3x3Page() {
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [loadingLines, setLoadingLines] = useState(false);
   const [linesMessage, setLinesMessage] = useState<string | null>(null);
 
@@ -57,7 +58,40 @@ export default function Gridiron3x3Page() {
 
   // User's existing entry for active contest & week
   const userEntry = entries.find(e => e.userId === user?.uid);
-  const draftHook = useGridironDraft(userEntry?.picks || [], requiredNfl, requiredCfb);
+
+  const handlePickChange = async (updatedPicks: any[]) => {
+    if (!selectedContest || !user) return;
+    setSaveStatus('saving');
+    try {
+      const res = await fetch('/api/gridiron-3x3/submit-entry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`
+        },
+        body: JSON.stringify({
+          contestId: selectedContest.contestId,
+          season,
+          weekNumber,
+          picks: updatedPicks
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setSaveStatus('saved');
+        await fetchEntries();
+      } else {
+        setSaveStatus('error');
+        showToast(data.error || 'Failed to auto-save pick', 'error');
+      }
+    } catch (e: any) {
+      setSaveStatus('error');
+      showToast(e.message || 'Auto-save error', 'error');
+    }
+  };
+
+  const draftHook = useGridironDraft(userEntry?.picks || [], requiredNfl, requiredCfb, handlePickChange);
 
   // Fetch user's contests
   const fetchContests = async () => {
@@ -1200,9 +1234,9 @@ export default function Gridiron3x3Page() {
         </div>
       )}
 
-      {/* Sticky Tracker & Submit CTA Gate (Desktop Header / Mobile Bottom Bar) */}
+      {/* Sticky Tracker & Auto-Save Indicator (Desktop Header / Mobile Bottom Bar) */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#121212]/95 border-t border-[#27272a] backdrop-blur-xl p-4 z-40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-zinc-400 uppercase">NFL Picks:</span>
@@ -1219,16 +1253,42 @@ export default function Gridiron3x3Page() {
                 {draftHook.cfbCount} / {requiredCfb}
               </span>
             </div>
+
+            <div className="w-px h-4 bg-zinc-700 hidden md:block" />
+
+            <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-zinc-400">
+              <span>Total Picks:</span>
+              <span className={cn("font-mono text-sm font-bold", draftHook.picks.length === 6 ? "text-[#22c55e]" : "text-zinc-200")}>
+                {draftHook.picks.length} / 6
+              </span>
+            </div>
           </div>
 
-          <Button
-            size="lg"
-            disabled={!draftHook.canSubmit || isSubmitting}
-            onClick={handleSubmitEntry}
-            className="font-bold shadow-[0_0_15px_rgba(34,197,94,0.2)]"
-          >
-            {isSubmitting ? 'Saving...' : userEntry ? 'Update Entry' : 'Submit Picks'}
-          </Button>
+          <div className="flex items-center gap-3">
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-800/40 animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving pick...
+              </span>
+            )}
+
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-[#22c55e] bg-[#22c55e]/10 px-3 py-1.5 rounded-lg border border-[#22c55e]/20">
+                <Check className="w-3.5 h-3.5" /> Saved automatically
+              </span>
+            )}
+
+            {saveStatus === 'error' && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-red-400 bg-red-950/40 px-3 py-1.5 rounded-lg border border-red-800/40">
+                <XCircle className="w-3.5 h-3.5" /> Save failed
+              </span>
+            )}
+
+            {saveStatus === 'idle' && (
+              <span className="text-xs text-zinc-400 font-medium hidden sm:inline">
+                Picks save automatically as you make them
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

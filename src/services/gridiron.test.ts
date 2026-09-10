@@ -708,6 +708,87 @@ describe('Gridiron Service Tests', () => {
       expect(e2.picks[0].status).toBe('pending');
     });
 
+    it('reopens prematurely graded picks and reverts game status from final to scheduled when live status is scheduled', async () => {
+      mockStore.gridiron_3x3_lines['2026_week_01'] = {
+        season: 2026,
+        weekNumber: 1,
+        games: [
+          {
+            gameId: 'patriots_seahawks_2026',
+            league: 'NFL',
+            awayTeam: { name: 'New England Patriots', abbreviation: 'NE', score: 0 },
+            homeTeam: { name: 'Seattle Seahawks', abbreviation: 'SEA', score: 0 },
+            status: 'final', // Prematurely marked as final
+            spread: { awaySpread: 3.5, homeSpread: -3.5 },
+            total: { line: 44.5 }
+          }
+        ]
+      };
+
+      mockStore.gridiron_3x3_contests['contest_reopen'] = {
+        contestId: 'contest_reopen',
+        name: 'Reopen Test Contest',
+        participants: ['u_chris', 'u_chetcuti']
+      };
+
+      // Entries previously graded as lost/won
+      mockStore.gridiron_3x3_entries['contest_reopen_u1'] = {
+        entryId: 'contest_reopen_u1',
+        contestId: 'contest_reopen',
+        userId: 'u_chris',
+        displayName: 'ChrisBudd',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'patriots_seahawks_2026', league: 'NFL', pickType: 'total', selection: 'over', value: 44.5, kickoffTime: Date.now() + 86400000, status: 'lost' }
+        ]
+      };
+
+      mockStore.gridiron_3x3_entries['contest_reopen_u2'] = {
+        entryId: 'contest_reopen_u2',
+        contestId: 'contest_reopen',
+        userId: 'u_chetcuti',
+        displayName: 'ChristopherChetcuti',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'patriots_seahawks_2026', league: 'NFL', pickType: 'total', selection: 'under', value: 44.5, kickoffTime: Date.now() + 86400000, status: 'won' }
+        ]
+      };
+
+      // Mock DB matchup representing scheduled state
+      mockStore.matchups = {
+        'patriots_seahawks_2026': {
+          gameId: 'patriots_seahawks_2026',
+          homeTeam: { score: 0 },
+          awayTeam: { score: 0 },
+          status: 'STATUS_SCHEDULED'
+        }
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_reopen' });
+      expect(res.success).toBe(true);
+
+      // Verify picks were reset back to pending
+      const e1 = mockStore.gridiron_3x3_entries['contest_reopen_u1'];
+      const e2 = mockStore.gridiron_3x3_entries['contest_reopen_u2'];
+
+      expect(e1.picks[0].status).toBe('pending');
+      expect(e2.picks[0].status).toBe('pending');
+
+      // Verify leaderboard records recalculated with 0 wins and 0 losses
+      const lb1 = mockStore['gridiron_3x3_contests/contest_reopen/leaderboard']?.['u_chris'];
+      const lb2 = mockStore['gridiron_3x3_contests/contest_reopen/leaderboard']?.['u_chetcuti'];
+
+      expect(lb1.totalWins).toBe(0);
+      expect(lb1.totalLosses).toBe(0);
+      expect(lb1.points).toBe(0);
+
+      expect(lb2.totalWins).toBe(0);
+      expect(lb2.totalLosses).toBe(0);
+      expect(lb2.points).toBe(0);
+    });
+
     it('updates snapshot lines in gridiron_3x3_lines and recalculates leaderboard mid-week when games finish', async () => {
       mockStore.matchups = {
         'cfb_midweek': {

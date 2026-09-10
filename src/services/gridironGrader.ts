@@ -245,15 +245,12 @@ export async function gradeGridironWeek(
       // 2. Check snapshotGames
       if (!isFinal) {
         const snapGame = snapshotGamesMap.get(pickGameId);
-        if (snapGame) {
-          const snapStatus = snapGame.status;
+        if (snapGame && isGameStatusFinal(snapGame.status)) {
           const snapHome = snapGame.homeTeam?.score;
           const snapAway = snapGame.awayTeam?.score;
-          if (isGameStatusFinal(snapStatus) || (snapHome !== undefined && snapAway !== undefined && snapStatus !== 'STATUS_SCHEDULED' && snapStatus !== 'upcoming' && snapStatus !== 'scheduled')) {
-            homeScore = typeof snapHome === 'number' ? snapHome : 0;
-            awayScore = typeof snapAway === 'number' ? snapAway : 0;
-            isFinal = true;
-          }
+          homeScore = typeof snapHome === 'number' ? snapHome : 0;
+          awayScore = typeof snapAway === 'number' ? snapAway : 0;
+          isFinal = true;
         }
       }
 

@@ -103,14 +103,14 @@ export default function AdminDashboard() {
 
                 {/* Sponsors */}
                 <Route path="sponsors" element={<SponsorsListPage />} />
-                <Route path="sponsors/create" element={<CreateSponsorPage />} />
-                <Route path="sponsors/edit/:id" element={<EditSponsorPage />} />
+                <Route path="sponsors/create" element={<Navigate to="/admin/sponsors" replace />} />
+                <Route path="sponsors/edit/:id" element={<Navigate to="/admin/sponsors" replace />} />
 
                 {/* Achievements */}
                 <Route path="achievements" element={<AchievementsListPage />} />
-                <Route path="achievements/create" element={<CreateAchievementPage />} />
-                <Route path="achievements/award" element={<AwardAchievementPage />} />
-                <Route path="achievements/edit/:id" element={<EditAchievementPage />} />
+                <Route path="achievements/create" element={<Navigate to="/admin/achievements" replace />} />
+                <Route path="achievements/award" element={<Navigate to="/admin/achievements" replace />} />
+                <Route path="achievements/edit/:id" element={<Navigate to="/admin/achievements" replace />} />
 
                 {/* Flat routes */}
                 <Route path="pickem/*" element={<PickEmAdminPage />} />

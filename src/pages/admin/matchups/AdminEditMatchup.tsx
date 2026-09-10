@@ -145,6 +145,7 @@ export function AdminEditMatchup() {
         if (updateData.homeTeam) updateData.homeTeam.score = Number(updateData.homeTeam.score || 0);
         if (updateData.awayTeam) updateData.awayTeam.score = Number(updateData.awayTeam.score || 0);
 
+        updateData.manuallyActivated = Boolean(updateData.active);
         updateData.updatedAt = Date.now();
         await updateDoc(doc(db, 'matchups', id), updateData);
         alert('Matchup updated successfully!');

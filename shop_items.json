@@ -1686,5 +1686,33 @@
     "preview": "EmpirePulseBanner",
     "order": 5,
     "collectionId": ""
+  },
+  {
+    "id": "banner_alpine_surge",
+    "name": "The Alpine Surge",
+    "description": "A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "AlpineSurgeBanner",
+    "featured": true,
+    "preview": "AlpineSurgeBanner",
+    "order": 6,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_crimson_kingdom",
+    "name": "The Crimson Kingdom",
+    "description": "A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "CrimsonKingdomBanner",
+    "featured": true,
+    "preview": "CrimsonKingdomBanner",
+    "order": 7,
+    "collectionId": ""
   }
 ]

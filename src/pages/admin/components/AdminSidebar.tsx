@@ -64,25 +64,8 @@ const ADMIN_MENU_SECTIONS = [
           { id: 'shopItems-create', label: 'Create Shop Item', path: '/admin/shopItems/create' }
         ]
       },
-      {
-        id: 'achievements',
-        label: 'Achievements',
-        icon: Trophy,
-        subItems: [
-          { id: 'achievements-all', label: 'All Achievements', path: '/admin/achievements' },
-          { id: 'achievements-create', label: 'Create Achievement', path: '/admin/achievements/create' },
-          { id: 'achievements-award', label: 'Award Achievement', path: '/admin/achievements/award' }
-        ]
-      },
-      {
-        id: 'sponsors',
-        label: 'Sponsors',
-        icon: Diamond,
-        subItems: [
-          { id: 'sponsors-all', label: 'All Sponsors', path: '/admin/sponsors' },
-          { id: 'sponsors-create', label: 'Create Sponsor', path: '/admin/sponsors/create' },
-        ]
-      },
+      { id: 'achievements', label: 'Achievements', icon: Trophy, path: '/admin/achievements' },
+      { id: 'sponsors', label: 'Sponsors', icon: Diamond, path: '/admin/sponsors' },
     ]
   },
   {

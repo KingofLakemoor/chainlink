@@ -22,8 +22,6 @@ const ShopItemsListPage = React.lazy(() => import('./shopItems/ShopItemsListPage
 const CreateShopItemPage = React.lazy(() => import('./shopItems/CreateShopItemPage'));
 const EditShopItemPage = React.lazy(() => import('./shopItems/EditShopItemPage'));
 const NotificationsListPage = React.lazy(() => import('./notifications/NotificationsListPage'));
-const CreateNotificationPage = React.lazy(() => import('./notifications/CreateNotificationPage'));
-const EditNotificationPage = React.lazy(() => import('./notifications/EditNotificationPage'));
 const AnnouncementsAdminPage = React.lazy(() => import('./announcements/AnnouncementsAdminPage'));
 const SponsorsListPage = React.lazy(() => import('./sponsors/SponsorsListPage'));
 const CreateSponsorPage = React.lazy(() => import('./sponsors/CreateSponsorPage'));
@@ -133,8 +131,8 @@ export default function AdminDashboard() {
 
                 {/* Notifications */}
                 <Route path="notifications" element={<NotificationsListPage />} />
-                <Route path="notifications/create" element={<CreateNotificationPage />} />
-                <Route path="notifications/edit/:id" element={<EditNotificationPage />} />
+                <Route path="notifications/create" element={<Navigate to="/admin/notifications" replace />} />
+                <Route path="notifications/edit/:id" element={<Navigate to="/admin/notifications" replace />} />
 
                 {/* Shop Items */}
                 <Route path="shopItems" element={<ShopItemsListPage />} />

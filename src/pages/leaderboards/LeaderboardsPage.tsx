@@ -46,11 +46,10 @@ export default function LeaderboardsPage() {
         if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
            // Mock Data
            const mockData = [
-             { id: '1', name: 'John Doe', username: 'johndoe', image: '', stats: { wins: 45, losses: 10, pushes: 2 }, currentChain: 5, bestChain: 12 },
-             { id: 'user-123', name: 'Mock User', username: 'MockUser123', image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mock-user-123', stats: { wins: 30, losses: 5, pushes: 0 }, currentChain: 15, bestChain: 15 },
+             { id: '1', name: 'SuPrMn', username: 'SuPrMn', image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SuPrMn', stats: { wins: 45, losses: 10, pushes: 2 }, currentChain: 5, bestChain: 12, equippedCosmetics: { PROFILE_BANNER: 'banner_responsible_gambler', AVATAR_RING: 'ring_gold', TITLE: 'title_needs_a_win' } },
+             { id: 'user-123', name: 'chancecassady', username: 'chancecassady', image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=chancecassady', stats: { wins: 30, losses: 5, pushes: 0 }, currentChain: 15, bestChain: 15, equippedCosmetics: { PROFILE_BANNER: 'banner_emerald', AVATAR_RING: 'ring_bull_bear', TITLE: 'title_v1' } },
              { id: '2', name: 'Jane Smith', username: 'janesmith', image: '', stats: { wins: 12, losses: 2, pushes: 0 }, currentChain: 3, bestChain: 8 },
              { id: '3', name: 'Bob Johnson', username: 'bobj', image: '', stats: { wins: 5, losses: 8, pushes: 1 }, currentChain: 0, bestChain: 2 },
-             { id: '4', name: 'Inactive User', username: 'inactive', image: '', stats: { wins: 0, losses: 0, pushes: 0 }, currentChain: 0, bestChain: 0 },
            ];
 
            // Calculate win rates
@@ -382,35 +381,42 @@ export default function LeaderboardsPage() {
 
          <div className="absolute inset-0 bg-black/20 z-0"></div>
 
-         <div className="relative z-10 flex-1 flex flex-col items-center p-5 pt-6 text-center">
-
-            <div className="relative mb-3">
-              {RingComponent && (
-                 <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
-                    <CosmeticsErrorBoundary fallback={null}><RingComponent isStatic={!animateCosmetics} /></CosmeticsErrorBoundary>
-                 </div>
-              )}
-               <FirebaseImage loading="lazy"
-                 src={player.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`}
-                 fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`}
-                 alt={player.displayName || player.username || player.name}
-                 className="w-16 h-16 rounded-full relative z-10 border-2 border-[#121212]"
-              />
-            </div>
-
-            <div className="mt-1">
+         <div className="relative z-10 flex-1 flex flex-col justify-center items-center p-4 min-h-[160px]">
+            {/* Centered Username & Title */}
+            <div className="flex flex-col items-center justify-center text-center z-10">
               {TitleComponent ? (
-                 <div className="mb-1 flex justify-center">
+                 <div className="mb-1.5 flex justify-center">
                     <TitleComponent isStatic={!animateCosmetics} />
                  </div>
               ) : titleItem ? (
-                 <div className="mb-1 flex justify-center">
+                 <div className="mb-1.5 flex justify-center">
                     <span className={`text-[10px] md:text-xs font-bold text-[#22c55e] px-2 py-0.5 rounded bg-black/40 border border-[#22c55e]/30 shadow-sm backdrop-blur-sm ${titleItem?.image || ''}`}>
                        {titleItem?.name || 'Title'}
                     </span>
                  </div>
               ) : null}
-              <h3 className="text-white font-bold text-sm truncate max-w-[150px]">{player.displayName || player.username || player.name}</h3>
+              <h3 className="text-white font-bold text-sm md:text-base truncate max-w-[160px] drop-shadow-md">
+                 {player.displayName || player.username || player.name}
+              </h3>
+            </div>
+
+            {/* Offset Avatar and Ring in lower left */}
+            <div className="absolute left-4 bottom-3 z-10 flex items-center justify-center">
+              <div className="relative w-12 h-12 md:w-14 md:h-14 flex items-center justify-center flex-shrink-0">
+                 {RingComponent && (
+                    <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none flex items-center justify-center">
+                       <CosmeticsErrorBoundary fallback={null}>
+                          <RingComponent isStatic={!animateCosmetics} />
+                       </CosmeticsErrorBoundary>
+                    </div>
+                 )}
+                 <FirebaseImage loading="lazy"
+                    src={player.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`}
+                    fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`}
+                    alt={player.displayName || player.username || player.name}
+                    className="w-12 h-12 md:w-14 md:h-14 rounded-full relative z-10 border-2 border-[#121212] object-cover shadow-lg"
+                 />
+              </div>
             </div>
          </div>
 

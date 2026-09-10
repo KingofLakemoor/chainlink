@@ -42,6 +42,8 @@ export default function ShopPage() {
           { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
           { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
           { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
+          { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'Deep navy high-altitude sky with a glowing mountain ridge and high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' },
+          { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'Deep crimson and charcoal gradient backdrop with a pulsing golden chevron arrowhead motif and rising fire embers.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' },
           { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
           { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
         ];
@@ -66,6 +68,12 @@ export default function ShopPage() {
           if (!fetchedItems.some(i => i.id === 'banner_winter_beacon')) {
             fetchedItems.push({ id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' });
           }
+          if (!fetchedItems.some(i => i.id === 'banner_alpine_surge')) {
+            fetchedItems.push({ id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'Deep navy high-altitude sky with a glowing mountain ridge and high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' });
+          }
+          if (!fetchedItems.some(i => i.id === 'banner_crimson_kingdom')) {
+            fetchedItems.push({ id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'Deep crimson and charcoal gradient backdrop with a pulsing golden chevron arrowhead motif and rising fire embers.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' });
+          }
         }
         setItems(fetchedItems);
       } catch (e) {
@@ -77,6 +85,8 @@ export default function ShopPage() {
             { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
             { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
             { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
+            { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'Deep navy high-altitude sky with a glowing mountain ridge and high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' },
+            { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'Deep crimson and charcoal gradient backdrop with a pulsing golden chevron arrowhead motif and rising fire embers.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' },
             { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
             { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);

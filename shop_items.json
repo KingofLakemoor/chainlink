@@ -1658,5 +1658,61 @@
     "preview": "HaboobBanner",
     "order": 3,
     "collectionId": ""
+  },
+  {
+    "id": "banner_emerald_storm",
+    "name": "The Emerald Storm",
+    "description": "Deep oceanic navy banner with wind-driven rain and electric action green energy.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "EmeraldStormBanner",
+    "featured": false,
+    "preview": "EmeraldStormBanner",
+    "order": 4,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_winter_beacon",
+    "name": "The Winter Beacon",
+    "description": "Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "WinterBeaconBanner",
+    "featured": false,
+    "preview": "WinterBeaconBanner",
+    "order": 5,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_alpine_surge",
+    "name": "The Alpine Surge",
+    "description": "Deep navy high-altitude sky with a glowing mountain ridge and high-speed wind streaks.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "AlpineSurgeBanner",
+    "featured": false,
+    "preview": "AlpineSurgeBanner",
+    "order": 6,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_crimson_kingdom",
+    "name": "The Crimson Kingdom",
+    "description": "Deep crimson and charcoal gradient backdrop with a pulsing golden chevron arrowhead motif and rising fire embers.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "CrimsonKingdomBanner",
+    "featured": false,
+    "preview": "CrimsonKingdomBanner",
+    "order": 7,
+    "collectionId": ""
   }
 ]

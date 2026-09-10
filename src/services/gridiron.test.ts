@@ -650,6 +650,64 @@ describe('Gridiron Service Tests', () => {
       expect(lbDocAfter).toEqual(lbDocBefore);
     });
 
+    it('does NOT grade picks for games that are in_progress or in snapshot with scores but not final', async () => {
+      mockStore.gridiron_3x3_lines['2026_week_01'] = {
+        season: 2026,
+        weekNumber: 1,
+        games: [
+          {
+            gameId: 'g_in_prog',
+            league: 'NFL',
+            awayTeam: { name: 'NE', score: 14 },
+            homeTeam: { name: 'SEA', score: 10 },
+            status: 'in_progress',
+            spread: { awaySpread: 3.5, homeSpread: -3.5 },
+            total: { line: 44.5 }
+          }
+        ]
+      };
+
+      mockStore.gridiron_3x3_contests['contest_in_prog'] = {
+        contestId: 'contest_in_prog',
+        name: 'In Progress Contest',
+        participants: ['u_prog1', 'u_prog2']
+      };
+
+      mockStore.gridiron_3x3_entries['contest_in_prog_u1'] = {
+        entryId: 'contest_in_prog_u1',
+        contestId: 'contest_in_prog',
+        userId: 'u_prog1',
+        displayName: 'ChrisBudd',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g_in_prog', league: 'NFL', pickType: 'total', selection: 'over', value: 44.5, kickoffTime: Date.now() - 1800000, status: 'pending' }
+        ]
+      };
+
+      mockStore.gridiron_3x3_entries['contest_in_prog_u2'] = {
+        entryId: 'contest_in_prog_u2',
+        contestId: 'contest_in_prog',
+        userId: 'u_prog2',
+        displayName: 'ChristopherChetcuti',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g_in_prog', league: 'NFL', pickType: 'total', selection: 'under', value: 44.5, kickoffTime: Date.now() - 1800000, status: 'pending' }
+        ]
+      };
+
+      const res = await gradeGridironWeek(2026, 1, { contestId: 'contest_in_prog' });
+      expect(res.success).toBe(true);
+
+      // Verify picks remain pending while game is in_progress
+      const e1 = mockStore.gridiron_3x3_entries['contest_in_prog_u1'];
+      const e2 = mockStore.gridiron_3x3_entries['contest_in_prog_u2'];
+
+      expect(e1.picks[0].status).toBe('pending');
+      expect(e2.picks[0].status).toBe('pending');
+    });
+
     it('updates snapshot lines in gridiron_3x3_lines and recalculates leaderboard mid-week when games finish', async () => {
       mockStore.matchups = {
         'cfb_midweek': {

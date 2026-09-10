@@ -33,6 +33,7 @@ const Gridiron3x3AdminPage = React.lazy(() => import('./gridiron/Gridiron3x3Admi
 const BracketsAdminPage = React.lazy(() => import('./brackets/BracketsAdminPage'));
 const AdminPicksPage = React.lazy(() => import('./picks/AdminPicksPage'));
 const ReferralsAdminPage = React.lazy(() => import('./referrals/ReferralsAdminPage'));
+const UsersListPage = React.lazy(() => import('./users/UsersListPage'));
 const UserCosmeticsAdminPage = React.lazy(() => import('./users/UserCosmeticsAdminPage'));
 const AddLinksAdminPage = React.lazy(() => import('./users/AddLinksAdminPage'));
 const TestAccountsAdminPage = React.lazy(() => import('./users/TestAccountsAdminPage'));
@@ -120,7 +121,7 @@ export default function AdminDashboard() {
                 <Route path="brackets/*" element={<BracketsAdminPage />} />
                 <Route path="challenges" element={<GenericTable collectionName="globalQuiz" />} />
                 <Route path="link4/*" element={<Link4AdminPage />} />
-                <Route path="users" element={<GenericTable collectionName="users" />} />
+                <Route path="users" element={<UsersListPage />} />
                 <Route path="users/cosmetics" element={<UserCosmeticsAdminPage />} />
                 <Route path="users/links" element={<AddLinksAdminPage />} />
                 <Route path="users/test-accounts" element={<TestAccountsAdminPage />} />

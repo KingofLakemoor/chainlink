@@ -928,6 +928,19 @@ apiRouter.get("/admin/gridiron-3x3/entries", validateAdmin, async (req, res) => 
   }
 });
 
+apiRouter.get("/admin/users", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const limitNum = Math.min(parseInt((req.query.limit as string) || '300', 10), 500);
+    const snap = await adminDb.collection('users').orderBy('createdAt', 'desc').limit(limitNum).get();
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json({ success: true, users });
+  } catch (e: any) {
+    console.error("Fetch Admin Users error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/users/update-role", validateAdmin, async (req, res) => {
   try {
     const { targetUserId, role } = req.body;

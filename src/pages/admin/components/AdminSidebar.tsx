@@ -39,15 +39,12 @@ const ADMIN_MENU_SECTIONS = [
         label: 'Users',
         icon: Users,
         subItems: [
-          { id: 'users-all', label: 'All Users', path: '/admin/users' },
-          { id: 'users-test-accounts', label: 'Test Accounts & Roles', path: '/admin/users/test-accounts' },
-          { id: 'users-premium', label: 'Premium Status', path: '/admin/premium' },
-          { id: 'users-cosmetics', label: 'User Cosmetics', path: '/admin/users/cosmetics' },
-          { id: 'users-links', label: 'Manage Links', path: '/admin/users/links' },
+          { id: 'users-all', label: 'All Users & Management', path: '/admin/users' },
+          { id: 'users-test-accounts', label: 'Test Accounts & Spoofing', path: '/admin/users/test-accounts' },
+          { id: 'users-referrals', label: 'Referral Network', path: '/admin/referrals' },
           { id: 'logs-transactions', label: 'Link Transactions', path: '/admin/logs/transactions' },
           { id: 'logs-orders', label: 'Merch Orders', path: '/admin/logs/orders' },
           { id: 'logs-errors', label: 'System Errors', path: '/admin/logs/errors' },
-          { id: 'users-referrals', label: 'Referrals', path: '/admin/referrals' },
         ]
       },
       { id: 'announcements', label: 'Announcements', icon: FileText, path: '/admin/announcements' },
@@ -101,7 +98,7 @@ const ADMIN_MENU_SECTIONS = [
 
 export function AdminSidebar({ open, setOpen }: { open: boolean; setOpen: (val: boolean) => void }) {
   const location = useLocation();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ matchups: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ matchups: true, users: true });
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));

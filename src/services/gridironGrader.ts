@@ -234,16 +234,16 @@ export async function gradeGridironWeek(
       let isFinal = false;
       const pickGameId = String(pick.gameId);
 
-      // 1. Check liveGamesMap
-      const liveInfo = liveGamesMap.get(pickGameId);
-      if (liveInfo && isGameStatusFinal(liveInfo.status)) {
-        homeScore = liveInfo.homeScore;
-        awayScore = liveInfo.awayScore;
-        isFinal = true;
-      }
-
-      // 2. Check snapshotGames
-      if (!isFinal) {
+      // 1. Check liveGamesMap or dbMatchupsMap as authoritative status source
+      const liveInfo = liveGamesMap.get(pickGameId) || dbMatchupsMap.get(pickGameId);
+      if (liveInfo) {
+        if (isGameStatusFinal(liveInfo.status)) {
+          homeScore = liveInfo.homeScore;
+          awayScore = liveInfo.awayScore;
+          isFinal = true;
+        }
+      } else {
+        // Fall back ONLY if game was not found in live scrape or DB matchups collection
         const snapGame = snapshotGamesMap.get(pickGameId);
         if (snapGame && isGameStatusFinal(snapGame.status)) {
           const snapHome = snapGame.homeTeam?.score;
@@ -254,18 +254,12 @@ export async function gradeGridironWeek(
         }
       }
 
-      // 3. Check dbMatchupsMap
-      if (!isFinal) {
-        const dbInfo = dbMatchupsMap.get(pickGameId);
-        if (dbInfo && isGameStatusFinal(dbInfo.status)) {
-          homeScore = dbInfo.homeScore;
-          awayScore = dbInfo.awayScore;
-          isFinal = true;
-        }
-      }
-
       if (!isFinal) {
         allGamesFinal = false;
+        if (pick.status !== "pending") {
+          entryUpdated = true;
+          return { ...pick, status: "pending" as const };
+        }
         return pick;
       }
 
@@ -312,7 +306,7 @@ const updatedSnapshotGames = snapshotGames.map((g: any) => {
   const liveInfo = liveGamesMap.get(String(g.gameId)) || dbMatchupsMap.get(String(g.gameId));
   if (liveInfo) {
     const isFinal = isGameStatusFinal(liveInfo.status);
-    const newStatus = isFinal ? "final" : (liveInfo.status.includes("IN_PROGRESS") ? "in_progress" : g.status);
+    const newStatus = isFinal ? "final" : (String(liveInfo.status).toUpperCase().includes("IN_PROGRESS") ? "in_progress" : "scheduled");
     if (
       g.status !== newStatus ||
       g.homeTeam?.score !== liveInfo.homeScore ||

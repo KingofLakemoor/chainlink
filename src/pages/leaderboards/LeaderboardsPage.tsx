@@ -254,6 +254,22 @@ export default function LeaderboardsPage() {
         setLeaderboardData(finalData);
       } catch (err) {
         console.error("Error fetching leaderboard data", err);
+        if (import.meta.env.DEV) {
+           const mockData = [
+             { id: '1', name: 'SuPrMn', username: 'SuPrMn', image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SuPrMn', stats: { wins: 45, losses: 10, pushes: 2 }, currentChain: 5, bestChain: 12, equippedCosmetics: { PROFILE_BANNER: 'banner_responsible_gambler', AVATAR_RING: 'ring_gold', TITLE: 'title_needs_a_win' } },
+             { id: 'user-123', name: 'chancecassady', username: 'chancecassady', image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=chancecassady', stats: { wins: 30, losses: 5, pushes: 0 }, currentChain: 15, bestChain: 15, equippedCosmetics: { PROFILE_BANNER: 'banner_emerald', AVATAR_RING: 'ring_bull_bear', TITLE: 'title_v1' } },
+             { id: '2', name: 'Jane Smith', username: 'janesmith', image: '', stats: { wins: 12, losses: 2, pushes: 0 }, currentChain: 3, bestChain: 8 },
+             { id: '3', name: 'Bob Johnson', username: 'bobj', image: '', stats: { wins: 5, losses: 8, pushes: 1 }, currentChain: 0, bestChain: 2 },
+           ];
+           const processedMock = mockData.map(player => {
+               const wins = player.stats?.wins || 0;
+               const losses = player.stats?.losses || 0;
+               const total = wins + losses;
+               const winRate = total > 0 ? (wins / total) * 100 : 0;
+               return { ...player, winRate, totalDecisions: total, nextPickText: 'NO PICK' };
+           });
+           setLeaderboardData(processedMock);
+        }
       } finally {
         setLoading(false);
       }
@@ -381,9 +397,9 @@ export default function LeaderboardsPage() {
 
          <div className="absolute inset-0 bg-black/20 z-0"></div>
 
-         <div className="relative z-10 flex-1 flex flex-col justify-center items-center p-4 min-h-[160px]">
-            {/* Centered Username & Title */}
-            <div className="flex flex-col items-center justify-center text-center z-10">
+         <div className="relative z-10 flex-1 flex flex-col justify-end items-center p-4 pb-3 min-h-[160px]">
+            {/* Bottom Centered Username & Title */}
+            <div className="flex flex-col items-center justify-end text-center z-10">
               {TitleComponent ? (
                  <div className="mb-1.5 flex justify-center">
                     <TitleComponent isStatic={!animateCosmetics} />

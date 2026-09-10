@@ -130,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!user) return;
+    if (user.uid === 'mock-user-123') return;
 
     // Listen to profile
     const unsubProfile = onSnapshot(doc(db, 'users', user.uid), async (document) => {

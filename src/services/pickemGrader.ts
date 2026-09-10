@@ -26,9 +26,8 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   if (!adminDb) return;
 
   const picksRef = adminDb.collection('pickemPicks');
-  const pendingPicksSnap = await picksRef
+  const allPicksSnap = await picksRef
     .where('matchupId', '==', matchup.id)
-    .where('status', '==', 'PENDING')
     .get();
 
   const homeScore = Number(matchup.homeTeam?.score || 0);
@@ -36,8 +35,25 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const lowerScoreWins = matchup.metadata?.lowerScoreWins;
   const isPostponed = matchup.status === 'STATUS_POSTPONED';
 
+  let isMoneyline = matchup.type === 'STANDARD';
+  if (!isMoneyline && matchup.campaignName === 'YES Day Walk for Autism 2026') {
+    isMoneyline = true;
+  } else if (!isMoneyline && matchup.campaignId) {
+    try {
+      const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
+      if (campDoc.exists) {
+        const cData = campDoc.data();
+        if (cData?.name === 'YES Day Walk for Autism 2026' || cData?.defaultMatchType === 'STANDARD') {
+          isMoneyline = true;
+        }
+      }
+    } catch (e) {
+      console.warn(`[PickemGrader] Could not fetch campaign ${matchup.campaignId}:`, e);
+    }
+  }
+
   let adjustedHomeScore = homeScore;
-  if (matchup.campaignName === 'YES Day Walk for Autism 2026') {
+  if (isMoneyline) {
     adjustedHomeScore = homeScore;
   } else if (matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
     adjustedHomeScore += Number(matchup.metadata.spread);
@@ -109,7 +125,7 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     console.error('Failed to update pickemMatchup winnerId:', err);
   }
 
-  if (pendingPicksSnap.empty) {
+  if (allPicksSnap.empty) {
     return;
   }
 
@@ -117,9 +133,8 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   let batch = adminDb.batch();
   let opCount = 0;
 
-  for (const pickDoc of pendingPicksSnap.docs) {
+  for (const pickDoc of allPicksSnap.docs) {
     const pickData = pickDoc.data();
-    if (pickData.status !== 'PENDING') continue;
 
     let pickStatus = 'LOSS';
     let pointsEarned = 0;
@@ -130,6 +145,10 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     } else if (pickData.pick?.teamId === winnerId) {
       pickStatus = 'WIN';
       pointsEarned = pickData.confidence || 1; // Handle confidence points
+    }
+
+    if (pickData.status === pickStatus && pickData.pointsEarned === pointsEarned) {
+      continue;
     }
 
     batch.update(pickDoc.ref, {

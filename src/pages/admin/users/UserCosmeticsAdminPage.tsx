@@ -1,37 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, limit, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, limit } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
-import { Search } from 'lucide-react';
+import { Search, Tag } from 'lucide-react';
 import shopItemsData from '../../../../shop_items.json';
 
 export default function UserCosmeticsAdminPage() {
   const [users, setUsers] = useState<any[]>([]);
+  const [shopItems, setShopItems] = useState<any[]>(shopItemsData);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [cosmeticSearchTerm, setCosmeticSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsersAndItems = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'users'), limit(200)));
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const [usersSnap, shopSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), limit(200))),
+        getDocs(collection(db, 'shopItems'))
+      ]);
+
+      setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      if (!shopSnap.empty) {
+        const liveItems = shopSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        liveItems.sort((a: any, b: any) => (a.order || 0) - (b.order || 0) || a.id.localeCompare(b.id));
+        setShopItems(liveItems);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Error fetching users or shop items:", e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsersAndItems();
   }, []);
 
   const handleToggleCosmetic = async (userId: string, cosmeticId: string, hasCosmetic: boolean) => {
     try {
       const userRef = doc(db, 'users', userId);
       const user = users.find(u => u.id === userId);
-      let newInventory = user.inventory || [];
+      let newInventory = user?.inventory || [];
       if (hasCosmetic) {
         newInventory = newInventory.filter((id: string) => id !== cosmeticId);
       } else {
@@ -55,21 +67,35 @@ export default function UserCosmeticsAdminPage() {
     u.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredShopItems = shopItems.filter(item =>
+    (item.name || '').toLowerCase().includes(cosmeticSearchTerm.toLowerCase()) ||
+    (item.id || '').toLowerCase().includes(cosmeticSearchTerm.toLowerCase()) ||
+    (item.type || '').toLowerCase().includes(cosmeticSearchTerm.toLowerCase()) ||
+    (item.category || '').toLowerCase().includes(cosmeticSearchTerm.toLowerCase())
+  );
+
   return (
-    <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-xl overflow-hidden p-6">
-      <h2 className="text-xl font-bold mb-4">User Cosmetics Administration</h2>
-      <p className="text-xs text-yellow-500 mb-4 bg-yellow-500/10 p-2 rounded border border-yellow-500/20">
-        Viewing top 200 users to prevent unbounded database reads.
-      </p>
+    <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-xl overflow-hidden p-6 space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-zinc-800 pb-4">
+        <div>
+          <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+            <Tag className="w-5 h-5 text-emerald-400" /> User Cosmetics Administration
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">Grant or revoke profile banners, avatar rings, and titles directly for users.</p>
+        </div>
+        <div className="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 font-mono">
+          Live Shop Items: {shopItems.length}
+        </div>
+      </div>
 
       {!selectedUser ? (
         <>
-          <div className="mb-4 relative">
-            <Search className="w-5 h-5 absolute left-3 top-2.5 text-zinc-500" />
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
             <input
               type="text"
-              placeholder="Search users..."
-              className="bg-zinc-900 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-zinc-700 w-full"
+              placeholder="Search users by username, display name, or UID..."
+              className="bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -80,17 +106,19 @@ export default function UserCosmeticsAdminPage() {
               <thead className="bg-[#18181A] text-zinc-400">
                 <tr>
                   <th className="px-4 py-3 font-medium">Username</th>
-                  <th className="px-4 py-3 font-medium">Cosmetics Count</th>
+                  <th className="px-4 py-3 font-medium">Inventory Count</th>
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
                 {filteredUsers.map(user => (
                   <tr key={user.id} className="hover:bg-zinc-800/30">
-                    <td className="px-4 py-3">{user.username || user.displayName || user.id}</td>
-                    <td className="px-4 py-3">{user.inventory?.length || 0}</td>
+                    <td className="px-4 py-3 font-bold text-zinc-200">{user.username || user.displayName || user.id}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-cyan-400">{user.inventory?.length || 0}</td>
                     <td className="px-4 py-3 text-right">
-                      <Button size="sm" onClick={() => setSelectedUser(user)}>Manage</Button>
+                      <Button size="sm" onClick={() => setSelectedUser(user)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs">
+                        Manage Cosmetics
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -99,32 +127,52 @@ export default function UserCosmeticsAdminPage() {
           </div>
         </>
       ) : (
-        <div>
-          <Button variant="secondary" size="sm" className="mb-4" onClick={() => setSelectedUser(null)}>Back to Users</Button>
-          <h3 className="text-lg font-bold mb-4">Managing: {selectedUser.username || selectedUser.displayName || selectedUser.id}</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+            <div>
+              <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider block">Managing Cosmetics For</span>
+              <h3 className="text-lg font-bold text-zinc-100">{selectedUser.username || selectedUser.displayName || selectedUser.id}</h3>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setSelectedUser(null)} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+              Back to Users List
+            </Button>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {shopItemsData.map((item: any) => {
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search cosmetics by item name, ID, type, or collection..."
+              className="bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500 w-full"
+              value={cosmeticSearchTerm}
+              onChange={(e) => setCosmeticSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar p-1">
+            {filteredShopItems.map((item: any) => {
               const hasCosmetic = selectedUser.inventory?.includes(item.id);
               const isPurchased = selectedUser.purchasedItems?.includes(item.id);
 
               return (
-                <div key={item.id} className="bg-[#18181A] border border-zinc-800 p-4 rounded-lg flex justify-between items-center">
-                  <div>
-                    <div className="font-bold text-sm">{item.name}</div>
-                    <div className="text-xs text-zinc-500">{item.type}</div>
+                <div key={item.id} className="bg-[#18181A] border border-zinc-800 p-4 rounded-xl flex justify-between items-center hover:border-zinc-700 transition-colors">
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-sm text-zinc-100">{item.name}</div>
+                    <div className="text-xs text-zinc-500 font-mono">{item.id}</div>
+                    <div className="text-[10px] text-cyan-400 font-semibold uppercase">{item.type?.replace('_', ' ')}</div>
                     {isPurchased ? (
-                      <div className="text-xs text-green-500 mt-1">Purchased</div>
+                      <div className="text-[10px] font-bold text-emerald-400 mt-1">Status: Purchased</div>
                     ) : hasCosmetic ? (
-                      <div className="text-xs text-blue-500 mt-1">Assigned</div>
+                      <div className="text-[10px] font-bold text-cyan-400 mt-1">Status: Admin Assigned</div>
                     ) : null}
                   </div>
                   <Button
                     variant={hasCosmetic ? 'outline' : 'default'}
                     size="sm"
+                    className={hasCosmetic ? 'border-red-500/50 hover:bg-red-950/40 text-red-400 text-xs' : 'bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs'}
                     onClick={() => handleToggleCosmetic(selectedUser.id, item.id, hasCosmetic)}
                   >
-                    {hasCosmetic ? 'Remove' : 'Add'}
+                    {hasCosmetic ? 'Remove' : 'Grant'}
                   </Button>
                 </div>
               );

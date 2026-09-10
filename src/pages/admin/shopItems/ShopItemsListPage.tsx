@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db, auth } from '../../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
-import { ProfileBannerMap } from '../../../lib/cosmetics';
-import { AvatarRingMap } from '../../../lib/cosmetics';
+import { ProfileBannerMap, AvatarRingMap } from '../../../lib/cosmetics';
 import { TitleMap } from '../../../components/ui/titles';
 import shopItemsData from '../../../../shop_items.json';
 import {
   ShoppingBag, Search, Plus, RefreshCw, Database, Edit3, Trash2,
-  Coins, Crown, Tag, CheckCircle, Eye, SlidersHorizontal, Sparkles
+  Coins, Crown, Tag, CheckCircle, Eye, SlidersHorizontal, Sparkles,
+  Download, UploadCloud, Upload, DollarSign, Percent, X, FileCode,
+  AlertCircle, ArrowUpDown, Save, Check
 } from 'lucide-react';
 
 export default function ShopItemsListPage() {
@@ -22,8 +23,37 @@ export default function ShopItemsListPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [sortOption, setSortOption] = useState<string>('ORDER');
   const [editingCostId, setEditingCostId] = useState<string | null>(null);
   const [editingCostValue, setEditingCostValue] = useState<number | string>('');
+
+  // Toast / Feedback State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Import Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importJsonText, setImportJsonText] = useState('');
+  const [importOverwrite, setImportOverwrite] = useState(true);
+  const [parsedImportItems, setParsedImportItems] = useState<any[]>([]);
+  const [importParseError, setImportParseError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Manifest Push State
+  const [isPushingManifest, setIsPushingManifest] = useState(false);
+
+  // Bulk Pricing Modal State
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [pricingScope, setPricingScope] = useState<'ALL' | 'FILTERED'>('FILTERED');
+  const [pricingAction, setPricingAction] = useState<'INC_PCT' | 'DEC_PCT' | 'INC_FIXED' | 'DEC_FIXED' | 'SET_FIXED'>('INC_PCT');
+  const [pricingValue, setPricingValue] = useState<number | string>(10);
+  const [isApplyingPricing, setIsPricingApplying] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -41,19 +71,144 @@ export default function ShopItemsListPage() {
     fetchData();
   }, []);
 
+  // Smart Seed via Backend API
   const seedShopItems = async () => {
-    if (!confirm('Seed default shop items? This will overwrite existing items with matching IDs.')) return;
+    if (!confirm('Seed default shop items from shop_items.json? This will add missing default items and merge missing properties while preserving custom pricing and status edits.')) return;
     setLoading(true);
     try {
-      for (const item of shopItemsData) {
-        await setDoc(doc(db, 'shopItems', item.id), item);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/shop/seed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ force: false })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        await fetchData();
+        showToast(`Seeded defaults successfully! Created: ${data.createdCount}, Updated: ${data.updatedCount}`);
+      } else {
+        alert(`Failed to seed default items: ${data.error}`);
+        setLoading(false);
       }
-      await fetchData();
-      alert('Seeded default shop items successfully!');
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error seeding shop items:', e);
-      alert('Failed to seed default items');
+      alert(`Failed to seed default items: ${e.message}`);
       setLoading(false);
+    }
+  };
+
+  // Push Live Items to shop_items.json
+  const pushToManifest = async () => {
+    if (!confirm(`Push all ${shopItems.length} live shop items to shop_items.json manifest? This will update the local manifest file permanently.`)) return;
+    setIsPushingManifest(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/shop/export-manifest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Manifest updated permanently! Saved ${data.count} items to shop_items.json.`);
+      } else {
+        alert(`Failed to push to manifest: ${data.error}`);
+      }
+    } catch (e: any) {
+      console.error('Error pushing manifest:', e);
+      alert(`Failed to update manifest: ${e.message}`);
+    } finally {
+      setIsPushingManifest(false);
+    }
+  };
+
+  // Download Manifest JSON Backup
+  const downloadManifestJson = () => {
+    const sorted = [...shopItems].sort((a, b) => (a.order || 0) - (b.order || 0) || a.id.localeCompare(b.id));
+    const jsonStr = JSON.stringify(sorted, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shop_items_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Downloaded ${sorted.length} shop items as JSON backup!`);
+  };
+
+  // Live JSON Parse Effect for Import Modal
+  useEffect(() => {
+    if (!importJsonText.trim()) {
+      setParsedImportItems([]);
+      setImportParseError(null);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(importJsonText);
+      const itemsArray = Array.isArray(parsed) ? parsed : [parsed];
+      setParsedImportItems(itemsArray);
+      setImportParseError(null);
+    } catch (e: any) {
+      setParsedImportItems([]);
+      setImportParseError(`Invalid JSON syntax: ${e.message}`);
+    }
+  }, [importJsonText]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setImportJsonText(content || '');
+    };
+    reader.readAsText(file);
+  };
+
+  // Submit Import
+  const handleExecuteImport = async () => {
+    if (parsedImportItems.length === 0) return;
+    setIsImporting(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/shop/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          items: parsedImportItems,
+          overwrite: importOverwrite
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setIsImportModalOpen(false);
+        setImportJsonText('');
+        setParsedImportItems([]);
+        await fetchData();
+        showToast(`Imported items successfully! Created: ${data.createdCount}, Updated: ${data.updatedCount}, Skipped: ${data.skippedCount}`);
+      } else {
+        alert(`Failed to import items: ${data.error}`);
+      }
+    } catch (e: any) {
+      console.error('Error importing items:', e);
+      alert(`Error importing items: ${e.message}`);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -62,6 +217,7 @@ export default function ShopItemsListPage() {
     try {
       await deleteDoc(doc(db, 'shopItems', id));
       setShopItems(prev => prev.filter(item => item.id !== id));
+      showToast(`Deleted shop item "${id}"`);
     } catch (e) {
       console.error('Error deleting shop item:', e);
       alert('Failed to delete item');
@@ -76,6 +232,7 @@ export default function ShopItemsListPage() {
         [field]: newValue,
         updatedAt: Date.now()
       });
+      showToast(`Updated ${field} for "${id}"`);
     } catch (e) {
       console.error(`Error toggling ${field} for item ${id}:`, e);
       fetchData();
@@ -91,6 +248,7 @@ export default function ShopItemsListPage() {
         cost: numCost,
         updatedAt: Date.now()
       });
+      showToast(`Updated price to ${numCost.toLocaleString()} Links for "${id}"`);
     } catch (e) {
       console.error(`Error updating cost for item ${id}:`, e);
       fetchData();
@@ -126,9 +284,53 @@ export default function ShopItemsListPage() {
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
+    if (sortOption === 'COST_ASC') return (a.cost || 0) - (b.cost || 0);
+    if (sortOption === 'COST_DESC') return (b.cost || 0) - (a.cost || 0);
+    if (sortOption === 'NAME_ASC') return (a.name || '').localeCompare(b.name || '');
+    if (sortOption === 'TYPE') return (a.type || '').localeCompare(b.type || '');
+
+    // Default: Sort Order Index
     if ((a.active !== false) !== (b.active !== false)) return a.active !== false ? -1 : 1;
     return (a.order || 0) - (b.order || 0);
   });
+
+  // Apply Bulk Pricing Adjustment
+  const handleApplyBulkPricing = async () => {
+    const itemsToUpdate = pricingScope === 'ALL' ? shopItems : filteredItems;
+    if (itemsToUpdate.length === 0) return;
+
+    const val = Number(pricingValue) || 0;
+    if (!confirm(`Apply pricing adjustment (${pricingAction}) to ${itemsToUpdate.length} item(s)?`)) return;
+
+    setIsPricingApplying(true);
+    try {
+      for (const item of itemsToUpdate) {
+        let currentCost = item.cost || 0;
+        let newCost = currentCost;
+
+        if (pricingAction === 'INC_PCT') newCost = Math.round(currentCost * (1 + val / 100));
+        else if (pricingAction === 'DEC_PCT') newCost = Math.max(0, Math.round(currentCost * (1 - val / 100)));
+        else if (pricingAction === 'INC_FIXED') newCost = Math.round(currentCost + val);
+        else if (pricingAction === 'DEC_FIXED') newCost = Math.max(0, Math.round(currentCost - val));
+        else if (pricingAction === 'SET_FIXED') newCost = Math.max(0, val);
+
+        if (newCost !== currentCost) {
+          await updateDoc(doc(db, 'shopItems', item.id), {
+            cost: newCost,
+            updatedAt: Date.now()
+          });
+        }
+      }
+      setIsPricingModalOpen(false);
+      await fetchData();
+      showToast(`Updated pricing for ${itemsToUpdate.length} items!`);
+    } catch (e: any) {
+      console.error('Error applying bulk pricing:', e);
+      alert(`Failed to apply bulk pricing: ${e.message}`);
+    } finally {
+      setIsPricingApplying(false);
+    }
+  };
 
   const renderCosmeticPreview = (item: any) => {
     const type = item.type;
@@ -205,15 +407,23 @@ export default function ShopItemsListPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto relative">
+      {/* Toast Banner Feedback */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 bg-emerald-950 border border-emerald-500 text-emerald-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-2">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#121212] border border-zinc-800 rounded-xl p-5 shadow-lg">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-[#121212] border border-zinc-800 rounded-xl p-5 shadow-lg">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100 font-display flex items-center gap-2">
             <ShoppingBag className="w-7 h-7 text-[#22c55e]" />
-            Shop & Inventory Management
+            Shop & Catalog Management
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">Manage cosmetic shop items, pricing, availability, and Pro exclusives.</p>
+          <p className="text-xs text-zinc-400 mt-1">Manage cosmetic shop items, bulk pricing, JSON imports, and permanent manifest synchronization.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -221,29 +431,73 @@ export default function ShopItemsListPage() {
             size="sm"
             variant="outline"
             onClick={fetchData}
-            className="gap-2 border-zinc-700 hover:bg-zinc-800 text-zinc-200"
+            className="gap-1.5 border-zinc-700 hover:bg-zinc-800 text-zinc-200 text-xs"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
 
           <Button
             size="sm"
             variant="outline"
-            onClick={seedShopItems}
-            className="gap-2 border-zinc-700 hover:bg-zinc-800 text-amber-400"
+            onClick={() => setIsPricingModalOpen(true)}
+            className="gap-1.5 border-zinc-700 hover:bg-zinc-800 text-cyan-400 text-xs"
           >
-            <Database className="w-4 h-4" />
+            <DollarSign className="w-3.5 h-3.5" />
+            Adjust Pricing
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsImportModalOpen(true)}
+            className="gap-1.5 border-zinc-700 hover:bg-zinc-800 text-emerald-400 text-xs"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Import JSON
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={pushToManifest}
+            disabled={isPushingManifest}
+            className="gap-1.5 border-emerald-500/40 hover:bg-emerald-950/50 text-emerald-300 text-xs font-semibold"
+            title="Update shop_items.json permanently on server"
+          >
+            <Save className={`w-3.5 h-3.5 ${isPushingManifest ? 'animate-spin' : ''}`} />
+            Push to Manifest
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={downloadManifestJson}
+            className="gap-1.5 border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs"
+            title="Download local JSON copy"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export JSON
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={seedShopItems}
+            className="gap-1.5 border-zinc-700 hover:bg-zinc-800 text-amber-400 text-xs"
+            title="Seed defaults while preserving custom edits"
+          >
+            <Database className="w-3.5 h-3.5" />
             Seed Defaults
           </Button>
 
           <Button
             size="sm"
             onClick={() => navigate('/admin/shopItems/create')}
-            className="gap-2 bg-[#22c55e] hover:bg-[#16a34a] text-white font-semibold"
+            className="gap-1.5 bg-[#22c55e] hover:bg-[#16a34a] text-white font-semibold text-xs"
           >
-            <Plus className="w-4 h-4" />
-            Create Shop Item
+            <Plus className="w-3.5 h-3.5" />
+            Create Item
           </Button>
         </div>
       </div>
@@ -252,7 +506,7 @@ export default function ShopItemsListPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Total Items</p>
+            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Total Catalog</p>
             <h3 className="text-2xl font-bold text-zinc-100 mt-1 font-mono">{totalItemsCount}</h3>
           </div>
           <div className="w-10 h-10 rounded-lg bg-zinc-800/80 flex items-center justify-center text-zinc-300">
@@ -345,6 +599,22 @@ export default function ShopItemsListPage() {
               <option value="PRO_ONLY">Pro Only</option>
               <option value="FEATURED">Featured</option>
             </select>
+
+            {/* Sort Order Selector */}
+            <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1">
+              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="bg-transparent text-zinc-200 focus:outline-none text-xs"
+              >
+                <option value="ORDER">Order Index</option>
+                <option value="COST_ASC">Price: Low to High</option>
+                <option value="COST_DESC">Price: High to Low</option>
+                <option value="NAME_ASC">Name A-Z</option>
+                <option value="TYPE">Type</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -525,6 +795,218 @@ export default function ShopItemsListPage() {
           </div>
         )}
       </div>
+
+      {/* JSON Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 max-w-3xl w-full space-y-5 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-2 text-zinc-100 font-bold text-lg">
+                <Upload className="w-5 h-5 text-emerald-400" />
+                Import Shop Items (JSON)
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsImportModalOpen(false)}
+                className="text-zinc-400 hover:text-white h-8 w-8"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <p className="text-xs text-zinc-400">
+              Paste item JSON array or upload a <code className="text-emerald-400">.json</code> file to batch import items into Firestore.
+            </p>
+
+            {/* File Upload Box */}
+            <div className="flex items-center gap-3 bg-zinc-900 border border-dashed border-zinc-700 p-3 rounded-xl">
+              <UploadCloud className="w-6 h-6 text-zinc-400 shrink-0" />
+              <div className="flex-1 text-xs">
+                <span className="font-semibold text-zinc-200">Upload JSON File</span>
+                <p className="text-zinc-500">Select a local JSON catalog or backup file</p>
+              </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+                className="text-xs text-zinc-300 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700 cursor-pointer"
+              />
+            </div>
+
+            {/* Paste Area */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-zinc-300 block">
+                Paste JSON Payload:
+              </label>
+              <textarea
+                value={importJsonText}
+                onChange={(e) => setImportJsonText(e.target.value)}
+                placeholder='[{"id": "banner_example", "name": "Example Banner", "type": "PROFILE_BANNER", "cost": 1000}]'
+                className="w-full h-44 bg-zinc-950 border border-zinc-800 rounded-xl p-3 font-mono text-xs text-zinc-200 focus:outline-none focus:border-emerald-500 custom-scrollbar"
+              />
+            </div>
+
+            {/* Parsing Validation Feedback */}
+            {importParseError ? (
+              <div className="bg-red-950/60 border border-red-500/50 p-3 rounded-lg flex items-center gap-2 text-red-300 text-xs font-mono">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{importParseError}</span>
+              </div>
+            ) : parsedImportItems.length > 0 ? (
+              <div className="bg-emerald-950/40 border border-emerald-500/40 p-3 rounded-lg flex items-center justify-between text-xs">
+                <span className="text-emerald-300 font-semibold flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  Found {parsedImportItems.length} valid item(s) ready to import.
+                </span>
+                <label className="inline-flex items-center gap-2 text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={importOverwrite}
+                    onChange={(e) => setImportOverwrite(e.target.checked)}
+                    className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <span>Overwrite existing matching IDs</span>
+                </label>
+              </div>
+            ) : null}
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsImportModalOpen(false)}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExecuteImport}
+                disabled={parsedImportItems.length === 0 || isImporting}
+                className="bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold gap-2"
+              >
+                {isImporting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" /> Import {parsedImportItems.length} Item(s)
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Pricing Adjustment Modal */}
+      {isPricingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-2 text-zinc-100 font-bold text-lg">
+                <DollarSign className="w-5 h-5 text-cyan-400" />
+                Batch Price Adjustment
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsPricingModalOpen(false)}
+                className="text-zinc-400 hover:text-white h-8 w-8"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="text-zinc-300 font-semibold block mb-1">Target Item Scope:</label>
+                <select
+                  value={pricingScope}
+                  onChange={(e) => setPricingScope(e.target.value as any)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="FILTERED">Currently Filtered Items ({filteredItems.length} items)</option>
+                  <option value="ALL">Entire Catalog ({shopItems.length} items)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-zinc-300 font-semibold block mb-1">Adjustment Action:</label>
+                <select
+                  value={pricingAction}
+                  onChange={(e) => setPricingAction(e.target.value as any)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="INC_PCT">Increase Price by Percentage (%)</option>
+                  <option value="DEC_PCT">Decrease Price by Percentage (%)</option>
+                  <option value="INC_FIXED">Increase Price by Fixed Links Amount (+ Links)</option>
+                  <option value="DEC_FIXED">Decrease Price by Fixed Links Amount (- Links)</option>
+                  <option value="SET_FIXED">Set Fixed Price for All Selected Items</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-zinc-300 font-semibold block mb-1">
+                  Adjustment Value {pricingAction.includes('PCT') ? '(Percentage)' : '(Links)'}:
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={pricingValue}
+                  onChange={(e) => setPricingValue(e.target.value)}
+                  className="bg-zinc-900 border-zinc-800 text-cyan-400 font-mono font-bold"
+                />
+              </div>
+
+              <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg text-zinc-400 space-y-1">
+                <span className="font-semibold text-zinc-200 block">Preview Example:</span>
+                <p>An item currently costing 1,000 Links will become:</p>
+                <p className="font-mono text-cyan-300 font-bold text-sm pt-1">
+                  {(() => {
+                    const v = Number(pricingValue) || 0;
+                    if (pricingAction === 'INC_PCT') return `${Math.round(1000 * (1 + v / 100)).toLocaleString()} Links`;
+                    if (pricingAction === 'DEC_PCT') return `${Math.max(0, Math.round(1000 * (1 - v / 100))).toLocaleString()} Links`;
+                    if (pricingAction === 'INC_FIXED') return `${Math.round(1000 + v).toLocaleString()} Links`;
+                    if (pricingAction === 'DEC_FIXED') return `${Math.max(0, Math.round(1000 - v)).toLocaleString()} Links`;
+                    return `${Math.max(0, v).toLocaleString()} Links`;
+                  })()}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsPricingModalOpen(false)}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleApplyBulkPricing}
+                disabled={isApplyingPricing}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold gap-2 text-xs"
+              >
+                {isApplyingPricing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Updating...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" /> Apply Adjustment
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

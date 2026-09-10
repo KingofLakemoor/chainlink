@@ -231,121 +231,23 @@ export default function Link4AdminPage() {
     setIsSyncing(true);
     setSyncStatus(null);
     try {
-      // 1. Get recent picked matchups to exclude them from updates (bounded to avoid downloading the whole database)
-      const picksSnap = await getDocs(query(collection(db, 'link4Picks'), orderBy('createdAt', 'desc'), limit(1000)));
-      const pickedGameIds = new Set<string>();
-      picksSnap.docs.forEach(d => {
-         const data = d.data();
-         const picks = Array.isArray(data.picks) ? data.picks : (data.picks ? Object.values(data.picks) : []);
-         picks.forEach((p: any) => {
-            if (p?.matchupId) {
-               pickedGameIds.add(p.matchupId);
-            } else if (p?.id && p.id.startsWith('pick-')) {
-               pickedGameIds.add(p.id.replace('pick-', ''));
-            }
-         });
-      });
-
-      let scraperConfig: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> } = {};
-      try {
-        const scraperSnap = await getDocs(query(collection(db, 'systemSettings')));
-        const scraperDoc = scraperSnap.docs.find(d => d.id === 'scraper')?.data();
-        if (scraperDoc) {
-          scraperConfig = scraperDoc as any;
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/admin/link4/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-      } catch (e) {
-        console.error("Error fetching system settings", e);
-      }
-
-      // 2. Determine which leagues to scrape. We'll scrape all active segment allowed sports, or all supported sports if none active
-      let sportsToScrape: string[] | readonly string[] = SUPPORTED_LEAGUES;
-      const activeSegment = segments.find(s => {
-          const status = getSegmentStatus(s.startTime, s.endTime);
-          return status.label === 'Active' || status.label === 'Upcoming';
       });
-      if (activeSegment && Array.isArray(activeSegment.allowedSports) && activeSegment.allowedSports.length > 0) {
-          sportsToScrape = activeSegment.allowedSports;
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSyncStatus({ type: 'success', message: `Successfully synced ${data.count || 0} eligible games.` });
+      } else {
+        throw new Error(data.error || 'Failed to sync eligible games.');
       }
-
-      let totalSynced = 0;
-
-      for (const league of sportsToScrape) {
-         try {
-            // @ts-ignore
-            const result = await scrapeLeagueSchedules(league, false, scraperConfig);
-            const scrapedMatchups = result.data;
-
-            if (!scrapedMatchups || scrapedMatchups.length === 0) continue;
-
-            const existingSnap = await getDocs(query(collection(db, 'matchups'), where('league', '==', league)));
-            const existingMap = new Map<string, any>();
-            existingSnap.docs.forEach(d => {
-               const m = d.data();
-               existingMap.set(m.gameId, d);
-            });
-
-            let defaultActive = true;
-            try {
-               const settingsSnap = await getDocs(query(collection(db, 'leagueSettings')));
-               const leagueSetting = settingsSnap.docs.find(d => d.id === league)?.data();
-               if (leagueSetting && typeof leagueSetting.active === 'boolean') {
-                  defaultActive = leagueSetting.active;
-               }
-            } catch (e) {}
-
-            let batch = writeBatch(db);
-            let opCount = 0;
-
-            for (const scrapedMatchup of scrapedMatchups) {
-                // Only process games that have BOTH ML home and away
-                const hasML = scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null &&
-                              scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null;
-
-                if (!hasML) continue;
-
-                const gameId = scrapedMatchup.gameId;
-                if (pickedGameIds.has(gameId)) continue; // Do not update picked games
-
-                const existingDoc = existingMap.get(gameId);
-
-                if (existingDoc) {
-                    // Since we're syncing just for eligible ML, update if ML changed
-                    const existingData = existingDoc.data();
-                    batch.update(doc(db, 'matchups', existingDoc.id), {
-                        'metadata.mlHome': scrapedMatchup.metadata.mlHome,
-                        'metadata.mlAway': scrapedMatchup.metadata.mlAway,
-                        updatedAt: Date.now()
-                    });
-                    opCount++;
-                } else {
-                    const newDocRef = doc(db, 'matchups', gameId);
-                    batch.set(newDocRef, {
-                        ...scrapedMatchup,
-                        active: scrapedMatchup.active && defaultActive,
-                        updatedAt: Date.now(),
-                        createdAt: Date.now()
-                    });
-                    opCount++;
-                }
-                totalSynced++;
-
-                if (opCount >= 500) {
-                    await batch.commit();
-                    batch = writeBatch(db);
-                    opCount = 0;
-                }
-            }
-            if (opCount > 0) {
-                await batch.commit();
-            }
-         } catch (e) {
-             console.error(`Error syncing ${league}:`, e);
-         }
-      }
-      setSyncStatus({ type: 'success', message: `Successfully synced ${totalSynced} eligible games.` });
-    } catch (e) {
-      console.error("Error during manual sync:", e);
-      setSyncStatus({ type: 'error', message: 'Failed to sync eligible games.' });
+    } catch (e: any) {
+      console.error("Error during Link4 sync:", e);
+      setSyncStatus({ type: 'error', message: e.message || 'Failed to sync eligible games.' });
     } finally {
       setIsSyncing(false);
       setTimeout(() => setSyncStatus(null), 3000);

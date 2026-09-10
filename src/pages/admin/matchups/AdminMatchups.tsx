@@ -18,23 +18,37 @@ export function AdminMatchups() {
   const [searchQuery, setSearchQuery] = useState('');
   
 
-    const fetchData = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const snap = await getDocs(query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])));
-      
-      const picksSnap = await getDocs(query(collection(db, 'picks'), where('status', '==', 'PENDING')));
-      const pickemSnap = await getDocs(query(collection(db, 'pickemPicks'), where('status', '==', 'PENDING')));
-      
-      const pickCounts = {};
-      picksSnap.forEach(d => {
-         const matchId = d.data().matchupId;
-         pickCounts[matchId] = (pickCounts[matchId] || 0) + 1;
-      });
-      pickemSnap.forEach(d => {
-         const matchId = d.data().matchupId;
-         pickCounts[matchId] = (pickCounts[matchId] || 0) + 1;
-      });
+      const matchupIds = snap.docs.map(d => d.id);
+      const pickCounts: Record<string, number> = {};
+
+      if (matchupIds.length > 0) {
+        const chunkArray = (arr: string[], size: number) =>
+          arr.length ? [arr.slice(0, size), ...chunkArray(arr.slice(size), size)] : [];
+        const chunks = chunkArray(matchupIds, 30);
+
+        await Promise.all(chunks.map(async (chunk) => {
+          try {
+            const [pSnap, peSnap] = await Promise.all([
+              getDocs(query(collection(db, 'picks'), where('matchupId', 'in', chunk), where('status', '==', 'PENDING'))),
+              getDocs(query(collection(db, 'pickemPicks'), where('matchupId', 'in', chunk), where('status', '==', 'PENDING')))
+            ]);
+            pSnap.forEach(d => {
+              const matchId = d.data().matchupId;
+              if (matchId) pickCounts[matchId] = (pickCounts[matchId] || 0) + 1;
+            });
+            peSnap.forEach(d => {
+              const matchId = d.data().matchupId;
+              if (matchId) pickCounts[matchId] = (pickCounts[matchId] || 0) + 1;
+            });
+          } catch (chunkErr) {
+            console.warn("Chunk pick count fetch warning:", chunkErr);
+          }
+        }));
+      }
 
       setData(snap.docs.map(d => ({ id: d.id, ...d.data(), pickCount: pickCounts[d.id] || 0 })));
     } catch (e) {
@@ -51,47 +65,23 @@ export function AdminMatchups() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      let scraperConfig: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> } = {};
-      try {
-        const scraperSnap = await getDocs(query(collection(db, 'systemSettings')));
-        const scraperDoc = scraperSnap.docs.find(d => d.id === 'scraper')?.data();
-        if (scraperDoc) {
-          scraperConfig = scraperDoc as any;
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/admin/sync-schedules-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-      } catch (e) {
-        console.error("Error fetching system settings", e);
+      });
+      const resultData = await res.json();
+      if (resultData.success) {
+        const totalImported = (resultData.result?.new || 0) + (resultData.result?.updated || 0);
+        await fetchData();
+        alert(`ESPN Sync Complete! Processed ${totalImported} new/updated matchups.`);
+      } else {
+        alert("Sync failed: " + (resultData.error || "Unknown error"));
       }
-
-      const leagues = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "PROP"];
-
-      let totalImported = 0;
-
-      for (const league of leagues) {
-        try {
-          const token = await user?.getIdToken();
-          const res = await fetch('/api/admin/sync-schedules', {
-             method: 'POST',
-             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-             },
-             body: JSON.stringify({ league })
-          });
-          const resultData = await res.json();
-          if (resultData.success) {
-             totalImported += (resultData.result?.new || 0) + (resultData.result?.updated || 0);
-          } else {
-             console.error(`Sync error for ${league}:`, resultData.error);
-          }
-        } catch(e) {
-          console.error(`Sync error for ${league}:`, e);
-        }
-      }
-
-
-      await fetchData();
-      alert(`ESPN Sync Complete! Inserted ${totalImported} new matchups.`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       alert("Sync failed: " + e.message);
     } finally {

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc, limit } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc, limit, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { Link } from 'react-router-dom';
-import { Search, Trash2, Edit } from 'lucide-react';
+import { Search, Trash2, Edit, X, Save } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 
 export default function AdminPicksPage() {
@@ -10,6 +9,8 @@ export default function AdminPicksPage() {
   const [loading, setLoading] = useState(true);
   const [filterPending, setFilterPending] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingPick, setEditingPick] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -210,9 +211,9 @@ export default function AdminPicksPage() {
                        </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link to={`/admin/picks/edit/${row.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block">
+                      <button onClick={() => setEditingPick(row)} className="text-zinc-500 hover:text-white mr-3 inline-block">
                         <Edit className="w-4 h-4" />
-                      </Link>
+                      </button>
                       <button onClick={() => handleDelete(row)} className="text-red-500/70 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   </tr>
@@ -220,6 +221,102 @@ export default function AdminPicksPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Pick Slide-over Modal */}
+      {editingPick && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end">
+          <div className="bg-[#121212] border-l border-zinc-800 w-full max-w-lg h-full flex flex-col p-6 overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
+              <div>
+                <h3 className="font-bold text-lg text-white">Edit Pick Record</h3>
+                <p className="text-xs text-zinc-400 font-mono">ID: {editingPick.id}</p>
+              </div>
+              <button onClick={() => setEditingPick(null)} className="text-zinc-500 hover:text-white p-2">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 flex-1">
+              {Object.entries(editingPick).map(([key, value]) => {
+                if (['id', 'userName', 'userImage', 'matchupTitle', 'matchupLeague', 'matchupStartTime'].includes(key)) return null;
+
+                let inputValue = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? '');
+
+                return (
+                  <div key={key}>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">{key}</label>
+                    {typeof value === 'boolean' ? (
+                      <select
+                        value={String(value)}
+                        onChange={(e) => setEditingPick((prev: any) => ({ ...prev, [key]: e.target.value === 'true' }))}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-cyan-500"
+                      >
+                        <option value="true">True</option>
+                        <option value="false">False</option>
+                      </select>
+                    ) : key === 'status' ? (
+                      <select
+                        value={String(value)}
+                        onChange={(e) => setEditingPick((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-cyan-500"
+                      >
+                        <option value="PENDING">PENDING</option>
+                        <option value="WIN">WIN</option>
+                        <option value="LOSS">LOSS</option>
+                        <option value="PUSH">PUSH</option>
+                      </select>
+                    ) : (
+                      <input
+                        type={typeof value === 'number' ? 'number' : 'text'}
+                        value={inputValue}
+                        onChange={(e) => {
+                          let val: any = e.target.value;
+                          if (typeof value === 'number') val = Number(val);
+                          setEditingPick((prev: any) => ({ ...prev, [key]: val }));
+                        }}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-cyan-500 font-mono text-xs"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-6 border-t border-zinc-800 flex items-center justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setEditingPick(null)}>Cancel</Button>
+              <Button
+                onClick={async () => {
+                  if (!editingPick?.id) return;
+                  setSaving(true);
+                  try {
+                    const { id, userName, userImage, matchupTitle, matchupLeague, matchupStartTime, ...updateData } = editingPick;
+                    if (typeof updateData.pick === 'string') {
+                      try {
+                        updateData.pick = JSON.parse(updateData.pick);
+                      } catch (e) {
+                        // ignore JSON parse error if it's a raw string
+                      }
+                    }
+                    await updateDoc(doc(db, 'picks', id), updateData);
+                    setEditingPick(null);
+                    fetchData();
+                  } catch (e) {
+                    console.error("Failed to update pick:", e);
+                    alert("Failed to save pick changes.");
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                disabled={saving}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save Pick'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -37,6 +37,8 @@ import { EmeraldStormBanner } from '../components/banners/EmeraldStormBanner';
 import { WinterBeaconBanner } from '../components/banners/WinterBeaconBanner';
 import { SilverSupernovaBanner } from '../components/banners/SilverSupernovaBanner';
 import { EmpirePulseBanner } from '../components/banners/EmpirePulseBanner';
+import { AlpineSurgeBanner } from '../components/banners/AlpineSurgeBanner';
+import { CrimsonKingdomBanner } from '../components/banners/CrimsonKingdomBanner';
 import { ResponsibleGamblerBaseBanner, ResponsibleGamblerReadableBanner, ResponsibleGamblerDarkHumorBanner } from "../components/ui/profile-banners/responsible-gambler";
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
@@ -83,5 +85,7 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'EmeraldStormBanner': EmeraldStormBanner,
   'WinterBeaconBanner': WinterBeaconBanner,
   'SilverSupernovaBanner': SilverSupernovaBanner,
-  'EmpirePulseBanner': EmpirePulseBanner
+  'EmpirePulseBanner': EmpirePulseBanner,
+  'AlpineSurgeBanner': AlpineSurgeBanner,
+  'CrimsonKingdomBanner': CrimsonKingdomBanner
 };

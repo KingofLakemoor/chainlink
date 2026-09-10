@@ -42,6 +42,8 @@ export default function ShopPage() {
           { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
           { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
           { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
+          { id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SilverSupernovaBanner' },
+          { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' },
           { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
           { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
         ];
@@ -66,6 +68,12 @@ export default function ShopPage() {
           if (!fetchedItems.some(i => i.id === 'banner_winter_beacon')) {
             fetchedItems.push({ id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' });
           }
+          if (!fetchedItems.some(i => i.id === 'banner_silver_supernova')) {
+            fetchedItems.push({ id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SilverSupernovaBanner' });
+          }
+          if (!fetchedItems.some(i => i.id === 'banner_empire_pulse')) {
+            fetchedItems.push({ id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' });
+          }
         }
         setItems(fetchedItems);
       } catch (e) {
@@ -77,6 +85,8 @@ export default function ShopPage() {
             { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
             { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
             { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
+            { id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SilverSupernovaBanner' },
+            { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' },
             { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
             { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);

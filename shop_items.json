@@ -1658,5 +1658,33 @@
     "preview": "HaboobBanner",
     "order": 3,
     "collectionId": ""
+  },
+  {
+    "id": "banner_silver_supernova",
+    "name": "The Silver Supernova",
+    "description": "A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "SilverSupernovaBanner",
+    "featured": true,
+    "preview": "SilverSupernovaBanner",
+    "order": 4,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_empire_pulse",
+    "name": "The Empire Pulse",
+    "description": "A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "EmpirePulseBanner",
+    "featured": true,
+    "preview": "EmpirePulseBanner",
+    "order": 5,
+    "collectionId": ""
   }
 ]

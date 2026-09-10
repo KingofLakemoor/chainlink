@@ -215,7 +215,7 @@ export async function syncTennisOdds() {
             if (!active) {
                 // Check if anyone has already picked this before making it inactive
                 const hasPicks = await checkMatchupHasPicks(adminDb, match);
-                if (hasPicks) {
+                if (hasPicks || match.manuallyActivated) {
                     active = true;
                     abandoned = false;
                 } else {
@@ -251,7 +251,7 @@ export async function syncTennisOdds() {
        if (!matchedIds.has(match.id) && !match.abandoned) {
            // Check if anyone has already picked this before making it inactive
            const hasPicks = await checkMatchupHasPicks(adminDb, match);
-           if (hasPicks) {
+           if (hasPicks || match.manuallyActivated) {
                continue;
            }
 
@@ -382,7 +382,7 @@ export async function syncSoccerOdds() {
               let abandoned = active ? false : (match.abandoned || false);
               if (!active) {
                   const hasPicks = await checkMatchupHasPicks(adminDb, match);
-                  if (hasPicks) {
+                  if (hasPicks || (match as any).manuallyActivated) {
                       active = true;
                       abandoned = false;
                   } else {
@@ -410,7 +410,7 @@ export async function syncSoccerOdds() {
         for (const match of dbMatchups) {
            if (!matchedIds.has(match.id) && (match as any).active === true) {
                const hasPicks = await checkMatchupHasPicks(adminDb, match);
-               if (hasPicks) continue;
+               if (hasPicks || (match as any).manuallyActivated) continue;
                const matchRef = adminDb.collection('matchups').doc(match.id);
                batch.update(matchRef, { 'active': false, 'abandoned': true, 'updatedAt': Date.now() });
                batchCount++;

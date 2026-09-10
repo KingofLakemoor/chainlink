@@ -274,6 +274,52 @@ describe('OddsProcessor Optimization Tests', () => {
     });
   });
 
+  it('syncTennisOdds preserves active state when manuallyActivated is true', async () => {
+    process.env.ODDS_API_KEY = 'test-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockMatchupDoc = {
+      id: 'docIdManual',
+      data: () => ({
+        gameId: 'gameIdManual',
+        league: 'ATP',
+        active: true,
+        manuallyActivated: true,
+        homeTeam: { name: 'Player M' },
+        awayTeam: { name: 'Player N' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'docManualRef' };
+      if (collName === 'picks' || collName === 'pickemPicks') {
+        return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
+      }
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('/v4/sports/?')) {
+        return { ok: true, json: async () => [{ key: 'tennis_atp_test', active: true }] } as any;
+      }
+      if (urlStr.includes('/v4/sports/tennis_atp_test/odds/?')) {
+        return { ok: true, json: async () => [] } as any;
+      }
+      return { ok: false, text: async () => 'error' } as any;
+    });
+
+    const res = await syncTennisOdds();
+    expect(res).toEqual({ success: true, updatedCount: 0 });
+    expect(mockBatch.update).not.toHaveBeenCalledWith('docManualRef', expect.objectContaining({ active: false }));
+  });
+
   it('syncTennisOdds preserves active state when picks exist under gameId', async () => {
     process.env.ODDS_API_KEY = 'test-key';
 

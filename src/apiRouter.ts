@@ -2392,6 +2392,59 @@ apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) =
   }
 });
 
+apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, res) => {
+  try {
+    const { scoreboardOnly } = req.body || {};
+    const isScoreboardOnly = !!scoreboardOnly;
+
+    const leagues = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "PROP"];
+
+    let totalUpdated = 0;
+    let totalCreated = 0;
+    const errors: string[] = [];
+
+    const chunkSize = 6;
+    for (let i = 0; i < leagues.length; i += chunkSize) {
+      const chunk = leagues.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(async (lg) => {
+        if (lg === 'PROP') {
+          try {
+            await updateAllProps();
+          } catch (e: any) {
+            errors.push(`PROP: ${e.message || e}`);
+          }
+        } else {
+          try {
+            const result = await syncLeagueSchedules(lg as any, isScoreboardOnly);
+            totalUpdated += result.matchupsUpdated || 0;
+            totalCreated += result.scoreMatchupsCreated || 0;
+          } catch (e: any) {
+            errors.push(`${lg}: ${e.message || e}`);
+          }
+        }
+      }));
+    }
+
+    try {
+      await processPendingNotifications();
+    } catch (notifErr) {
+      console.error('Failed to process notifications from sync-schedules-all:', notifErr);
+    }
+
+    res.json({
+      success: true,
+      result: {
+        new: totalCreated,
+        updated: totalUpdated,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+  } catch (e: any) {
+    console.error("Sync schedules all error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) => {
   try {
     let { league, scoreboardOnly } = req.body;
@@ -3028,6 +3081,124 @@ apiRouter.get("/admin/orders", validateAdmin, async (req, res) => {
     res.json({ success: true, orders });
   } catch (e: any) {
     console.error("Fetch Admin Orders error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/link4/sync", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const picksSnap = await adminDb.collection('link4Picks').orderBy('createdAt', 'desc').limit(1000).get();
+    const pickedGameIds = new Set<string>();
+    picksSnap.docs.forEach(d => {
+      const data = d.data();
+      const picks = Array.isArray(data.picks) ? data.picks : (data.picks ? Object.values(data.picks) : []);
+      picks.forEach((p: any) => {
+        if (p?.matchupId) pickedGameIds.add(p.matchupId);
+        else if (p?.id && p.id.startsWith('pick-')) pickedGameIds.add(p.id.replace('pick-', ''));
+      });
+    });
+
+    let totalSynced = 0;
+    const sportsToScrape = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA"];
+
+    for (const league of sportsToScrape) {
+      try {
+        const result = await scrapeLeagueSchedules(league as any, false);
+        const scrapedMatchups = result.data || [];
+        if (scrapedMatchups.length === 0) continue;
+
+        const existingSnap = await adminDb.collection('matchups').where('league', '==', league).get();
+        const existingMap = new Map<string, any>();
+        existingSnap.docs.forEach(d => existingMap.set(d.data().gameId, d));
+
+        let batch = adminDb.batch();
+        let opCount = 0;
+
+        for (const scrapedMatchup of scrapedMatchups) {
+          const hasML = scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null &&
+                        scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null;
+          if (!hasML) continue;
+
+          const gameId = scrapedMatchup.gameId;
+          if (pickedGameIds.has(gameId)) continue;
+
+          const existingDoc = existingMap.get(gameId);
+          if (existingDoc) {
+            batch.update(adminDb.collection('matchups').doc(existingDoc.id), {
+              'metadata.mlHome': scrapedMatchup.metadata.mlHome,
+              'metadata.mlAway': scrapedMatchup.metadata.mlAway,
+              updatedAt: Date.now()
+            });
+          } else {
+            batch.set(adminDb.collection('matchups').doc(gameId), {
+              ...scrapedMatchup,
+              active: scrapedMatchup.active,
+              updatedAt: Date.now(),
+              createdAt: Date.now()
+            });
+          }
+          opCount++;
+          totalSynced++;
+
+          if (opCount >= 450) {
+            await batch.commit();
+            batch = adminDb.batch();
+            opCount = 0;
+          }
+        }
+        if (opCount > 0) {
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error(`Error syncing Link4 ${league}:`, err);
+      }
+    }
+
+    res.json({ success: true, count: totalSynced });
+  } catch (e: any) {
+    console.error("Link4 sync endpoint error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/leagues/deactivate-scheduled", validateAdmin, async (req, res) => {
+  try {
+    const { leagueId } = req.body;
+    if (!leagueId) {
+      return res.status(400).json({ success: false, error: "Missing leagueId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const snap = await adminDb.collection('matchups')
+      .where('league', '==', leagueId)
+      .where('status', '==', 'STATUS_SCHEDULED')
+      .get();
+
+    let batch = adminDb.batch();
+    let opCount = 0;
+    let deactivatedCount = 0;
+
+    for (const d of snap.docs) {
+      batch.update(d.ref, { active: false, updatedAt: Date.now() });
+      opCount++;
+      deactivatedCount++;
+
+      if (opCount >= 450) {
+        await batch.commit();
+        batch = adminDb.batch();
+        opCount = 0;
+      }
+    }
+
+    if (opCount > 0) {
+      await batch.commit();
+    }
+
+    res.json({ success: true, deactivatedCount });
+  } catch (e: any) {
+    console.error("Deactivate scheduled league games error:", e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

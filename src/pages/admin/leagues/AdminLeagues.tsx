@@ -443,34 +443,25 @@ export function AdminLeagues() {
     if (!confirm(`Are you sure you want to deactivate all SCHEDULED games for ${leagueId}?`)) return;
 
     try {
-      const snap = await getDocs(query(
-        collection(db, 'matchups'),
-        where('league', '==', leagueId),
-        where('status', '==', 'STATUS_SCHEDULED')
-      ));
-
-      let batch = writeBatch(db);
-      let opCount = 0;
-
-      for (const d of snap.docs) {
-        batch.update(doc(db, 'matchups', d.id), { active: false, updatedAt: Date.now() });
-        opCount++;
-
-        if (opCount === 500) {
-          await batch.commit();
-          batch = writeBatch(db);
-          opCount = 0;
-        }
+      const { auth } = await import('../../../lib/firebase');
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/leagues/deactivate-scheduled', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ leagueId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Successfully deactivated ${data.deactivatedCount} scheduled games for ${leagueId}.`);
+      } else {
+        alert("Failed to deactivate games: " + (data.error || "Unknown error"));
       }
-
-      if (opCount > 0) {
-        await batch.commit();
-      }
-
-      alert(`Successfully deactivated scheduled games for ${leagueId}.`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert(`Failed to deactivate games for ${leagueId}.`);
+      alert(`Failed to deactivate games for ${leagueId}: ` + e.message);
     }
   };
 

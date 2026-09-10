@@ -54,7 +54,6 @@ const ADMIN_MENU_SECTIONS = [
   {
     title: 'Economy & Prizes',
     items: [
-      { id: 'monthly-prize', label: 'Monthly Prize', icon: Trophy, path: '/admin/prize' },
       {
         id: 'shopItems',
         label: 'Shop',
@@ -69,12 +68,10 @@ const ADMIN_MENU_SECTIONS = [
     ]
   },
   {
-    title: 'System',
+    title: 'System & Operations',
     items: [
       { id: 'guide', label: 'Operating Guide', icon: BookOpen, path: '/admin/guide' },
-      { id: 'play-banner', label: 'Play Page Banner', icon: Megaphone, path: '/admin/system/banner' },
-      { id: 'monthly-rollover', label: 'Monthly Rollover', icon: Settings, path: '/admin/system/rollover' },
-      { id: 'engagement', label: 'Engagement & Records', icon: Settings, path: '/admin/system/engagement' },
+      { id: 'system-hub', label: 'System Operations & Hub', icon: Settings, path: '/admin/system' },
     ]
   }
 ];

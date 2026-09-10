@@ -8,15 +8,14 @@ import { Textarea } from '../../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '../../../components/ui/form';
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
-import { ProfileBannerMap } from '../../../lib/cosmetics';
-import { AvatarRingMap } from '../../../lib/cosmetics';
+import { ProfileBannerMap, AvatarRingMap } from '../../../lib/cosmetics';
 import { TitleMap } from '../../../components/ui/titles';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import {
   ArrowLeft, ShoppingBag, Plus, Sparkles, Coins, Crown, CheckCircle2,
-  Tag, Image as ImageIcon, Eye, Layers, ShieldAlert
+  Tag, Eye, HelpCircle, Code, Image as ImageIcon
 } from "lucide-react";
 
 export const shopItemCategories = [
@@ -104,6 +103,10 @@ export default function CreateShopItemPage() {
       setIsSubmitting(false);
     }
   };
+
+  const registeredBanners = Object.keys(ProfileBannerMap);
+  const registeredRings = Object.keys(AvatarRingMap);
+  const registeredTitles = Object.keys(TitleMap);
 
   const renderLivePreview = () => {
     const { name, description, cost, type, category, premiumOnly, image, thumbnail, preview } = watchAll;
@@ -228,6 +231,27 @@ export default function CreateShopItemPage() {
               Create New Shop Item
             </h1>
             <p className="text-xs text-zinc-400 mt-0.5">Configure new cosmetic items, prices, and visual component keys.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Component Key Mapping Helper Box */}
+      <div className="bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-cyan-950/30 border border-emerald-500/20 rounded-xl p-4 text-xs space-y-2">
+        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+          <HelpCircle className="w-4 h-4" /> Quick Mapping Guide for Shop Items
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-zinc-300">
+          <div className="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg">
+            <span className="font-bold text-cyan-400 block mb-1">1. Custom React Shader/Component</span>
+            Set <code className="text-emerald-300">image</code> to a registered key (e.g. <code className="text-zinc-200">EmeraldStormBanner</code>, <code className="text-zinc-200">BullBearAvatarRing</code>). Select from dropdown below.
+          </div>
+          <div className="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg">
+            <span className="font-bold text-cyan-400 block mb-1">2. Image Asset or Storage URL</span>
+            Set <code className="text-emerald-300">image</code> or <code className="text-emerald-300">thumbnail</code> to an image URL (e.g. <code className="text-zinc-200">/images/item.png</code> or <code className="text-zinc-200">gs://...</code>).
+          </div>
+          <div className="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg">
+            <span className="font-bold text-cyan-400 block mb-1">3. Tailwind CSS Style Class</span>
+            For static color gradient banners, set <code className="text-emerald-300">image</code> to Tailwind classes (e.g. <code className="text-zinc-200">bg-gradient-to-r from-red-500 to-red-900</code>).
           </div>
         </div>
       </div>
@@ -496,8 +520,76 @@ export default function CreateShopItemPage() {
                     />
                   </div>
 
-                  {/* Asset Keys */}
+                  {/* Asset Keys & Quick Selector */}
                   <div className="space-y-4 pt-2 border-t border-zinc-800">
+                    {/* Quick Component Key Selection */}
+                    {watchAll.type === 'PROFILE_BANNER' && (
+                      <div className="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg space-y-2">
+                        <label className="text-xs font-bold text-cyan-400 block">
+                          Select Registered Banner Component Key:
+                        </label>
+                        <select
+                          className="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:border-emerald-500"
+                          value={registeredBanners.includes(watchAll.image || '') ? watchAll.image : ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              form.setValue('image', e.target.value);
+                            }
+                          }}
+                        >
+                          <option value="">-- Choose registered banner key --</option>
+                          {registeredBanners.map(key => (
+                            <option key={key} value={key}>{key}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {watchAll.type === 'AVATAR_RING' && (
+                      <div className="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg space-y-2">
+                        <label className="text-xs font-bold text-cyan-400 block">
+                          Select Registered Avatar Ring Key:
+                        </label>
+                        <select
+                          className="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:border-emerald-500"
+                          value={registeredRings.includes(watchAll.image || '') ? watchAll.image : ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              form.setValue('image', e.target.value);
+                            }
+                          }}
+                        >
+                          <option value="">-- Choose registered ring key --</option>
+                          {registeredRings.map(key => (
+                            <option key={key} value={key}>{key}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {watchAll.type === 'TITLE' && (
+                      <div className="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg space-y-2">
+                        <label className="text-xs font-bold text-cyan-400 block">
+                          Select Registered Title Component Key:
+                        </label>
+                        <select
+                          className="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-zinc-100 font-mono focus:border-emerald-500"
+                          value={registeredTitles.includes(watchAll.image || '') ? watchAll.image : ''}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              form.setValue('image', e.target.value);
+                              form.setValue('preview', e.target.value);
+                            }
+                          }}
+                        >
+                          <option value="">-- Choose registered title key --</option>
+                          {registeredTitles.map(key => (
+                            <option key={key} value={key}>{key}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     <FormField
                       control={form.control}
                       name="image"
@@ -514,7 +606,7 @@ export default function CreateShopItemPage() {
                             />
                           </FormControl>
                           <FormDescription className="text-zinc-500 text-xs">
-                            Matches React cosmetic component names in `ProfileBannerMap`, `AvatarRingMap`, or `TitleMap`.
+                            Enter registered key, image URL, or CSS class.
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -527,7 +619,7 @@ export default function CreateShopItemPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-zinc-300 font-semibold">
-                            Static Thumbnail Image URL (Optional)
+                            Static Thumbnail Image URL (Optional Override)
                           </FormLabel>
                           <FormControl>
                             <Input

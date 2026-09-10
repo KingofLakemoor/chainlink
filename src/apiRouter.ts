@@ -395,6 +395,58 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/users/update-premium", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId, premium } = req.body;
+    if (!targetUserId || typeof premium !== 'boolean') {
+      return res.status(400).json({ success: false, error: "Invalid targetUserId or premium status" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const userRef = adminDb.collection('users').doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    await userRef.update({
+      premium: premium,
+      updatedAt: Date.now()
+    });
+
+    res.json({ success: true, premium });
+  } catch (e: any) {
+    console.error("Update premium error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/users/update-cosmetics", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId, inventory } = req.body;
+    if (!targetUserId || !Array.isArray(inventory)) {
+      return res.status(400).json({ success: false, error: "Invalid targetUserId or inventory array" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const userRef = adminDb.collection('users').doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    await userRef.update({
+      inventory: inventory,
+      updatedAt: Date.now()
+    });
+
+    res.json({ success: true, inventory });
+  } catch (e: any) {
+    console.error("Update cosmetics error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 /* ==========================================
    ADMIN SHOP CATALOG & MANIFEST MANAGMENT
    ========================================== */

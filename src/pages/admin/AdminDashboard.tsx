@@ -34,13 +34,10 @@ const BracketsAdminPage = React.lazy(() => import('./brackets/BracketsAdminPage'
 const AdminPicksPage = React.lazy(() => import('./picks/AdminPicksPage'));
 const ReferralsAdminPage = React.lazy(() => import('./referrals/ReferralsAdminPage'));
 const UsersListPage = React.lazy(() => import('./users/UsersListPage'));
-const UserCosmeticsAdminPage = React.lazy(() => import('./users/UserCosmeticsAdminPage'));
-const AddLinksAdminPage = React.lazy(() => import('./users/AddLinksAdminPage'));
 const TestAccountsAdminPage = React.lazy(() => import('./users/TestAccountsAdminPage'));
 const LinkTransactionsAdminPage = React.lazy(() => import('./logs/LinkTransactionsAdminPage'));
 const ErrorLogsAdminPage = React.lazy(() => import('./logs/ErrorLogsAdminPage'));
 const OrdersAdminPage = React.lazy(() => import('./logs/OrdersAdminPage'));
-const PremiumStatusAdminPage = React.lazy(() => import('./users/PremiumStatusAdminPage'));
 const AdminOddsPage = React.lazy(() => import('./odds/AdminOddsPage'));
 const PrizeAdminPage = React.lazy(() => import('./prize/PrizeAdminPage'));
 const EngagementAdminPage = React.lazy(() => import('./system/EngagementAdminPage'));
@@ -97,7 +94,7 @@ export default function AdminDashboard() {
                 } />
 
                 <Route path="matchups/create" element={<CreateMatchupPage />} />
-<Route path="matchups/:id" element={<AdminEditMatchup />} />
+                <Route path="matchups/:id" element={<AdminEditMatchup />} />
                 <Route path="pga-builder" element={<PGABuilderPage />} />
                 <Route path="prop-builder" element={<PlayerPropBuilderPage />} />
 
@@ -122,15 +119,17 @@ export default function AdminDashboard() {
                 <Route path="challenges" element={<GenericTable collectionName="globalQuiz" />} />
                 <Route path="link4/*" element={<Link4AdminPage />} />
                 <Route path="users" element={<UsersListPage />} />
-                <Route path="users/cosmetics" element={<UserCosmeticsAdminPage />} />
-                <Route path="users/links" element={<AddLinksAdminPage />} />
                 <Route path="users/test-accounts" element={<TestAccountsAdminPage />} />
                 <Route path="logs/transactions" element={<LinkTransactionsAdminPage />} />
                 <Route path="logs/errors" element={<ErrorLogsAdminPage />} />
                 <Route path="logs/orders" element={<OrdersAdminPage />} />
-                <Route path="premium" element={<PremiumStatusAdminPage />} />
                 <Route path="referrals" element={<ReferralsAdminPage />} />
-          <Route path="prize" element={<PrizeAdminPage />} />
+                <Route path="prize" element={<PrizeAdminPage />} />
+
+                {/* Legacy route redirects to unified UsersListPage */}
+                <Route path="users/cosmetics" element={<Navigate to="/admin/users" replace />} />
+                <Route path="users/links" element={<Navigate to="/admin/users" replace />} />
+                <Route path="premium" element={<Navigate to="/admin/users" replace />} />
 
                 {/* Notifications */}
                 <Route path="notifications" element={<NotificationsListPage />} />
@@ -152,7 +151,7 @@ export default function AdminDashboard() {
                 <Route path="system/banner" element={<BannerAdminPage />} />
                 <Route path="system/rollover" element={<MonthlyRolloverPage />} />
                 <Route path="system/engagement" element={<EngagementAdminPage />} />
-                <Route path="system/rollover" element={<MonthlyRolloverPage />} />
+
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="matchups" replace />} />
              </Routes>

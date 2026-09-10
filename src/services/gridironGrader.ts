@@ -27,6 +27,20 @@ export function isGameStatusFinal(status: string | undefined): boolean {
   );
 }
 
+export function isGameStatusInProgress(status: string | undefined): boolean {
+  if (!status) return false;
+  const sUpper = String(status).toUpperCase();
+  return (
+    sUpper === "IN_PROGRESS" ||
+    sUpper === "STATUS_IN_PROGRESS" ||
+    sUpper.includes("IN_PROGRESS") ||
+    sUpper.includes("HALF") ||
+    sUpper.includes("QUARTER") ||
+    sUpper.includes("PERIOD") ||
+    sUpper.includes("OVERTIME")
+  );
+}
+
 export function evaluateGridironPick(
   pick: GridironPick,
   homeScore: number,
@@ -306,7 +320,8 @@ const updatedSnapshotGames = snapshotGames.map((g: any) => {
   const liveInfo = liveGamesMap.get(String(g.gameId)) || dbMatchupsMap.get(String(g.gameId));
   if (liveInfo) {
     const isFinal = isGameStatusFinal(liveInfo.status);
-    const newStatus = isFinal ? "final" : (String(liveInfo.status).toUpperCase().includes("IN_PROGRESS") ? "in_progress" : "scheduled");
+    const isInProgress = isGameStatusInProgress(liveInfo.status);
+    const newStatus = isFinal ? "final" : (isInProgress ? "in_progress" : "scheduled");
     if (
       g.status !== newStatus ||
       g.homeTeam?.score !== liveInfo.homeScore ||

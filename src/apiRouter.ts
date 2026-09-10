@@ -5,6 +5,8 @@ import { fetchAndStoreTuesdayGridironLines, getCurrentFootballWeek, getGridironL
 import { gradeGridironWeek, updateGridironLeaderboard } from './services/gridironGrader.js';
 import { GridironPick, GridironEntry } from './types/gridiron.js';
 import express from 'express';
+import fs from 'fs';
+import path from 'path';
 import { adminAuth, adminDb, adminMessaging } from './lib/firebase-admin.js';
 import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleProcessor.js';
 import { gradeMatchups } from './services/grader.js';
@@ -389,6 +391,186 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   } catch (e: any) {
     console.error("Create checkout session error:", e.message, e);
     require('fs').appendFileSync('stripe-errors.log', new Date().toISOString() + " - " + e.message + "\n");
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+/* ==========================================
+   ADMIN SHOP CATALOG & MANIFEST MANAGMENT
+   ========================================== */
+
+apiRouter.post("/admin/shop/export-manifest", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const snap = await adminDb.collection('shopItems').get();
+    let items = snap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name || '',
+        description: data.description || '',
+        cost: data.cost ?? 0,
+        type: data.type || 'PROFILE_BANNER',
+        active: data.active ?? true,
+        forSale: data.forSale ?? true,
+        image: data.image || '',
+        featured: !!data.featured,
+        preview: data.preview || data.image || '',
+        order: data.order ?? 99,
+        collectionId: data.collectionId || '',
+        ...(data.requiresShipping ? { requiresShipping: true } : {}),
+        ...(data.premiumOnly ? { premiumOnly: true } : {}),
+        ...(data.category ? { category: data.category } : {}),
+        ...(data.thumbnail ? { thumbnail: data.thumbnail } : {})
+      };
+    });
+
+    items.sort((a, b) => (a.order || 0) - (b.order || 0) || a.id.localeCompare(b.id));
+
+    const catalogPath = path.resolve(process.cwd(), 'shop_items.json');
+    fs.writeFileSync(catalogPath, JSON.stringify(items, null, 2), 'utf-8');
+
+    res.json({ success: true, count: items.length, items });
+  } catch (e: any) {
+    console.error("Export shop manifest error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/shop/seed", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const { force } = req.body || {};
+
+    const catalogPath = path.resolve(process.cwd(), 'shop_items.json');
+    if (!fs.existsSync(catalogPath)) {
+      return res.status(404).json({ success: false, error: "shop_items.json file not found" });
+    }
+
+    const fileContent = fs.readFileSync(catalogPath, 'utf-8');
+    const items = JSON.parse(fileContent);
+
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    for (const item of items) {
+      const { id, ...data } = item;
+      const docRef = adminDb.collection("shopItems").doc(id);
+      const docSnap = await docRef.get();
+      const timestamp = Date.now();
+
+      if (docSnap.exists) {
+        const dbData = docSnap.data() || {};
+        let itemData: any = {
+          ...data,
+          createdAt: dbData.createdAt || timestamp,
+          updatedAt: timestamp
+        };
+
+        if (!force) {
+          if (dbData.active !== undefined) itemData.active = dbData.active;
+          if (dbData.forSale !== undefined) itemData.forSale = dbData.forSale;
+          if (dbData.featured !== undefined) itemData.featured = dbData.featured;
+          if (dbData.premiumOnly !== undefined) itemData.premiumOnly = dbData.premiumOnly;
+          if (dbData.cost !== undefined) itemData.cost = dbData.cost;
+        }
+
+        await docRef.update(itemData);
+        updatedCount++;
+      } else {
+        const itemData = {
+          ...data,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        };
+        await docRef.set(itemData);
+        createdCount++;
+      }
+    }
+
+    res.json({ success: true, createdCount, updatedCount });
+  } catch (e: any) {
+    console.error("Seed shop items error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/shop/import", validateAdmin, async (req, res) => {
+  try {
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const { items, overwrite = true } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: "Payload must include a non-empty array of items." });
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
+      if (!item || typeof item !== 'object') {
+        errors.push(`Item at index ${index} is invalid.`);
+        continue;
+      }
+
+      const rawId = item.id || item.docId || item.key;
+      if (!rawId || typeof rawId !== 'string') {
+        errors.push(`Item at index ${index} (${item.name || 'unnamed'}) is missing a valid id.`);
+        continue;
+      }
+
+      const id = rawId.trim().toLowerCase().replace(/\s+/g, '_');
+      const docRef = adminDb.collection("shopItems").doc(id);
+      const docSnap = await docRef.get();
+      const timestamp = Date.now();
+
+      const itemPayload = {
+        id,
+        name: item.name || id,
+        description: item.description || '',
+        cost: Math.max(0, Number(item.cost) || 0),
+        type: item.type || 'PROFILE_BANNER',
+        category: item.category || 'Uncategorized',
+        active: item.active !== false,
+        forSale: item.forSale !== false,
+        premiumOnly: !!item.premiumOnly,
+        featured: !!item.featured,
+        requiresShipping: !!item.requiresShipping,
+        image: item.image || '',
+        thumbnail: item.thumbnail || '',
+        preview: item.preview || item.image || '',
+        order: Number(item.order) || 99,
+        collectionId: item.collectionId || '',
+        updatedAt: timestamp
+      };
+
+      if (docSnap.exists) {
+        if (!overwrite) {
+          skippedCount++;
+          continue;
+        }
+        const existing = docSnap.data() || {};
+        await docRef.set({
+          ...itemPayload,
+          createdAt: existing.createdAt || timestamp
+        }, { merge: true });
+        updatedCount++;
+      } else {
+        await docRef.set({
+          ...itemPayload,
+          createdAt: timestamp
+        });
+        createdCount++;
+      }
+    }
+
+    res.json({ success: true, createdCount, updatedCount, skippedCount, errors });
+  } catch (e: any) {
+    console.error("Import shop items error:", e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

@@ -219,7 +219,7 @@ export default function PlayDashboard() {
       const isLive = m.status !== 'STATUS_SCHEDULED' && !isFinal && m.status !== 'STATUS_POSTPONED' && m.status !== 'STATUS_CANCELED';
 
       let isUpcoming = m.status === 'STATUS_SCHEDULED' && m.startTime <= next24Hours && m.startTime > (now - 24 * 60 * 60 * 1000);
-      if (m.league === 'PGA' && m.status === 'STATUS_SCHEDULED') {
+      if ((m.league === 'PGA' || m.manuallyActivated) && m.status === 'STATUS_SCHEDULED') {
         isUpcoming = true;
       }
 
@@ -227,7 +227,7 @@ export default function PlayDashboard() {
       
       if (filterType === 'available' && (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime))) return false;
 
-      if (m.type === 'MONEYLINE' && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null) && (m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
+      if (m.type === 'MONEYLINE' && !m.manuallyActivated && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null) && (m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
           return false;
       }
       

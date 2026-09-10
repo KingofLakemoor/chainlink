@@ -145,6 +145,43 @@ describe('Solo Over/Under Prop Grading Tests', () => {
 
     expect(mockAdminDb.collection).toHaveBeenCalledWith('pickemPicks');
   });
+
+  it('pickemGrader: strictly grades YES Day campaign matchups on moneyline (Seahawks vs Patriots scenario)', async () => {
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+    mockAdminDb.batch = vi.fn(() => batchSpy);
+
+    mockPendingPicks = [
+      { id: 'p1', participantId: 'user1', campaignId: 'yes_day_2026', matchupId: 'sea_pat_1', pick: { teamId: 'seahawks' }, status: 'LOSS', pointsEarned: 0 },
+      { id: 'p2', participantId: 'user2', campaignId: 'yes_day_2026', matchupId: 'sea_pat_1', pick: { teamId: 'patriots' }, status: 'WIN', pointsEarned: 1 }
+    ];
+
+    const matchup = {
+      id: 'sea_pat_1',
+      campaignName: 'YES Day Walk for Autism 2026',
+      status: 'STATUS_FINAL',
+      type: 'SPREAD', // even if type says SPREAD in DB
+      awayTeam: { id: 'seahawks', name: 'Seattle Seahawks', score: 20 },
+      homeTeam: { id: 'patriots', name: 'New England Patriots', score: 17 },
+      metadata: {
+        spread: 4.5 // Patriots +4.5 spread
+      }
+    };
+
+    await gradeSinglePickemMatchup(matchup);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p1',
+      expect.objectContaining({ status: 'WIN', pointsEarned: 1 })
+    );
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p2',
+      expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
+    );
+  });
 });
 
 describe('Player Prop Scheduled Status Tests', () => {

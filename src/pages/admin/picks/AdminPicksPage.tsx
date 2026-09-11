@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc, limit, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc, limit, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Search, Trash2, Edit, X, Save } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
+import { useSearchParams } from 'react-router-dom';
 
 export default function AdminPicksPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
+
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterPending, setFilterPending] = useState(true);
@@ -74,6 +78,33 @@ export default function AdminPicksPage() {
   useEffect(() => {
     fetchData();
   }, [filterPending]);
+
+  // Handle ?edit=:id search parameter to open inline slide-over drawer modal
+  useEffect(() => {
+    if (editId) {
+      const loadSinglePick = async () => {
+        try {
+          const docRef = doc(db, 'picks', editId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setEditingPick({ id: docSnap.id, ...docSnap.data() });
+          }
+        } catch (e) {
+          console.error("Error loading pick for edit drawer:", e);
+        }
+      };
+      loadSinglePick();
+    }
+  }, [editId]);
+
+  const handleCloseEdit = () => {
+    setEditingPick(null);
+    if (searchParams.has('edit')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('edit');
+      setSearchParams(newParams);
+    }
+  };
 
   const handleDelete = async (row: any) => {
     if (!confirm("Are you sure?")) return;
@@ -233,7 +264,7 @@ export default function AdminPicksPage() {
                 <h3 className="font-bold text-lg text-white">Edit Pick Record</h3>
                 <p className="text-xs text-zinc-400 font-mono">ID: {editingPick.id}</p>
               </div>
-              <button onClick={() => setEditingPick(null)} className="text-zinc-500 hover:text-white p-2">
+              <button onClick={handleCloseEdit} className="text-zinc-500 hover:text-white p-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -285,7 +316,7 @@ export default function AdminPicksPage() {
             </div>
 
             <div className="pt-6 border-t border-zinc-800 flex items-center justify-end gap-3 mt-6">
-              <Button variant="outline" onClick={() => setEditingPick(null)}>Cancel</Button>
+              <Button variant="outline" onClick={handleCloseEdit}>Cancel</Button>
               <Button
                 onClick={async () => {
                   if (!editingPick?.id) return;
@@ -300,7 +331,7 @@ export default function AdminPicksPage() {
                       }
                     }
                     await updateDoc(doc(db, 'picks', id), updateData);
-                    setEditingPick(null);
+                    handleCloseEdit();
                     fetchData();
                   } catch (e) {
                     console.error("Failed to update pick:", e);

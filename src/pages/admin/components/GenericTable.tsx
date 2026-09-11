@@ -69,7 +69,7 @@ export function GenericTable({ collectionName }: { collectionName: string }) {
                   ))}
                   <td className="px-4 py-3 text-right">
                     {collectionName === 'picks' && (
-                      <Link to={`/admin/picks/edit/${row.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block">
+                      <Link to={`/admin/picks?edit=${row.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block">
                         <Edit className="w-4 h-4" />
                       </Link>
                     )}

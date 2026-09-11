@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
+import { getCached, setCached } from '../lib/firestore-cache';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { Trophy, Copy, Check, Users, Target, UserPlus } from 'lucide-react';
@@ -26,6 +27,17 @@ export function SidebarProgress() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      const cacheKey = 'sidebar_monthly_stats';
+      const cached = getCached<any>(cacheKey, 15 * 60 * 1000);
+      if (cached) {
+        if (cached.prizeData) setPrizeData(cached.prizeData);
+        setActiveUsers(cached.activeUsers || 0);
+        setGlobalPicks(cached.globalPicks || 0);
+        setGlobalReferrals(cached.globalReferrals || 0);
+        setLoading(false);
+        return;
+      }
+
       try {
         const docRef = doc(db, 'settings', 'monthlyPrize');
         const docSnap = await getDoc(docRef);
@@ -87,11 +99,18 @@ export function SidebarProgress() {
         const targetMonthStr = currentPrizeData.targetMonth || new Date().toISOString().slice(0, 7);
         const monthlyStatsRef = doc(db, 'settings', `monthlyStats_${targetMonthStr}`);
         const statsSnap = await getDoc(monthlyStatsRef);
+        let referralsVal = 0;
         if (statsSnap.exists()) {
-          setGlobalReferrals(statsSnap.data().referrals || 0);
-        } else {
-          setGlobalReferrals(0);
+          referralsVal = statsSnap.data().referrals || 0;
         }
+        setGlobalReferrals(referralsVal);
+
+        setCached(cacheKey, {
+          prizeData: currentPrizeData,
+          activeUsers: uniqueUsers.size,
+          globalPicks: totalPicks,
+          globalReferrals: referralsVal
+        });
       } catch (err) {
         console.error(err);
       } finally {

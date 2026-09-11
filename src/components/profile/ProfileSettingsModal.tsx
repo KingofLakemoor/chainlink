@@ -7,6 +7,7 @@ import { auth, db } from '../../lib/firebase';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Settings, Download, Coins } from 'lucide-react';
+import { getShopItemsCached } from '../../lib/firestore-cache';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { requestNotificationPermission } from '../../hooks/useNotifications';
 import { Link } from 'react-router-dom';
@@ -38,8 +39,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     const fetchInventory = async () => {
       try {
         setInventoryLoading(true);
-        const snap = await getDocs(collection(db, 'shopItems'));
-        const fetchedItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedItems = await getShopItemsCached();
         setInventoryItems(fetchedItems);
       } catch (e) {
         console.error("Error fetching inventory", e);

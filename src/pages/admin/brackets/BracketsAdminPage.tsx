@@ -34,7 +34,17 @@ export default function BracketsAdminPage() {
   const [entriesBracketId, setEntriesBracketId] = useState<string | null>(null);
 
   // Create Form State
-  const [createData, setCreateData] = useState({
+  const [createData, setCreateData] = useState<{
+    name: string;
+    sport: string;
+    isPublic: boolean;
+    maxEntries: number;
+    cost: number;
+    openDateStr: string;
+    lockDateStr: string;
+    teamList: string;
+    pointValues: Record<string, number>;
+  }>({
     name: '',
     sport: 'World Cup 2026',
     isPublic: true,

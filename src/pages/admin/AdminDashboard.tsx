@@ -15,8 +15,6 @@ const AwardAchievementPage = React.lazy(() => import('./achievements/AwardAchiev
 const AchievementsListPage = React.lazy(() => import('./achievements/AchievementsListPage'));
 const EditAchievementPage = React.lazy(() => import('./achievements/EditAchievementPage'));
 const ShopItemsListPage = React.lazy(() => import('./shopItems/ShopItemsListPage'));
-const CreateShopItemPage = React.lazy(() => import('./shopItems/CreateShopItemPage'));
-const EditShopItemPage = React.lazy(() => import('./shopItems/EditShopItemPage'));
 const NotificationsListPage = React.lazy(() => import('./notifications/NotificationsListPage'));
 const AnnouncementsAdminPage = React.lazy(() => import('./announcements/AnnouncementsAdminPage'));
 const SponsorsListPage = React.lazy(() => import('./sponsors/SponsorsListPage'));
@@ -44,6 +42,11 @@ function MatchupEditRedirect() {
 function PickEditRedirect() {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={`/admin/picks?edit=${id}`} replace />;
+}
+
+function ShopItemEditRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/shopItems?edit=${id}`} replace />;
 }
 
 export default function AdminDashboard() {
@@ -137,8 +140,8 @@ export default function AdminDashboard() {
 
                 {/* Shop Items */}
                 <Route path="shopItems" element={<ShopItemsListPage />} />
-                <Route path="shopItems/create" element={<CreateShopItemPage />} />
-                <Route path="shopItems/edit/:id" element={<EditShopItemPage />} />
+                <Route path="shopItems/create" element={<Navigate to="/admin/shopItems?action=create" replace />} />
+                <Route path="shopItems/edit/:id" element={<ShopItemEditRedirect />} />
 
                 {/* Settings & Odds */}
                 <Route path="odds" element={<AdminOddsPage />} />

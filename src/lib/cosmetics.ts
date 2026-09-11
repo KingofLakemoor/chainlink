@@ -39,6 +39,8 @@ import { SilverSupernovaBanner } from '../components/banners/SilverSupernovaBann
 import { EmpirePulseBanner } from '../components/banners/EmpirePulseBanner';
 import { AlpineSurgeBanner } from '../components/banners/AlpineSurgeBanner';
 import { CrimsonKingdomBanner } from '../components/banners/CrimsonKingdomBanner';
+import { SeismicStrikeBanner } from '../components/banners/SeismicStrikeBanner';
+import { GoldenSpiralBanner } from '../components/banners/GoldenSpiralBanner';
 import { ResponsibleGamblerBaseBanner, ResponsibleGamblerReadableBanner, ResponsibleGamblerDarkHumorBanner } from "../components/ui/profile-banners/responsible-gambler";
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
@@ -87,5 +89,7 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'SilverSupernovaBanner': SilverSupernovaBanner,
   'EmpirePulseBanner': EmpirePulseBanner,
   'AlpineSurgeBanner': AlpineSurgeBanner,
-  'CrimsonKingdomBanner': CrimsonKingdomBanner
+  'CrimsonKingdomBanner': CrimsonKingdomBanner,
+  'SeismicStrikeBanner': SeismicStrikeBanner,
+  'GoldenSpiralBanner': GoldenSpiralBanner
 };

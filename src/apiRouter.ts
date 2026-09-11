@@ -1235,6 +1235,7 @@ apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
     if (batchCount > 0) {
       await batch.commit();
     }
+    invalidateMatchupCaches();
 
     res.json({ success: true, count });
   } catch (e: any) {
@@ -1413,6 +1414,7 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
     if (batchCount > 0) {
       await batch.commit();
     }
+    invalidateMatchupCaches();
 
     res.json({ success: true, count });
   } catch (e: any) {
@@ -1430,6 +1432,7 @@ apiRouter.post("/admin/link4/delete-matchup", validateAdmin, async (req, res) =>
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
 
     await adminDb.collection('link4Matchups').doc(matchupId).delete();
+    invalidateMatchupCaches();
     res.json({ success: true });
   } catch (e: any) {
     console.error('Link4 delete matchup error:', e);
@@ -2380,6 +2383,7 @@ apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, r
     } catch (notifErr) {
       console.error('Failed to process notifications from sync-schedules-all:', notifErr);
     }
+    invalidateMatchupCaches();
 
     res.json({
       success: true,
@@ -2465,6 +2469,7 @@ apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) 
     } catch (notifErr) {
       console.error('Failed to process notifications from sync-schedules:', notifErr);
     }
+    invalidateMatchupCaches();
     res.json({ success: true, result });
   } catch (e: any) {
     console.error(e);
@@ -2749,6 +2754,7 @@ apiRouter.post("/admin/release-picks", validateAdmin, async (req, res) => {
     const matchup = (await docRef.get()).data();
     await gradeMatchups([matchup]);
     // await gradeLink4Matchups([matchup]);
+    invalidateMatchupCaches();
 
     res.json({ success: true });
   } catch (e: any) {
@@ -2970,6 +2976,7 @@ apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, re
       await gradeMatchups([matchupData]);
       await gradeLink4Matchups([matchupData]);
     }
+    invalidateMatchupCaches();
 
     res.json({ success: true, message: "Matchup synced successfully", matchup: matchupData });
   } catch (e: any) {

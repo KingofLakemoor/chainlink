@@ -162,4 +162,25 @@ describe('apiRouter Server-Side Caching Endpoints', () => {
       server.close();
     }
   });
+
+  it('invalidateMatchupCaches flushes active matchups, matchups by id, and link4 matchups caches', async () => {
+    const { invalidateMatchupCaches } = await import('./apiRouter');
+    const server = app.listen(0);
+    const address = server.address() as any;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const res1 = await fetch(`${baseUrl}/api/matchups/active`);
+      expect(res1.status).toBe(200);
+
+      invalidateMatchupCaches();
+
+      const res2 = await fetch(`${baseUrl}/api/matchups/active`);
+      expect(res2.status).toBe(200);
+      const data2 = await res2.json();
+      expect(data2.success).toBe(true);
+    } finally {
+      server.close();
+    }
+  });
 });

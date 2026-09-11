@@ -438,9 +438,9 @@ export default function PlayDashboard() {
              return;
          }
          fetch(`/api/matchups/by-ids?ids=${activePick.matchupId}`)
-           .then(res => res.json())
+           .then(res => res.ok ? res.json() : null)
            .then(data => {
-             if (data.success && data.matchups && data.matchups.length > 0) {
+             if (data && data.success && data.matchups && data.matchups.length > 0) {
                setFallbackActiveMatchup(data.matchups[0]);
              }
            })

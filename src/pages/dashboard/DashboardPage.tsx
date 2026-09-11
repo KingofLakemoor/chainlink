@@ -132,17 +132,14 @@ export default function DashboardPage() {
   React.useEffect(() => {
     if (activePick?.matchupId) {
       fetch(`/api/matchups/by-ids?ids=${activePick.matchupId}`)
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : null)
         .then(data => {
-          if (data.success && data.matchups) {
+          if (data && data.success && data.matchups) {
             setAllFetchedMatchups(data.matchups);
-          } else {
-            setAllFetchedMatchups([]);
           }
         })
         .catch(err => {
           console.error("Error fetching active pick matchup via REST API", err);
-          setAllFetchedMatchups([]);
         });
     } else {
       setAllFetchedMatchups([]);

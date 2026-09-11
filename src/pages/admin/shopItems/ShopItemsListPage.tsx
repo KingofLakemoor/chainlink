@@ -1,22 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
 import { ProfileBannerMap, AvatarRingMap } from '../../../lib/cosmetics';
 import { TitleMap } from '../../../components/ui/titles';
 import shopItemsData from '../../../../shop_items.json';
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import {
   ShoppingBag, Search, Plus, RefreshCw, Database, Edit3, Trash2,
   Coins, Crown, Tag, CheckCircle, Eye, SlidersHorizontal, Sparkles,
   Download, UploadCloud, Upload, DollarSign, Percent, X, FileCode,
-  AlertCircle, ArrowUpDown, Save, Check
+  AlertCircle, ArrowUpDown, Save, Check, HelpCircle
 } from 'lucide-react';
+
+export const shopItemCategories = [
+  "Banners (static)",
+  "Banners (Dynamic)",
+  "Avatar background (static)",
+  "Avatar background (dynamic)",
+  "Title regular",
+  "Title glow",
+  "Merch",
+  "Gift Card",
+  "Uncategorized"
+] as const;
+
+export const shopItemTypes = [
+  "PROFILE_BANNER",
+  "AVATAR_RING",
+  "TITLE",
+  "MERCH",
+  "GIFT_CARD"
+] as const;
+
+const formSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  type: z.enum(shopItemTypes),
+  category: z.string().min(1, "Category is required"),
+  cost: z.coerce.number().min(0, "Cost must be a positive number"),
+  active: z.boolean().default(true),
+  forSale: z.boolean().default(true),
+  premiumOnly: z.boolean().default(false),
+  featured: z.boolean().default(false),
+  requiresShipping: z.boolean().default(false),
+  image: z.string().optional().default(""),
+  thumbnail: z.string().optional().default(""),
+  preview: z.string().optional().default(""),
+  order: z.coerce.number().optional().default(1),
+  collectionId: z.string().optional().default("")
+});
 
 export default function ShopItemsListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [shopItems, setShopItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,6 +92,41 @@ export default function ShopItemsListPage() {
   const [pricingValue, setPricingValue] = useState<number | string>(10);
   const [isApplyingPricing, setIsPricingApplying] = useState(false);
 
+  // Slide-Over Drawer Modal State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [isSavingItem, setIsSavingItem] = useState(false);
+
+  // Form setup
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema) as any,
+    defaultValues: {
+      id: "",
+      name: "",
+      description: "",
+      type: "PROFILE_BANNER",
+      category: "Banners (Dynamic)",
+      cost: 1000,
+      active: true,
+      forSale: true,
+      premiumOnly: false,
+      featured: false,
+      requiresShipping: false,
+      image: "",
+      thumbnail: "",
+      preview: "",
+      order: 1,
+      collectionId: ""
+    },
+  });
+
+  const watchAll = form.watch();
+
+  const registeredBanners = Object.keys(ProfileBannerMap);
+  const registeredRings = Object.keys(AvatarRingMap);
+  const registeredTitles = Object.keys(TitleMap);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -70,6 +149,165 @@ export default function ShopItemsListPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Sync Drawer state with URL parameters
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const editId = searchParams.get('edit');
+
+    if (action === 'create') {
+      openCreateDrawer();
+    } else if (editId) {
+      openEditDrawer(editId);
+    }
+  }, [searchParams]);
+
+  const openCreateDrawer = () => {
+    setDrawerMode('create');
+    setEditingItemId(null);
+    form.reset({
+      id: "",
+      name: "",
+      description: "",
+      type: "PROFILE_BANNER",
+      category: "Banners (Dynamic)",
+      cost: 1000,
+      active: true,
+      forSale: true,
+      premiumOnly: false,
+      featured: false,
+      requiresShipping: false,
+      image: "",
+      thumbnail: "",
+      preview: "",
+      order: shopItems.length ? (Math.max(...shopItems.map(i => i.order || 0)) + 1) : 1,
+      collectionId: ""
+    });
+    setIsDrawerOpen(true);
+  };
+
+  const openEditDrawer = (id: string) => {
+    setDrawerMode('edit');
+    setEditingItemId(id);
+
+    const existing = shopItems.find(i => i.id === id);
+    if (existing) {
+      form.reset({
+        id: existing.id,
+        name: existing.name || "",
+        description: existing.description || "",
+        type: existing.type || "PROFILE_BANNER",
+        category: existing.category || "Uncategorized",
+        cost: existing.cost ?? 0,
+        active: existing.active ?? true,
+        forSale: existing.forSale ?? true,
+        premiumOnly: existing.premiumOnly ?? false,
+        featured: existing.featured ?? false,
+        requiresShipping: existing.requiresShipping ?? false,
+        image: existing.image || "",
+        thumbnail: existing.thumbnail || "",
+        preview: existing.preview || "",
+        order: existing.order ?? 1,
+        collectionId: existing.collectionId || ""
+      });
+      setIsDrawerOpen(true);
+    } else {
+      // If not loaded yet in local state, fetch directly
+      getDoc(doc(db, "shopItems", id)).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          form.reset({
+            id: snap.id,
+            name: data.name || "",
+            description: data.description || "",
+            type: data.type || "PROFILE_BANNER",
+            category: data.category || "Uncategorized",
+            cost: data.cost ?? 0,
+            active: data.active ?? true,
+            forSale: data.forSale ?? true,
+            premiumOnly: data.premiumOnly ?? false,
+            featured: data.featured ?? false,
+            requiresShipping: data.requiresShipping ?? false,
+            image: data.image || "",
+            thumbnail: data.thumbnail || "",
+            preview: data.preview || "",
+            order: data.order ?? 1,
+            collectionId: data.collectionId || ""
+          });
+          setIsDrawerOpen(true);
+        }
+      });
+    }
+  };
+
+  const closeDrawer = () => {
+    setIsDrawerOpen(false);
+    setEditingItemId(null);
+    if (searchParams.has('action') || searchParams.has('edit')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('action');
+      newParams.delete('edit');
+      setSearchParams(newParams);
+    }
+  };
+
+  const handleSaveItem = async (values: z.infer<typeof formSchema>) => {
+    setIsSavingItem(true);
+    try {
+      if (drawerMode === 'create') {
+        const docId = (values.id && values.id.trim())
+          ? values.id.trim().toLowerCase().replace(/\s+/g, '_')
+          : values.name.trim().toLowerCase().replace(/\s+/g, '_');
+
+        if (!docId) {
+          alert('Please enter a valid Item Document ID or Name');
+          setIsSavingItem(false);
+          return;
+        }
+
+        const payload = {
+          ...values,
+          id: docId,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+
+        await setDoc(doc(db, "shopItems", docId), payload);
+        showToast(`Created shop item "${docId}" successfully!`);
+      } else {
+        if (!editingItemId) return;
+        const payload = {
+          name: values.name,
+          description: values.description,
+          type: values.type,
+          category: values.category,
+          cost: values.cost,
+          active: values.active,
+          forSale: values.forSale,
+          premiumOnly: values.premiumOnly,
+          featured: values.featured,
+          requiresShipping: values.requiresShipping,
+          image: values.image || "",
+          thumbnail: values.thumbnail || "",
+          preview: values.preview || "",
+          order: values.order || 1,
+          collectionId: values.collectionId || "",
+          updatedAt: Date.now()
+        };
+
+        await updateDoc(doc(db, "shopItems", editingItemId), payload);
+        showToast(`Updated shop item "${editingItemId}" successfully!`);
+      }
+
+      closeDrawer();
+      await fetchData();
+    } catch (e: any) {
+      console.error('Error saving shop item:', e);
+      alert(`Failed to save item: ${e.message}`);
+    } finally {
+      setIsSavingItem(false);
+    }
+  };
 
   // Smart Seed via Backend API
   const seedShopItems = async () => {
@@ -406,6 +644,109 @@ export default function ShopItemsListPage() {
     );
   };
 
+  const renderLiveDrawerPreview = () => {
+    const { name, description, cost, type, category, premiumOnly, image, thumbnail, preview } = watchAll;
+    const imageKey = image || '';
+    const previewKey = preview || imageKey;
+
+    return (
+      <div className="bg-[#121212] border border-zinc-800 rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+        {/* Banner / Visual Stage */}
+        <div className="h-40 bg-zinc-950 flex items-center justify-center relative overflow-hidden border-b border-zinc-800">
+          {type === 'PROFILE_BANNER' && (
+            thumbnail ? (
+              <FirebaseImage src={thumbnail} alt={name || 'Preview'} className="absolute inset-0 w-full h-full object-cover" />
+            ) : ProfileBannerMap[imageKey] ? (
+              <div className="absolute inset-0">
+                {React.createElement(ProfileBannerMap[imageKey], { isStatic: false })}
+              </div>
+            ) : (imageKey.startsWith('/') || imageKey.startsWith('http') || imageKey.startsWith('gs://')) ? (
+              <FirebaseImage src={imageKey} alt={name || 'Preview'} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className={`absolute inset-0 ${imageKey || 'bg-gradient-to-r from-zinc-800 to-zinc-900'}`} />
+            )
+          )}
+
+          {type === 'AVATAR_RING' && (
+            <div className="relative w-20 h-20 flex items-center justify-center z-10">
+              {thumbnail ? (
+                <FirebaseImage src={thumbnail} alt={name || 'Preview'} className="absolute inset-0 w-full h-full object-cover rounded-full" />
+              ) : AvatarRingMap[imageKey] ? (
+                <>
+                  <div className="absolute inset-0 transform scale-[1.35]">
+                    {React.createElement(AvatarRingMap[imageKey], { isStatic: false })}
+                  </div>
+                  <div className="relative w-full h-full p-2">
+                    <div className="w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-400 font-medium">Avatar</div>
+                  </div>
+                </>
+              ) : (
+                <div className={`w-20 h-20 rounded-full border-4 ${imageKey || 'border-zinc-600'} bg-zinc-900 flex items-center justify-center text-xs text-zinc-400 font-semibold`}>
+                  Avatar
+                </div>
+              )}
+            </div>
+          )}
+
+          {type === 'TITLE' && (
+            <div className="z-10 px-4">
+              {TitleMap[previewKey || imageKey] ? (
+                React.createElement(TitleMap[previewKey || imageKey], { isStatic: false })
+              ) : (
+                <div className={`text-lg font-bold text-zinc-200 px-4 py-2 bg-black/60 rounded-lg border border-zinc-700/80 ${imageKey || ''}`}>
+                  {name || 'Title Preview'}
+                </div>
+              )}
+            </div>
+          )}
+
+          {(type === 'MERCH' || type === 'GIFT_CARD') && (
+            <div className="w-full h-full relative flex items-center justify-center">
+              {imageKey ? (
+                <FirebaseImage src={imageKey} alt={name || 'Merch'} className="w-full h-full object-cover" />
+              ) : (
+                <ShoppingBag className="w-12 h-12 text-zinc-600" />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Details Card Preview */}
+        <div className="p-4 flex flex-col gap-2">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="text-base font-bold text-zinc-100">{name || 'Item Name'}</h4>
+              {premiumOnly && (
+                <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-purple-400 mt-0.5">
+                  <Crown className="w-3 h-3 text-purple-400" /> Pro Exclusive
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded uppercase font-bold tracking-wider">
+              {category || type}
+            </span>
+          </div>
+
+          <p className="text-xs text-zinc-400 min-h-[32px] line-clamp-2">
+            {description || 'Item description will appear here in the shop storefront card.'}
+          </p>
+
+          <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+            <div className="font-mono font-bold text-cyan-400 flex items-center gap-1 text-sm">
+              <Coins className="w-4 h-4 text-cyan-400" /> {(cost || 0).toLocaleString()}
+            </div>
+            <Button
+              disabled
+              className="bg-[#22c55e] opacity-80 text-white font-semibold text-xs px-3 h-7"
+            >
+              Buy Now
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto relative">
       {/* Toast Banner Feedback */}
@@ -493,7 +834,7 @@ export default function ShopItemsListPage() {
 
           <Button
             size="sm"
-            onClick={() => navigate('/admin/shopItems/create')}
+            onClick={openCreateDrawer}
             className="gap-1.5 bg-[#22c55e] hover:bg-[#16a34a] text-white font-semibold text-xs"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -770,7 +1111,7 @@ export default function ShopItemsListPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-zinc-400 hover:text-white"
-                            onClick={() => navigate(`/admin/shopItems/edit/${item.id}`)}
+                            onClick={() => openEditDrawer(item.id)}
                             title="Edit Full Details"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -795,6 +1136,349 @@ export default function ShopItemsListPage() {
           </div>
         )}
       </div>
+
+      {/* Slide-Over Drawer Modal for Item Creation & Editing */}
+      {isDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end transition-opacity">
+          <div className="bg-[#121212] border-l border-zinc-800 w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-[#18181A]">
+              <div className="flex items-center gap-2 text-zinc-100 font-bold text-base">
+                {drawerMode === 'create' ? (
+                  <>
+                    <Plus className="w-5 h-5 text-emerald-400" />
+                    Create New Shop Item
+                  </>
+                ) : (
+                  <>
+                    <Edit3 className="w-5 h-5 text-emerald-400" />
+                    Edit Shop Item: <span className="font-mono text-cyan-400">{editingItemId}</span>
+                  </>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closeDrawer}
+                className="text-zinc-400 hover:text-white h-8 w-8"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+              {/* Quick Component Key Mapping Helper Box */}
+              <div className="bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-cyan-950/30 border border-emerald-500/20 rounded-xl p-3 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                  <HelpCircle className="w-3.5 h-3.5" /> Mapping Guide for Shop Cosmetics
+                </div>
+                <div className="text-zinc-300 text-[11px] space-y-1">
+                  <p><strong className="text-cyan-400">Shader Key:</strong> Set <code className="text-emerald-300">image</code> to registered key (e.g. <code className="text-zinc-200">EmeraldStormBanner</code>, <code className="text-zinc-200">BullBearAvatarRing</code>).</p>
+                  <p><strong className="text-cyan-400">Image Asset:</strong> Set <code className="text-emerald-300">image</code> or <code className="text-emerald-300">thumbnail</code> to URL or path (e.g. <code className="text-zinc-200">/images/item.png</code>).</p>
+                </div>
+              </div>
+
+              {/* Live Cosmetic Preview */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-emerald-400" /> Live Storefront Card Preview
+                </label>
+                {renderLiveDrawerPreview()}
+              </div>
+
+              {/* Item Form Fields */}
+              <form onSubmit={form.handleSubmit(handleSaveItem)} className="space-y-4 pt-2">
+                {drawerMode === 'create' && (
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                      Item Document ID <span className="text-red-400">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g. banner_emerald_storm or ring_gold"
+                      value={form.watch('id')}
+                      onChange={(e) => form.setValue('id', e.target.value)}
+                      className="bg-zinc-900 border-zinc-800 text-zinc-100 font-mono text-xs focus:border-emerald-500"
+                    />
+                    <p className="text-[11px] text-zinc-500 mt-1">
+                      Unique identifier in Firestore `shopItems` collection. (Auto-generated from Name if left blank)
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                    Display Name <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    placeholder="e.g. The Emerald Storm"
+                    value={form.watch('name')}
+                    onChange={(e) => form.setValue('name', e.target.value)}
+                    className="bg-zinc-900 border-zinc-800 text-zinc-100 text-xs focus:border-emerald-500"
+                  />
+                  {form.formState.errors.name && (
+                    <p className="text-red-400 text-[11px] mt-0.5">{form.formState.errors.name.message}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">Item Type (System)</label>
+                    <select
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                      value={watchAll.type}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        form.setValue('type', val);
+                        if (val === 'PROFILE_BANNER') form.setValue('category', 'Banners (Dynamic)');
+                        else if (val === 'AVATAR_RING') form.setValue('category', 'Avatar background (dynamic)');
+                        else if (val === 'TITLE') form.setValue('category', 'Title regular');
+                        else if (val === 'MERCH') form.setValue('category', 'Merch');
+                      }}
+                    >
+                      {shopItemTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">Display Category</label>
+                    <select
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500"
+                      value={watchAll.category}
+                      onChange={(e) => form.setValue('category', e.target.value)}
+                    >
+                      {shopItemCategories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-zinc-300 block mb-1">Description</label>
+                  <Textarea
+                    placeholder="Detailed description shown in shop modal and card..."
+                    value={watchAll.description}
+                    onChange={(e) => form.setValue('description', e.target.value)}
+                    className="bg-zinc-900 border-zinc-800 text-zinc-100 text-xs min-h-[70px] focus:border-emerald-500"
+                  />
+                  {form.formState.errors.description && (
+                    <p className="text-red-400 text-[11px] mt-0.5">{form.formState.errors.description.message}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">Cost (Links)</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={watchAll.cost}
+                      onChange={(e) => form.setValue('cost', Number(e.target.value))}
+                      className="bg-zinc-900 border-zinc-800 text-cyan-400 font-mono font-bold text-xs focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">Sort Order Index</label>
+                    <Input
+                      type="number"
+                      value={watchAll.order}
+                      onChange={(e) => form.setValue('order', Number(e.target.value))}
+                      className="bg-zinc-900 border-zinc-800 text-zinc-100 font-mono text-xs focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Switches */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 grid grid-cols-2 gap-3 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={watchAll.active}
+                      onChange={(e) => form.setValue('active', e.target.checked)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
+                    />
+                    <span className="font-semibold text-zinc-300">Active in DB</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={watchAll.forSale}
+                      onChange={(e) => form.setValue('forSale', e.target.checked)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
+                    />
+                    <span className="font-semibold text-zinc-300">For Sale in Shop</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={watchAll.premiumOnly}
+                      onChange={(e) => form.setValue('premiumOnly', e.target.checked)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-purple-500 focus:ring-purple-500/20"
+                    />
+                    <span className="font-semibold text-zinc-300">Pro Exclusive</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={watchAll.featured}
+                      onChange={(e) => form.setValue('featured', e.target.checked)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/20"
+                    />
+                    <span className="font-semibold text-zinc-300">Featured Item</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={watchAll.requiresShipping}
+                      onChange={(e) => form.setValue('requiresShipping', e.target.checked)}
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/20"
+                    />
+                    <span className="font-semibold text-zinc-300">Requires Physical Shipping Info (Merch)</span>
+                  </label>
+                </div>
+
+                {/* Registered Asset Key Selectors */}
+                <div className="space-y-3 pt-2 border-t border-zinc-800">
+                  {watchAll.type === 'PROFILE_BANNER' && (
+                    <div className="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg space-y-1">
+                      <label className="text-[11px] font-bold text-cyan-400 block">
+                        Select Registered Banner Component Key:
+                      </label>
+                      <select
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono focus:border-emerald-500"
+                        value={registeredBanners.includes(watchAll.image || '') ? watchAll.image : ''}
+                        onChange={(e) => {
+                          if (e.target.value) form.setValue('image', e.target.value);
+                        }}
+                      >
+                        <option value="">-- Choose registered banner key --</option>
+                        {registeredBanners.map(key => (
+                          <option key={key} value={key}>{key}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {watchAll.type === 'AVATAR_RING' && (
+                    <div className="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg space-y-1">
+                      <label className="text-[11px] font-bold text-cyan-400 block">
+                        Select Registered Avatar Ring Key:
+                      </label>
+                      <select
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono focus:border-emerald-500"
+                        value={registeredRings.includes(watchAll.image || '') ? watchAll.image : ''}
+                        onChange={(e) => {
+                          if (e.target.value) form.setValue('image', e.target.value);
+                        }}
+                      >
+                        <option value="">-- Choose registered ring key --</option>
+                        {registeredRings.map(key => (
+                          <option key={key} value={key}>{key}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {watchAll.type === 'TITLE' && (
+                    <div className="bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-lg space-y-1">
+                      <label className="text-[11px] font-bold text-cyan-400 block">
+                        Select Registered Title Component Key:
+                      </label>
+                      <select
+                        className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono focus:border-emerald-500"
+                        value={registeredTitles.includes(watchAll.image || '') ? watchAll.image : ''}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            form.setValue('image', e.target.value);
+                            form.setValue('preview', e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="">-- Choose registered title key --</option>
+                        {registeredTitles.map(key => (
+                          <option key={key} value={key}>{key}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                      Component Key / Image URL / Class
+                    </label>
+                    <Input
+                      placeholder="e.g. EmeraldStormBanner, BullBearAvatarRing, or /images/item.jpg"
+                      value={watchAll.image}
+                      onChange={(e) => form.setValue('image', e.target.value)}
+                      className="bg-zinc-900 border-zinc-800 text-zinc-100 font-mono text-xs focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                      Static Thumbnail Image URL (Optional Override)
+                    </label>
+                    <Input
+                      placeholder="e.g. /images/merch/tee-black.jpg"
+                      value={watchAll.thumbnail}
+                      onChange={(e) => form.setValue('thumbnail', e.target.value)}
+                      className="bg-zinc-900 border-zinc-800 text-zinc-100 font-mono text-xs focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                      Set / Collection ID Tag
+                    </label>
+                    <Input
+                      placeholder="e.g. opulento, inferno, ocean, xenon"
+                      value={watchAll.collectionId}
+                      onChange={(e) => form.setValue('collectionId', e.target.value)}
+                      className="bg-zinc-900 border-zinc-800 text-cyan-400 font-mono text-xs focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 sticky bottom-0 bg-[#121212] py-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeDrawer}
+                    className="border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSavingItem}
+                    className="bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold text-xs gap-1.5"
+                  >
+                    {isSavingItem ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        {drawerMode === 'create' ? 'Create Shop Item' : 'Update Shop Item'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* JSON Import Modal */}
       {isImportModalOpen && (

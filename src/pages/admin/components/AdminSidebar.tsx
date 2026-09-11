@@ -57,7 +57,7 @@ const ADMIN_MENU_SECTIONS = [
         icon: Link2,
         subItems: [
           { id: 'shopItems-all', label: 'All Shop Items', path: '/admin/shopItems' },
-          { id: 'shopItems-create', label: 'Create Shop Item', path: '/admin/shopItems/create' }
+          { id: 'shopItems-create', label: 'Create Shop Item', path: '/admin/shopItems?action=create' }
         ]
       },
       { id: 'achievements', label: 'Achievements', icon: Trophy, path: '/admin/achievements' },

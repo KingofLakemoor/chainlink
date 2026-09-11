@@ -24,6 +24,9 @@ export async function gradeBrackets(matchups: any[]) {
       if (bracket.sport === 'World Cup 2026') {
          if (matchup.league !== 'FIFA') continue;
       }
+      if (bracket.sport === 'MLB') {
+         if (matchup.league !== 'MLB') continue;
+      }
 
       const homeTeam = matchup.homeTeam?.name;
       const awayTeam = matchup.awayTeam?.name;
@@ -142,8 +145,11 @@ async function payoutBracket(bracketId: string, bracket: any, currentResults: an
       const selections = data.selections || {};
       let pts = 0;
 
+      const isMlb = bracket.sport === 'MLB' || bracket.id?.includes('mlb');
       const baseTeams = bracket.teams?.length || 32;
-      const roundNames = baseTeams === 16
+      const roundNames = isMlb
+          ? ["Wild Card Series", "Division Series", "League Championship Series", "World Series"]
+          : baseTeams === 16
           ? ["Round of 16", "Quarter Finals", "Semi Finals", "Finals"]
           : ["Round of 32", "Round of 16", "Quarter Finals", "Semi Finals", "Finals"];
 

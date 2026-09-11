@@ -21,6 +21,8 @@ interface Link4LeaderboardPick {
   sport?: string;
   status: 'PENDING' | 'WIN' | 'LOSS' | 'PUSH' | 'EMPTY' | 'CANCELLED';
   score?: number;
+  isLocked?: boolean;
+  startTime?: number;
 }
 
 interface Link4LeaderboardEntry {
@@ -279,6 +281,16 @@ export default function Link4Page() {
               const pickMatchup = allMatchups.find(m => m.gameId === pick.id.replace('pick-', '')) || fallbackMatchups.find(m => m.gameId === pick.id.replace('pick-', ''));
               let status = pick.status || 'PENDING';
 
+              const startTimeMs = pick.startTime
+                ? (typeof pick.startTime === 'number' ? pick.startTime : new Date(pick.startTime).getTime())
+                : (pickMatchup?.startTime
+                  ? (typeof pickMatchup.startTime === 'number' ? pickMatchup.startTime : new Date(pickMatchup.startTime).getTime())
+                  : 0);
+
+              const now = Date.now();
+              const isLocked = (startTimeMs > 0 && now >= startTimeMs) ||
+                (pickMatchup?.status && pickMatchup.status !== 'STATUS_SCHEDULED' && pickMatchup.status !== 'SCHEDULED');
+
               // If backend hasn't graded it yet, do a local calculation for display
               if (!pick.status || pick.status === 'PENDING') {
                 if (!pickMatchup || pickMatchup.status === 'STATUS_SCHEDULED' || pickMatchup.status === 'STATUS_IN_PROGRESS') {
@@ -337,7 +349,9 @@ export default function Link4Page() {
                  name: pick.name,
                  sport: pick.sport,
                  status,
-                 score: pickScore
+                 score: pickScore,
+                 isLocked,
+                 startTime: startTimeMs
               };
            });
 
@@ -940,9 +954,12 @@ export default function Link4Page() {
                       );
                     }
 
-                    if (pick.status === 'PENDING') {
+                    // Blind reveal check: hide competitor picks BEFORE kickoff
+                    const isHidden = !pick.isLocked && entry.userId !== user?.uid;
+
+                    if (isHidden) {
                       return (
-                        <div key={pIdx} className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg border-2 border-zinc-700 bg-zinc-800/50 flex flex-col items-center justify-center shrink-0">
+                        <div key={pIdx} className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg border-2 border-zinc-700 bg-zinc-800/50 flex flex-col items-center justify-center shrink-0" title="Pick hidden until game starts">
                           <Lock className="w-4 h-4 text-zinc-500 mb-1" />
                           <span className="text-[10px] font-bold text-zinc-500 uppercase">Pick In</span>
                         </div>
@@ -960,17 +977,31 @@ export default function Link4Page() {
 
                     const isWin = pick.status === 'WIN';
                     const isLoss = pick.status === 'LOSS';
+                    const isPending = pick.status === 'PENDING';
 
                     return (
                       <div key={pIdx} className={`w-16 h-16 sm:w-20 sm:h-20 rounded-lg border-2 flex flex-col items-center justify-center p-1 text-center shrink-0 ${
                         isWin ? 'border-green-500/50 bg-green-500/10' :
                         isLoss ? 'border-red-500/50 bg-red-500/10' :
+                        isPending && pick.isLocked ? 'border-amber-500/40 bg-amber-500/10' :
                         'border-zinc-500/50 bg-zinc-500/10'
                       }`}>
-                        <div className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mb-0.5 truncate w-full px-1">{pick.sport}</div>
+                        <div className={`text-[9px] sm:text-[10px] font-bold mb-0.5 truncate w-full px-1 ${
+                          isWin ? 'text-green-400' : isLoss ? 'text-red-400' : isPending && pick.isLocked ? 'text-amber-400' : 'text-zinc-400'
+                        }`}>{pick.sport}</div>
                         <div className={`text-xs sm:text-sm font-bold truncate w-full px-1 ${
-                          isWin ? 'text-green-400' : isLoss ? 'text-red-400' : 'text-zinc-300'
+                          isWin ? 'text-green-400' : isLoss ? 'text-red-400' : isPending && pick.isLocked ? 'text-amber-300' : 'text-zinc-300'
                         }`}>{pick.name}</div>
+                        {isPending && pick.isLocked && (
+                          <div className="text-[8px] sm:text-[9px] text-amber-400 font-extrabold uppercase mt-0.5 flex items-center justify-center gap-0.5">
+                            <Lock className="w-2.5 h-2.5 inline" /> Locked
+                          </div>
+                        )}
+                        {isPending && !pick.isLocked && entry.userId === user?.uid && (
+                          <div className="text-[8px] sm:text-[9px] text-zinc-500 font-bold uppercase mt-0.5">
+                            Pick In
+                          </div>
+                        )}
                       </div>
                     );
                   })}

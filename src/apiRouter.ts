@@ -395,6 +395,18 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   }
 });
 
+apiRouter.get("/link4/picks/:segmentId", async (req, res) => {
+  try {
+    const { segmentId } = req.params;
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const snap = await adminDb.collection('link4Picks').where('segmentId', '==', segmentId).get();
+    const picks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ success: true, picks });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/users/update-premium", validateAdmin, async (req, res) => {
   try {
     const { targetUserId, premium } = req.body;

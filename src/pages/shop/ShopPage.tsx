@@ -46,6 +46,8 @@ export default function ShopPage() {
           { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' },
           { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' },
           { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' },
+          { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SeismicStrikeBanner' },
+          { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'GoldenSpiralBanner' },
           { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
           { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
         ];
@@ -82,6 +84,12 @@ export default function ShopPage() {
           if (!fetchedItems.some(i => i.id === 'banner_crimson_kingdom')) {
             fetchedItems.push({ id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' });
           }
+          if (!fetchedItems.some(i => i.id === 'banner_seismic_strike')) {
+            fetchedItems.push({ id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SeismicStrikeBanner' });
+          }
+          if (!fetchedItems.some(i => i.id === 'banner_golden_spiral')) {
+            fetchedItems.push({ id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'GoldenSpiralBanner' });
+          }
         }
         setItems(fetchedItems);
       } catch (e) {
@@ -97,6 +105,8 @@ export default function ShopPage() {
             { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' },
             { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' },
             { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' },
+            { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SeismicStrikeBanner' },
+            { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'GoldenSpiralBanner' },
             { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
             { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);

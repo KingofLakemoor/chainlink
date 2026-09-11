@@ -1714,5 +1714,33 @@
     "preview": "CrimsonKingdomBanner",
     "order": 7,
     "collectionId": ""
+  },
+  {
+    "id": "banner_seismic_strike",
+    "name": "The Seismic Strike",
+    "description": "San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "SeismicStrikeBanner",
+    "featured": true,
+    "preview": "SeismicStrikeBanner",
+    "order": 8,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_golden_spiral",
+    "name": "The Golden Spiral",
+    "description": "Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "GoldenSpiralBanner",
+    "featured": true,
+    "preview": "GoldenSpiralBanner",
+    "order": 9,
+    "collectionId": ""
   }
 ]

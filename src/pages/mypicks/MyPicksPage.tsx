@@ -2,7 +2,7 @@ import { FirebaseImage } from "../../components/ui/FirebaseImage";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
-import { collection, query, where, getDocs, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { Link2, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -74,29 +74,43 @@ export default function MyPicksPage() {
     
     const pendingPicks = picks.filter(p => p.status === 'PENDING');
     const pendingIds = Array.from(new Set(pendingPicks.map(p => p.matchupId))).filter(Boolean);
-    let unsub = () => {};
-    
+    let timer: any = null;
+
+    const refreshPendingMatchups = async () => {
+      if (pendingIds.length === 0) return;
+      try {
+        const res = await fetch(`/api/matchups/by-ids?ids=${pendingIds.join(',')}`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.success && data.matchups) {
+            setMatchups(prev => {
+              const newMatchups = [...prev];
+              data.matchups.forEach((um: any) => {
+                const idx = newMatchups.findIndex(m => m.gameId === um.gameId || m.id === um.id);
+                if (idx >= 0) newMatchups[idx] = um;
+                else newMatchups.push(um);
+              });
+              return newMatchups;
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error refreshing pending matchups via REST API", err);
+      }
+    };
+
     if (pendingIds.length > 0) {
-        const q = query(collection(db, 'matchups'), where('gameId', 'in', pendingIds.slice(0, 30)));
-        unsub = onSnapshot(q, (snap) => {
-            if (!snap.empty && isMounted) {
-                const updatedMatchups = snap.docs.map(d => ({id: d.id, ...d.data()} as any));
-                setMatchups(prev => {
-                    const newMatchups = [...prev];
-                    updatedMatchups.forEach(um => {
-                        const idx = newMatchups.findIndex(m => m.gameId === um.gameId);
-                        if (idx >= 0) newMatchups[idx] = um;
-                        else newMatchups.push(um);
-                    });
-                    return newMatchups;
-                });
-            }
-        });
+      refreshPendingMatchups();
+      timer = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          refreshPendingMatchups();
+        }
+      }, 15 * 1000);
     }
 
     return () => {
         isMounted = false;
-        unsub();
+        if (timer) clearInterval(timer);
     };
   }, [picks]);
 

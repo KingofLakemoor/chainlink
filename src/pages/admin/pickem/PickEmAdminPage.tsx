@@ -480,8 +480,14 @@ export default function PickEmAdminPage() {
             ? "STANDARD"
             : (detailCampaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (detailCampaign.defaultMatchType || "STANDARD"));
 
-          if (existingMatchup && existingMatchup.type && detailCampaign.name !== 'YES Day Walk for Autism 2026') {
-            finalType = existingMatchup.type;
+          let isManualOverride = false;
+          if (existingMatchup && detailCampaign.name !== 'YES Day Walk for Autism 2026') {
+            if (existingMatchup.manualTypeOverride || existingMatchup.isManualOverride) {
+              finalType = existingMatchup.type;
+              isManualOverride = true;
+            } else if (existingMatchup.type) {
+              finalType = existingMatchup.type;
+            }
           }
 
           const finalTitle = finalType === "SPREAD"
@@ -499,6 +505,7 @@ export default function PickEmAdminPage() {
             homeTeam: m.homeTeam,
             awayTeam: m.awayTeam,
             type: finalType,
+            manualTypeOverride: isManualOverride,
             metadata: metadataToSave,
             createdAt: Date.now()
           }, { merge: true });
@@ -541,7 +548,7 @@ export default function PickEmAdminPage() {
     }
   };
 
-  const handleToggleSpread = async (matchupId: string, currentType: string) => {
+  const handleTypeChange = async (matchupId: string, newType: string, manualOverride: boolean = true) => {
     if (detailCampaign?.name === 'YES Day Walk for Autism 2026') {
       alert("YES Day Walk for Autism 2026 is strictly Moneyline (STANDARD) picks.");
       return;
@@ -549,16 +556,46 @@ export default function PickEmAdminPage() {
     try {
       const targetMatchup = matchups.find(m => m.id === matchupId);
       const currentTitle = targetMatchup?.title || '';
-      const newType = currentType === "SPREAD" ? "STANDARD" : "SPREAD";
-      const newTitle = newType === "SPREAD"
-        ? (currentTitle.endsWith(' - ATS') ? currentTitle : `${currentTitle} - ATS`)
-        : currentTitle.replace(/ - ATS$/, '');
+      const baseTitle = currentTitle.replace(/ - ATS$/, '');
+      const newTitle = newType === "SPREAD" ? `${baseTitle} - ATS` : baseTitle;
 
-      await updateDoc(doc(db, "pickemMatchups", matchupId), { type: newType, title: newTitle });
-      setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, type: newType, title: newTitle } : m));
+      await updateDoc(doc(db, "pickemMatchups", matchupId), {
+        type: newType,
+        title: newTitle,
+        manualTypeOverride: manualOverride
+      });
+      setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, type: newType, title: newTitle, manualTypeOverride: manualOverride } : m));
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleSetAutoType = async (matchupId: string) => {
+    if (detailCampaign?.name === 'YES Day Walk for Autism 2026') {
+      return;
+    }
+    try {
+      const targetMatchup = matchups.find(m => m.id === matchupId);
+      const hasSpread = targetMatchup?.metadata?.spread !== undefined && targetMatchup?.metadata?.spread !== null;
+      const autoType = detailCampaign?.defaultMatchType === "BOTH" ? (hasSpread ? "SPREAD" : "STANDARD") : (detailCampaign?.defaultMatchType || "STANDARD");
+      const currentTitle = targetMatchup?.title || '';
+      const baseTitle = currentTitle.replace(/ - ATS$/, '');
+      const newTitle = autoType === "SPREAD" ? `${baseTitle} - ATS` : baseTitle;
+
+      await updateDoc(doc(db, "pickemMatchups", matchupId), {
+        type: autoType,
+        title: newTitle,
+        manualTypeOverride: false
+      });
+      setMatchups(prev => prev.map(m => m.id === matchupId ? { ...m, type: autoType, title: newTitle, manualTypeOverride: false } : m));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleSpread = async (matchupId: string, currentType: string) => {
+    const nextType = currentType === "SPREAD" ? "STANDARD" : "SPREAD";
+    await handleTypeChange(matchupId, nextType, true);
   };
 
   const handleDeleteMatchup = async (matchupId: string) => {
@@ -1063,12 +1100,35 @@ export default function PickEmAdminPage() {
                               <td className="px-4 py-2.5 text-zinc-400">{m.statusDesc || m.status}</td>
                               <td className="px-4 py-2.5 text-zinc-400">{new Date(m.startTime).toLocaleString()}</td>
                               <td className="px-4 py-2.5 text-center">
-                                <button
-                                  onClick={() => handleToggleSpread(m.id, m.type)}
-                                  className={`px-2 py-0.5 text-[10px] rounded font-bold uppercase tracking-wider ${m.type === "SPREAD" ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-zinc-800 text-zinc-400"}`}
-                                >
-                                  {m.type === "SPREAD" ? "ATS" : "STD"}
-                                </button>
+                                {detailCampaign?.name === 'YES Day Walk for Autism 2026' ? (
+                                  <span className="px-2 py-0.5 text-[10px] rounded font-bold uppercase tracking-wider bg-zinc-800 text-zinc-500">
+                                    STD
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <select
+                                      value={m.manualTypeOverride ? m.type : "AUTO"}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === "AUTO") {
+                                          handleSetAutoType(m.id);
+                                        } else {
+                                          handleTypeChange(m.id, val, true);
+                                        }
+                                      }}
+                                      className="bg-zinc-800 border border-zinc-700 text-[11px] text-zinc-200 rounded px-1.5 py-0.5 focus:outline-none focus:border-purple-500"
+                                    >
+                                      <option value="SPREAD">ATS (Manual)</option>
+                                      <option value="STANDARD">STD (Manual)</option>
+                                      <option value="AUTO">Auto ({m.type === "SPREAD" ? "ATS" : "STD"})</option>
+                                    </select>
+                                    {m.manualTypeOverride && (
+                                      <span className="text-[9px] font-bold text-amber-400 tracking-wider uppercase">
+                                        Manual
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-2.5 text-center">
                                 <button

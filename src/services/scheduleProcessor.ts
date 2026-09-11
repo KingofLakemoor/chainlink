@@ -8,6 +8,7 @@ const resolveImage = (existingImage: string | undefined, scrapedImage: string | 
 };
 
 import { adminDb } from '../lib/firebase-admin.js';
+import { isBeforeThursdaySpreadLock } from '../utils/footballWeek.js';
 
 async function processDependentProps(adminDb: any, gameId: string): Promise<void> {
     try {
@@ -1193,12 +1194,14 @@ export async function syncLeagueSchedules(
               if (!matchup) continue;
 
               // Sync standard matchup score and status into the pickem matchup
+              const isYesDay = pData.campaignId === 'yes_day_2026' || pData.campaignName === 'YES Day Walk for Autism 2026';
+              const isManualOverride = !isYesDay && (pData.manualTypeOverride === true || pData.isManualOverride === true);
+
               const updateData: any = {
                 status: matchup.status,
                 statusDesc: matchup.statusDesc,
                 'homeTeam.score': matchup.homeTeam?.score ?? 0,
                 'awayTeam.score': matchup.awayTeam?.score ?? 0,
-                title: matchup.title,
                 updatedAt: Date.now()
               };
 
@@ -1206,18 +1209,70 @@ export async function syncLeagueSchedules(
               if (pData.status !== updateData.status ||
                   pData.statusDesc !== updateData.statusDesc ||
                   pData.homeTeam?.score !== updateData['homeTeam.score'] ||
-                  pData.awayTeam?.score !== updateData['awayTeam.score'] ||
-                  pData.title !== updateData.title) {
+                  pData.awayTeam?.score !== updateData['awayTeam.score']) {
                   needsUpdate = true;
               }
 
-              if (pData.type === 'STANDARD' && matchup.type === 'SPREAD') {
+              const baseTitle = matchup.title || pData.title || '';
+
+              if (isYesDay) {
+                if (pData.type !== 'STANDARD') {
+                  updateData.type = 'STANDARD';
+                  needsUpdate = true;
+                }
+                const expectedTitle = baseTitle.replace(/ - ATS$/, '');
+                if (pData.title !== expectedTitle) {
+                  updateData.title = expectedTitle;
+                  needsUpdate = true;
+                }
+              } else if (isManualOverride) {
+                // Respect admin manual type setting - DO NOT change type
+                const currentType = pData.type || 'STANDARD';
+                const expectedTitle = currentType === 'SPREAD'
+                  ? (baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`)
+                  : baseTitle.replace(/ - ATS$/, '');
+
+                if (pData.title !== expectedTitle) {
+                  updateData.title = expectedTitle;
+                  needsUpdate = true;
+                }
+
+                if (currentType === 'SPREAD') {
+                  const gameTime = matchup.startTime || pData.startTime;
+                  const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeThursdaySpreadLock(gameTime);
+                  if (canUpdateSpread && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
+                    if (pData.metadata?.spread !== matchup.metadata.spread) {
+                      updateData['metadata.spread'] = matchup.metadata.spread;
+                      needsUpdate = true;
+                    }
+                  }
+                }
+              } else {
+                if (pData.type === 'STANDARD' && matchup.type === 'SPREAD') {
                   updateData.type = 'SPREAD';
                   updateData['metadata.spread'] = matchup.metadata?.spread || null;
+                  updateData.title = baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`;
                   needsUpdate = true;
-              } else if (pData.type === 'SPREAD' && matchup.type === 'SPREAD' && pData.metadata?.spread !== matchup.metadata?.spread) {
-                  updateData['metadata.spread'] = matchup.metadata?.spread || null;
-                  needsUpdate = true;
+                } else if (pData.type === 'SPREAD') {
+                  const gameTime = matchup.startTime || pData.startTime;
+                  const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeThursdaySpreadLock(gameTime);
+                  if (canUpdateSpread && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
+                    if (pData.metadata?.spread !== matchup.metadata.spread) {
+                      updateData['metadata.spread'] = matchup.metadata.spread;
+                      needsUpdate = true;
+                    }
+                  }
+                  const expectedTitle = baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`;
+                  if (pData.title !== expectedTitle) {
+                    updateData.title = expectedTitle;
+                    needsUpdate = true;
+                  }
+                } else {
+                  if (pData.title !== baseTitle) {
+                    updateData.title = baseTitle;
+                    needsUpdate = true;
+                  }
+                }
               }
 
               if (needsUpdate) {

@@ -142,7 +142,7 @@ export const MatchupCard = React.memo(function MatchupCard({
       {/* Matchup content */}
       <div className="p-3 sm:p-5 flex-1 flex flex-col">
         <div className="text-base font-bold text-zinc-100 mb-6">
-          {(m.league === 'NFL' && m.type === 'SPREAD' && m.metadata?.spread !== undefined && !m.title.includes('ATS')) ? `${m.title} - ATS` : (m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title)}
+          {(m.type === 'SPREAD' && m.metadata?.spread !== undefined && !m.title.includes('ATS')) ? `${m.title} - ATS` : (m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title)}
         </div>
         <div className="flex-1 flex flex-col justify-center">
         {m.metadata?.isYesOnly ? (

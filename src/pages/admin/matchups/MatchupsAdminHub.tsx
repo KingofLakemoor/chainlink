@@ -7,6 +7,7 @@ import {
   CheckCircle2, Flag, UserPlus, Search, RefreshCw, Plus, Edit, Trash2, X, Layers, Clock, Flame
 } from 'lucide-react';
 import { useAuth } from '../../../lib/auth-context';
+import { FirebaseImage } from '../../../components/ui/FirebaseImage';
 
 import PGABuilderPage from '../pga/PGABuilderPage';
 import PlayerPropBuilderPage from './PlayerPropBuilderPage';
@@ -820,6 +821,13 @@ export default function MatchupsAdminHub() {
                       <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away Team Name</label>
                       <input type="text" value={editMatchupData.awayTeam?.name || ''} onChange={(e) => handleEditChange('awayTeam.name', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
                     </div>
+                    <div className="flex gap-3 items-center">
+                      {editMatchupData.awayTeam?.image && <FirebaseImage src={editMatchupData.awayTeam.image} alt="Away" className="w-8 h-8 object-contain bg-white rounded p-0.5" loading="lazy" />}
+                      <div className="flex-1">
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away Team Image URL</label>
+                        <input type="text" value={editMatchupData.awayTeam?.image || ''} onChange={(e) => handleEditChange('awayTeam.image', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
+                      </div>
+                    </div>
                     <div>
                       <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away Team Score</label>
                       <input type="number" value={editMatchupData.awayTeam?.score || 0} onChange={(e) => handleEditChange('awayTeam.score', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
@@ -832,6 +840,13 @@ export default function MatchupsAdminHub() {
                       <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home Team Name</label>
                       <input type="text" value={editMatchupData.homeTeam?.name || ''} onChange={(e) => handleEditChange('homeTeam.name', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
                     </div>
+                    <div className="flex gap-3 items-center">
+                      {editMatchupData.homeTeam?.image && <FirebaseImage src={editMatchupData.homeTeam.image} alt="Home" className="w-8 h-8 object-contain bg-white rounded p-0.5" loading="lazy" />}
+                      <div className="flex-1">
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home Team Image URL</label>
+                        <input type="text" value={editMatchupData.homeTeam?.image || ''} onChange={(e) => handleEditChange('homeTeam.image', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
+                      </div>
+                    </div>
                     <div>
                       <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home Team Score</label>
                       <input type="number" value={editMatchupData.homeTeam?.score || 0} onChange={(e) => handleEditChange('homeTeam.score', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
@@ -839,13 +854,147 @@ export default function MatchupsAdminHub() {
                   </div>
                 </div>
 
-                {/* Details */}
+                {/* Matchup Type & Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-zinc-800/80 pt-4">
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Type</label>
+                    <select
+                      value={editMatchupData.type || 'SCORE'}
+                      onChange={(e) => handleEditChange('type', e.target.value)}
+                      className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                    >
+                      <option value="SCORE">SCORE</option>
+                      <option value="MONEYLINE">MONEYLINE</option>
+                      <option value="SPREAD">SPREAD</option>
+                      <option value="OVER_UNDER">OVER_UNDER</option>
+                      <option value="SOCCER_SCORE">SOCCER_SCORE</option>
+                      <option value="STATS">STATS</option>
+                      <option value="LEADERS">LEADERS</option>
+                      <option value="BOOLEAN">BOOLEAN</option>
+                      <option value="CUSTOM">CUSTOM</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Type Details</label>
+                    <input
+                      type="text"
+                      value={editMatchupData.typeDetails || ''}
+                      onChange={(e) => handleEditChange('typeDetails', e.target.value)}
+                      className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                      placeholder="e.g. GREATER_THAN"
+                    />
+                  </div>
+
+                  {editMatchupData.type === 'SPREAD' && (
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Spread</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={editMatchupData.metadata?.spread ?? ''}
+                        onChange={(e) => handleEditChange('metadata.spread', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                        placeholder="e.g. -3.5 or 3.5"
+                      />
+                    </div>
+                  )}
+
+                  {editMatchupData.type === 'OVER_UNDER' && (
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Total (Over/Under)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={editMatchupData.metadata?.overUnder ?? ''}
+                        onChange={(e) => handleEditChange('metadata.overUnder', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                        placeholder="e.g. 48.5"
+                      />
+                    </div>
+                  )}
+
+                  {editMatchupData.type === 'SOCCER_SCORE' && (
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away Team Score Type</label>
+                        <select
+                          value={editMatchupData.metadata?.awayScoreType || 'WIN_BY'}
+                          onChange={(e) => handleEditChange('metadata.awayScoreType', e.target.value)}
+                          className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                        >
+                          <option value="WIN_BY">Win By x+</option>
+                          <option value="WIN_DRAW_LOSE">Win, Draw, or Lose by x</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home Team Score Type</label>
+                        <select
+                          value={editMatchupData.metadata?.homeScoreType || 'WIN_DRAW_LOSE'}
+                          onChange={(e) => handleEditChange('metadata.homeScoreType', e.target.value)}
+                          className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                        >
+                          <option value="WIN_BY">Win By x+</option>
+                          <option value="WIN_DRAW_LOSE">Win, Draw, or Lose by x</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Away Score Value</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={editMatchupData.metadata?.awayScoreValue ?? ''}
+                          onChange={(e) => handleEditChange('metadata.awayScoreValue', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Home Score Value</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={editMatchupData.metadata?.homeScoreValue ?? ''}
+                          onChange={(e) => handleEditChange('metadata.homeScoreValue', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {editMatchupData.type === 'STATS' && (
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Stat Category</label>
+                        <input
+                          type="text"
+                          value={editMatchupData.metadata?.statCategory || ''}
+                          onChange={(e) => handleEditChange('metadata.statCategory', e.target.value)}
+                          className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                          placeholder="e.g. passing"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Stat Key</label>
+                        <input
+                          type="text"
+                          value={editMatchupData.metadata?.statKey || ''}
+                          onChange={(e) => handleEditChange('metadata.statKey', e.target.value)}
+                          className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
+                          placeholder="e.g. passingYards"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cost (Wager)</label>
                     <input type="number" value={editMatchupData.cost || 0} onChange={(e) => handleEditChange('cost', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
                   </div>
                   <div>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Reward</label>
+                    <input type="number" value={editMatchupData.reward ?? 10} onChange={(e) => handleEditChange('reward', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
+                  </div>
+                  <div className="md:col-span-2">
                     <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Start Time</label>
                     <input type="datetime-local" value={editMatchupData.formStartTime || ''} onChange={(e) => handleEditChange('formStartTime', e.target.value)} className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 [color-scheme:dark]" />
                   </div>

@@ -138,7 +138,7 @@ export function startAutoSyncJob() {
           if (snapDoc.exists && snapDoc.data()?.isFinalized === true) {
             finalizedGridironWeeksCache.add(weekKey);
           } else {
-            const result = await gradeGridironWeek(season, weekNumber, { contestId: 'test_1' });
+            const result = await gradeGridironWeek(season, weekNumber);
             if (result && result.isFinalized) {
               finalizedGridironWeeksCache.add(weekKey);
             }

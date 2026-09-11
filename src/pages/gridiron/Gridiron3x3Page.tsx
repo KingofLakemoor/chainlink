@@ -42,7 +42,6 @@ export default function Gridiron3x3Page() {
   const [newSecondaryColor, setNewSecondaryColor] = useState('#06b6d4');
   const [newRaceActive, setNewRaceActive] = useState(true);
   const [joinInviteCode, setJoinInviteCode] = useState('');
-  const [deletingContestId, setDeletingContestId] = useState<string | null>(null);
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -264,34 +263,6 @@ export default function Gridiron3x3Page() {
         setLandingViewMode('workspace');
       } else {
         showToast(data.error || 'Failed to create group', 'error');
-      }
-    } catch (err: any) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  const handleDeleteContest = async (contestId: string) => {
-    if (!profile || profile.role !== 'ADMIN') return;
-    try {
-      const token = await user?.getIdToken();
-      const res = await fetch('/api/admin/gridiron-3x3/delete-contest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ contestId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast('Group deleted successfully', 'success');
-        setDeletingContestId(null);
-        if (selectedContest?.contestId === contestId) {
-          setSelectedContest(null);
-        }
-        await fetchContests();
-      } else {
-        showToast(data.error || 'Failed to delete group', 'error');
       }
     } catch (err: any) {
       showToast(err.message, 'error');
@@ -613,16 +584,6 @@ export default function Gridiron3x3Page() {
                           </Button>
                         )}
 
-                        {profile?.role === 'ADMIN' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeletingContestId(c.contestId)}
-                            className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20"
-                          >
-                            Delete Group
-                          </Button>
-                        )}
                       </div>
                     </div>
                   );
@@ -726,26 +687,6 @@ export default function Gridiron3x3Page() {
                   <Button type="submit">Create Group</Button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-        {/* Delete Confirmation Modal */}
-        {deletingContestId && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#121212] border border-[#27272a] rounded-2xl p-6 max-w-md w-full space-y-4">
-              <h3 className="text-lg font-bold text-red-400 flex items-center gap-2">
-                Delete Gridiron Group?
-              </h3>
-              <p className="text-xs text-zinc-300">
-                Are you sure you want to delete this group? This action will remove all standings, leaderboard records, and submitted user entries for this contest.
-              </p>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="ghost" onClick={() => setDeletingContestId(null)}>Cancel</Button>
-                <Button onClick={() => handleDeleteContest(deletingContestId)} className="bg-red-600 hover:bg-red-500 font-bold">
-                  Confirm Delete
-                </Button>
-              </div>
             </div>
           </div>
         )}

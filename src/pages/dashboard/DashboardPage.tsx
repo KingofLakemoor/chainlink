@@ -10,6 +10,7 @@ import { db } from '../../lib/firebase';
 import { collection, getDocs, query, where, documentId, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { DashboardPick, DashboardPickSkeleton } from '../../components/dashboard/dashboard-pick';
+import { getShopItemsCached, getSponsorsCached, getAnnouncementsCached } from '../../lib/firestore-cache';
 
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../../components/ui/titles';
@@ -27,10 +28,8 @@ export default function DashboardPage() {
   React.useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setAnnouncements(docs.filter((d: any) => d.active === true));
+        const docs = await getAnnouncementsCached();
+        setAnnouncements(docs);
       } catch (e) {
         console.error("Error fetching announcements:", e);
       }
@@ -64,23 +63,10 @@ export default function DashboardPage() {
   React.useEffect(() => {
     const fetchInventory = async () => {
       try {
-        if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
-          const mockItems = [
-            { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring.', cost: 500, type: 'AVATAR_RING', active: true, image: 'border-yellow-500' },
-            { id: 'banner_neon', name: 'Neon Banner', description: 'Bright profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'bg-gradient-to-r from-fuchsia-500 to-cyan-500' },
-          ];
-          setInventoryItems(mockItems);
-          
-          return;
-        }
-
-        const snap = await getDocs(collection(db, 'shopItems'));
-        const fetchedItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedItems = await getShopItemsCached();
         setInventoryItems(fetchedItems);
       } catch (e) {
         console.error("Error fetching inventory", e);
-      } finally {
-        
       }
     };
 
@@ -115,15 +101,10 @@ export default function DashboardPage() {
   }, [user]);
 
   React.useEffect(() => {
-    // Fetch active sponsors once via getDocs to reduce persistent snapshot reads
     const fetchSponsors = async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'sponsors'), where('active', '==', true)));
-        if (!snap.empty) {
-          setSponsors(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } else {
-          setSponsors([]);
-        }
+        const activeSponsors = await getSponsorsCached();
+        setSponsors(activeSponsors);
       } catch (error) {
         console.warn("Sponsors list is currently unavailable:", error);
         setSponsors([]);

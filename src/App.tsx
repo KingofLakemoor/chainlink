@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './lib/auth-context';
 import { FirebaseImage } from './components/ui/FirebaseImage';
 import { loginWithGoogle, loginWithEmail, signupWithEmail, logout, db, auth } from './lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where, limit, onSnapshot } from 'firebase/firestore';
+import { getCached, setCached } from './lib/firestore-cache';
 import { Button } from './components/ui/button';
 import { SidebarProgress } from './components/SidebarProgress';
 import { cn } from './lib/utils';
@@ -36,6 +37,13 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
   useEffect(() => {
     if (!user) return;
     
+    const cacheKeyPickem = 'sidebar_active_pickem';
+    const cachedPickem = getCached<boolean>(cacheKeyPickem, 10 * 60 * 1000);
+    if (cachedPickem !== null) {
+       setHasActivePickEm(cachedPickem);
+       return;
+    }
+
     // Check for active PickEm using getDocs with limit to save reads
     const q = query(collection(db, 'pickemCampaigns'), limit(10));
     getDocs(q).then((snap) => {
@@ -46,12 +54,20 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
           active = true;
        });
        setHasActivePickEm(active);
+       setCached(cacheKeyPickem, active);
     }).catch(() => {});
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
     
+    const cacheKeyLink4 = 'sidebar_active_link4';
+    const cachedLink4 = getCached<boolean>(cacheKeyLink4, 10 * 60 * 1000);
+    if (cachedLink4 !== null) {
+       setHasActiveLink4(cachedLink4);
+       return;
+    }
+
     const now = new Date();
     const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
     const q = query(collection(db, 'link4Segments'), where('endTime', '>', twelveHoursAgo));
@@ -66,6 +82,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
             }
         });
         setHasActiveLink4(active);
+        setCached(cacheKeyLink4, active);
     }).catch(() => {});
   }, [user]);
 

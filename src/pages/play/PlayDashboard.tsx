@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, setDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
+import { getSponsorsCached } from '../../lib/firestore-cache';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, X, ExternalLink, ArrowRight } from 'lucide-react';
@@ -128,15 +129,8 @@ export default function PlayDashboard() {
         setGlobalUpcomingPicks([]);
       }
 
-      // Fetch active sponsors once via getDocs to reduce persistent snapshot reads
-      const sponsorsQ = query(collection(db, 'sponsors'), where('active', '==', true));
-      getDocs(sponsorsQ).then((snap) => {
-        if (!snap.empty) {
-          const activeSponsors = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setSponsors(activeSponsors);
-        } else {
-          setSponsors([]);
-        }
+      getSponsorsCached().then((activeSponsors) => {
+        setSponsors(activeSponsors);
       }).catch((error) => {
         console.warn("Sponsors list is currently unavailable:", error);
         setSponsors([]);

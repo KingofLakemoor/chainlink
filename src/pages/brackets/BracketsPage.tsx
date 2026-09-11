@@ -81,11 +81,13 @@ export function BracketsPage() {
           "NL Seed 2", "BYE"
         ];
 
-        const defaultMlbBracket = {
+        const defaultMlbBracket: any = {
           id: 'mlb-playoffs-2026',
           name: "2026 MLB Postseason Bracket",
           sport: "MLB",
           teams: defaultMlbTeams,
+          matchTimes: {},
+          matchIds: {},
           pointValues: {
             "Wild Card Series": 10,
             "Division Series": 20,
@@ -96,7 +98,7 @@ export function BracketsPage() {
           prizePotPercent: 0.60
         };
 
-        const defaultWorldCupBracket = {
+        const defaultWorldCupBracket: any = {
           id: 'world-cup-2026',
           name: "2026 World Cup Bracket",
           sport: "World Cup 2026",
@@ -120,7 +122,7 @@ export function BracketsPage() {
           } : undefined
         };
 
-        const defaultBracket = (bracketId === 'mlb-playoffs-2026' || bracketId === 'mlb-playoffs')
+        const defaultBracket: any = (bracketId === 'mlb-playoffs-2026' || bracketId === 'mlb-playoffs')
           ? defaultMlbBracket
           : defaultWorldCupBracket;
 

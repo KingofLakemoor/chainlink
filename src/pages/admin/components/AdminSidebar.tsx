@@ -16,11 +16,8 @@ const ADMIN_MENU_SECTIONS = [
         label: 'Matchups',
         icon: CheckCircle2,
         subItems: [
-          { id: 'matchups-all', label: 'All Matchups', path: '/admin/matchups' },
+          { id: 'matchups-all', label: 'Matchups & Builders Hub', path: '/admin/matchups' },
           { id: 'matchups-picks', label: 'Picks', path: '/admin/picks' },
-          { id: 'matchups-create', label: 'Create Matchup', path: '/admin/matchups/create' },
-          { id: 'matchups-pga', label: 'PGA Builder', path: '/admin/pga-builder' },
-          { id: 'matchups-prop', label: 'Prop Builder', path: '/admin/prop-builder' },
           { id: 'matchups-odds', label: 'Odds & Scraper', path: '/admin/odds' }
         ]
       },

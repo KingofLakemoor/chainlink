@@ -476,7 +476,7 @@ export function AdminEditMatchup() {
                         </td>
                         <td className="py-4 text-zinc-400">{p.links || 0}</td>
                         <td className="py-4 text-right">
-                            <Link to={`/admin/picks/edit/${p.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block"><Edit className="w-4 h-4" /></Link>
+                            <Link to={`/admin/picks?edit=${p.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block"><Edit className="w-4 h-4" /></Link>
                         </td>
                     </tr>
                 ))}

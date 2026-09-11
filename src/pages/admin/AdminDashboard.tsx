@@ -6,14 +6,10 @@ import { Menu } from 'lucide-react';
 
 import { AdminSidebar } from './components/AdminSidebar';
 import { GenericTable } from './components/GenericTable';
-import { AdminMatchups } from './matchups/AdminMatchups';
-import { AdminEditMatchup } from './matchups/AdminEditMatchup';
 import { AdminLeagues } from './leagues/AdminLeagues';
 
+const MatchupsAdminHub = React.lazy(() => import('./matchups/MatchupsAdminHub'));
 const Link4AdminPage = React.lazy(() => import('./link4/Link4AdminPage'));
-const CreateMatchupPage = React.lazy(() => import('./matchups/CreateMatchupPage'));
-const PlayerPropBuilderPage = React.lazy(() => import('./matchups/PlayerPropBuilderPage'));
-const PGABuilderPage = React.lazy(() => import('./pga/PGABuilderPage'));
 const CreateAchievementPage = React.lazy(() => import('./achievements/CreateAchievementPage'));
 const AwardAchievementPage = React.lazy(() => import('./achievements/AwardAchievementPage'));
 const AchievementsListPage = React.lazy(() => import('./achievements/AchievementsListPage'));
@@ -39,6 +35,16 @@ const OrdersAdminPage = React.lazy(() => import('./logs/OrdersAdminPage'));
 const AdminOddsPage = React.lazy(() => import('./odds/AdminOddsPage'));
 const SystemAdminHub = React.lazy(() => import('./system/SystemAdminHub'));
 const AdminGuidePage = React.lazy(() => import('./guide/AdminGuidePage'));
+
+function MatchupEditRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/matchups?action=edit&id=${id}`} replace />;
+}
+
+function PickEditRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/picks?edit=${id}`} replace />;
+}
 
 export default function AdminDashboard() {
   const { profile, loading } = useAuth();
@@ -78,16 +84,18 @@ export default function AdminDashboard() {
              <React.Suspense fallback={<div className="flex items-center justify-center h-full text-zinc-500">Loading...</div>}>
               <Routes>
                 <Route path="leagues" element={<AdminLeagues />} />
-                {/* Matchups routes */}
-                <Route path="matchups" element={<AdminMatchups />} />
+                {/* Unified Matchups & Builder Hub */}
+                <Route path="matchups/*" element={<MatchupsAdminHub />} />
 
+                {/* Legacy Matchup & Builder subroutes redirecting to unified Hub */}
+                <Route path="matchups/create" element={<Navigate to="/admin/matchups?action=create" replace />} />
+                <Route path="matchups/:id" element={<MatchupEditRedirect />} />
+                <Route path="pga-builder" element={<Navigate to="/admin/matchups?tab=pga" replace />} />
+                <Route path="prop-builder" element={<Navigate to="/admin/matchups?tab=prop" replace />} />
+
+                {/* Picks routes */}
                 <Route path="picks" element={<AdminPicksPage />} />
-                <Route path="picks/edit/:id" element={<Navigate to="/admin/picks" replace />} />
-
-                <Route path="matchups/create" element={<CreateMatchupPage />} />
-                <Route path="matchups/:id" element={<AdminEditMatchup />} />
-                <Route path="pga-builder" element={<PGABuilderPage />} />
-                <Route path="prop-builder" element={<PlayerPropBuilderPage />} />
+                <Route path="picks/edit/:id" element={<PickEditRedirect />} />
 
                 {/* Announcements */}
                 <Route path="announcements/*" element={<AnnouncementsAdminPage />} />

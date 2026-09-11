@@ -537,7 +537,7 @@ export default function BracketsAdminPage() {
               </div>
               <button
                 onClick={() => {
-                  setEditingCampaignId(null);
+                  setEditingBracketId(null);
                   navigate('/admin/brackets');
                 }}
                 className="text-zinc-500 hover:text-white p-2"

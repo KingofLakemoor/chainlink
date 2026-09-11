@@ -7,6 +7,14 @@ import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { Trophy, Copy, Check, Users, Target, UserPlus } from 'lucide-react';
 
+function getSidebarStatsTTL(): number {
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const isLastDayOfMonth = tomorrow.getMonth() !== now.getMonth();
+  // 1 hour TTL on the last day of the month; 24 hours TTL daily otherwise
+  return isLastDayOfMonth ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+}
+
 export function SidebarProgress() {
   const { profile, user } = useAuth();
   const [prizeData, setPrizeData] = useState({
@@ -28,7 +36,8 @@ export function SidebarProgress() {
   useEffect(() => {
     const fetchStats = async () => {
       const cacheKey = 'sidebar_monthly_stats';
-      const cached = getCached<any>(cacheKey, 15 * 60 * 1000);
+      const ttlMs = getSidebarStatsTTL();
+      const cached = getCached<any>(cacheKey, ttlMs);
       if (cached) {
         if (cached.prizeData) setPrizeData(cached.prizeData);
         setActiveUsers(cached.activeUsers || 0);

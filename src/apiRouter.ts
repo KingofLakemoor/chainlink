@@ -26,6 +26,41 @@ export const apiRouter = express.Router();
 let cachedProgress = { raised: 0, goal: 1000, pot: 0, maxPot: 500, timestamp: 0 };
 const CHARITY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+let playBannerCache: { data: any; time: number } | null = null;
+const PLAY_BANNER_CACHE_TTL = 30 * 1000;
+
+let activeMatchupsCache: { data: any[]; time: number } | null = null;
+const ACTIVE_MATCHUPS_CACHE_TTL = 30 * 1000;
+let activeMatchupsInFlight: Promise<any[]> | null = null;
+
+const link4MatchupsCache = new Map<string, { data: any[]; time: number }>();
+const LINK4_MATCHUPS_CACHE_TTL = 30 * 1000;
+const link4MatchupsInFlight = new Map<string, Promise<any[]>>();
+
+const matchupsByIdCache = new Map<string, { data: any; time: number }>();
+const MATCHUPS_BY_ID_CACHE_TTL = 30 * 1000;
+const MAX_CACHE_ENTRIES = 500;
+
+export function invalidateMatchupCaches() {
+  activeMatchupsCache = null;
+  link4MatchupsCache.clear();
+  matchupsByIdCache.clear();
+}
+
+function pruneMapCache<K, V>(map: Map<K, { data: V; time: number }>, ttl: number, maxEntries: number) {
+  const now = Date.now();
+  for (const [key, value] of map.entries()) {
+    if (now - value.time > ttl) {
+      map.delete(key);
+    }
+  }
+  if (map.size > maxEntries) {
+    const overflow = map.size - maxEntries;
+    const keys = Array.from(map.keys()).slice(0, overflow);
+    keys.forEach(k => map.delete(k));
+  }
+}
+
 apiRouter.get('/charity/progress', async (req, res) => {
   try {
     if (Date.now() - cachedProgress.timestamp < CHARITY_CACHE_TTL) {
@@ -1200,6 +1235,7 @@ apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
     if (batchCount > 0) {
       await batch.commit();
     }
+    invalidateMatchupCaches();
 
     res.json({ success: true, count });
   } catch (e: any) {
@@ -1378,6 +1414,7 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
     if (batchCount > 0) {
       await batch.commit();
     }
+    invalidateMatchupCaches();
 
     res.json({ success: true, count });
   } catch (e: any) {
@@ -1395,6 +1432,7 @@ apiRouter.post("/admin/link4/delete-matchup", validateAdmin, async (req, res) =>
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
 
     await adminDb.collection('link4Matchups').doc(matchupId).delete();
+    invalidateMatchupCaches();
     res.json({ success: true });
   } catch (e: any) {
     console.error('Link4 delete matchup error:', e);
@@ -2345,6 +2383,7 @@ apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, r
     } catch (notifErr) {
       console.error('Failed to process notifications from sync-schedules-all:', notifErr);
     }
+    invalidateMatchupCaches();
 
     res.json({
       success: true,
@@ -2430,6 +2469,7 @@ apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) 
     } catch (notifErr) {
       console.error('Failed to process notifications from sync-schedules:', notifErr);
     }
+    invalidateMatchupCaches();
     res.json({ success: true, result });
   } catch (e: any) {
     console.error(e);
@@ -2686,6 +2726,7 @@ apiRouter.post("/admin/grade-matchup", validateAdmin, async (req, res) => {
     const matchup = snap.docs[0].data();
     await gradeMatchups([{ ...matchup, status: 'STATUS_FINAL' }]); // Force grade
     await gradeLink4Matchups([{ ...matchup, status: 'STATUS_FINAL' }]);
+    invalidateMatchupCaches();
     res.json({ success: true });
   } catch (e: any) {
     console.error("Grade matchup error:", e.message, e);
@@ -2713,6 +2754,7 @@ apiRouter.post("/admin/release-picks", validateAdmin, async (req, res) => {
     const matchup = (await docRef.get()).data();
     await gradeMatchups([matchup]);
     // await gradeLink4Matchups([matchup]);
+    invalidateMatchupCaches();
 
     res.json({ success: true });
   } catch (e: any) {
@@ -2934,6 +2976,7 @@ apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, re
       await gradeMatchups([matchupData]);
       await gradeLink4Matchups([matchupData]);
     }
+    invalidateMatchupCaches();
 
     res.json({ success: true, message: "Matchup synced successfully", matchup: matchupData });
   } catch (e: any) {
@@ -3779,12 +3822,130 @@ apiRouter.get("/chains", validateAuth, async (req, res) => {
   }
 });
 
+apiRouter.get("/system-settings/play-banner", async (req, res) => {
+  try {
+    if (playBannerCache && Date.now() - playBannerCache.time < PLAY_BANNER_CACHE_TTL) {
+      return res.json({ success: true, banner: playBannerCache.data });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    const snap = await adminDb.collection('systemSettings').doc('playBanner').get();
+    const banner = snap.exists ? snap.data() : null;
+    playBannerCache = { data: banner, time: Date.now() };
+    res.json({ success: true, banner });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.get("/matchups/active", async (req, res) => {
+  try {
+    if (activeMatchupsCache && Date.now() - activeMatchupsCache.time < ACTIVE_MATCHUPS_CACHE_TTL) {
+      return res.json({ success: true, matchups: activeMatchupsCache.data });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    if (!activeMatchupsInFlight) {
+      activeMatchupsInFlight = (async () => {
+        const snap = await adminDb.collection('matchups')
+          .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])
+          .get();
+        const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        activeMatchupsCache = { data: matchups, time: Date.now() };
+        return matchups;
+      })().finally(() => {
+        activeMatchupsInFlight = null;
+      });
+    }
+
+    const matchups = await activeMatchupsInFlight;
+    res.json({ success: true, matchups });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.get("/matchups/by-ids", async (req, res) => {
+  try {
+    const idsStr = req.query.ids;
+    if (!idsStr || typeof idsStr !== 'string') {
+      return res.json({ success: true, matchups: [] });
+    }
+    const ids = Array.from(new Set(idsStr.split(',').map(s => s.trim()).filter(Boolean))).slice(0, 50);
+    if (ids.length === 0) {
+      return res.json({ success: true, matchups: [] });
+    }
+
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    pruneMapCache(matchupsByIdCache, MATCHUPS_BY_ID_CACHE_TTL, MAX_CACHE_ENTRIES);
+
+    const now = Date.now();
+    const uncachedIds: string[] = [];
+    const resultMap = new Map<string, any>();
+
+    for (const id of ids) {
+      const cached = matchupsByIdCache.get(id);
+      if (cached && now - cached.time < MATCHUPS_BY_ID_CACHE_TTL) {
+        if (cached.data) resultMap.set(id, cached.data);
+      } else {
+        uncachedIds.push(id);
+      }
+    }
+
+    if (uncachedIds.length > 0) {
+      for (let i = 0; i < uncachedIds.length; i += 30) {
+        const chunk = uncachedIds.slice(i, i + 30);
+        const snap = await adminDb.collection('matchups').where('gameId', 'in', chunk).get();
+        const foundGameIds = new Set<string>();
+
+        snap.docs.forEach(doc => {
+          const data = { id: doc.id, ...doc.data() };
+          const gameId = (data as any).gameId || doc.id;
+          foundGameIds.add(gameId);
+          matchupsByIdCache.set(gameId, { data, time: now });
+          resultMap.set(gameId, data);
+        });
+
+        chunk.forEach(gameId => {
+          if (!foundGameIds.has(gameId)) {
+            matchupsByIdCache.set(gameId, { data: null, time: now });
+          }
+        });
+      }
+    }
+
+    const matchups = ids.map(id => resultMap.get(id)).filter(Boolean);
+    res.json({ success: true, matchups });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.get("/link4/matchups/:segmentId", async (req, res) => {
   try {
     const { segmentId } = req.params;
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
-    const snap = await adminDb.collection('link4Matchups').where('segmentId', '==', segmentId).get();
-    const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    pruneMapCache(link4MatchupsCache, LINK4_MATCHUPS_CACHE_TTL, MAX_CACHE_ENTRIES);
+
+    const cached = link4MatchupsCache.get(segmentId);
+    if (cached && Date.now() - cached.time < LINK4_MATCHUPS_CACHE_TTL) {
+      return res.json({ success: true, matchups: cached.data });
+    }
+
+    if (!link4MatchupsInFlight.has(segmentId)) {
+      const promise = (async () => {
+        const snap = await adminDb.collection('link4Matchups').where('segmentId', '==', segmentId).get();
+        const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        link4MatchupsCache.set(segmentId, { data: matchups, time: Date.now() });
+        return matchups;
+      })().finally(() => {
+        link4MatchupsInFlight.delete(segmentId);
+      });
+      link4MatchupsInFlight.set(segmentId, promise);
+    }
+
+    const matchups = await link4MatchupsInFlight.get(segmentId)!;
     res.json({ success: true, matchups });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message });

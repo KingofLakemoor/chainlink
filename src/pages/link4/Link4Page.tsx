@@ -4,7 +4,6 @@ import { Grid, Clock, Trophy, Lock, X } from 'lucide-react';
 import { collection, query, where, getDocs, orderBy, limit, doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { MatchupCard } from '../../components/ui/MatchupCard';
-import { onSnapshot } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { useAuth } from '../../lib/auth-context';
 
@@ -132,28 +131,41 @@ export default function Link4Page() {
   useEffect(() => {
     if (!activeSegmentId) return;
 
-    const matchupsQ = query(collection(db, 'link4Matchups'), where('segmentId', '==', activeSegmentId));
-    const unsubLink4Matchups = onSnapshot(matchupsQ, (snap) => {
-      const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAllMatchups(matchups);
-        }, async (error) => {
-      console.error('Error fetching link4 matchups', error);
-      // Fallback if rules are not deployed
+    let timer: any = null;
+
+    const fetchMatchups = async () => {
       try {
         const res = await fetch(`/api/link4/matchups/${activeSegmentId}`);
         if (res.ok) {
-           const data = await res.json();
-           if (data.success && data.matchups) {
-              setAllMatchups(data.matchups);
-           }
+          const data = await res.json();
+          if (data.success && data.matchups) {
+            setAllMatchups(data.matchups);
+          }
         }
-      } catch(e) {
-        console.error("API fallback also failed", e);
+      } catch (e) {
+        console.error("Error fetching link4 matchups via REST API", e);
       }
-    });
+    };
+
+    fetchMatchups();
+
+    timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchMatchups();
+      }
+    }, 30 * 1000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMatchups();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      unsubLink4Matchups();
+      if (timer) clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [activeSegmentId]);
 

@@ -131,17 +131,18 @@ export default function DashboardPage() {
   
   React.useEffect(() => {
     if (activePick?.matchupId) {
-        const q = query(collection(db, 'matchups'), where('gameId', '==', activePick.matchupId));
-        const unsub = onSnapshot(q, (snap) => {
-            if (!snap.empty) {
-                setAllFetchedMatchups(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            } else {
-                setAllFetchedMatchups([]);
-            }
+      fetch(`/api/matchups/by-ids?ids=${activePick.matchupId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.success && data.matchups) {
+            setAllFetchedMatchups(data.matchups);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching active pick matchup via REST API", err);
         });
-        return () => unsub();
     } else {
-        setAllFetchedMatchups([]);
+      setAllFetchedMatchups([]);
     }
   }, [activePick?.matchupId]);
 

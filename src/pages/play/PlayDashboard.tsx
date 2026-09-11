@@ -27,25 +27,42 @@ export default function PlayDashboard() {
   const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!db) return;
-    const unsubBanner = onSnapshot(doc(db, 'systemSettings', 'playBanner'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data() as PlayBannerConfig;
-        setBannerConfig(data);
-        const bannerKey = `chainlink_banner_dismissed_${data.updatedAt || 0}`;
-        if (localStorage.getItem(bannerKey) === 'true') {
-          setBannerDismissed(true);
-        } else {
-          setBannerDismissed(false);
-        }
-      } else {
-        setBannerConfig(null);
-      }
-    }, (err) => {
-      console.warn("Banner settings unavailable:", err);
-    });
+    let timer: any = null;
 
-    return () => unsubBanner();
+    const fetchBanner = async () => {
+      try {
+        const res = await fetch('/api/system-settings/play-banner');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.banner) {
+            const banner = data.banner as PlayBannerConfig;
+            setBannerConfig(banner);
+            const bannerKey = `chainlink_banner_dismissed_${banner.updatedAt || 0}`;
+            if (localStorage.getItem(bannerKey) === 'true') {
+              setBannerDismissed(true);
+            } else {
+              setBannerDismissed(false);
+            }
+          } else {
+            setBannerConfig(null);
+          }
+        }
+      } catch (err) {
+        console.warn("Banner settings unavailable:", err);
+      }
+    };
+
+    fetchBanner();
+
+    timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchBanner();
+      }
+    }, 60 * 1000);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, []);
 
   const handleDismissBanner = () => {
@@ -66,16 +83,15 @@ export default function PlayDashboard() {
 
     const fetchMatchups = async () => {
       try {
-        const q = query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          setAllFetchedMatchups([]);
-        } else {
-          const allMatchups = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setAllFetchedMatchups(allMatchups);
+        const res = await fetch('/api/matchups/active');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.matchups) {
+            setAllFetchedMatchups(data.matchups);
+          }
         }
       } catch (error) {
-        handleFirestoreError(error as any, OperationType.LIST, 'matchups');
+        console.error("Error fetching active matchups via REST API", error);
       }
     };
 
@@ -416,18 +432,21 @@ export default function PlayDashboard() {
   
   useEffect(() => {
      if (activePick) {
-         // If it's already in allFetchedMatchups, skip subscribing to avoid duplicate snapshot listener reads
          const existsInFetched = allFetchedMatchups.some(m => m.gameId === activePick.matchupId || m.id === activePick.matchupId);
          if (existsInFetched) {
              setFallbackActiveMatchup(null);
              return;
          }
-         const unsub = onSnapshot(doc(db, 'matchups', activePick.matchupId), (docSnap) => {
-             if (docSnap.exists()) {
-                 setFallbackActiveMatchup({ id: docSnap.id, ...docSnap.data() });
+         fetch(`/api/matchups/by-ids?ids=${activePick.matchupId}`)
+           .then(res => res.ok ? res.json() : null)
+           .then(data => {
+             if (data && data.success && data.matchups && data.matchups.length > 0) {
+               setFallbackActiveMatchup(data.matchups[0]);
              }
-         });
-         return () => unsub();
+           })
+           .catch(err => {
+             console.error("Error fetching fallback active matchup", err);
+           });
      } else {
          setFallbackActiveMatchup(null);
      }

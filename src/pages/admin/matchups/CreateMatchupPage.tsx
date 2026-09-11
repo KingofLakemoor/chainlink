@@ -28,6 +28,12 @@ export default function CreateMatchupPage() {
     awayTeamImage: '',
     metadataSpread: '',
     metadataOverUnder: '',
+    metadataAwayScoreType: 'WIN_BY',
+    metadataHomeScoreType: 'WIN_DRAW_LOSE',
+    metadataAwayScoreValue: '',
+    metadataHomeScoreValue: '',
+    metadataStatCategory: '',
+    metadataStatKey: '',
   });
   const [sponsors, setSponsors] = useState<any[]>([]);
 
@@ -80,6 +86,16 @@ export default function CreateMatchupPage() {
         metadata: {
           ...(formData.type === 'SPREAD' && formData.metadataSpread !== '' && { spread: Number(formData.metadataSpread) }),
           ...(formData.type === 'OVER_UNDER' && formData.metadataOverUnder !== '' && { overUnder: Number(formData.metadataOverUnder) }),
+          ...(formData.type === 'SOCCER_SCORE' && {
+            awayScoreType: formData.metadataAwayScoreType,
+            homeScoreType: formData.metadataHomeScoreType,
+            ...(formData.metadataAwayScoreValue !== '' && { awayScoreValue: Number(formData.metadataAwayScoreValue) }),
+            ...(formData.metadataHomeScoreValue !== '' && { homeScoreValue: Number(formData.metadataHomeScoreValue) }),
+          }),
+          ...(formData.type === 'STATS' && {
+            statCategory: formData.metadataStatCategory,
+            statKey: formData.metadataStatKey,
+          }),
         },
         createdAt: Date.now(),
         updatedAt: Date.now()
@@ -163,9 +179,12 @@ export default function CreateMatchupPage() {
               onChange={handleChange}
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
             >
+              <option value="SCORE">Score</option>
               <option value="MONEYLINE">Moneyline</option>
               <option value="SPREAD">Spread</option>
               <option value="OVER_UNDER">Over/Under</option>
+              <option value="SOCCER_SCORE">Soccer Score</option>
+              <option value="STATS">Stats</option>
               <option value="CUSTOM">Custom</option>
             </select>
           </div>
@@ -181,6 +200,84 @@ export default function CreateMatchupPage() {
                 onChange={handleChange}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
               />
+            </div>
+          )}
+
+          {formData.type === 'SOCCER_SCORE' && (
+            <div className="col-span-2 grid grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-lg border border-zinc-800">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Away Score Type</label>
+                <select
+                  name="metadataAwayScoreType"
+                  value={formData.metadataAwayScoreType}
+                  onChange={handleChange}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="WIN_BY">Win By x+</option>
+                  <option value="WIN_DRAW_LOSE">Win, Draw, or Lose by x</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Home Score Type</label>
+                <select
+                  name="metadataHomeScoreType"
+                  value={formData.metadataHomeScoreType}
+                  onChange={handleChange}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="WIN_BY">Win By x+</option>
+                  <option value="WIN_DRAW_LOSE">Win, Draw, or Lose by x</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Away Score Value</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="metadataAwayScoreValue"
+                  value={formData.metadataAwayScoreValue}
+                  onChange={handleChange}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Home Score Value</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="metadataHomeScoreValue"
+                  value={formData.metadataHomeScoreValue}
+                  onChange={handleChange}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {formData.type === 'STATS' && (
+            <div className="col-span-2 grid grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-lg border border-zinc-800">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Stat Category</label>
+                <input
+                  type="text"
+                  name="metadataStatCategory"
+                  value={formData.metadataStatCategory}
+                  onChange={handleChange}
+                  placeholder="e.g. passing"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Stat Key</label>
+                <input
+                  type="text"
+                  name="metadataStatKey"
+                  value={formData.metadataStatKey}
+                  onChange={handleChange}
+                  placeholder="e.g. passingYards"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                />
+              </div>
             </div>
           )}
 

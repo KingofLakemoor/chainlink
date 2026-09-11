@@ -1,3 +1,26 @@
+export const isTeamMatch = (pickName: string, team: any): boolean => {
+    if (!pickName || !team) return false;
+    const normPick = pickName.trim().toLowerCase();
+    const normName = (team.name || '').trim().toLowerCase();
+    const normId = (team.id || '').trim().toLowerCase();
+    const normShort = (team.shortName || '').trim().toLowerCase();
+    const normAbbr = (team.abbreviation || '').trim().toLowerCase();
+
+    if (normName && (normPick === normName || normPick.endsWith(normName) || normName.endsWith(normPick))) {
+        return true;
+    }
+    if (normId && (normPick === normId || normPick.endsWith(normId) || normId.endsWith(normPick))) {
+        return true;
+    }
+    if (normShort && (normPick === normShort || normPick.endsWith(normShort) || normShort.endsWith(normPick))) {
+        return true;
+    }
+    if (normAbbr && (normPick === normAbbr || normPick.endsWith(normAbbr) || normAbbr.endsWith(normPick))) {
+        return true;
+    }
+    return false;
+};
+
 export const getTeamShortName = (m: any, isHome: boolean) => {
     const team = isHome ? m.homeTeam : m.awayTeam;
     let nameToUse = team?.shortName;

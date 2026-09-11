@@ -1,4 +1,5 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
+import { isTeamMatch } from '../lib/teamUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -72,7 +73,7 @@ export async function gradeLink4Matchups(matchups: any[]) {
            if (adjustedHomeScore === awayScore) {
              status = 'PUSH';
            } else {
-             const pickedHome = pick.name === finalizedMatchup.homeTeam?.name;
+             const pickedHome = isTeamMatch(pick.name, finalizedMatchup.homeTeam);
              if (pickedHome && adjustedHomeScore > awayScore) won = true;
              if (!pickedHome && awayScore > adjustedHomeScore) won = true;
              status = won ? 'WIN' : 'LOSS';
@@ -183,7 +184,7 @@ export async function payoutLink4Segment(segmentId: string) {
                  const matchupSnaps = await transaction.get(adminDb.collection('matchups').where('gameId', '==', pick.id.replace('pick-', '')).limit(1));
                  if (!matchupSnaps.empty) {
                    const matchup = matchupSnaps.docs[0].data();
-                   const pickedHome = pick.name === matchup.homeTeam?.name;
+                   const pickedHome = isTeamMatch(pick.name, matchup.homeTeam);
                    const ml = pickedHome ? matchup.metadata?.mlHome : matchup.metadata?.mlAway;
                    if (ml !== undefined && ml !== null) {
                       score += ml;

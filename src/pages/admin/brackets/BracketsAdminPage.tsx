@@ -52,6 +52,34 @@ export default function BracketsAdminPage() {
       'Round 6': 320
     }
   });
+
+  const handleCreateSportChange = (newSport: string) => {
+    if (newSport === 'MLB') {
+      setCreateData(prev => ({
+        ...prev,
+        sport: newSport,
+        name: prev.name || '2026 MLB Postseason Bracket',
+        teamList: [
+          "AL Seed 1", "BYE",
+          "AL Seed 4", "AL Seed 5",
+          "AL Seed 3", "AL Seed 6",
+          "AL Seed 2", "BYE",
+          "NL Seed 1", "BYE",
+          "NL Seed 4", "NL Seed 5",
+          "NL Seed 3", "NL Seed 6",
+          "NL Seed 2", "BYE"
+        ].join(', '),
+        pointValues: {
+          'Wild Card Series': 10,
+          'Division Series': 20,
+          'League Championship Series': 40,
+          'World Series': 80
+        }
+      }));
+    } else {
+      setCreateData(prev => ({ ...prev, sport: newSport }));
+    }
+  };
   const [creating, setCreating] = useState(false);
 
   // Edit Form State
@@ -447,7 +475,7 @@ export default function BracketsAdminPage() {
                   <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Sport / Tournament</label>
                   <select
                     value={createData.sport}
-                    onChange={e => setCreateData({ ...createData, sport: e.target.value })}
+                    onChange={e => handleCreateSportChange(e.target.value)}
                     className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="World Cup 2026">World Cup 2026</option>

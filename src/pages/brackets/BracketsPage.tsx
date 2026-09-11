@@ -70,7 +70,33 @@ export function BracketsPage() {
           'r0-m7': '760508'
         };
 
-        const defaultBracket = {
+        const defaultMlbTeams = [
+          "AL Seed 1", "BYE",
+          "AL Seed 4", "AL Seed 5",
+          "AL Seed 3", "AL Seed 6",
+          "AL Seed 2", "BYE",
+          "NL Seed 1", "BYE",
+          "NL Seed 4", "NL Seed 5",
+          "NL Seed 3", "NL Seed 6",
+          "NL Seed 2", "BYE"
+        ];
+
+        const defaultMlbBracket = {
+          id: 'mlb-playoffs-2026',
+          name: "2026 MLB Postseason Bracket",
+          sport: "MLB",
+          teams: defaultMlbTeams,
+          pointValues: {
+            "Wild Card Series": 10,
+            "Division Series": 20,
+            "League Championship Series": 40,
+            "World Series": 80
+          },
+          cost: 10,
+          prizePotPercent: 0.60
+        };
+
+        const defaultWorldCupBracket = {
           id: 'world-cup-2026',
           name: "2026 World Cup Bracket",
           sport: "World Cup 2026",
@@ -93,6 +119,10 @@ export function BracketsPage() {
             logoUrl: "https://api.dicebear.com/7.x/shapes/svg?seed=charity"
           } : undefined
         };
+
+        const defaultBracket = (bracketId === 'mlb-playoffs-2026' || bracketId === 'mlb-playoffs')
+          ? defaultMlbBracket
+          : defaultWorldCupBracket;
 
       try {
         let targetBracketId = bracketId || 'world-cup-2026';
@@ -139,7 +169,13 @@ export function BracketsPage() {
 
         const participantStats: Record<string, { points: number, potentialPoints: number, uid: string, finalFour?: string[], champion?: string }> = {};
 
-        const pointsMap: Record<string, number> = {
+        const isMlb = bracket.sport === 'MLB' || bracket.id?.includes('mlb');
+        const pointsMap: Record<string, number> = isMlb ? {
+          "0": bracket.pointValues?.["Wild Card Series"] || 10,
+          "1": bracket.pointValues?.["Division Series"] || 20,
+          "2": bracket.pointValues?.["League Championship Series"] || 40,
+          "3": bracket.pointValues?.["World Series"] || 80
+        } : {
           "0": bracket.pointValues?.["Round of 16"] || 20,
           "1": bracket.pointValues?.["Quarter Finals"] || 40,
           "2": bracket.pointValues?.["Semi Finals"] || 80,

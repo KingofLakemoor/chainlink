@@ -29,6 +29,29 @@ export default function CreateBracket() {
     setPointValues(prev => ({ ...prev, [round]: value }));
   };
 
+  const handleSportChange = (newSport: string) => {
+    setSport(newSport);
+    if (newSport === 'MLB') {
+      if (!name) setName('2026 MLB Postseason Bracket');
+      setTeamList([
+        "AL Seed 1", "BYE",
+        "AL Seed 4", "AL Seed 5",
+        "AL Seed 3", "AL Seed 6",
+        "AL Seed 2", "BYE",
+        "NL Seed 1", "BYE",
+        "NL Seed 4", "NL Seed 5",
+        "NL Seed 3", "NL Seed 6",
+        "NL Seed 2", "BYE"
+      ].join(', '));
+      setPointValues({
+        'Wild Card Series': 10,
+        'Division Series': 20,
+        'League Championship Series': 40,
+        'World Series': 80
+      });
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -86,7 +109,7 @@ export default function CreateBracket() {
               <label className="block text-sm font-medium text-zinc-400 mb-1">Sport / Tournament Type</label>
               <select
                 value={sport}
-                onChange={e => setSport(e.target.value)}
+                onChange={e => handleSportChange(e.target.value)}
                 className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
               >
                 <option value="World Cup 2026">World Cup 2026</option>

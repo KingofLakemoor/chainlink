@@ -81,6 +81,26 @@ export function getGridironLinesLockTime(season: number = 2026, weekNumber: numb
 /**
  * Calculates current football season and week number based on active NFL week dates.
  */
+/**
+ * Checks whether the current time is before Thursday 2:00 AM Arizona Time (9:00 AM UTC)
+ * relative to the game's week.
+ */
+export function isBeforeThursdaySpreadLock(startTime: number, now: number = Date.now()): boolean {
+  if (!startTime || isNaN(startTime)) return false;
+  const gameDate = new Date(startTime);
+  const gameDay = gameDate.getUTCDay(); // 0 = Sun, 1 = Mon, ..., 4 = Thu, 6 = Sat
+
+  const lockDate = new Date(startTime);
+  let daysToSubtract = gameDay - 4;
+  if (daysToSubtract < 0) {
+    daysToSubtract += 7;
+  }
+  lockDate.setUTCDate(lockDate.getUTCDate() - daysToSubtract);
+  lockDate.setUTCHours(9, 0, 0, 0); // 9 AM UTC = 2 AM Arizona Time (MST)
+
+  return now < lockDate.getTime();
+}
+
 export function getCurrentFootballWeek(now: Date = new Date()): { season: number; weekNumber: number } {
   const season = now.getFullYear();
   const week1Range = getFootballWeekDateRange(season, 1);

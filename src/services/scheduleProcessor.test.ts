@@ -50,6 +50,7 @@ vi.mock('./espnScraper', () => ({
 
 import { syncLeagueSchedules } from './scheduleProcessor';
 import { scrapeLeagueSchedules } from './espnScraper';
+import { isBeforeThursdaySpreadLock } from '../utils/footballWeek';
 
 describe('scheduleProcessor - manuallyActivated Preservation Tests', () => {
   beforeEach(() => {
@@ -169,5 +170,20 @@ describe('scheduleProcessor - manuallyActivated Preservation Tests', () => {
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0].gameId).toBe('atp_manual_1');
+  });
+});
+
+describe('isBeforeThursdaySpreadLock helper', () => {
+  it('correctly calculates Thursday 2AM AZ time lock window', () => {
+    // Saturday Nov 15 2025 at 20:00 UTC
+    const gameTime = new Date('2025-11-15T20:00:00Z').getTime();
+
+    // Thursday Nov 13 2025 at 08:00 UTC (1 hour before Thursday 9:00 AM UTC lock)
+    const beforeLock = new Date('2025-11-13T08:00:00Z').getTime();
+    expect(isBeforeThursdaySpreadLock(gameTime, beforeLock)).toBe(true);
+
+    // Thursday Nov 13 2025 at 10:00 UTC (1 hour after Thursday 9:00 AM UTC lock)
+    const afterLock = new Date('2025-11-13T10:00:00Z').getTime();
+    expect(isBeforeThursdaySpreadLock(gameTime, afterLock)).toBe(false);
   });
 });

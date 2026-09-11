@@ -1,4 +1,5 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
+import { isTeamMatch } from '../lib/teamUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -37,18 +38,13 @@ export async function gradeLink4Matchups(matchups: any[]) {
 
     for (const pickDoc of picksSnap.docs) {
       const pickData = pickDoc.data();
-      if (pickData.hasLoss) continue; // Already eliminated
 
       let isModified = false;
-      let hasNewLoss = false;
 
       // Ensure the picks array exists
       if (!pickData.picks || !Array.isArray(pickData.picks)) continue;
 
       const newPicks = pickData.picks.map((pick: any) => {
-        // Skip if this pick is already graded
-        if (pick.status && pick.status !== 'PENDING') return pick;
-
         // Try to find the pick in the currently finalized matchups
         const matchupId = pick.id.replace('pick-', '');
         const finalizedMatchup = finalMatchups.find(m => m.gameId === matchupId || m.id === matchupId);
@@ -72,41 +68,53 @@ export async function gradeLink4Matchups(matchups: any[]) {
            if (adjustedHomeScore === awayScore) {
              status = 'PUSH';
            } else {
-             const pickedHome = pick.name === finalizedMatchup.homeTeam?.name;
+             const pickedHome = isTeamMatch(pick.name, finalizedMatchup.homeTeam);
              if (pickedHome && adjustedHomeScore > awayScore) won = true;
              if (!pickedHome && awayScore > adjustedHomeScore) won = true;
              status = won ? 'WIN' : 'LOSS';
 
-             if (pickScore === 0) {
-                 const ml = pickedHome ? finalizedMatchup.metadata?.mlHome : finalizedMatchup.metadata?.mlAway;
-                 if (ml !== undefined && ml !== null) {
-                     pickScore = ml;
-                 }
+             const ml = pickedHome ? finalizedMatchup.metadata?.mlHome : finalizedMatchup.metadata?.mlAway;
+             if (ml !== undefined && ml !== null) {
+                 pickScore = ml;
              }
            }
         }
 
-        if (status === 'LOSS') {
-           hasNewLoss = true;
+        if (pick.status !== status || pick.score !== pickScore) {
+          isModified = true;
         }
 
-        isModified = true;
         return { ...pick, status, score: pickScore };
       });
 
-      if (isModified) {
-        // If a loss occurred, mark remaining pending picks as cancelled
-        if (hasNewLoss) {
-          newPicks.forEach((pick: any) => {
-             if (!pick.status || pick.status === 'PENDING') {
-                pick.status = 'CANCELLED';
-             }
-          });
-        }
+      const hasLoss = newPicks.some((p: any) => p.status === 'LOSS');
 
+      // If a loss occurred, mark remaining pending picks as cancelled
+      if (hasLoss) {
+        newPicks.forEach((pick: any) => {
+           if (!pick.status || pick.status === 'PENDING') {
+              pick.status = 'CANCELLED';
+              isModified = true;
+           }
+        });
+      } else {
+        // Restore any previously cancelled picks back to pending if no loss exists
+        newPicks.forEach((pick: any) => {
+           if (pick.status === 'CANCELLED') {
+              pick.status = 'PENDING';
+              isModified = true;
+           }
+        });
+      }
+
+      if (pickData.hasLoss !== hasLoss) {
+        isModified = true;
+      }
+
+      if (isModified) {
         batch.update(adminDb.collection('link4Picks').doc(pickDoc.id), {
           picks: newPicks,
-          hasLoss: pickData.hasLoss || hasNewLoss,
+          hasLoss,
           updatedAt: Date.now()
         });
         opCount++;
@@ -183,7 +191,7 @@ export async function payoutLink4Segment(segmentId: string) {
                  const matchupSnaps = await transaction.get(adminDb.collection('matchups').where('gameId', '==', pick.id.replace('pick-', '')).limit(1));
                  if (!matchupSnaps.empty) {
                    const matchup = matchupSnaps.docs[0].data();
-                   const pickedHome = pick.name === matchup.homeTeam?.name;
+                   const pickedHome = isTeamMatch(pick.name, matchup.homeTeam);
                    const ml = pickedHome ? matchup.metadata?.mlHome : matchup.metadata?.mlAway;
                    if (ml !== undefined && ml !== null) {
                       score += ml;

@@ -6,6 +6,7 @@ import { db, auth } from '../../lib/firebase';
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { useAuth } from '../../lib/auth-context';
+import { isTeamMatch } from '../../lib/teamUtils';
 
 interface Link4SegmentTheme {
   primaryColor?: string;
@@ -318,7 +319,7 @@ export default function Link4Page() {
                       isPush = true;
                       status = 'PUSH';
                    } else {
-                      const pickedHome = pick.name === pickMatchup.homeTeam.name;
+                      const pickedHome = isTeamMatch(pick.name, pickMatchup.homeTeam);
                       if (pickedHome && homeScore > awayScore) won = true;
                       if (!pickedHome && awayScore > homeScore) won = true;
                       status = won ? 'WIN' : 'LOSS';
@@ -336,7 +337,7 @@ export default function Link4Page() {
                     score += pickScore;
                  } else if (pickMatchup) {
                     // Fallback to recalculating if we still have the matchup locally but grader hasn't set score
-                    const pickedHome = pick.name === pickMatchup.homeTeam.name;
+                    const pickedHome = isTeamMatch(pick.name, pickMatchup.homeTeam);
                     let ml = pickedHome ? pickMatchup.metadata?.mlHome : pickMatchup.metadata?.mlAway;
                     if (typeof ml === 'string') ml = parseFloat(ml);
                     if (ml !== undefined && ml !== null && !isNaN(ml)) {
@@ -378,7 +379,7 @@ export default function Link4Page() {
                  } else {
                     const pickMatchup = allMatchups.find(m => m.gameId === pick.id.replace('pick-', '')) || fallbackMatchups.find(m => m.gameId === pick.id.replace('pick-', ''));
                     if (pickMatchup) {
-                       const pickedHome = pick.name === pickMatchup.homeTeam.name;
+                       const pickedHome = isTeamMatch(pick.name, pickMatchup.homeTeam);
                        let ml = pickedHome ? pickMatchup.metadata?.mlHome : pickMatchup.metadata?.mlAway;
                     if (typeof ml === 'string') ml = parseFloat(ml);
                        if (ml !== undefined && ml !== null && !isNaN(ml)) {
@@ -470,7 +471,7 @@ export default function Link4Page() {
   const handleMakePick = (matchup: any, team: any) => {
     if (nextPickIndex === -1 || hasSubmitted || hasLoss) return;
 
-    const pickedHome = team.name === matchup.homeTeam.name;
+    const pickedHome = isTeamMatch(team.name, matchup.homeTeam);
     const ml = pickedHome ? matchup.metadata?.mlHome : matchup.metadata?.mlAway;
 
     const newPicks = [...picks];

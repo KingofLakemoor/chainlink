@@ -39,6 +39,14 @@ const ADMIN_MENU_SECTIONS = [
           { id: 'users-all', label: 'All Users & Management', path: '/admin/users' },
           { id: 'users-test-accounts', label: 'Test Accounts & Spoofing', path: '/admin/users/test-accounts' },
           { id: 'users-referrals', label: 'Referral Network', path: '/admin/referrals' },
+        ]
+      },
+      {
+        id: 'logs',
+        label: 'Audit & System Logs',
+        icon: FileText,
+        subItems: [
+          { id: 'logs-all', label: 'Audit Logs Hub', path: '/admin/logs' },
           { id: 'logs-transactions', label: 'Link Transactions', path: '/admin/logs/transactions' },
           { id: 'logs-orders', label: 'Merch Orders', path: '/admin/logs/orders' },
           { id: 'logs-errors', label: 'System Errors', path: '/admin/logs/errors' },
@@ -75,7 +83,7 @@ const ADMIN_MENU_SECTIONS = [
 
 export function AdminSidebar({ open, setOpen }: { open: boolean; setOpen: (val: boolean) => void }) {
   const location = useLocation();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ matchups: true, users: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ matchups: true, users: true, logs: true });
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));

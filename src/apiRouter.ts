@@ -3205,7 +3205,7 @@ apiRouter.post("/admin/leagues/deactivate-scheduled", validateAdmin, async (req,
 
 apiRouter.post("/admin/orders/update-status", validateAdmin, async (req, res) => {
   try {
-    const { orderId, status } = req.body;
+    const { orderId, status, trackingNumber } = req.body;
     if (!orderId || !status) {
       return res.status(400).json({ success: false, error: "Missing orderId or status" });
     }
@@ -3217,12 +3217,17 @@ apiRouter.post("/admin/orders/update-status", validateAdmin, async (req, res) =>
       return res.status(404).json({ success: false, error: "Order not found" });
     }
 
-    await orderRef.update({
-      status: status,
+    const updatePayload: any = {
+      status,
       updatedAt: Date.now()
-    });
+    };
+    if (trackingNumber !== undefined) {
+      updatePayload.trackingNumber = trackingNumber;
+    }
 
-    res.json({ success: true, orderId, status });
+    await orderRef.update(updatePayload);
+
+    res.json({ success: true, orderId, status, trackingNumber });
   } catch (e: any) {
     console.error("Update Admin Order status error:", e);
     res.status(500).json({ success: false, error: e.message });

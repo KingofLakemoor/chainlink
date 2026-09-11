@@ -27,9 +27,7 @@ const AdminPicksPage = React.lazy(() => import('./picks/AdminPicksPage'));
 const ReferralsAdminPage = React.lazy(() => import('./referrals/ReferralsAdminPage'));
 const UsersListPage = React.lazy(() => import('./users/UsersListPage'));
 const TestAccountsAdminPage = React.lazy(() => import('./users/TestAccountsAdminPage'));
-const LinkTransactionsAdminPage = React.lazy(() => import('./logs/LinkTransactionsAdminPage'));
-const ErrorLogsAdminPage = React.lazy(() => import('./logs/ErrorLogsAdminPage'));
-const OrdersAdminPage = React.lazy(() => import('./logs/OrdersAdminPage'));
+const AuditLogsHub = React.lazy(() => import('./logs/AuditLogsHub'));
 const AdminOddsPage = React.lazy(() => import('./odds/AdminOddsPage'));
 const SystemAdminHub = React.lazy(() => import('./system/SystemAdminHub'));
 const AdminGuidePage = React.lazy(() => import('./guide/AdminGuidePage'));
@@ -122,9 +120,10 @@ export default function AdminDashboard() {
                 <Route path="link4/*" element={<Link4AdminPage />} />
                 <Route path="users" element={<UsersListPage />} />
                 <Route path="users/test-accounts" element={<TestAccountsAdminPage />} />
-                <Route path="logs/transactions" element={<LinkTransactionsAdminPage />} />
-                <Route path="logs/errors" element={<ErrorLogsAdminPage />} />
-                <Route path="logs/orders" element={<OrdersAdminPage />} />
+                <Route path="logs/*" element={<AuditLogsHub />} />
+                <Route path="logs/transactions" element={<AuditLogsHub />} />
+                <Route path="logs/errors" element={<AuditLogsHub />} />
+                <Route path="logs/orders" element={<AuditLogsHub />} />
                 <Route path="referrals" element={<ReferralsAdminPage />} />
                 <Route path="prize" element={<Navigate to="/admin/system" replace />} />
 

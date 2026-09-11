@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { collection, getDocs, doc, setDoc, query, where, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { Button } from "../../../components/ui/button";
+import {
+  Trophy, CheckCircle2, Activity, Link2, Search, RefreshCw, Power, Filter
+} from "lucide-react";
 
 export interface LeagueMeta {
   id: string;
@@ -355,6 +358,19 @@ export const LEAGUE_METADATA: Record<string, LeagueMeta> = {
   }
 };
 
+export const CATEGORIES = [
+  "ALL",
+  "Football",
+  "Basketball",
+  "Soccer",
+  "Baseball",
+  "Tennis",
+  "Special",
+  "Hockey",
+  "Golf",
+  "Cricket"
+] as const;
+
 export function AdminLeagues() {
   const ALL_LEAGUES = [
     "PROP", "SCRIPTLESS", "MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA",
@@ -382,6 +398,7 @@ export function AdminLeagues() {
   const [leagues, setLeagues] = useState<{ id: string, active: boolean, meta: LeagueMeta }[]>(getDefaultLeagues);
   const [loading, setLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
 
   const fetchLeagues = async () => {
     setLoading(true);
@@ -465,120 +482,221 @@ export function AdminLeagues() {
     }
   };
 
-  const filteredLeagues = leagues.filter(l =>
-    l.id.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    l.meta.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    l.meta.category.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    l.meta.provider.toLowerCase().includes(searchFilter.toLowerCase())
-  );
+  const filteredLeagues = leagues.filter(l => {
+    const matchesSearch =
+      l.id.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      l.meta.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      l.meta.category.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      l.meta.provider.toLowerCase().includes(searchFilter.toLowerCase());
+
+    const matchesCategory = selectedCategory === "ALL" || l.meta.category.toLowerCase() === selectedCategory.toLowerCase();
+
+    return matchesSearch && matchesCategory;
+  });
+
+  // KPI Metrics
+  const totalSports = leagues.length;
+  const activeCount = leagues.filter(l => l.active).length;
+  const liveScoresCount = leagues.filter(l => l.meta.liveScores).length;
+  const link4IncludedCount = leagues.filter(l => l.meta.defaultLink4Status === "INCLUDED").length;
 
   if (loading) return <div className="p-8 text-zinc-500">Loading league metadata...</div>;
 
   return (
-    <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-xl overflow-hidden">
-      <div className="p-4 border-b border-zinc-800 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-[#18181A]">
-        <div>
-          <h3 className="font-bold text-lg text-white">League & Provider Mapping</h3>
-          <p className="text-xs text-zinc-400 mt-0.5">Physical mapping of data providers, odds sources, live score capabilities, and campaign statuses per sport.</p>
+    <div className="space-y-6">
+      {/* Top KPI Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-lg">
+          <div>
+            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Total Sports / Leagues</p>
+            <h3 className="text-2xl font-bold text-zinc-100 mt-1 font-mono">{totalSports}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <Trophy className="w-5 h-5" />
+          </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <input
-            type="text"
-            placeholder="Search sports..."
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            className="px-3 py-1.5 bg-[#121212] border border-zinc-700 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 w-full sm:w-48"
-          />
-          <Button variant="secondary" size="sm" onClick={fetchLeagues}>Refresh</Button>
+
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-lg">
+          <div>
+            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Active Leagues</p>
+            <h3 className="text-2xl font-bold text-emerald-400 mt-1 font-mono">{activeCount} / {totalSports}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-lg">
+          <div>
+            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Live Score Capabilities</p>
+            <h3 className="text-2xl font-bold text-amber-400 mt-1 font-mono">{liveScoresCount}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <Activity className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-lg">
+          <div>
+            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Link4 Default Included</p>
+            <h3 className="text-2xl font-bold text-blue-400 mt-1 font-mono">{link4IncludedCount}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <Link2 className="w-5 h-5" />
+          </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm whitespace-normal">
-          <thead className="bg-[#18181A] text-zinc-400 border-b border-zinc-800 text-xs uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-3 font-medium min-w-[140px]">Sport / League</th>
-              <th className="px-4 py-3 font-medium min-w-[220px]">Data Provider & Available Data</th>
-              <th className="px-4 py-3 font-medium min-w-[180px]">Odds Source</th>
-              <th className="px-4 py-3 font-medium min-w-[150px]">Live Scores</th>
-              <th className="px-4 py-3 font-medium min-w-[200px]">Statuses (Pick 'Em & Link4)</th>
-              <th className="px-4 py-3 font-medium min-w-[130px] text-right">League Status / Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/80">
-            {filteredLeagues.map(l => (
-              <tr key={l.id} className="hover:bg-zinc-800/30 transition-colors">
-                <td className="px-4 py-3 font-bold text-zinc-200">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-xs text-emerald-400 font-mono font-bold">
-                      {l.id}
-                    </span>
-                    <div>
-                      <div className="text-sm font-semibold text-white">{l.meta.name}</div>
-                      <div className="text-[10px] text-zinc-400 uppercase tracking-wide">{l.meta.category}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-xs">
-                  <div className="font-medium text-zinc-200">{l.meta.provider}</div>
-                  <div className="text-zinc-400 text-[11px] mt-0.5">{l.meta.dataAvailable}</div>
-                </td>
-                <td className="px-4 py-3 text-xs">
-                  <div className="inline-block px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-300 font-mono text-[11px]">
-                    {l.meta.oddsSource}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-xs">
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {l.meta.liveScores ? (
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Available
-                      </span>
-                    ) : (
-                      <span className="text-zinc-500">Manual / None</span>
-                    )}
-                  </div>
-                  <div className="text-zinc-400 text-[11px] mt-0.5">{l.meta.liveScoreDetails}</div>
-                </td>
-                <td className="px-4 py-3 text-xs">
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-zinc-400">Pick 'Em:</span>
-                      <span className="font-semibold text-emerald-400">{l.meta.pickemStatus}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-zinc-400">Link4 Default:</span>
-                      <span className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
-                        l.meta.defaultLink4Status === 'INCLUDED'
-                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      }`}>
-                        {l.meta.defaultLink4Status}
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex flex-col items-end gap-1.5">
-                    <button
-                      onClick={() => handleToggle(l.id, l.active)}
-                      className={`px-2.5 py-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors w-full ${
-                        l.active
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30'
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30'
-                      }`}
-                    >
-                      {l.active ? 'ACTIVE' : 'INACTIVE'}
-                    </button>
-                    <Button variant="outline" size="sm" className="text-[10px] px-2 py-0.5 h-auto text-zinc-400 hover:text-white" onClick={() => handleDeactivateScheduled(l.id)}>
-                      Deactivate Games
-                    </Button>
-                  </div>
-                </td>
+
+      {/* Main Table Container */}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-xl overflow-hidden">
+        {/* Header and Filter Controls */}
+        <div className="p-4 border-b border-zinc-800 space-y-3 bg-[#18181A]">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <div>
+              <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-emerald-400" />
+                Leagues & Provider Mapping
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Physical mapping of data providers, odds sources, live score capabilities, and campaign statuses per sport.</p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-52">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Search sports..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 bg-[#121212] border border-zinc-700 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 w-full"
+                />
+              </div>
+              <Button variant="secondary" size="sm" onClick={fetchLeagues} className="gap-1.5 text-xs shrink-0">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+              </Button>
+            </div>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-800/80">
+            <span className="text-xs text-zinc-400 font-semibold mr-1 flex items-center gap-1">
+              <Filter className="w-3 h-3 text-emerald-400" /> Category:
+            </span>
+            {CATEGORIES.map(cat => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    isSelected
+                      ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                      : "bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* League Table */}
+        <div className="overflow-x-auto max-h-[70vh] custom-scrollbar">
+          <table className="w-full text-left text-sm whitespace-normal">
+            <thead className="bg-[#18181A] text-zinc-400 sticky top-0 border-b border-zinc-800 text-xs uppercase tracking-wider z-10">
+              <tr>
+                <th className="px-4 py-3 font-medium min-w-[140px]">Sport / League</th>
+                <th className="px-4 py-3 font-medium min-w-[220px]">Data Provider & Available Data</th>
+                <th className="px-4 py-3 font-medium min-w-[180px]">Odds Source</th>
+                <th className="px-4 py-3 font-medium min-w-[150px]">Live Scores</th>
+                <th className="px-4 py-3 font-medium min-w-[200px]">Statuses (Pick 'Em & Link4)</th>
+                <th className="px-4 py-3 font-medium min-w-[130px] text-right">League Status / Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/80">
+              {filteredLeagues.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-zinc-500 font-medium">
+                    No sports or leagues found matching criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredLeagues.map(l => (
+                  <tr key={l.id} className="hover:bg-zinc-800/30 transition-colors">
+                    <td className="px-4 py-3 font-bold text-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-xs text-emerald-400 font-mono font-bold">
+                          {l.id}
+                        </span>
+                        <div>
+                          <div className="text-sm font-semibold text-white">{l.meta.name}</div>
+                          <div className="text-[10px] text-zinc-400 uppercase tracking-wide">{l.meta.category}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="font-medium text-zinc-200">{l.meta.provider}</div>
+                      <div className="text-zinc-400 text-[11px] mt-0.5">{l.meta.dataAvailable}</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="inline-block px-2 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-300 font-mono text-[11px]">
+                        {l.meta.oddsSource}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {l.meta.liveScores ? (
+                          <span className="flex items-center gap-1 text-emerald-400">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Available
+                          </span>
+                        ) : (
+                          <span className="text-zinc-500">Manual / None</span>
+                        )}
+                      </div>
+                      <div className="text-zinc-400 text-[11px] mt-0.5">{l.meta.liveScoreDetails}</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-zinc-400">Pick 'Em:</span>
+                          <span className="font-semibold text-emerald-400">{l.meta.pickemStatus}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-zinc-400">Link4 Default:</span>
+                          <span className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
+                            l.meta.defaultLink4Status === 'INCLUDED'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}>
+                            {l.meta.defaultLink4Status}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex flex-col items-end gap-1.5">
+                        <button
+                          onClick={() => handleToggle(l.id, l.active)}
+                          className={`px-2.5 py-1 rounded text-[10px] uppercase font-bold tracking-wider transition-colors w-full ${
+                            l.active
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30'
+                          }`}
+                        >
+                          {l.active ? 'ACTIVE' : 'INACTIVE'}
+                        </button>
+                        <Button variant="outline" size="sm" className="text-[10px] px-2 py-0.5 h-auto text-zinc-400 hover:text-white" onClick={() => handleDeactivateScheduled(l.id)}>
+                          Deactivate Games
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

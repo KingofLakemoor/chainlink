@@ -119,4 +119,50 @@ describe('gradeLink4Matchups', () => {
     expect(updatedPicks.picks[0].status).toBe('WIN');
     expect(updatedPicks.picks[0].score).toBe(-192);
   });
+
+  it('correctly grades Rams pick as LOSS and cancels remaining pending picks when Rams lose', async () => {
+    mockPicksDocs[0] = {
+      id: 'pick_doc_1',
+      data: () => ({
+        userId: 'user1',
+        segmentId: 'seg1',
+        hasLoss: false,
+        picks: [
+          {
+            id: 'pick-game1',
+            name: 'Los Angeles Rams',
+            sport: 'NFL',
+            status: 'PENDING',
+            score: 0,
+          },
+          {
+            id: 'pick-game2',
+            name: 'Chiefs',
+            sport: 'NFL',
+            status: 'PENDING',
+            score: 0,
+          },
+        ],
+      }),
+    };
+
+    const finalMatchups = [
+      {
+        gameId: 'game1',
+        status: 'STATUS_FINAL',
+        type: 'MONEYLINE',
+        homeTeam: { name: 'Rams', score: 17 },
+        awayTeam: { name: '49ers', score: 24 },
+        metadata: { mlHome: -192, mlAway: 160 },
+      },
+    ];
+
+    await gradeLink4Matchups(finalMatchups);
+
+    const updatedPicks = mockPicksDocs[0].updatedData;
+    expect(updatedPicks).toBeDefined();
+    expect(updatedPicks.hasLoss).toBe(true);
+    expect(updatedPicks.picks[0].status).toBe('LOSS');
+    expect(updatedPicks.picks[1].status).toBe('CANCELLED');
+  });
 });

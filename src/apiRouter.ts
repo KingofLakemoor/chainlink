@@ -30,13 +30,36 @@ let playBannerCache: { data: any; time: number } | null = null;
 const PLAY_BANNER_CACHE_TTL = 30 * 1000;
 
 let activeMatchupsCache: { data: any[]; time: number } | null = null;
-const ACTIVE_MATCHUPS_CACHE_TTL = 15 * 1000;
+const ACTIVE_MATCHUPS_CACHE_TTL = 30 * 1000;
+let activeMatchupsInFlight: Promise<any[]> | null = null;
 
 const link4MatchupsCache = new Map<string, { data: any[]; time: number }>();
-const LINK4_MATCHUPS_CACHE_TTL = 15 * 1000;
+const LINK4_MATCHUPS_CACHE_TTL = 30 * 1000;
+const link4MatchupsInFlight = new Map<string, Promise<any[]>>();
 
 const matchupsByIdCache = new Map<string, { data: any; time: number }>();
-const MATCHUPS_BY_ID_CACHE_TTL = 15 * 1000;
+const MATCHUPS_BY_ID_CACHE_TTL = 30 * 1000;
+const MAX_CACHE_ENTRIES = 500;
+
+export function invalidateMatchupCaches() {
+  activeMatchupsCache = null;
+  link4MatchupsCache.clear();
+  matchupsByIdCache.clear();
+}
+
+function pruneMapCache<K, V>(map: Map<K, { data: V; time: number }>, ttl: number, maxEntries: number) {
+  const now = Date.now();
+  for (const [key, value] of map.entries()) {
+    if (now - value.time > ttl) {
+      map.delete(key);
+    }
+  }
+  if (map.size > maxEntries) {
+    const overflow = map.size - maxEntries;
+    const keys = Array.from(map.keys()).slice(0, overflow);
+    keys.forEach(k => map.delete(k));
+  }
+}
 
 apiRouter.get('/charity/progress', async (req, res) => {
   try {
@@ -2698,6 +2721,7 @@ apiRouter.post("/admin/grade-matchup", validateAdmin, async (req, res) => {
     const matchup = snap.docs[0].data();
     await gradeMatchups([{ ...matchup, status: 'STATUS_FINAL' }]); // Force grade
     await gradeLink4Matchups([{ ...matchup, status: 'STATUS_FINAL' }]);
+    invalidateMatchupCaches();
     res.json({ success: true });
   } catch (e: any) {
     console.error("Grade matchup error:", e.message, e);
@@ -3812,11 +3836,21 @@ apiRouter.get("/matchups/active", async (req, res) => {
       return res.json({ success: true, matchups: activeMatchupsCache.data });
     }
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
-    const snap = await adminDb.collection('matchups')
-      .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])
-      .get();
-    const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    activeMatchupsCache = { data: matchups, time: Date.now() };
+
+    if (!activeMatchupsInFlight) {
+      activeMatchupsInFlight = (async () => {
+        const snap = await adminDb.collection('matchups')
+          .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])
+          .get();
+        const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        activeMatchupsCache = { data: matchups, time: Date.now() };
+        return matchups;
+      })().finally(() => {
+        activeMatchupsInFlight = null;
+      });
+    }
+
+    const matchups = await activeMatchupsInFlight;
     res.json({ success: true, matchups });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message });
@@ -3835,6 +3869,8 @@ apiRouter.get("/matchups/by-ids", async (req, res) => {
     }
 
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    pruneMapCache(matchupsByIdCache, MATCHUPS_BY_ID_CACHE_TTL, MAX_CACHE_ENTRIES);
 
     const now = Date.now();
     const uncachedIds: string[] = [];
@@ -3882,13 +3918,27 @@ apiRouter.get("/link4/matchups/:segmentId", async (req, res) => {
   try {
     const { segmentId } = req.params;
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    pruneMapCache(link4MatchupsCache, LINK4_MATCHUPS_CACHE_TTL, MAX_CACHE_ENTRIES);
+
     const cached = link4MatchupsCache.get(segmentId);
     if (cached && Date.now() - cached.time < LINK4_MATCHUPS_CACHE_TTL) {
       return res.json({ success: true, matchups: cached.data });
     }
-    const snap = await adminDb.collection('link4Matchups').where('segmentId', '==', segmentId).get();
-    const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    link4MatchupsCache.set(segmentId, { data: matchups, time: Date.now() });
+
+    if (!link4MatchupsInFlight.has(segmentId)) {
+      const promise = (async () => {
+        const snap = await adminDb.collection('link4Matchups').where('segmentId', '==', segmentId).get();
+        const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        link4MatchupsCache.set(segmentId, { data: matchups, time: Date.now() });
+        return matchups;
+      })().finally(() => {
+        link4MatchupsInFlight.delete(segmentId);
+      });
+      link4MatchupsInFlight.set(segmentId, promise);
+    }
+
+    const matchups = await link4MatchupsInFlight.get(segmentId)!;
     res.json({ success: true, matchups });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message });

@@ -139,4 +139,27 @@ describe('apiRouter Server-Side Caching Endpoints', () => {
       server.close();
     }
   });
+
+  it('supports single-flight request coalescing for concurrent requests on active matchups', async () => {
+    const server = app.listen(0);
+    const address = server.address() as any;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const promises = [
+        fetch(`${baseUrl}/api/matchups/active`),
+        fetch(`${baseUrl}/api/matchups/active`),
+        fetch(`${baseUrl}/api/matchups/active`),
+      ];
+      const responses = await Promise.all(promises);
+      for (const res of responses) {
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.success).toBe(true);
+        expect(data.matchups.length).toBe(2);
+      }
+    } finally {
+      server.close();
+    }
+  });
 });

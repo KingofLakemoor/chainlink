@@ -153,7 +153,7 @@ export default function Link4Page() {
       if (document.visibilityState === 'visible') {
         fetchMatchups();
       }
-    }, 15 * 1000);
+    }, 30 * 1000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

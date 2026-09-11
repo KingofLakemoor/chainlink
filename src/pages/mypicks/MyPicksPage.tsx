@@ -105,7 +105,7 @@ export default function MyPicksPage() {
         if (document.visibilityState === 'visible') {
           refreshPendingMatchups();
         }
-      }, 15 * 1000);
+      }, 30 * 1000);
     }
 
     return () => {

@@ -250,6 +250,172 @@ export async function payoutLink4Segment(segmentId: string) {
   });
 }
 
+export async function aggregateAndPurgeLink4Segment(segmentId: string, force: boolean = false) {
+  const adminDb = getAdminDb();
+  if (!adminDb) throw new Error("adminDb is not initialized");
+
+  const segmentRef = adminDb.collection('link4Segments').doc(segmentId);
+  const segmentDoc = await segmentRef.get();
+
+  if (!segmentDoc.exists) {
+    throw new Error(`Segment ${segmentId} not found`);
+  }
+
+  const segmentData = segmentDoc.data() || {};
+  if (!segmentData.payoutComplete && !force) {
+    throw new Error(`Segment ${segmentId} payout is not complete yet. Cannot purge.`);
+  }
+
+  // 1. Fetch picks for this segment
+  const picksSnap = await adminDb.collection('link4Picks').where('segmentId', '==', segmentId).get();
+  let picksPurged = 0;
+  let usersAggregated = 0;
+
+  if (!picksSnap.empty) {
+    // 2. Aggregate master user stats for each user entry
+    for (const pickDoc of picksSnap.docs) {
+      const pickData = pickDoc.data();
+      const userId = pickData.userId;
+      if (!userId) continue;
+
+      const rawPicks = Array.isArray(pickData.picks)
+        ? pickData.picks
+        : (pickData.picks ? Object.values(pickData.picks) : []);
+
+      const picksSubmitted = rawPicks.length;
+      const picksWon = rawPicks.filter((p: any) => p && p.status === 'WIN').length;
+
+      // Check if user won payout links for this segment from linkTransactions
+      let linksWon = 0;
+      let segmentWon = false;
+      try {
+        const txSnap = await adminDb.collection('linkTransactions')
+          .where('userId', '==', userId)
+          .where('type', '==', 'LINK4_WIN')
+          .get();
+
+        for (const txDoc of txSnap.docs) {
+          const txData = txDoc.data();
+          // Check if transaction corresponds to this segment or timeframe
+          if (txData.description && txData.description.includes(segmentId)) {
+            linksWon += Number(txData.amount || 0);
+            segmentWon = true;
+          }
+        }
+      } catch (e) {
+        console.warn(`[Link4Grader] Failed to check linkTransactions for user ${userId}:`, e);
+      }
+
+      // Fallback check: if user has 4 wins and no loss, consider as segment win if no transaction check was conclusive
+      if (!segmentWon && !pickData.hasLoss && picksWon === 4 && rawPicks.length === 4) {
+        segmentWon = true;
+      }
+
+      // Update user master document
+      const userRef = adminDb.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      if (userDoc.exists) {
+        const existingStats = userDoc.data()?.link4Stats || {};
+        const updatedStats = {
+          totalPlayed: (existingStats.totalPlayed || 0) + 1,
+          totalWins: (existingStats.totalWins || 0) + (segmentWon ? 1 : 0),
+          totalLosses: (existingStats.totalLosses || 0) + (segmentWon ? 0 : 1),
+          totalPicksSubmitted: (existingStats.totalPicksSubmitted || 0) + picksSubmitted,
+          totalPicksWon: (existingStats.totalPicksWon || 0) + picksWon,
+          totalLinksWon: (existingStats.totalLinksWon || 0) + linksWon,
+          lastPlayedAt: Math.max(
+            existingStats.lastPlayedAt || 0,
+            segmentData.endTime ? new Date(segmentData.endTime).getTime() : Date.now()
+          )
+        };
+
+        await userRef.set({ link4Stats: updatedStats }, { merge: true });
+        usersAggregated++;
+      }
+    }
+
+    // Delete picks in batches
+    let batch = adminDb.batch();
+    let batchCount = 0;
+    for (const pickDoc of picksSnap.docs) {
+      batch.delete(pickDoc.ref);
+      batchCount++;
+      picksPurged++;
+
+      if (batchCount >= 500) {
+        await batch.commit();
+        batch = adminDb.batch();
+        batchCount = 0;
+      }
+    }
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+  }
+
+  // 3. Delete segment matchups
+  let matchupsPurged = 0;
+  const matchupsSnap = await adminDb.collection('link4Matchups').where('segmentId', '==', segmentId).get();
+  if (!matchupsSnap.empty) {
+    let batch = adminDb.batch();
+    let batchCount = 0;
+    for (const matchupDoc of matchupsSnap.docs) {
+      batch.delete(matchupDoc.ref);
+      batchCount++;
+      matchupsPurged++;
+
+      if (batchCount >= 500) {
+        await batch.commit();
+        batch = adminDb.batch();
+        batchCount = 0;
+      }
+    }
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+  }
+
+  // 4. Delete the segment document
+  await segmentRef.delete();
+
+  console.log(`[Link4Grader] Purged segment ${segmentId}: ${picksPurged} picks, ${matchupsPurged} matchups, ${usersAggregated} user stats aggregated.`);
+
+  return {
+    segmentId,
+    picksPurged,
+    matchupsPurged,
+    usersAggregated
+  };
+}
+
+export async function purgeCompletedLink4Segments() {
+  const adminDb = getAdminDb();
+  if (!adminDb) return { purgedSegmentsCount: 0, results: [] };
+
+  const segmentsSnap = await adminDb.collection('link4Segments')
+    .where('payoutComplete', '==', true)
+    .get();
+
+  if (segmentsSnap.empty) {
+    return { purgedSegmentsCount: 0, results: [] };
+  }
+
+  const results: any[] = [];
+  for (const segmentDoc of segmentsSnap.docs) {
+    try {
+      const result = await aggregateAndPurgeLink4Segment(segmentDoc.id);
+      results.push(result);
+    } catch (e: any) {
+      console.error(`[Link4Grader] Failed to purge segment ${segmentDoc.id}:`, e);
+    }
+  }
+
+  return {
+    purgedSegmentsCount: results.length,
+    results
+  };
+}
+
 export async function processCompletedLink4Segments() {
   const adminDb = getAdminDb();
   if (!adminDb) return;
@@ -263,13 +429,20 @@ export async function processCompletedLink4Segments() {
 
   const segmentsToPayout = segmentsSnap.docs.filter(d => !d.data().payoutComplete);
 
-  if (segmentsToPayout.length === 0) return;
-
-  for (const segmentDoc of segmentsToPayout) {
-    try {
-      await payoutLink4Segment(segmentDoc.id);
-    } catch (e: any) {
-      console.error(`[Link4Grader] Error paying out segment ${segmentDoc.id}:`, e);
+  if (segmentsToPayout.length > 0) {
+    for (const segmentDoc of segmentsToPayout) {
+      try {
+        await payoutLink4Segment(segmentDoc.id);
+      } catch (e: any) {
+        console.error(`[Link4Grader] Error paying out segment ${segmentDoc.id}:`, e);
+      }
     }
+  }
+
+  // Auto purge segments with completed payouts to prevent record buildup
+  try {
+    await purgeCompletedLink4Segments();
+  } catch (e: any) {
+    console.error(`[Link4Grader] Error auto-purging completed segments:`, e);
   }
 }

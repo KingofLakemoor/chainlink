@@ -10,7 +10,7 @@ import path from 'path';
 import { adminAuth, adminDb, adminMessaging } from './lib/firebase-admin.js';
 import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleProcessor.js';
 import { gradeMatchups } from './services/grader.js';
-import { gradeLink4Matchups, payoutLink4Segment } from './services/link4Grader.js';
+import { gradeLink4Matchups, payoutLink4Segment, aggregateAndPurgeLink4Segment, purgeCompletedLink4Segments } from './services/link4Grader.js';
 import { gradePickemMatchups, payoutPickemCampaign } from './services/pickemGrader.js';
 import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
@@ -426,6 +426,22 @@ apiRouter.post('/stripe/create-checkout-session', async (req, res) => {
   } catch (e: any) {
     console.error("Create checkout session error:", e.message, e);
     require('fs').appendFileSync('stripe-errors.log', new Date().toISOString() + " - " + e.message + "\n");
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/link4/purge-completed", validateAdmin, async (req, res) => {
+  try {
+    const { segmentId, force } = req.body || {};
+    if (segmentId) {
+      const result = await aggregateAndPurgeLink4Segment(segmentId, !!force);
+      return res.json({ success: true, result });
+    } else {
+      const result = await purgeCompletedLink4Segments();
+      return res.json({ success: true, result });
+    }
+  } catch (e: any) {
+    console.error('Link4 purge error:', e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

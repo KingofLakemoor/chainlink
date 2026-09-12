@@ -54,6 +54,9 @@ export default function Link4AdminPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [isPurging, setIsPurging] = useState(false);
+  const [purgeStatus, setPurgeStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   const fetchSegments = async () => {
     try {
       const segmentsRef = collection(db, 'link4Segments');
@@ -224,6 +227,39 @@ export default function Link4AdminPage() {
       alert(e.message);
     } finally {
       setPayoutLoading(null);
+    }
+  };
+
+  const handlePurgeCompleted = async () => {
+    if (!window.confirm('Are you sure you want to purge all completed Link4 segments? Participant picks will be aggregated into user master profiles and legacy records will be deleted.')) {
+      return;
+    }
+
+    setIsPurging(true);
+    setPurgeStatus(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/admin/link4/purge-completed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        const purgedCount = data.result?.purgedSegmentsCount || 0;
+        setPurgeStatus({ type: 'success', message: `Purged ${purgedCount} completed segment(s) and aggregated user master stats.` });
+        fetchSegments();
+      } else {
+        throw new Error(data.error || 'Failed to purge completed segments.');
+      }
+    } catch (e: any) {
+      console.error('Error during Link4 purge:', e);
+      setPurgeStatus({ type: 'error', message: e.message || 'Failed to purge completed segments.' });
+    } finally {
+      setIsPurging(false);
+      setTimeout(() => setPurgeStatus(null), 4000);
     }
   };
 
@@ -463,17 +499,29 @@ export default function Link4AdminPage() {
               Segments List
             </h4>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
                {syncStatus && (
                  <span className={`text-xs font-medium ${syncStatus.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>{syncStatus.message}</span>
                )}
+               {purgeStatus && (
+                 <span className={`text-xs font-medium ${purgeStatus.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>{purgeStatus.message}</span>
+               )}
                <button
                  onClick={handleSyncEligible}
-                 disabled={isSyncing}
+                 disabled={isSyncing || isPurging}
                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                >
                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                  Sync Eligible Games
+               </button>
+               <button
+                 onClick={handlePurgeCompleted}
+                 disabled={isSyncing || isPurging}
+                 className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                 title="Aggregate stats into user master profiles and purge completed Link4 segment documents"
+               >
+                 {isPurging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                 Purge Completed Segments
                </button>
             </div>
           </div>

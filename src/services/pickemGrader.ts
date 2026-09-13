@@ -139,10 +139,12 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     let pickStatus = 'LOSS';
     let pointsEarned = 0;
 
+    const pickedTeamId = pickData.pick?.teamId || pickData.pick?.id;
+
     if (isTie) {
       pickStatus = 'PUSH';
       pointsEarned = 0;
-    } else if (pickData.pick?.teamId === winnerId) {
+    } else if (pickedTeamId === winnerId) {
       pickStatus = 'WIN';
       pointsEarned = pickData.confidence || 1; // Handle confidence points
     }

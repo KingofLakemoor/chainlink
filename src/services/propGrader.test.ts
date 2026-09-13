@@ -182,6 +182,41 @@ describe('Solo Over/Under Prop Grading Tests', () => {
       expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
     );
   });
+
+  it('pickemGrader: correctly grades Lions overtime victory against Saints for both pick schemas', async () => {
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+    mockAdminDb.batch = vi.fn(() => batchSpy);
+
+    mockPendingPicks = [
+      { id: 'p1', participantId: 'user1', campaignId: 'nfl_2026', matchupId: 'lions_saints_ot', pick: { teamId: 'detroit_lions' }, status: 'PENDING', confidence: 5 },
+      { id: 'p2', participantId: 'user2', campaignId: 'nfl_2026', matchupId: 'lions_saints_ot', pick: { id: 'new_orleans_saints' }, status: 'PENDING', confidence: 3 }
+    ];
+
+    const matchup = {
+      id: 'lions_saints_ot',
+      status: 'STATUS_FINAL',
+      statusDesc: 'Final/OT',
+      type: 'STANDARD',
+      awayTeam: { id: 'detroit_lions', name: 'Detroit Lions', score: 31 },
+      homeTeam: { id: 'new_orleans_saints', name: 'New Orleans Saints', score: 28 },
+      metadata: {}
+    };
+
+    await gradeSinglePickemMatchup(matchup);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p1',
+      expect.objectContaining({ status: 'WIN', pointsEarned: 5 })
+    );
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p2',
+      expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
+    );
+  });
 });
 
 describe('Player Prop Scheduled Status Tests', () => {

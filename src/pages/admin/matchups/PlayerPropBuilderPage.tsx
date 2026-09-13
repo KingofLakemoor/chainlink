@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
 const LEAGUES: Record<string, { sport: string, path: string }> = {
@@ -203,6 +203,23 @@ export default function PlayerPropBuilderPage() {
     propType: 'OVER_UNDER',
     targetLine: '0.5'
   });
+  const [sponsors, setSponsors] = useState<any[]>([]);
+  const [featured, setFeatured] = useState(false);
+  const [featuredType, setFeaturedType] = useState('Featured');
+
+  useEffect(() => {
+    const fetchSponsors = async () => {
+      try {
+        const sponsorsSnap = await getDocs(query(collection(db, 'sponsors'), where('active', '==', true)));
+        if (!sponsorsSnap.empty) {
+          setSponsors(sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }
+      } catch (e) {
+        console.error("Error fetching sponsors for prop builder", e);
+      }
+    };
+    fetchSponsors();
+  }, []);
 
   useEffect(() => {
     if (builderMode === 'H2H') {
@@ -267,8 +284,8 @@ export default function PlayerPropBuilderPage() {
             startTime,
             active: true,
             manuallyActivated: true,
-            featured: false,
-            featuredType: '',
+            featured,
+            featuredType: featured ? (featuredType || 'Featured') : '',
             status: 'STATUS_SCHEDULED',
             gameId: `prop_builder_${Date.now()}_${optionA.playerId}_${optionB.playerId}`,
             hasCustomTitle: true,
@@ -339,8 +356,8 @@ export default function PlayerPropBuilderPage() {
             startTime: optionA.startTime,
             active: true,
             manuallyActivated: true,
-            featured: false,
-            featuredType: '',
+            featured,
+            featuredType: featured ? (featuredType || 'Featured') : '',
             status: 'STATUS_SCHEDULED',
             gameId: `solo_prop_${Date.now()}_${optionA.playerId}`,
             hasCustomTitle: true,
@@ -488,6 +505,34 @@ export default function PlayerPropBuilderPage() {
               onChange={e => setFormData({ ...formData, title: e.target.value })}
               required
             />
+          </div>
+          <div className="col-span-2 flex items-center gap-4 pt-2 border-t border-zinc-800">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => {
+                  setFeatured(e.target.checked);
+                  if (e.target.checked && !featuredType) setFeaturedType('Featured');
+                }}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-blue-500 focus:ring-blue-500/20"
+              />
+              <span className="text-sm font-medium text-zinc-300">Featured</span>
+            </label>
+            {featured && (
+              <select
+                value={featuredType}
+                onChange={(e) => setFeaturedType(e.target.value)}
+                className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="Featured">Featured</option>
+                <option value="ChainBuilder">ChainBuilder</option>
+                <option value="ScriptLess">ScriptLess</option>
+                {sponsors.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

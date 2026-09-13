@@ -115,7 +115,11 @@ export default function CreateMatchupPage() {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked,
+        ...(name === 'featured' && checked && !prev.featuredType ? { featuredType: 'Featured' } : {})
+      }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -366,9 +370,10 @@ export default function CreateMatchupPage() {
             </div>
             {formData.featured && (
                 <div className="flex items-center gap-2">
-                  <select name="featuredType" value={formData.featuredType} onChange={handleChange} className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-indigo-500">
-                      <option value="">Featured</option>
+                  <select name="featuredType" value={formData.featuredType || 'Featured'} onChange={handleChange} className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-indigo-500">
+                      <option value="Featured">Featured</option>
                       <option value="ChainBuilder">ChainBuilder</option>
+                      <option value="ScriptLess">ScriptLess</option>
                       {sponsors.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                       ))}

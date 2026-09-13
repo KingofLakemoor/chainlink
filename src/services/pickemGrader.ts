@@ -1,4 +1,5 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
+import { isTeamMatch } from '../lib/teamUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -119,7 +120,14 @@ export async function gradeSinglePickemMatchup(matchup: any) {
 
   try {
     if (matchup.id) {
-      await adminDb.collection('pickemMatchups').doc(matchup.id).update({ winnerId: isTie ? 'PUSH' : winnerId, status: matchup.status || 'STATUS_FINAL' });
+      const updateData: any = {
+        winnerId: isTie ? 'PUSH' : winnerId,
+        status: matchup.status || 'STATUS_FINAL'
+      };
+      if (matchup.manualWinnerId !== undefined) {
+        updateData.manualWinnerId = matchup.manualWinnerId;
+      }
+      await adminDb.collection('pickemMatchups').doc(matchup.id).update(updateData);
     }
   } catch (err) {
     console.error('Failed to update pickemMatchup winnerId:', err);
@@ -139,12 +147,23 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     let pickStatus = 'LOSS';
     let pointsEarned = 0;
 
-    const pickedTeamId = pickData.pick?.teamId || pickData.pick?.id;
+    const pickedTeamId = pickData.pick?.teamId || pickData.pick?.id || pickData.pick?.name;
+
+    let isWin = false;
+    if (!isTie && winnerId) {
+      if (pickedTeamId === winnerId) {
+        isWin = true;
+      } else if (matchup.homeTeam && winnerId === matchup.homeTeam.id && isTeamMatch(pickedTeamId, matchup.homeTeam)) {
+        isWin = true;
+      } else if (matchup.awayTeam && winnerId === matchup.awayTeam.id && isTeamMatch(pickedTeamId, matchup.awayTeam)) {
+        isWin = true;
+      }
+    }
 
     if (isTie) {
       pickStatus = 'PUSH';
       pointsEarned = 0;
-    } else if (pickedTeamId === winnerId) {
+    } else if (isWin) {
       pickStatus = 'WIN';
       pointsEarned = pickData.confidence || 1; // Handle confidence points
     }

@@ -1623,7 +1623,17 @@ apiRouter.post("/admin/grade-pickem-matchup", validateAdmin, async (req, res) =>
 
     const matchup: any = { ...doc.data(), id: doc.id };
     if (manualWinnerId !== undefined) {
-      matchup.manualWinnerId = manualWinnerId;
+      if (manualWinnerId === null || manualWinnerId === 'CLEAR') {
+        delete matchup.manualWinnerId;
+        await adminDb.collection('pickemMatchups').doc(matchupId).update({
+          manualWinnerId: firebaseAdmin.admin.firestore.FieldValue.delete()
+        });
+      } else {
+        matchup.manualWinnerId = manualWinnerId;
+        await adminDb.collection('pickemMatchups').doc(matchupId).update({
+          manualWinnerId: manualWinnerId
+        });
+      }
     }
     await gradePickemMatchups([{ ...matchup, status: 'STATUS_FINAL' }]); // Force grade
     res.json({ success: true });

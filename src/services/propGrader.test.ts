@@ -217,6 +217,71 @@ describe('Solo Over/Under Prop Grading Tests', () => {
       expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
     );
   });
+
+  it('pickemGrader: respects manualWinnerId forced result and evaluates team picks via isTeamMatch', async () => {
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+    mockAdminDb.batch = vi.fn(() => batchSpy);
+
+    mockPendingPicks = [
+      { id: 'p1', participantId: 'user1', campaignId: 'nfl_2026', matchupId: 'forced_lions_game', pick: { teamId: 'Detroit Lions' }, status: 'PENDING', confidence: 4 },
+      { id: 'p2', participantId: 'user2', campaignId: 'nfl_2026', matchupId: 'forced_lions_game', pick: { teamId: 'new_orleans_saints' }, status: 'PENDING', confidence: 2 }
+    ];
+
+    const matchup = {
+      id: 'forced_lions_game',
+      status: 'STATUS_FINAL',
+      type: 'STANDARD',
+      manualWinnerId: 'detroit_lions',
+      awayTeam: { id: 'detroit_lions', name: 'Detroit Lions', score: 20 },
+      homeTeam: { id: 'new_orleans_saints', name: 'New Orleans Saints', score: 24 },
+      metadata: {}
+    };
+
+    await gradeSinglePickemMatchup(matchup);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p1',
+      expect.objectContaining({ status: 'WIN', pointsEarned: 4 })
+    );
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p2',
+      expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
+    );
+  });
+
+  it('pickemGrader: handles forced PUSH result for pickem matchups', async () => {
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+    mockAdminDb.batch = vi.fn(() => batchSpy);
+
+    mockPendingPicks = [
+      { id: 'p1', participantId: 'user1', campaignId: 'nfl_2026', matchupId: 'pushed_game', pick: { teamId: 'detroit_lions' }, status: 'PENDING', confidence: 5 }
+    ];
+
+    const matchup = {
+      id: 'pushed_game',
+      status: 'STATUS_FINAL',
+      type: 'STANDARD',
+      manualWinnerId: 'PUSH',
+      awayTeam: { id: 'detroit_lions', name: 'Detroit Lions', score: 28 },
+      homeTeam: { id: 'new_orleans_saints', name: 'New Orleans Saints', score: 24 },
+      metadata: {}
+    };
+
+    await gradeSinglePickemMatchup(matchup);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p1',
+      expect.objectContaining({ status: 'PUSH', pointsEarned: 0 })
+    );
+  });
 });
 
 describe('Player Prop Scheduled Status Tests', () => {

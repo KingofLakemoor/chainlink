@@ -18,6 +18,7 @@ export default function PickEmCampaignDetail() {
   const [activeLiveWeek, setActiveLiveWeek] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [matchupsLoading, setMatchupsLoading] = useState(false);
+  const [gradingMatchup, setGradingMatchup] = useState<any | null>(null);
   const [showPropModal, setShowPropModal] = useState(false);
   const [propTitle, setPropTitle] = useState('');
   const [propOptionA, setPropOptionA] = useState('');
@@ -507,48 +508,28 @@ export default function PickEmCampaignDetail() {
     }
   };
 
-  const handleGradeMatchup = async (m: any) => {
-    let promptMsg = `Manual Grading Options for ${m.title}:\n\n`;
-    if (m.type === 'OVER_UNDER') {
-      promptMsg += `1: OVER\n2: UNDER\n`;
-    } else {
-      promptMsg += `1: Home Win (${m.homeTeam?.name || 'Home'})\n2: Away Win (${m.awayTeam?.name || 'Away'})\n`;
-    }
-    promptMsg += `3: Push (Tie)\n4: Auto Grade\n\nEnter 1, 2, 3, or 4:`;
-
-    const action = window.prompt(promptMsg);
-    if (!action) return;
-
-    let manualWinnerId: string | undefined = undefined;
-    if (action === '1') manualWinnerId = m.type === 'OVER_UNDER' ? 'OVER' : m.homeTeam?.id;
-    else if (action === '2') manualWinnerId = m.type === 'OVER_UNDER' ? 'UNDER' : m.awayTeam?.id;
-    else if (action === '3') manualWinnerId = 'PUSH';
-    else if (action === '4') manualWinnerId = undefined;
-    else {
-      console.log("Invalid option. Grading cancelled.");
-      return;
-    }
-
-    
-
+  const handleForceGradeSubmit = async (manualWinnerId: string | null) => {
+    if (!gradingMatchup) return;
     try {
-        const res = await fetch('/api/admin/grade-pickem-matchup', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
-            },
-            body: JSON.stringify({ matchupId: m.id, manualWinnerId })
-        });
-        const data = await res.json();
-        if (data.success) {
-            console.log('Matchup graded successfully!');
-        } else {
-            console.log('Failed to grade picks: ' + (data.error || 'Unknown error'));
-        }
+      const res = await fetch('/api/admin/grade-pickem-matchup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({ matchupId: gradingMatchup.id, manualWinnerId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Matchup result forced & picks graded successfully!');
+        setGradingMatchup(null);
+        fetchMatchups(selectedWeek);
+      } else {
+        alert('Failed to grade picks: ' + (data.error || 'Unknown error'));
+      }
     } catch (err: any) {
-        console.error('Error grading matchup:', err);
-        console.log(`Failed to contact server for grading. Error: ${err.message}`);
+      console.error('Error grading matchup:', err);
+      alert(`Failed to contact server for grading. Error: ${err.message}`);
     }
   };
 
@@ -557,6 +538,75 @@ export default function PickEmCampaignDetail() {
 
   return (
     <>
+      {gradingMatchup && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#18181A] rounded-xl border border-zinc-800 p-6 max-w-md w-full shadow-xl space-y-4">
+            <h3 className="text-xl font-bold text-white">Force Matchup Result</h3>
+            <p className="text-sm text-zinc-400">
+              Select the forced winner for <span className="text-white font-semibold">{gradingMatchup.title}</span>. This will persist the forced winner in Firestore and re-evaluate all submitted picks.
+            </p>
+
+            <div className="space-y-2 pt-2">
+              {gradingMatchup.type === 'OVER_UNDER' ? (
+                <>
+                  <Button
+                    onClick={() => handleForceGradeSubmit('OVER')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  >
+                    Force Win: OVER
+                  </Button>
+                  <Button
+                    onClick={() => handleForceGradeSubmit('UNDER')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  >
+                    Force Win: UNDER
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={() => handleForceGradeSubmit(gradingMatchup.awayTeam?.id || 'away')}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-left justify-start"
+                  >
+                    Force Away Win: {gradingMatchup.awayTeam?.name || 'Away Team'}
+                  </Button>
+                  <Button
+                    onClick={() => handleForceGradeSubmit(gradingMatchup.homeTeam?.id || 'home')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-left justify-start"
+                  >
+                    Force Home Win: {gradingMatchup.homeTeam?.name || 'Home Team'}
+                  </Button>
+                </>
+              )}
+
+              <Button
+                onClick={() => handleForceGradeSubmit('PUSH')}
+                variant="outline"
+                className="w-full text-amber-400 border-amber-500/30 hover:bg-amber-500/10 font-bold"
+              >
+                Force Push (Tie)
+              </Button>
+
+              {gradingMatchup.manualWinnerId !== undefined && (
+                <Button
+                  onClick={() => handleForceGradeSubmit(null)}
+                  variant="ghost"
+                  className="w-full text-zinc-400 hover:text-white hover:bg-zinc-800"
+                >
+                  Clear Forced Result / Auto Grade
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-2">
+              <Button variant="ghost" onClick={() => setGradingMatchup(null)} className="text-zinc-400 hover:text-white">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPropModal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-[#18181A] rounded-xl border border-zinc-800 p-6 max-w-md w-full shadow-xl">
@@ -967,7 +1017,21 @@ export default function PickEmCampaignDetail() {
                   return timeA - timeB;
                 }).map(m => (
                   <tr key={m.id} className="hover:bg-zinc-800/20 transition-colors">
-                    <td className="px-4 py-3 font-medium text-zinc-200">{m.title}</td>
+                    <td className="px-4 py-3 font-medium text-zinc-200">
+                      <div className="flex flex-col">
+                        <span>{m.title}</span>
+                        {m.manualWinnerId && (
+                          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                            FORCED: {
+                              m.manualWinnerId === 'PUSH' ? 'PUSH (Tie)' :
+                              m.manualWinnerId === m.awayTeam?.id ? (m.awayTeam?.name || 'Away Win') :
+                              m.manualWinnerId === m.homeTeam?.id ? (m.homeTeam?.name || 'Home Win') :
+                              m.manualWinnerId
+                            }
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-zinc-400">{m.statusDesc || m.status}</td>
                     <td className="px-4 py-3 text-zinc-400">{new Date(m.startTime).toLocaleString()}</td>
                     <td className="px-4 py-3 text-xs font-mono">
@@ -1046,8 +1110,8 @@ export default function PickEmCampaignDetail() {
                     </td>
 
                     <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
-                      <button onClick={() => handleGradeMatchup(m)} className="text-blue-500/70 hover:text-blue-500 p-2" title="Grade Matchup">
-                         Grade
+                      <button onClick={() => setGradingMatchup(m)} className="text-blue-400 hover:text-blue-300 font-semibold px-2 py-1 bg-blue-500/10 rounded border border-blue-500/20 text-xs" title="Force Matchup Result / Grade">
+                         Force Grade
                       </button>
                       <button onClick={() => handleDeleteMatchup(m.id)} className="text-red-500/70 hover:text-red-500 p-2" title="Remove Matchup">
                         <Trash2 className="w-4 h-4" />

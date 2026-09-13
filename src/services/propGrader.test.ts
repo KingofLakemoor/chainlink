@@ -282,6 +282,74 @@ describe('Solo Over/Under Prop Grading Tests', () => {
       expect.objectContaining({ status: 'PUSH', pointsEarned: 0 })
     );
   });
+
+  it('pickemGrader: forcing one team as a win automatically forces opposing team pickers as a loss', async () => {
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+    mockAdminDb.batch = vi.fn(() => batchSpy);
+
+    mockPendingPicks = [
+      { id: 'p1', participantId: 'user1', campaignId: 'nfl_2026', matchupId: 'forced_win_game', pick: { teamId: 'detroit_lions' }, status: 'PENDING', confidence: 4 },
+      { id: 'p2', participantId: 'user2', campaignId: 'nfl_2026', matchupId: 'forced_win_game', pick: { teamId: 'new_orleans_saints' }, status: 'PENDING', confidence: 3 }
+    ];
+
+    const matchup = {
+      id: 'forced_win_game',
+      status: 'STATUS_FINAL',
+      type: 'STANDARD',
+      manualWinnerId: 'Detroit Lions', // forced via team name
+      awayTeam: { id: 'detroit_lions', name: 'Detroit Lions', score: 14 },
+      homeTeam: { id: 'new_orleans_saints', name: 'New Orleans Saints', score: 28 },
+      metadata: {}
+    };
+
+    await gradeSinglePickemMatchup(matchup);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p1',
+      expect.objectContaining({ status: 'WIN', pointsEarned: 4 })
+    );
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p2',
+      expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
+    );
+  });
+
+  it('pickemGrader: Saints pickers for YES Day campaign specifically are graded as a loss', async () => {
+    const updateSpy = vi.fn();
+    const batchSpy = {
+      update: updateSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+    mockAdminDb.batch = vi.fn(() => batchSpy);
+
+    mockPendingPicks = [
+      { id: 'p1', participantId: 'user1', campaignId: 'yes_day_2026', matchupId: 'saints_yes_day', pick: { teamId: 'new_orleans_saints' }, status: 'PENDING', confidence: 5 },
+      { id: 'p2', participantId: 'user2', campaignId: 'yes_day_2026', matchupId: 'saints_yes_day', pick: { teamId: 'falcons' }, status: 'PENDING', confidence: 2 }
+    ];
+
+    const matchup = {
+      id: 'saints_yes_day',
+      campaignName: 'YES Day Walk for Autism 2026',
+      status: 'STATUS_FINAL',
+      type: 'STANDARD',
+      manualWinnerId: 'new_orleans_saints', // Even if Saints are forced as winner
+      awayTeam: { id: 'new_orleans_saints', name: 'New Orleans Saints', score: 30 },
+      homeTeam: { id: 'falcons', name: 'Atlanta Falcons', score: 20 },
+      metadata: {}
+    };
+
+    await gradeSinglePickemMatchup(matchup);
+
+    // Saints pickers for YES Day campaign MUST be graded as a loss
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p1',
+      expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
+    );
+  });
 });
 
 describe('Player Prop Scheduled Status Tests', () => {

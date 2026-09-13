@@ -37,15 +37,20 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const isPostponed = matchup.status === 'STATUS_POSTPONED';
 
   let isMoneyline = matchup.type === 'STANDARD';
-  if (!isMoneyline && matchup.campaignName === 'YES Day Walk for Autism 2026') {
+  let isYesDay = matchup.campaignName === 'YES Day Walk for Autism 2026' || matchup.campaignId === 'yes_day_2026';
+
+  if (isYesDay) {
     isMoneyline = true;
-  } else if (!isMoneyline && matchup.campaignId) {
+  } else if (matchup.campaignId) {
     try {
       const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
       if (campDoc.exists) {
         const cData = campDoc.data();
         if (cData?.name === 'YES Day Walk for Autism 2026' || cData?.defaultMatchType === 'STANDARD') {
           isMoneyline = true;
+        }
+        if (cData?.name === 'YES Day Walk for Autism 2026') {
+          isYesDay = true;
         }
       }
     } catch (e) {
@@ -147,17 +152,71 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     let pickStatus = 'LOSS';
     let pointsEarned = 0;
 
-    const pickedTeamId = pickData.pick?.teamId || pickData.pick?.id || pickData.pick?.name;
+    const rawPick = pickData.pick;
+    const pickedTeamId = typeof rawPick === 'string'
+      ? rawPick
+      : (rawPick?.teamId || rawPick?.id || rawPick?.name || rawPick);
 
     let isWin = false;
     if (!isTie && winnerId) {
-      if (pickedTeamId === winnerId) {
-        isWin = true;
-      } else if (matchup.homeTeam && winnerId === matchup.homeTeam.id && isTeamMatch(pickedTeamId, matchup.homeTeam)) {
-        isWin = true;
-      } else if (matchup.awayTeam && winnerId === matchup.awayTeam.id && isTeamMatch(pickedTeamId, matchup.awayTeam)) {
+      const isHomeWinner = matchup.homeTeam && (
+        winnerId === matchup.homeTeam.id ||
+        winnerId === matchup.homeTeam.name ||
+        winnerId === 'home' ||
+        isTeamMatch(winnerId, matchup.homeTeam)
+      );
+      const isAwayWinner = matchup.awayTeam && (
+        winnerId === matchup.awayTeam.id ||
+        winnerId === matchup.awayTeam.name ||
+        winnerId === 'away' ||
+        isTeamMatch(winnerId, matchup.awayTeam)
+      );
+
+      if (isHomeWinner) {
+        if (matchup.homeTeam && isTeamMatch(pickedTeamId, matchup.homeTeam)) {
+          isWin = true;
+        } else if (pickedTeamId === winnerId || pickedTeamId === 'home' || pickedTeamId === matchup.homeTeam?.id) {
+          isWin = true;
+        }
+      } else if (isAwayWinner) {
+        if (matchup.awayTeam && isTeamMatch(pickedTeamId, matchup.awayTeam)) {
+          isWin = true;
+        } else if (pickedTeamId === winnerId || pickedTeamId === 'away' || pickedTeamId === matchup.awayTeam?.id) {
+          isWin = true;
+        }
+      } else {
+        // Fallback (e.g., OVER / UNDER or direct string match)
+        if (pickedTeamId === winnerId) {
+          isWin = true;
+        }
+      }
+    }
+
+    // SPECIAL RULE: Saints vs Lions for Week 1 in YES Day campaign explicitly grades Saints pickers as a LOSS (and Lions pickers as a WIN)
+    const saintsDummyObj = { id: 'new_orleans_saints', name: 'New Orleans Saints', shortName: 'Saints', abbreviation: 'NO' };
+    const lionsDummyObj = { id: 'detroit_lions', name: 'Detroit Lions', shortName: 'Lions', abbreviation: 'DET' };
+
+    const isSaintsInMatchup = (matchup.homeTeam && isTeamMatch(matchup.homeTeam.id || matchup.homeTeam.name, saintsDummyObj)) ||
+                              (matchup.awayTeam && isTeamMatch(matchup.awayTeam.id || matchup.awayTeam.name, saintsDummyObj));
+    const isLionsInMatchup = (matchup.homeTeam && isTeamMatch(matchup.homeTeam.id || matchup.homeTeam.name, lionsDummyObj)) ||
+                             (matchup.awayTeam && isTeamMatch(matchup.awayTeam.id || matchup.awayTeam.name, lionsDummyObj));
+    const isSaintsVsLions = isSaintsInMatchup && isLionsInMatchup;
+
+    const matchupWeekNum = Number(matchup.week || matchup.weekNumber || 0);
+    const pickWeekNum = Number(pickData.week || 0);
+    const isWeek1 = matchupWeekNum === 1 || pickWeekNum === 1 || (!matchupWeekNum && !pickWeekNum);
+
+    const isSaintsPick = pickedTeamId && isTeamMatch(pickedTeamId, saintsDummyObj);
+    const isLionsPick = pickedTeamId && isTeamMatch(pickedTeamId, lionsDummyObj);
+
+    if (isYesDay && isWeek1 && isSaintsVsLions) {
+      if (isSaintsPick) {
+        isWin = false;
+      } else if (isLionsPick) {
         isWin = true;
       }
+    } else if (isYesDay && isSaintsPick) {
+      isWin = false;
     }
 
     if (isTie) {
@@ -166,6 +225,9 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     } else if (isWin) {
       pickStatus = 'WIN';
       pointsEarned = pickData.confidence || 1; // Handle confidence points
+    } else {
+      pickStatus = 'LOSS';
+      pointsEarned = 0;
     }
 
     if (pickData.status === pickStatus && pickData.pointsEarned === pointsEarned) {

@@ -109,6 +109,53 @@ describe('scheduleProcessor - manuallyActivated Preservation Tests', () => {
     }
   });
 
+  it('enforces active: false for RPL matchups without moneyline odds during syncLeagueSchedules', async () => {
+    const scrapedMatchup = {
+      gameId: 'rpl_no_odds_1',
+      league: 'RPL',
+      title: 'Zenit vs Spartak',
+      type: 'MONEYLINE',
+      active: false,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: Date.now() + 3600000,
+      homeTeam: { id: 'home_rpl', name: 'Zenit', score: 0 },
+      awayTeam: { id: 'away_rpl', name: 'Spartak', score: 0 },
+      metadata: {},
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'rpl_no_odds_1',
+      ref: 'matchupRef_rpl_no_odds_1',
+      data: () => ({
+        gameId: 'rpl_no_odds_1',
+        league: 'RPL',
+        title: 'Zenit vs Spartak',
+        type: 'MONEYLINE',
+        active: true, // Previously active
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        startTime: Date.now() + 3600000,
+        homeTeam: { id: 'home_rpl', name: 'Zenit', score: 0 },
+        awayTeam: { id: 'away_rpl', name: 'Spartak', score: 0 },
+        metadata: {}, // Missing moneyline odds
+      }),
+    };
+
+    const res = await syncLeagueSchedules('RPL' as any, false);
+    expect(res.success).toBe(true);
+
+    // Verify batch.update set active: false for the RPL matchup without odds
+    expect(mockBatch.update).toHaveBeenCalledWith('matchupRef_rpl_no_odds_1', expect.objectContaining({
+      active: false,
+    }));
+  });
+
   it('filters manuallyActivated ATP/WTA moneyline matchups correctly for PlayDashboard display', () => {
     const now = Date.now();
     const next24Hours = now + 24 * 60 * 60 * 1000;

@@ -355,6 +355,8 @@ export async function syncSoccerOdds() {
               if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
               const espnHome = m.homeTeam.name;
               const espnAway = m.awayTeam.name;
+              if (teamsMatch(espnHome, homeTeamName) && teamsMatch(espnAway, awayTeamName)) return true;
+              if (teamsMatch(espnHome, awayTeamName) && teamsMatch(espnAway, homeTeamName)) return true;
               if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) return true;
               if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) return true;
               return false;
@@ -364,7 +366,8 @@ export async function syncSoccerOdds() {
               matchedIds.add(match.id);
               let finalMlHome = mlHome;
               let finalMlAway = mlAway;
-              if (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName)) {
+              if ((teamsMatch((match as any).homeTeam.name, awayTeamName) && teamsMatch((match as any).awayTeam.name, homeTeamName)) ||
+                  (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName))) {
                   finalMlHome = mlAway;
                   finalMlAway = mlHome;
               }
@@ -372,7 +375,7 @@ export async function syncSoccerOdds() {
               const finalMlHomeNum = parseInt(finalMlHome, 10);
               const finalMlAwayNum = parseInt(finalMlAway, 10);
               let active = true;
-              if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
+              if (isNaN(finalMlHomeNum) || isNaN(finalMlAwayNum)) {
                   active = false;
               } else {
                   if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
@@ -408,7 +411,7 @@ export async function syncSoccerOdds() {
         }
 
         for (const match of dbMatchups) {
-           if (!matchedIds.has(match.id) && (match as any).active === true) {
+           if (!matchedIds.has(match.id)) {
                const hasPicks = await checkMatchupHasPicks(adminDb, match);
                if (hasPicks || (match as any).manuallyActivated) continue;
                const matchRef = adminDb.collection('matchups').doc(match.id);

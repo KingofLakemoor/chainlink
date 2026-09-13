@@ -2,6 +2,7 @@ import { adminDb } from '../lib/firebase-admin.js';
 import { logServerError } from '../lib/serverErrorLogger.js';
 import { syncLeagueSchedules } from './scheduleProcessor.js';
 import { updateAllProps } from './propGrader.js';
+import { syncTennisOdds, syncSoccerOdds } from './oddsProcessor.js';
 import { gradeGridironWeek, updateGridironLeaderboard } from './gridironGrader.js';
 import { getCurrentFootballWeek } from './gridironIngestion.js';
 
@@ -101,6 +102,13 @@ export function startAutoSyncJob() {
           } catch(e) {}
       }
       
+      // Run pre-sync odds run for 3rd party leagues (Soccer & Tennis)
+      try {
+        await Promise.all([syncSoccerOdds(), syncTennisOdds()]);
+      } catch (e: any) {
+        console.error('[AutoSync] Error during pre-sync odds run:', e?.message || e);
+      }
+
       const activeLeagues = Array.from(activeLeaguesSet);
       
       for (let league of activeLeagues) {
@@ -126,6 +134,14 @@ export function startAutoSyncJob() {
            }
         }
       }
+
+      // Run post-sync odds run to immediately populate odds for newly scraped matches
+      try {
+        await Promise.all([syncSoccerOdds(), syncTennisOdds()]);
+      } catch (e: any) {
+        console.error('[AutoSync] Error during post-sync odds run:', e?.message || e);
+      }
+
       // Automatically grade Gridiron 3x3 active week games in background (skipping if week is already finalized)
       try {
         const { season, weekNumber } = getCurrentFootballWeek();

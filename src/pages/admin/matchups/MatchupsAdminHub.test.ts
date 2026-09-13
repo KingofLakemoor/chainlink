@@ -36,6 +36,20 @@ export function handleTypeChangeHelper(prevData: any, newType: string): any {
   return newData;
 }
 
+export function toggleFeaturedHelper(matchup: any, newFeatured: boolean, newType?: string): any {
+  if (!newFeatured) {
+    return { ...matchup, featured: false, featuredType: '' };
+  }
+  const featuredType = newType || matchup.featuredType || 'Featured';
+  return { ...matchup, featured: true, featuredType };
+}
+
+export function filterFeaturedMatchups(matchups: any[], featuredFilter: string): any[] {
+  if (featuredFilter === 'All') return matchups;
+  const isFeatured = featuredFilter === 'FEATURED';
+  return matchups.filter(m => !!m.featured === isFeatured);
+}
+
 describe('Matchups Admin Hub & Matchup Title Logic', () => {
   it('appends - ATS to College Football (CFB) spread matchups on the gameboard when missing from title', () => {
     const cfbMatchup = {
@@ -129,5 +143,47 @@ describe('Matchups Admin Hub & Matchup Title Logic', () => {
     expect(updated.type).toBe('SOCCER_SCORE');
     expect(updated.title).toBe('Arsenal @ Chelsea');
     expect(updated.hasCustomTitle).toBe(true);
+  });
+
+  describe('Featured Matchup Status & Sponsor Helpers', () => {
+    it('enables featured status and defaults featuredType to Featured if unspecified', () => {
+      const matchup = { id: 'm1', title: 'Lakers vs Celtics', featured: false, featuredType: '' };
+      const updated = toggleFeaturedHelper(matchup, true);
+      expect(updated.featured).toBe(true);
+      expect(updated.featuredType).toBe('Featured');
+    });
+
+    it('sets specific featuredType (e.g. sponsor ID or ChainBuilder)', () => {
+      const matchup = { id: 'm2', title: 'Yankees vs Red Sox', featured: true, featuredType: 'Featured' };
+      const updatedChain = toggleFeaturedHelper(matchup, true, 'ChainBuilder');
+      expect(updatedChain.featuredType).toBe('ChainBuilder');
+
+      const updatedSponsor = toggleFeaturedHelper(matchup, true, 'sponsor_123');
+      expect(updatedSponsor.featuredType).toBe('sponsor_123');
+    });
+
+    it('resets featuredType when unchecking featured', () => {
+      const matchup = { id: 'm3', title: 'Chiefs vs Eagles', featured: true, featuredType: 'ScriptLess' };
+      const updated = toggleFeaturedHelper(matchup, false);
+      expect(updated.featured).toBe(false);
+      expect(updated.featuredType).toBe('');
+    });
+
+    it('filters matchups correctly based on featured state', () => {
+      const list = [
+        { id: '1', featured: true, featuredType: 'ChainBuilder' },
+        { id: '2', featured: false, featuredType: '' },
+        { id: '3', featured: true, featuredType: 'sponsor_456' },
+      ];
+
+      expect(filterFeaturedMatchups(list, 'All')).toHaveLength(3);
+      expect(filterFeaturedMatchups(list, 'FEATURED')).toEqual([
+        { id: '1', featured: true, featuredType: 'ChainBuilder' },
+        { id: '3', featured: true, featuredType: 'sponsor_456' },
+      ]);
+      expect(filterFeaturedMatchups(list, 'NOT_FEATURED')).toEqual([
+        { id: '2', featured: false, featuredType: '' },
+      ]);
+    });
   });
 });

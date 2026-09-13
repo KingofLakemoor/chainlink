@@ -32,6 +32,7 @@ export default function MatchupsAdminHub() {
   const [leagueFilter, setLeagueFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
+  const [featuredFilter, setFeaturedFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Metrics State
@@ -96,6 +97,12 @@ export default function MatchupsAdminHub() {
             }
           })
         );
+      }
+
+      // Fetch active sponsors
+      const sponsorsSnap = await getDocs(query(collection(db, 'sponsors'), where('active', '==', true)));
+      if (!sponsorsSnap.empty) {
+        setSponsors(sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       }
 
       const docsData = snap.docs.map(d => ({ id: d.id, ...(d.data() as any), pickCount: pickCounts[d.id] || 0 }));
@@ -279,6 +286,36 @@ export default function MatchupsAdminHub() {
     }
   };
 
+  const handleToggleFeatured = async (id: string, currentFeatured: boolean, currentType?: string) => {
+    try {
+      const newFeatured = !currentFeatured;
+      const featuredType = newFeatured ? (currentType || 'Featured') : '';
+      await updateDoc(doc(db, 'matchups', id), {
+        featured: newFeatured,
+        featuredType,
+        updatedAt: Date.now()
+      });
+      setMatchups(prev => prev.map(m => m.id === id ? { ...m, featured: newFeatured, featuredType } : m));
+    } catch (e) {
+      console.error("Error toggling featured status", e);
+      alert("Failed to toggle featured status");
+    }
+  };
+
+  const handleUpdateFeaturedType = async (id: string, newType: string) => {
+    try {
+      await updateDoc(doc(db, 'matchups', id), {
+        featured: true,
+        featuredType: newType,
+        updatedAt: Date.now()
+      });
+      setMatchups(prev => prev.map(m => m.id === id ? { ...m, featured: true, featuredType: newType } : m));
+    } catch (e) {
+      console.error("Error updating featured type", e);
+      alert("Failed to update featured type");
+    }
+  };
+
   // Edit Matchup Form Handlers
   const handleEditChange = (field: string, value: any) => {
     setEditMatchupData((prev: any) => {
@@ -411,6 +448,10 @@ export default function MatchupsAdminHub() {
     if (activeFilter !== 'All') {
       const isActive = activeFilter === 'ACTIVE';
       if (row.active !== isActive) return false;
+    }
+    if (featuredFilter !== 'All') {
+      const isFeatured = featuredFilter === 'FEATURED';
+      if (!!row.featured !== isFeatured) return false;
     }
     if (searchQuery) {
       const queryStr = searchQuery.toLowerCase();
@@ -582,6 +623,15 @@ export default function MatchupsAdminHub() {
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
+              <select
+                value={featuredFilter}
+                onChange={(e) => setFeaturedFilter(e.target.value)}
+                className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-700 text-zinc-300"
+              >
+                <option value="All">All Featured States</option>
+                <option value="FEATURED">Featured Only</option>
+                <option value="NOT_FEATURED">Not Featured</option>
+              </select>
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-500" />
                 <input
@@ -611,6 +661,7 @@ export default function MatchupsAdminHub() {
                     <th className="px-4 py-3 font-medium">ML</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Active</th>
+                    <th className="px-4 py-3 font-medium">Featured</th>
                     <th className="px-4 py-3 font-medium">Link4</th>
                     <th className="px-4 py-3 font-medium">Start Time</th>
                     <th className="px-4 py-3 font-medium">Picks</th>
@@ -636,6 +687,31 @@ export default function MatchupsAdminHub() {
                         >
                           {row.active ? 'ACTIVE' : 'INACTIVE'}
                         </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleFeatured(row.id, !!row.featured, row.featuredType)}
+                            className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider transition-colors ${row.featured ? 'bg-amber-500/20 text-amber-400 hover:bg-zinc-800 hover:text-zinc-400' : 'bg-zinc-800 text-zinc-400 hover:bg-amber-500/20 hover:text-amber-400'}`}
+                            title={row.featured ? "Unmark Featured" : "Mark Featured"}
+                          >
+                            {row.featured ? 'FEATURED' : 'OFF'}
+                          </button>
+                          {row.featured && (
+                            <select
+                              value={row.featuredType || 'Featured'}
+                              onChange={(e) => handleUpdateFeaturedType(row.id, e.target.value)}
+                              className="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-[10px] text-zinc-300 focus:outline-none"
+                            >
+                              <option value="Featured">Featured</option>
+                              <option value="ChainBuilder">ChainBuilder</option>
+                              <option value="ScriptLess">ScriptLess</option>
+                              {sponsors.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -1001,15 +1077,41 @@ export default function MatchupsAdminHub() {
                 </div>
 
                 {/* Toggles */}
-                <div className="flex gap-6 border-t border-zinc-800/80 pt-4">
+                <div className="flex flex-wrap items-center gap-6 border-t border-zinc-800/80 pt-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={editMatchupData.active || false} onChange={(e) => handleEditChange('active', e.target.checked)} className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-green-500 focus:ring-green-500/20" />
                     <span className="text-sm font-medium text-zinc-300">Active</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={editMatchupData.featured || false} onChange={(e) => handleEditChange('featured', e.target.checked)} className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-green-500 focus:ring-green-500/20" />
-                    <span className="text-sm font-medium text-zinc-300">Featured</span>
-                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editMatchupData.featured || false}
+                        onChange={(e) => {
+                          handleEditChange('featured', e.target.checked);
+                          if (e.target.checked && !editMatchupData.featuredType) {
+                            handleEditChange('featuredType', 'Featured');
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-green-500 focus:ring-green-500/20"
+                      />
+                      <span className="text-sm font-medium text-zinc-300">Featured</span>
+                    </label>
+                    {editMatchupData.featured && (
+                      <select
+                        value={editMatchupData.featuredType || 'Featured'}
+                        onChange={(e) => handleEditChange('featuredType', e.target.value)}
+                        className="bg-[#18181A] border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+                      >
+                        <option value="Featured">Featured</option>
+                        <option value="ChainBuilder">ChainBuilder</option>
+                        <option value="ScriptLess">ScriptLess</option>
+                        {sponsors.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
 
                 {/* In Progress Actions */}

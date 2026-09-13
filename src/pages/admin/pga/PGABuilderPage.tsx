@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Flag, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
 
@@ -52,6 +52,23 @@ export default function PGABuilderPage() {
     homeTeamId: '',
     awayTeamId: '',
   });
+  const [sponsors, setSponsors] = useState<any[]>([]);
+  const [featured, setFeatured] = useState(false);
+  const [featuredType, setFeaturedType] = useState('Featured');
+
+  useEffect(() => {
+    const fetchSponsors = async () => {
+      try {
+        const sponsorsSnap = await getDocs(query(collection(db, 'sponsors'), where('active', '==', true)));
+        if (!sponsorsSnap.empty) {
+          setSponsors(sponsorsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }
+      } catch (e) {
+        console.error("Error fetching sponsors for PGA builder", e);
+      }
+    };
+    fetchSponsors();
+  }, []);
 
   useEffect(() => {
     if (formData.awayTeamId && formData.homeTeamId) {
@@ -131,8 +148,8 @@ export default function PGABuilderPage() {
         startTime: finalStartTime,
         active: true,
         manuallyActivated: true,
-        featured: false,
-        featuredType: '',
+        featured,
+        featuredType: featured ? (featuredType || 'Featured') : '',
         status: 'STATUS_SCHEDULED',
         gameId: `pga_builder_${Date.now()}_${awayGolfer.id}_${homeGolfer.id}`,
         hasCustomTitle: true,
@@ -288,6 +305,35 @@ export default function PGABuilderPage() {
               onChange={e => setFormData({ ...formData, startTime: e.target.value })}
             />
             <p className="text-xs text-zinc-500 mt-1">If left blank, will attempt to use the earliest tee time between the two golfers.</p>
+          </div>
+
+          <div className="col-span-2 flex items-center gap-4 pt-2 border-t border-zinc-800">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => {
+                  setFeatured(e.target.checked);
+                  if (e.target.checked && !featuredType) setFeaturedType('Featured');
+                }}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-green-500 focus:ring-green-500/20"
+              />
+              <span className="text-sm font-medium text-zinc-300">Featured</span>
+            </label>
+            {featured && (
+              <select
+                value={featuredType}
+                onChange={(e) => setFeaturedType(e.target.value)}
+                className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-green-500"
+              >
+                <option value="Featured">Featured</option>
+                <option value="ChainBuilder">ChainBuilder</option>
+                <option value="ScriptLess">ScriptLess</option>
+                {sponsors.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

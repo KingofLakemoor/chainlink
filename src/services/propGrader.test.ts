@@ -318,7 +318,7 @@ describe('Solo Over/Under Prop Grading Tests', () => {
     );
   });
 
-  it('pickemGrader: Saints pickers for YES Day campaign specifically are graded as a loss', async () => {
+  it('pickemGrader: Saints pickers for YES Day campaign specifically are graded as a loss (Saints vs Lions Week 1)', async () => {
     const updateSpy = vi.fn();
     const batchSpy = {
       update: updateSpy,
@@ -327,27 +327,32 @@ describe('Solo Over/Under Prop Grading Tests', () => {
     mockAdminDb.batch = vi.fn(() => batchSpy);
 
     mockPendingPicks = [
-      { id: 'p1', participantId: 'user1', campaignId: 'yes_day_2026', matchupId: 'saints_yes_day', pick: { teamId: 'new_orleans_saints' }, status: 'PENDING', confidence: 5 },
-      { id: 'p2', participantId: 'user2', campaignId: 'yes_day_2026', matchupId: 'saints_yes_day', pick: { teamId: 'falcons' }, status: 'PENDING', confidence: 2 }
+      { id: 'p1', participantId: 'user1', campaignId: 'yes_day_2026', week: 1, matchupId: 'saints_lions_week1', pick: { teamId: 'new_orleans_saints' }, status: 'PENDING', confidence: 5 },
+      { id: 'p2', participantId: 'user2', campaignId: 'yes_day_2026', week: 1, matchupId: 'saints_lions_week1', pick: { teamId: 'detroit_lions' }, status: 'PENDING', confidence: 4 }
     ];
 
     const matchup = {
-      id: 'saints_yes_day',
+      id: 'saints_lions_week1',
       campaignName: 'YES Day Walk for Autism 2026',
+      week: 1,
       status: 'STATUS_FINAL',
       type: 'STANDARD',
       manualWinnerId: 'new_orleans_saints', // Even if Saints are forced as winner
       awayTeam: { id: 'new_orleans_saints', name: 'New Orleans Saints', score: 30 },
-      homeTeam: { id: 'falcons', name: 'Atlanta Falcons', score: 20 },
+      homeTeam: { id: 'detroit_lions', name: 'Detroit Lions', score: 20 },
       metadata: {}
     };
 
     await gradeSinglePickemMatchup(matchup);
 
-    // Saints pickers for YES Day campaign MUST be graded as a loss
+    // Saints pickers for YES Day campaign Week 1 explicitly graded as a LOSS, Lions pickers as a WIN
     expect(updateSpy).toHaveBeenCalledWith(
       'ref_p1',
       expect.objectContaining({ status: 'LOSS', pointsEarned: 0 })
+    );
+    expect(updateSpy).toHaveBeenCalledWith(
+      'ref_p2',
+      expect.objectContaining({ status: 'WIN', pointsEarned: 4 })
     );
   });
 });

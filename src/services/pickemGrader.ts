@@ -192,11 +192,30 @@ export async function gradeSinglePickemMatchup(matchup: any) {
       }
     }
 
-    // SPECIAL RULE: Saints pickers for YES Day campaign specifically must be graded as a loss
+    // SPECIAL RULE: Saints vs Lions for Week 1 in YES Day campaign explicitly grades Saints pickers as a LOSS (and Lions pickers as a WIN)
     const saintsDummyObj = { id: 'new_orleans_saints', name: 'New Orleans Saints', shortName: 'Saints', abbreviation: 'NO' };
-    const isSaintsPick = pickedTeamId && isTeamMatch(pickedTeamId, saintsDummyObj);
+    const lionsDummyObj = { id: 'detroit_lions', name: 'Detroit Lions', shortName: 'Lions', abbreviation: 'DET' };
 
-    if (isYesDay && isSaintsPick) {
+    const isSaintsInMatchup = (matchup.homeTeam && isTeamMatch(matchup.homeTeam.id || matchup.homeTeam.name, saintsDummyObj)) ||
+                              (matchup.awayTeam && isTeamMatch(matchup.awayTeam.id || matchup.awayTeam.name, saintsDummyObj));
+    const isLionsInMatchup = (matchup.homeTeam && isTeamMatch(matchup.homeTeam.id || matchup.homeTeam.name, lionsDummyObj)) ||
+                             (matchup.awayTeam && isTeamMatch(matchup.awayTeam.id || matchup.awayTeam.name, lionsDummyObj));
+    const isSaintsVsLions = isSaintsInMatchup && isLionsInMatchup;
+
+    const matchupWeekNum = Number(matchup.week || matchup.weekNumber || 0);
+    const pickWeekNum = Number(pickData.week || 0);
+    const isWeek1 = matchupWeekNum === 1 || pickWeekNum === 1 || (!matchupWeekNum && !pickWeekNum);
+
+    const isSaintsPick = pickedTeamId && isTeamMatch(pickedTeamId, saintsDummyObj);
+    const isLionsPick = pickedTeamId && isTeamMatch(pickedTeamId, lionsDummyObj);
+
+    if (isYesDay && isWeek1 && isSaintsVsLions) {
+      if (isSaintsPick) {
+        isWin = false;
+      } else if (isLionsPick) {
+        isWin = true;
+      }
+    } else if (isYesDay && isSaintsPick) {
       isWin = false;
     }
 

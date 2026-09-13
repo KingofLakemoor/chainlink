@@ -1625,8 +1625,9 @@ apiRouter.post("/admin/grade-pickem-matchup", validateAdmin, async (req, res) =>
     if (manualWinnerId !== undefined) {
       if (manualWinnerId === null || manualWinnerId === 'CLEAR') {
         delete matchup.manualWinnerId;
+        const { FieldValue } = await import('firebase-admin/firestore');
         await adminDb.collection('pickemMatchups').doc(matchupId).update({
-          manualWinnerId: firebaseAdmin.admin.firestore.FieldValue.delete()
+          manualWinnerId: FieldValue.delete()
         });
       } else {
         matchup.manualWinnerId = manualWinnerId;

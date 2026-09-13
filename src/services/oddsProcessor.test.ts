@@ -16,11 +16,152 @@ describe('OddsProcessor Optimization Tests', () => {
   beforeEach(() => {
     delete process.env.ODDS_API_KEY;
     delete process.env.THE_ODDS_API_KEY;
+    delete process.env.SHARP_API_KEY;
     mockAdminDb = {
       collection: vi.fn(),
       batch: vi.fn(),
     };
     setAdminDbMock(mockAdminDb);
+  });
+
+  it('syncTennisOdds matches games using SHARP_API_KEY when Odds API is unconfigured', async () => {
+    process.env.SHARP_API_KEY = 'test-sharp-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockMatchupDoc = {
+      id: 'matchSharp1',
+      data: () => ({
+        gameId: 'gameSharp123',
+        league: 'ATP',
+        active: false,
+        abandoned: true,
+        homeTeam: { name: 'Jannik Sinner' },
+        awayTeam: { name: 'Carlos Alcaraz' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'matchSharpRef' };
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any, opts: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('api.sharpapi.io/api/v1/odds?league=atp')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                home_team: 'Jannik Sinner',
+                away_team: 'Carlos Alcaraz',
+                markets: [
+                  {
+                    market_type: 'moneyline',
+                    lines: [
+                      { is_home: true, team_name: 'Jannik Sinner', odds: '-140' },
+                      { is_home: false, team_name: 'Carlos Alcaraz', odds: '+115' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        } as any;
+      }
+      return { ok: true, json: async () => [] } as any;
+    });
+
+    const res = await syncTennisOdds();
+    expect(res).toEqual({ success: true, updatedCount: 1 });
+    expect(mockBatch.update).toHaveBeenCalledWith('matchSharpRef', {
+      'metadata.mlHome': -140,
+      'metadata.mlAway': 115,
+      active: true,
+      abandoned: false,
+      updatedAt: expect.any(Number),
+    });
+  });
+
+  it('syncSoccerOdds matches games using SHARP_API_KEY when Odds API is unconfigured', async () => {
+    process.env.SHARP_API_KEY = 'test-sharp-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockMatchupDoc = {
+      id: 'soccerSharp1',
+      data: () => ({
+        gameId: 'gameSoccerSharp123',
+        league: 'RPL',
+        active: false,
+        abandoned: true,
+        homeTeam: { name: 'Zenit St Petersburg' },
+        awayTeam: { name: 'Spartak Moscow' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return {
+        where: () => ({
+          where: () => ({
+            get: async () => ({ empty: false, docs: [mockMatchupDoc] })
+          })
+        }),
+        doc: () => 'soccerSharpRef'
+      };
+      if (collName === 'picks' || collName === 'pickemPicks') {
+        return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
+      }
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any, opts: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('api.sharpapi.io/api/v1/odds?league=rpl')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                home_team: 'Zenit St Petersburg',
+                away_team: 'Spartak Moscow',
+                markets: [
+                  {
+                    market_type: 'moneyline',
+                    lines: [
+                      { is_home: true, odds: '-130' },
+                      { is_home: false, odds: '+105' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        } as any;
+      }
+      return { ok: true, json: async () => [] } as any;
+    });
+
+    const res = await syncSoccerOdds();
+    expect(res).toEqual({ success: true, updated: 1 });
+    expect(mockBatch.update).toHaveBeenCalledWith('soccerSharpRef', {
+      'metadata.mlHome': -130,
+      'metadata.mlAway': 105,
+      active: true,
+      abandoned: false,
+      updatedAt: expect.any(Number),
+    });
   });
 
   it('syncTennisOdds skips if ODDS_API_KEY and THE_ODDS_API_KEY are missing', async () => {

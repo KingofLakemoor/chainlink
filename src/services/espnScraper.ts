@@ -480,7 +480,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                       } else {
                           finalStatus = "STATUS_DELAYED";
                       }
-                  } else if (MATCHUP_FINAL_STATUSES.includes(rawStatus) || (comp.status?.type?.completed === true && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus)) || (descLower.includes('final') && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus))) {
+                  } else if (MATCHUP_FINAL_STATUSES.includes(rawStatus) || comp.status?.type?.completed === true || descLower.includes('final') || detailLower.includes('final')) {
                       finalStatus = "STATUS_FINAL";
                   } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || compState === 'in' || (rawStatus === 'STATUS_SCHEDULED' && (hasLinescores || (compState !== 'pre' && comp.status?.period && comp.status?.period > 0))) || (rawStatus === "STATUS_SCHEDULED" && startTime > 0 && Date.now() >= startTime)) {
                       finalStatus = "STATUS_IN_PROGRESS";
@@ -688,7 +688,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                     } else {
                         finalStatus = "STATUS_DELAYED";
                     }
-                } else if (MATCHUP_FINAL_STATUSES.includes(rawStatus) || (competition.status?.type?.completed === true && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus)) || (descLower.includes('final') && !MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus))) {
+                } else if (MATCHUP_FINAL_STATUSES.includes(rawStatus) || competition.status?.type?.completed === true || descLower.includes('final') || detailLower.includes('final')) {
               finalStatus = "STATUS_FINAL";
           } else if (MATCHUP_IN_PROGRESS_STATUSES.includes(rawStatus) || competition.status?.type?.state === 'in' || (rawStatus === "STATUS_SCHEDULED" && (homeScore > 0 || awayScore > 0 || hasLinescores || (competition.status?.type?.state !== 'pre' && competition.status?.period && competition.status?.period > 0))) || (rawStatus === "STATUS_SCHEDULED" && gameTime && Date.now() >= gameTime)) {
               finalStatus = "STATUS_IN_PROGRESS";

@@ -521,4 +521,136 @@ describe('OddsProcessor Optimization Tests', () => {
     expect(res).toEqual({ success: false, error: 'Could not fetch odds for any tennis sport' });
     expect(mockBatch.update).not.toHaveBeenCalled();
   });
+
+  it('syncSoccerOdds matches RPL games, populates odds, and checks threshold', async () => {
+    process.env.THE_ODDS_API_KEY = 'test-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockRplDoc = {
+      id: 'rpl1',
+      data: () => ({
+        gameId: 'rpl123',
+        league: 'RPL',
+        active: false,
+        abandoned: false,
+        homeTeam: { name: 'Zenit St Petersburg' },
+        awayTeam: { name: 'Spartak Moscow' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return {
+        where: () => ({
+          where: () => ({
+            get: async () => ({ empty: false, docs: [mockRplDoc] })
+          })
+        }),
+        doc: () => 'rpl1Ref'
+      };
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('soccer_russia_premier_league')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              home_team: 'Zenit St Petersburg',
+              away_team: 'Spartak Moscow',
+              bookmakers: [
+                {
+                  key: 'draftkings',
+                  markets: [
+                    {
+                      key: 'h2h',
+                      outcomes: [
+                        { name: 'Zenit St Petersburg', price: -150 },
+                        { name: 'Spartak Moscow', price: 220 },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as any;
+      }
+      return { ok: false, text: async () => 'error' } as any;
+    });
+
+    const res = await syncSoccerOdds();
+    expect(res).toEqual({ success: true, updated: 1 });
+    expect(mockBatch.update).toHaveBeenCalledWith('rpl1Ref', {
+      'metadata.mlHome': -150,
+      'metadata.mlAway': 220,
+      active: true,
+      abandoned: false,
+      updatedAt: expect.any(Number),
+    });
+  });
+
+  it('syncSoccerOdds sets unmatched RPL games to active: false and abandoned: true', async () => {
+    process.env.THE_ODDS_API_KEY = 'test-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockUnmatchedRplDoc = {
+      id: 'rpl_unmatched',
+      data: () => ({
+        gameId: 'rpl456',
+        league: 'RPL',
+        active: true,
+        abandoned: false,
+        homeTeam: { name: 'CSKA Moscow' },
+        awayTeam: { name: 'FC Krasnodar' },
+      }),
+    };
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return {
+        where: () => ({
+          where: () => ({
+            get: async () => ({ empty: false, docs: [mockUnmatchedRplDoc] })
+          })
+        }),
+        doc: () => 'rplUnmatchedRef'
+      };
+      if (collName === 'picks' || collName === 'pickemPicks') {
+        return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
+      }
+      return {};
+    });
+
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('soccer_russia_premier_league')) {
+        return {
+          ok: true,
+          json: async () => [], // No matches returned from Odds API
+        } as any;
+      }
+      return { ok: false, text: async () => 'error' } as any;
+    });
+
+    const res = await syncSoccerOdds();
+    expect(res).toEqual({ success: true, updated: 0 });
+    expect(mockBatch.update).toHaveBeenCalledWith('rplUnmatchedRef', {
+      active: false,
+      abandoned: true,
+      updatedAt: expect.any(Number),
+    });
+  });
 });

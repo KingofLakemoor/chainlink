@@ -521,8 +521,8 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                       isActive = false;
                   }
                   
-                  // Force tennis to inactive by default, oddsProcessor will activate them if valid odds exist
-                  if (league === 'ATP' || league === 'WTA' || league === 'RPL' || league === 'TUR') {
+                  // Force tennis & 3rd-party soccer leagues to inactive by default, oddsProcessor will activate them if valid odds exist
+                  if (['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX'].includes(league)) {
                       isActive = false;
                   } else {
                       let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);

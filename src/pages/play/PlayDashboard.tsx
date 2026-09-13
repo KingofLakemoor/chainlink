@@ -237,7 +237,7 @@ export default function PlayDashboard() {
       
       if (filterType === 'available' && (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime))) return false;
 
-      if (m.type === 'MONEYLINE' && !m.manuallyActivated && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null) && (m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
+      if (m.type === 'MONEYLINE' && !m.manuallyActivated && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null || m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
           return false;
       }
       

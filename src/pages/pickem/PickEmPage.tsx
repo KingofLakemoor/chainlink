@@ -11,7 +11,7 @@ import { Button } from '../../components/ui/button';
 import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
-export const getCampaignIds = (campaign: any): string[] => {
+export const getCampaignIds = (campaign: any, allCampaigns: any[] = []): string[] => {
   if (!campaign) return [];
   const ids = new Set<string>();
   if (campaign.id) ids.add(campaign.id);
@@ -19,6 +19,13 @@ export const getCampaignIds = (campaign: any): string[] => {
   if (isYesDay) {
     ids.add('yes_day_2026');
     ids.add('charity');
+    if (allCampaigns && allCampaigns.length > 0) {
+      allCampaigns.forEach((c: any) => {
+        if (c.isCharity || c.name === 'YES Day Walk for Autism 2026' || c.id === 'charity' || c.id === 'yes_day_2026') {
+          if (c.id) ids.add(c.id);
+        }
+      });
+    }
   }
   return Array.from(ids);
 };
@@ -165,7 +172,7 @@ export default function PickEmPage() {
 
         let initialCampaign = camps.length > 0 ? camps[0] : null;
         if (campaignId) {
-          const found = camps.find(c => c.id === campaignId);
+          const found = camps.find(c => c.id === campaignId || getCampaignIds(c, allCamps).includes(campaignId));
           if (found) initialCampaign = found;
         }
 
@@ -193,7 +200,7 @@ export default function PickEmPage() {
       }
 
       try {
-        const campaignIds = getCampaignIds(selectedCampaign);
+        const campaignIds = getCampaignIds(selectedCampaign, campaigns);
         let userIsParticipant = false;
 
         for (const cid of campaignIds) {
@@ -320,7 +327,7 @@ export default function PickEmPage() {
   const fetchMatchupsAndPicks = async (campaignId: string, week: number) => {
     setMatchupsLoading(true);
     try {
-      const campaignIds = selectedCampaign ? getCampaignIds(selectedCampaign) : [campaignId];
+      const campaignIds = selectedCampaign ? getCampaignIds(selectedCampaign, campaigns) : [campaignId];
 
       const mSnaps = await Promise.all(
         campaignIds.map(cid =>
@@ -433,7 +440,7 @@ export default function PickEmPage() {
 
       setLeaderboardLoading(true);
       try {
-        const campaignIds = getCampaignIds(selectedCampaign);
+        const campaignIds = getCampaignIds(selectedCampaign, campaigns);
         const participantStats: Record<string, { wins: number, losses: number, pushes: number, points: number, picks: any[] }> = {};
 
         // Fetch participants across campaign ID aliases

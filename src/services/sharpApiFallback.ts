@@ -13,7 +13,7 @@ export function clearSharpApiCache() {
 }
 
 async function getSharpApiSlate(leagueSlug: string): Promise<any[]> {
-  const apiKey = process.env.SHARP_API_KEY || '';
+  const apiKey = (process.env.SHARP_API_KEY || '').trim();
   const now = Date.now();
   if (sharpSlateCache[leagueSlug] && now - sharpSlateCache[leagueSlug].timestamp < CACHE_TTL_MS) {
     return sharpSlateCache[leagueSlug].data;
@@ -44,7 +44,7 @@ export async function matchAndFetchSharpApiFallback(
   espnSportKey: string
 ): Promise<NormalizedOdds | null> {
   const leagueSlug = ESPN_TO_SHARP_API_LEAGUE[espnSportKey.toLowerCase()];
-  const apiKey = process.env.SHARP_API_KEY || '';
+  const apiKey = (process.env.SHARP_API_KEY || '').trim();
   if (!leagueSlug || !apiKey) return null;
 
   const competition = espnGame.competitions?.[0] || espnGame;

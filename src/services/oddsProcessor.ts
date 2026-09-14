@@ -75,8 +75,8 @@ export async function syncTennisOdds() {
     return { success: false, error: 'No admin db' };
   }
 
-  const oddsApiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY;
-  const sharpApiKey = process.env.SHARP_API_KEY;
+  const oddsApiKey = (process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '').trim();
+  const sharpApiKey = (process.env.SHARP_API_KEY || '').trim();
 
   if (!oddsApiKey && !sharpApiKey) {
     console.log("[OddsProcessor] ODDS_API_KEY is not set. Skipping tennis odds sync.");
@@ -122,7 +122,10 @@ export async function syncTennisOdds() {
 
         for (const sport of tennisSports) {
            const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${oddsApiKey}&regions=us&markets=h2h&oddsFormat=american`);
-           if (!oddsRes.ok) continue;
+           if (!oddsRes.ok) {
+             console.warn(`[OddsProcessor] The-Odds-API returned HTTP ${oddsRes.status} for tennis sport ${sport}`);
+             continue;
+           }
            fetchedAnyOddsSuccessfully = true;
            const oddsData: any = await oddsRes.json();
 
@@ -192,6 +195,8 @@ export async function syncTennisOdds() {
              }
            }
         }
+      } else {
+        console.warn(`[OddsProcessor] The-Odds-API sports list returned HTTP ${sportsRes.status}`);
       }
     }
 
@@ -202,7 +207,10 @@ export async function syncTennisOdds() {
           const res = await fetch(`https://api.sharpapi.io/api/v1/odds?league=${leagueSlug}`, {
             headers: { 'X-API-Key': sharpApiKey }
           });
-          if (!res.ok) continue;
+          if (!res.ok) {
+            console.warn(`[OddsProcessor] SharpAPI returned HTTP ${res.status} for tennis league ${leagueSlug}`);
+            continue;
+          }
           fetchedAnyOddsSuccessfully = true;
           const json: any = await res.json();
           const events = json.data || json || [];
@@ -320,8 +328,8 @@ export async function syncSoccerOdds() {
   const adminDb = getAdminDb();
   if (!adminDb) return { success: false, error: 'No admin db' };
 
-  const oddsApiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY;
-  const sharpApiKey = process.env.SHARP_API_KEY;
+  const oddsApiKey = (process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '').trim();
+  const sharpApiKey = (process.env.SHARP_API_KEY || '').trim();
 
   if (!oddsApiKey && !sharpApiKey) {
     return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
@@ -372,7 +380,9 @@ export async function syncSoccerOdds() {
         if (oddsApiKey) {
           try {
             const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${oddsApiKey}&regions=us&markets=h2h&oddsFormat=american`);
-            if (oddsRes.ok) {
+            if (!oddsRes.ok) {
+              console.warn(`[OddsProcessor] The-Odds-API returned HTTP ${oddsRes.status} for soccer league ${l.espn}`);
+            } else {
               fetchedAnyOddsForLeague = true;
               const oddsData: any[] = (await oddsRes.json()) as any[];
 
@@ -463,7 +473,9 @@ export async function syncSoccerOdds() {
             const sharpRes = await fetch(`https://api.sharpapi.io/api/v1/odds?league=${l.sharpApi || l.espn.toLowerCase()}`, {
               headers: { 'X-API-Key': sharpApiKey }
             });
-            if (sharpRes.ok) {
+            if (!sharpRes.ok) {
+              console.warn(`[OddsProcessor] SharpAPI returned HTTP ${sharpRes.status} for soccer league ${l.espn}`);
+            } else {
               fetchedAnyOddsForLeague = true;
               const json: any = await sharpRes.json();
               const sharpEvents = json.data || json || [];

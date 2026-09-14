@@ -37,7 +37,7 @@ async function getActiveSports(apiKey: string): Promise<any[]> {
 }
 
 async function getOddsApiSlate(oddsApiSportKey: string): Promise<any[]> {
-  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '';
+  const apiKey = (process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '').trim();
   const now = Date.now();
   if (slateCache[oddsApiSportKey] && now - slateCache[oddsApiSportKey].timestamp < CACHE_TTL_MS) {
     return slateCache[oddsApiSportKey].data;
@@ -90,7 +90,7 @@ export async function matchAndFetchOddsApiFallback(
   espnSportKey: string
 ): Promise<NormalizedOdds | null> {
   const oddsApiSportKey = ESPN_TO_ODDS_API_SPORT[espnSportKey.toLowerCase()];
-  const apiKey = process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '';
+  const apiKey = (process.env.THE_ODDS_API_KEY || process.env.ODDS_API_KEY || '').trim();
   if (!oddsApiSportKey || !apiKey) return null;
 
   const competition = espnGame.competitions?.[0] || espnGame;

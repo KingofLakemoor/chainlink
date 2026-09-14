@@ -340,8 +340,7 @@ export default function PickEmPage() {
         campaignIds.map(cid =>
           getDocs(query(
             collection(db, 'pickemMatchups'),
-            where('campaignId', '==', cid),
-            where('week', '==', week)
+            where('campaignId', '==', cid)
           )).catch(() => ({ docs: [] }))
         )
       );
@@ -349,7 +348,10 @@ export default function PickEmPage() {
       const allMatchupsMap = new Map<string, any>();
       mSnaps.forEach(snap => {
         snap.docs.forEach(d => {
-          allMatchupsMap.set(d.id, { id: d.id, ...d.data() });
+          const data = d.data();
+          if (data.week === week) {
+            allMatchupsMap.set(d.id, { id: d.id, ...data });
+          }
         });
       });
 
@@ -361,8 +363,7 @@ export default function PickEmPage() {
             getDocs(query(
               collection(db, 'pickemPicks'),
               where('participantId', '==', user.uid),
-              where('campaignId', '==', cid),
-              where('week', '==', week)
+              where('campaignId', '==', cid)
             )).catch(() => ({ docs: [] }))
           )
         );
@@ -372,8 +373,7 @@ export default function PickEmPage() {
             getDocs(query(
               collection(db, 'pickemPicks'),
               where('userId', '==', user.uid),
-              where('campaignId', '==', cid),
-              where('week', '==', week)
+              where('campaignId', '==', cid)
             )).catch(() => ({ docs: [] }))
           )
         );
@@ -382,7 +382,9 @@ export default function PickEmPage() {
         [...pSnapsPart, ...pSnapsUser].forEach(snap => {
           snap.docs.forEach(d => {
             const data = d.data();
-            picksMap[data.matchupId] = { id: d.id, ...data };
+            if (data.week === week) {
+              picksMap[data.matchupId] = { id: d.id, ...data };
+            }
           });
         });
         setUserPicks(picksMap);
@@ -476,19 +478,15 @@ export default function PickEmPage() {
         // Fetch picks across campaign ID aliases
         const pSnaps = await Promise.all(
           campaignIds.map(cid => {
-            const q = leaderboardView === 'week' && selectedWeek !== undefined
-              ? query(
-                  collection(db, 'pickemPicks'),
-                  where('campaignId', '==', cid),
-                  where('week', '==', selectedWeek),
-                  limit(3000)
-                )
-              : query(
-                  collection(db, 'pickemPicks'),
-                  where('campaignId', '==', cid),
-                  limit(3000)
-                );
-            return getDocs(q).catch(() => ({ docs: [] }));
+            const q = query(
+              collection(db, 'pickemPicks'),
+              where('campaignId', '==', cid),
+              limit(3000)
+            );
+            return getDocs(q).catch((e) => {
+              console.error("Failed fetching picks for leaderboard", e);
+              return { docs: [] };
+            });
           })
         );
 
@@ -549,17 +547,14 @@ export default function PickEmPage() {
         // Fetch campaign matchups across campaign ID aliases
         const allMSnaps = await Promise.all(
           campaignIds.map(cid => {
-            const q = leaderboardView === 'week' && selectedWeek !== undefined
-              ? query(
-                  collection(db, 'pickemMatchups'),
-                  where('campaignId', '==', cid),
-                  where('week', '==', selectedWeek)
-                )
-              : query(
-                  collection(db, 'pickemMatchups'),
-                  where('campaignId', '==', cid)
-                );
-            return getDocs(q).catch(() => ({ docs: [] }));
+            const q = query(
+              collection(db, 'pickemMatchups'),
+              where('campaignId', '==', cid)
+            );
+            return getDocs(q).catch((e) => {
+              console.error("Failed fetching matchups for leaderboard", e);
+              return { docs: [] };
+            });
           })
         );
 

@@ -1507,7 +1507,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             if (!matchup) return null;
                             
                             const isMyPick = participant.uid === user?.uid;
-                            const isRevealed = matchup.status !== 'STATUS_SCHEDULED';
+                            const isRevealed = matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime);
                             
                             if (!isRevealed && !isMyPick) {
                                 return (

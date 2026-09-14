@@ -34,7 +34,6 @@
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
-    "esbuild": "^0.28.1",
     "express": "^4.21.2",
     "firebase": "^12.12.1",
     "firebase-admin": "^13.8.0",
@@ -66,6 +65,7 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
     "@types/compression": "^1.8.1",
+    "esbuild": "^0.28.2",
     "vitest": "^4.1.11"
   }
 }

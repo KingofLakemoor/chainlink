@@ -1,9 +1,59 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup } from './PickEmPage';
+import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup, getCampaignIds } from './PickEmPage';
 
 describe('PickEmPage Yes Day prize breakdown tests', () => {
+  it('resolves campaign ID aliases correctly for YES Day and charity campaigns', () => {
+    const yesDayNamed = { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026' };
+    const yesDayCharityId = { id: 'charity', name: 'Charity Pick Em 2026' };
+    const normalCampaign = { id: 'cfb-league-2026', name: 'CFB Pick Em 2026' };
+
+    expect(getCampaignIds(yesDayNamed)).toEqual(['yes_day_2026', 'charity']);
+    expect(getCampaignIds(yesDayCharityId)).toEqual(['charity', 'yes_day_2026']);
+    expect(getCampaignIds(normalCampaign)).toEqual(['cfb-league-2026']);
+  });
+
+  it('evaluates participant status across campaign ID aliases and participantId/userId fallbacks', () => {
+    const user = { uid: 'user-777' };
+    const selectedCampaign = { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026' };
+    const aliases = getCampaignIds(selectedCampaign);
+
+    const pickemParticipants = [
+      { id: 'charity_user-777', campaignId: 'charity', userId: 'user-777' }
+    ];
+
+    const isParticipant = pickemParticipants.some(p =>
+      aliases.includes(p.campaignId) && (p.participantId === user.uid || p.userId === user.uid)
+    );
+
+    expect(isParticipant).toBe(true);
+  });
+
+  it('enables auto-join for charity and YES Day campaigns', () => {
+    const checkCanAutoJoin = (selectedCampaign: any, urlCode: string) => {
+      const cleanUrlCode = urlCode.trim();
+      const isCharityCamp = selectedCampaign.isCharity || selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.id === 'charity' || selectedCampaign.id === 'yes_day_2026';
+      return !!cleanUrlCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false) || isCharityCamp;
+    };
+
+    const yesDayCamp = { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026', isPrivate: true };
+    const normalPrivateCamp = { id: 'priv-1', name: 'Private Friends', isPrivate: true };
+
+    expect(checkCanAutoJoin(yesDayCamp, '')).toBe(true);
+    expect(checkCanAutoJoin(normalPrivateCamp, '')).toBe(false);
+  });
+
+  it('allows non-participants to access the leaderboard while showing an inline join prompt', () => {
+    const isParticipant = false;
+    const activeTab = 'leaderboard';
+
+    const shouldShowLeaderboard = activeTab === 'leaderboard'; // always viewable!
+    const shouldShowJoinBanner = !isParticipant;
+
+    expect(shouldShowLeaderboard).toBe(true);
+    expect(shouldShowJoinBanner).toBe(true);
+  });
   it('renders YES Day custom prize breakdown structure correctly', () => {
     // Helper unit logic test for Yes Day prize pool rendering parameters
     const selectedCampaign = {

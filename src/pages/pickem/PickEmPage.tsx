@@ -349,7 +349,7 @@ export default function PickEmPage() {
       mSnaps.forEach(snap => {
         snap.docs.forEach(d => {
           const data = d.data();
-          if (data.week === week) {
+          if (Number(data.week) === Number(week)) {
             allMatchupsMap.set(d.id, { id: d.id, ...data });
           }
         });
@@ -382,7 +382,7 @@ export default function PickEmPage() {
         [...pSnapsPart, ...pSnapsUser].forEach(snap => {
           snap.docs.forEach(d => {
             const data = d.data();
-            if (data.week === week) {
+            if (Number(data.week) === Number(week)) {
               picksMap[data.matchupId] = { id: d.id, ...data };
             }
           });
@@ -505,7 +505,7 @@ export default function PickEmPage() {
             }
 
             participantStats[pId].picks.push(pick);
-            if (leaderboardView === 'week' && pick.week !== selectedWeek) return;
+            if (leaderboardView === 'week' && Number(pick.week) !== Number(selectedWeek)) return;
 
             if (pick.status === 'WIN') {
               participantStats[pId].wins += 1;
@@ -522,7 +522,7 @@ export default function PickEmPage() {
         if (participantIds.length > 0) {
           const usersMap: Record<string, any> = {};
 
-          const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+          const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => null) : null;
           const headers: Record<string, string> = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -532,17 +532,36 @@ export default function PickEmPage() {
           }
 
           await Promise.all(chunkedUids.map(async (chunk) => {
-            const res = await fetch(`/api/users/public?uids=${chunk.join(',')}`, { headers });
-            if (res.ok) {
-              const data = await res.json();
-              const usersList = data.users || [];
-              usersList.forEach((u: any) => {
-                usersMap[u.id] = u;
-              });
-            } else {
-              console.warn("Failed to fetch participant user details chunk for Pick Em leaderboard.");
+            try {
+              const res = await fetch(`/api/users/public?uids=${chunk.join(',')}`, { headers });
+              if (res.ok) {
+                const data = await res.json();
+                const usersList = data.users || [];
+                usersList.forEach((u: any) => {
+                  usersMap[u.id] = u;
+                });
+              } else {
+                console.warn("Failed to fetch participant user details chunk for Pick Em leaderboard.");
+              }
+            } catch (err) {
+              console.warn("Error fetching user details chunk for Pick Em leaderboard", err);
             }
           }));
+
+          // Fallback Firestore lookup for any missing user details
+          const missingUids = participantIds.filter(uid => !usersMap[uid]);
+          if (missingUids.length > 0) {
+            await Promise.all(missingUids.map(async (uid) => {
+              try {
+                const userDoc = await getDoc(doc(db, 'users', uid));
+                if (userDoc.exists()) {
+                  usersMap[uid] = { id: uid, ...userDoc.data() };
+                }
+              } catch (e) {
+                // Ignore fallback error
+              }
+            }));
+          }
 
         // Fetch campaign matchups across campaign ID aliases
         const allMSnaps = await Promise.all(
@@ -572,7 +591,7 @@ export default function PickEmPage() {
            let tbDisplay: any = '-';
 
            if (leaderboardView === 'week') {
-             const weekMatchups = campaignMatchups.filter((m: any) => m.week === selectedWeek);
+             const weekMatchups = campaignMatchups.filter((m: any) => Number(m.week) === Number(selectedWeek));
              const weekTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, weekMatchups);
              if (weekTbMatchup) {
                const tbPick = participantStats[uid].picks.find((p: any) => p.matchupId === weekTbMatchup.id && p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null);
@@ -593,10 +612,10 @@ export default function PickEmPage() {
              }
            } else {
              // Season view: running total of absolute values from completed tiebreaker weeks
-             const weeksPresent = Array.from(new Set(campaignMatchups.map((m: any) => m.week)));
+             const weeksPresent = Array.from(new Set(campaignMatchups.map((m: any) => Number(m.week))));
              const completedTbMatchups: any[] = [];
              weeksPresent.forEach((w: number) => {
-               const wMatchups = campaignMatchups.filter((m: any) => m.week === w);
+               const wMatchups = campaignMatchups.filter((m: any) => Number(m.week) === Number(w));
                const wTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, wMatchups);
                if (wTbMatchup && wTbMatchup.status === 'STATUS_FINAL') {
                  completedTbMatchups.push(wTbMatchup);
@@ -621,14 +640,16 @@ export default function PickEmPage() {
 
            return {
                uid,
-               name: usersMap[uid]?.username || usersMap[uid]?.displayName || 'Unknown User',
-               avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
+               name: usersMap[uid]?.username || usersMap[uid]?.name || usersMap[uid]?.displayName || 'Unknown User',
+               avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || usersMap[uid]?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
                tbValue,
                tbDisplay,
                ...participantStats[uid]
            };
         }).sort((a, b) => {
             if (b.points !== a.points) return b.points - a.points; // Sort by points
+            if (b.wins !== a.wins) return b.wins - a.wins; // Sort by wins
+            if (a.losses !== b.losses) return a.losses - b.losses; // Fewer losses
             if (a.tbValue !== b.tbValue) {
                 return a.tbValue - b.tbValue; // Lower distance/total wins
             }
@@ -648,7 +669,7 @@ export default function PickEmPage() {
     };
 
     fetchLeaderboard();
-  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups]);
+  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups, campaigns]);
 
   
   const userPicksRef = useRef<Record<string, any>>({});
@@ -1496,7 +1517,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             )}
                             <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
-                          {participant.picks && participant.picks.filter((p: any) => p.week === selectedWeek).map((pick: any) => {
+                          {participant.picks && participant.picks.filter((p: any) => Number(p.week) === Number(selectedWeek)).map((pick: any) => {
                             if (!pick?.pick?.teamId) return null;
                             const matchup = matchups.find((m: any) => m.id === pick.matchupId);
                             if (!matchup) return null;

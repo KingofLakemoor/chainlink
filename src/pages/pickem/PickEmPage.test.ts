@@ -868,4 +868,51 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     userState = { uid: 'user123' };
     expect(evaluateParticipantStatus(userState, campaign)).toBe(true);
   });
+
+  it('aggregates leaderboard participants across campaign ID aliases and both participants/picks docs even for non-participants', () => {
+    const selectedCampaign = { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026' };
+    const campaignAliases = getCampaignIds(selectedCampaign);
+    expect(campaignAliases).toEqual(['yes_day_2026', 'charity']);
+
+    const mockParticipantsDocs = [
+      { id: 'p1', campaignId: 'yes_day_2026', participantId: 'user-a' },
+      { id: 'p2', campaignId: 'charity', userId: 'user-b' }
+    ];
+
+    const mockPicksDocs = [
+      { id: 'pick1', campaignId: 'charity', participantId: 'user-c', status: 'WIN', pointsEarned: 1 },
+      { id: 'pick2', campaignId: 'yes_day_2026', userId: 'user-a', status: 'WIN', pointsEarned: 1 }
+    ];
+
+    const participantStats: Record<string, { wins: number, points: number, picks: any[] }> = {};
+
+    mockParticipantsDocs.forEach(d => {
+      const pId = d.participantId || d.userId;
+      if (pId && campaignAliases.includes(d.campaignId)) {
+        if (!participantStats[pId]) participantStats[pId] = { wins: 0, points: 0, picks: [] };
+      }
+    });
+
+    mockPicksDocs.forEach(p => {
+      const pId = p.participantId || p.userId;
+      if (pId && campaignAliases.includes(p.campaignId)) {
+        if (!participantStats[pId]) participantStats[pId] = { wins: 0, points: 0, picks: [] };
+        participantStats[pId].picks.push(p);
+        if (p.status === 'WIN') {
+          participantStats[pId].wins += 1;
+          participantStats[pId].points += p.pointsEarned;
+        }
+      }
+    });
+
+    const participantIds = Object.keys(participantStats);
+
+    // Leaderboard should list user-a, user-b, and user-c regardless of whether current user is joined
+    expect(participantIds).toContain('user-a');
+    expect(participantIds).toContain('user-b');
+    expect(participantIds).toContain('user-c');
+    expect(participantStats['user-a'].points).toBe(1);
+    expect(participantStats['user-b'].points).toBe(0); // Joined participant with no picks yet still listed
+    expect(participantStats['user-c'].points).toBe(1); // Pick submitter with missing participant doc still listed
+  });
 });

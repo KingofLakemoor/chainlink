@@ -267,16 +267,58 @@ export async function payoutPickemCampaign(campaignId: string) {
     const campaignData = campaignDoc.data();
     const entryFee = campaignData.entryFee || 0;
 
-    const participantsSnap = await transaction.get(adminDb.collection('pickemParticipants').where('campaignId', '==', campaignId));
-    if (participantsSnap.empty) {
+    const isYesDay = campaignData.isCharity || campaignData.name === 'YES Day Walk for Autism 2026' || campaignId === 'charity' || campaignId === 'yes_day_2026';
+    const targetCampaignIds = new Set<string>([campaignId]);
+    if (isYesDay) {
+      targetCampaignIds.add('yes_day_2026');
+      targetCampaignIds.add('charity');
+      targetCampaignIds.add('YES Day Walk for Autism 2026');
+      if (campaignData.name) targetCampaignIds.add(campaignData.name);
+    }
+
+    const participantPoints: Record<string, { uid: string, points: number }> = {};
+
+    for (const cid of targetCampaignIds) {
+      const participantsSnap = await transaction.get(adminDb.collection('pickemParticipants').where('campaignId', '==', cid));
+      participantsSnap.docs.forEach((d: any) => {
+        const uid = d.data().participantId || d.data().userId || d.id.split('_')[1];
+        if (uid) {
+          if (!participantPoints[uid]) {
+            participantPoints[uid] = { uid, points: 0 };
+          }
+        }
+      });
+    }
+
+    const processedPickIds = new Set<string>();
+    for (const cid of targetCampaignIds) {
+      const picksSnap = await transaction.get(adminDb.collection('pickemPicks').where('campaignId', '==', cid));
+      picksSnap.docs.forEach((d: any) => {
+        if (processedPickIds.has(d.id)) return;
+        processedPickIds.add(d.id);
+
+        const data = d.data();
+        const pId = data.participantId || data.userId;
+        if (pId) {
+          if (!participantPoints[pId]) {
+            participantPoints[pId] = { uid: pId, points: 0 };
+          }
+          if (data.status === 'WIN') {
+            participantPoints[pId].points += data.pointsEarned || 1;
+          }
+        }
+      });
+    }
+
+    const totalEntries = Object.keys(participantPoints).length;
+    if (totalEntries === 0) {
       transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
       return;
     }
 
-    const totalEntries = participantsSnap.size;
     const totalPot = totalEntries * entryFee;
 
-    if (totalPot <= 0) {
+    if (totalPot <= 0 && !isYesDay) {
       transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
       return;
     }
@@ -285,27 +327,6 @@ export async function payoutPickemCampaign(campaignId: string) {
     const firstPayout = Math.floor(totalPot * 0.45);
     const secondPayout = Math.floor(totalPot * 0.15);
     const thirdPayout = Math.floor(totalPot * 0.05);
-
-    // Calculate points for each participant
-    const picksSnap = await transaction.get(adminDb.collection('pickemPicks').where('campaignId', '==', campaignId));
-
-    const participantPoints: Record<string, { uid: string, points: number }> = {};
-    participantsSnap.docs.forEach((d: any) => {
-      const uid = d.data().participantId;
-      if (uid) {
-        participantPoints[uid] = { uid, points: 0 };
-      }
-    });
-
-    picksSnap.docs.forEach((d: any) => {
-      const data = d.data();
-      const pId = data.participantId;
-      if (participantPoints[pId]) {
-        if (data.status === 'WIN') {
-          participantPoints[pId].points += data.pointsEarned || 1;
-        }
-      }
-    });
 
     const leaderboard = Object.values(participantPoints).sort((a, b) => b.points - a.points);
 

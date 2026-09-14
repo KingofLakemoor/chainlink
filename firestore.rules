@@ -155,16 +155,16 @@ service cloud.firestore {
 
     // Pickem 
     match /pickemCampaigns/{campaignId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
     match /pickemMatchups/{matchupId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update: if isAdmin() && !incoming().keys().hasAny(['isSecret']);
       allow delete: if isAdmin();
     }
     match /pickemParticipants/{participantId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isAdmin(); // Server maintained
     }
         match /pickemPicks/{pickId} {
@@ -189,7 +189,7 @@ service cloud.firestore {
           )
         );
       }
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() 
         && (request.resource.data.get('participantId', request.resource.data.get('userId', '')) == request.auth.uid)
         && isMatchupOpen(request.resource.data.get('matchupId', ''));

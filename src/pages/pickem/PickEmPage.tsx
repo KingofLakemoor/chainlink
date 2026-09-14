@@ -15,14 +15,17 @@ export const getCampaignIds = (campaign: any, allCampaigns: any[] = []): string[
   if (!campaign) return [];
   const ids = new Set<string>();
   if (campaign.id) ids.add(campaign.id);
+  if (campaign.name) ids.add(campaign.name);
   const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
   if (isYesDay) {
     ids.add('yes_day_2026');
     ids.add('charity');
+    ids.add('YES Day Walk for Autism 2026');
     if (allCampaigns && allCampaigns.length > 0) {
       allCampaigns.forEach((c: any) => {
         if (c.isCharity || c.name === 'YES Day Walk for Autism 2026' || c.id === 'charity' || c.id === 'yes_day_2026') {
           if (c.id) ids.add(c.id);
+          if (c.name) ids.add(c.name);
         }
       });
     }
@@ -137,8 +140,12 @@ export default function PickEmPage() {
         }
 
         let camps = allCamps.filter((c: any) => {
-          if (joinedIds.has(c.id)) return true; // Always keep if user joined or submitted picks
-          if (campaignId === c.id) return true; // Always keep if specifically requested in URL
+          const isCharityCamp = c.isCharity || c.name === 'YES Day Walk for Autism 2026' || c.id === 'charity' || c.id === 'yes_day_2026';
+          if (isCharityCamp) return true; // YES Day / Charity campaign is wide open to all users
+
+          const campAliasIds = getCampaignIds(c, allCamps);
+          if (campAliasIds.some(id => joinedIds.has(id))) return true; // Always keep if user joined or submitted picks
+          if (campaignId && campAliasIds.includes(campaignId)) return true; // Always keep if specifically requested in URL
           const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
           if (isArch) return false;
           return true; // Show all non-archived campaigns

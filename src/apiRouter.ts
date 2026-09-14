@@ -176,7 +176,7 @@ let publicUsersCache: any = null;
 let publicUsersCacheTime = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-apiRouter.get("/users/public", validateAuth, async (req, res) => {
+apiRouter.get("/users/public", async (req, res) => {
   try {
     const { uids } = req.query;
     let snap;

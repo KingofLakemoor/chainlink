@@ -11,6 +11,12 @@ ChainLink will always be free to play. We believe that community building happen
 * **The "Daisy Chain" Engine:** A refined scheduling system that allows users to seamlessly link picks throughout a 48-hour window, encouraging daily engagement and community interaction.
 * **Digital Cosmetics & Personalization:** A robust, closed-loop digital shop where users can spend their earned Links on profile rings, banners, and titles to flex their status on the leaderboards.
 
+## 🤖 AI Studio Instructions & System Prompts
+
+For Google AI Studio developers and AI agents, system instructions are hard-coded in [`AISTUDIO_INSTRUCTIONS.md`](./AISTUDIO_INSTRUCTIONS.md).
+
+> **AI Studio Rule**: Whenever editing `package.json`, always run `npm install` to update `package-lock.json` and test `npm ci` before committing code to prevent Firebase Cloud Build deployment failures.
+
 ## ⚙️ Environment & Port Configuration
 
 To support running both local development/AIStudio environments and Cloud Run/App Hosting production deployments simultaneously:
@@ -54,7 +60,7 @@ npm error Missing: @esbuild/... from lock file
 - **Synchronized Lockfile:** Executed `npm install` locally to reconcile all missing platform bindings (`@esbuild`, `@tailwindcss/oxide`, `@rollup`, etc.) into `package-lock.json`.
 - **Verified Clean Install:** Ran `npm ci` locally to confirm 100% lockfile alignment.
 - **Validated Quality Checks:** Verified `npm run build`, `npm run lint`, and `npx vitest run` pass cleanly.
-- **Committed Changes:** Pushed the updated `package-lock.json` alongside updated developer documentation in `README.md`.
+- **Committed Changes:** Pushed the updated `package-lock.json` alongside updated developer documentation in `README.md` and `AISTUDIO_INSTRUCTIONS.md`.
 
 ### 4. Developer Guidelines ("What NOT To Do")
 - ❌ **DO NOT edit package.json manually without updating package-lock.json.**

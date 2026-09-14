@@ -2360,8 +2360,14 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
       soccerResult = await syncSoccerOdds();
     }
 
-    res.json({
-      success: true,
+    const overallSuccess = (tennisResult ? tennisResult.success !== false : true) &&
+                           (soccerResult ? soccerResult.success !== false : true);
+    const primaryError = (!tennisResult?.success ? tennisResult?.error : undefined) ||
+                         (!soccerResult?.success ? soccerResult?.error : undefined);
+
+    res.status(overallSuccess ? 200 : 400).json({
+      success: overallSuccess,
+      ...(primaryError ? { error: primaryError } : {}),
       sport: sport || 'ALL',
       tennis: tennisResult,
       soccer: soccerResult,

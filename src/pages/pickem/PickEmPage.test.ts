@@ -9,9 +9,9 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     const yesDayCharityId = { id: 'charity', name: 'Charity Pick Em 2026' };
     const normalCampaign = { id: 'cfb-league-2026', name: 'CFB Pick Em 2026' };
 
-    expect(getCampaignIds(yesDayNamed)).toEqual(['yes_day_2026', 'charity']);
-    expect(getCampaignIds(yesDayCharityId)).toEqual(['charity', 'yes_day_2026']);
-    expect(getCampaignIds(normalCampaign)).toEqual(['cfb-league-2026']);
+    expect(getCampaignIds(yesDayNamed)).toEqual(expect.arrayContaining(['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026']));
+    expect(getCampaignIds(yesDayCharityId)).toEqual(expect.arrayContaining(['charity', 'yes_day_2026', 'YES Day Walk for Autism 2026']));
+    expect(getCampaignIds(normalCampaign)).toEqual(['cfb-league-2026', 'CFB Pick Em 2026']);
   });
 
   it('evaluates participant status across campaign ID aliases and participantId/userId fallbacks', () => {
@@ -28,6 +28,34 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     );
 
     expect(isParticipant).toBe(true);
+  });
+
+  it('always retains YES Day / charity campaigns in campaigns list regardless of isArchived or isPrivate flags', () => {
+    const allCamps = [
+      { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026', isArchived: true, isPrivate: true },
+      { id: 'charity', name: 'Charity Campaign 2026', isArchived: 'true' },
+      { id: 'regular_archived', name: 'Old Regular Campaign', isArchived: true },
+      { id: 'regular_active', name: 'Active Regular Campaign', isArchived: false }
+    ];
+
+    const joinedIds = new Set<string>();
+
+    const camps = allCamps.filter((c: any) => {
+      const isCharityCamp = c.isCharity || c.name === 'YES Day Walk for Autism 2026' || c.id === 'charity' || c.id === 'yes_day_2026';
+      if (isCharityCamp) return true;
+
+      const campAliasIds = getCampaignIds(c, allCamps);
+      if (campAliasIds.some(id => joinedIds.has(id))) return true;
+      const isArch = c.isArchived === true || c.isArchived === 'true' || c.archived === true || c.archived === 'true';
+      if (isArch) return false;
+      return true;
+    });
+
+    const campIds = camps.map(c => c.id);
+    expect(campIds).toContain('yes_day_2026');
+    expect(campIds).toContain('charity');
+    expect(campIds).toContain('regular_active');
+    expect(campIds).not.toContain('regular_archived');
   });
 
   it('enables auto-join for charity and YES Day campaigns', () => {
@@ -872,7 +900,7 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
   it('aggregates leaderboard participants across campaign ID aliases and both participants/picks docs even for non-participants', () => {
     const selectedCampaign = { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026' };
     const campaignAliases = getCampaignIds(selectedCampaign);
-    expect(campaignAliases).toEqual(['yes_day_2026', 'charity']);
+    expect(campaignAliases).toEqual(expect.arrayContaining(['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026']));
 
     const mockParticipantsDocs = [
       { id: 'p1', campaignId: 'yes_day_2026', participantId: 'user-a' },

@@ -87,12 +87,20 @@ apiRouter.get('/charity/progress', async (req, res) => {
 
     let pot = 0;
     try {
-      const campaignSnap = await adminDb.collection('pickemCampaigns').where('name', '==', 'YES Day Walk for Autism 2026').limit(1).get();
-      if (!campaignSnap.empty) {
-        const campaignId = campaignSnap.docs[0].id;
-        const snapshot = await adminDb.collection('pickemParticipants').where('campaignId', '==', campaignId).get();
+      const targetCampaignIds = new Set<string>(['yes_day_2026', 'charity']);
+      const campaignSnap = await adminDb.collection('pickemCampaigns').where('name', '==', 'YES Day Walk for Autism 2026').limit(10).get();
+      campaignSnap.forEach(cDoc => targetCampaignIds.add(cDoc.id));
+
+      const processedParticipants = new Set<string>();
+
+      for (const cid of targetCampaignIds) {
+        const snapshot = await adminDb.collection('pickemParticipants').where('campaignId', '==', cid).get();
         snapshot.forEach(doc => {
           const data = doc.data();
+          const pId = data.participantId || data.userId || doc.id.split('_')[1];
+          if (pId && processedParticipants.has(pId)) return;
+          if (pId) processedParticipants.add(pId);
+
           const joinedAt = new Date(data.joinedAt || data.createdAt || Date.now());
           // August 31, 2026 midnight AZ time is 2026-08-31T07:00:00Z
           if (joinedAt < new Date('2026-08-31T07:00:00Z')) {

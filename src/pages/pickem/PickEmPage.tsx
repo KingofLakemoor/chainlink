@@ -11,6 +11,18 @@ import { Button } from '../../components/ui/button';
 import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
+export const getCampaignIds = (campaign: any): string[] => {
+  if (!campaign) return [];
+  const ids = new Set<string>();
+  if (campaign.id) ids.add(campaign.id);
+  const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
+  if (isYesDay) {
+    ids.add('yes_day_2026');
+    ids.add('charity');
+  }
+  return Array.from(ids);
+};
+
 export const isTiebreakerEnabledForCampaign = (campaign: any): boolean => {
   if (!campaign) return false;
   // Tiebreakers are disabled for YES Day campaign and for the current season
@@ -181,41 +193,48 @@ export default function PickEmPage() {
       }
 
       try {
-        const pairId = `${selectedCampaign.id}_${user.uid}`;
-        const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
-        let userIsParticipant = docRef.exists();
+        const campaignIds = getCampaignIds(selectedCampaign);
+        let userIsParticipant = false;
 
-        if (!userIsParticipant) {
+        for (const cid of campaignIds) {
+          const pairId = `${cid}_${user.uid}`;
+          const docRef = await getDoc(doc(db, 'pickemParticipants', pairId));
+          if (docRef.exists()) {
+            userIsParticipant = true;
+            break;
+          }
+
           const partQuery = query(
             collection(db, 'pickemParticipants'),
-            where('campaignId', '==', selectedCampaign.id),
+            where('campaignId', '==', cid),
             where('participantId', '==', user.uid)
           );
           const partSnap = await getDocs(partQuery).catch(() => ({ empty: true }));
-
           if (!partSnap.empty) {
             userIsParticipant = true;
-          } else {
-            const partUserQuery = query(
-              collection(db, 'pickemParticipants'),
-              where('campaignId', '==', selectedCampaign.id),
-              where('userId', '==', user.uid)
-            );
-            const partUserSnap = await getDocs(partUserQuery).catch(() => ({ empty: true }));
-            if (!partUserSnap.empty) {
-              userIsParticipant = true;
-            }
+            break;
+          }
+
+          const partUserQuery = query(
+            collection(db, 'pickemParticipants'),
+            where('campaignId', '==', cid),
+            where('userId', '==', user.uid)
+          );
+          const partUserSnap = await getDocs(partUserQuery).catch(() => ({ empty: true }));
+          if (!partUserSnap.empty) {
+            userIsParticipant = true;
+            break;
           }
         }
 
         if (!userIsParticipant) {
-          // Check if user has picks submitted for this campaign
+          // Check if user has picks submitted for this campaign or its aliases
           const pCheckQuery = query(
             collection(db, 'pickemPicks'),
             where('participantId', '==', user.uid)
           );
           const pCheckSnap = await getDocs(pCheckQuery).catch(() => ({ docs: [] }));
-          userIsParticipant = pCheckSnap.docs.some(d => d.data().campaignId === selectedCampaign.id);
+          userIsParticipant = pCheckSnap.docs.some(d => campaignIds.includes(d.data().campaignId));
 
           if (!userIsParticipant) {
             const pUserCheckQuery = query(
@@ -223,7 +242,7 @@ export default function PickEmPage() {
               where('userId', '==', user.uid)
             );
             const pUserCheckSnap = await getDocs(pUserCheckQuery).catch(() => ({ docs: [] }));
-            userIsParticipant = pUserCheckSnap.docs.some(d => d.data().campaignId === selectedCampaign.id);
+            userIsParticipant = pUserCheckSnap.docs.some(d => campaignIds.includes(d.data().campaignId));
           }
 
           if (userIsParticipant) {
@@ -288,8 +307,9 @@ export default function PickEmPage() {
       const storedCode = localStorage.getItem('chainlink_join_code') || '';
       const urlCode = (searchParams.get('joinCode') || searchParams.get('code') || storedCode || '').trim();
 
-      // Auto-join if user came in with a join code, or if campaign is public & open
-      const canAutoJoin = !!urlCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false);
+      // Auto-join if user came in with a join code, or if campaign is public & open, or if charity / YES Day
+      const isCharityCamp = selectedCampaign.isCharity || selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.id === 'charity' || selectedCampaign.id === 'yes_day_2026';
+      const canAutoJoin = !!urlCode || (!selectedCampaign.isPrivate && selectedCampaign.isOpen !== false) || isCharityCamp;
       if (canAutoJoin) {
         autoJoinAttempted.current[campId] = true;
         handleJoinCampaign();
@@ -300,26 +320,56 @@ export default function PickEmPage() {
   const fetchMatchupsAndPicks = async (campaignId: string, week: number) => {
     setMatchupsLoading(true);
     try {
-      const mQuery = query(
-        collection(db, 'pickemMatchups'),
-        where('campaignId', '==', campaignId),
-        where('week', '==', week)
+      const campaignIds = selectedCampaign ? getCampaignIds(selectedCampaign) : [campaignId];
+
+      const mSnaps = await Promise.all(
+        campaignIds.map(cid =>
+          getDocs(query(
+            collection(db, 'pickemMatchups'),
+            where('campaignId', '==', cid),
+            where('week', '==', week)
+          )).catch(() => ({ docs: [] }))
+        )
       );
-      const mSnap = await getDocs(mQuery);
-      setMatchups(mSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => a.startTime - b.startTime));
+
+      const allMatchupsMap = new Map<string, any>();
+      mSnaps.forEach(snap => {
+        snap.docs.forEach(d => {
+          allMatchupsMap.set(d.id, { id: d.id, ...d.data() });
+        });
+      });
+
+      setMatchups(Array.from(allMatchupsMap.values()).sort((a: any, b: any) => a.startTime - b.startTime));
 
       if (user) {
-        const pQuery = query(
-          collection(db, 'pickemPicks'),
-          where('participantId', '==', user.uid),
-          where('campaignId', '==', campaignId),
-          where('week', '==', week)
+        const pSnapsPart = await Promise.all(
+          campaignIds.map(cid =>
+            getDocs(query(
+              collection(db, 'pickemPicks'),
+              where('participantId', '==', user.uid),
+              where('campaignId', '==', cid),
+              where('week', '==', week)
+            )).catch(() => ({ docs: [] }))
+          )
         );
-        const pSnap = await getDocs(pQuery);
+
+        const pSnapsUser = await Promise.all(
+          campaignIds.map(cid =>
+            getDocs(query(
+              collection(db, 'pickemPicks'),
+              where('userId', '==', user.uid),
+              where('campaignId', '==', cid),
+              where('week', '==', week)
+            )).catch(() => ({ docs: [] }))
+          )
+        );
+
         const picksMap: Record<string, any> = {};
-        pSnap.docs.forEach(d => {
-          const data = d.data();
-          picksMap[data.matchupId] = { id: d.id, ...data };
+        [...pSnapsPart, ...pSnapsUser].forEach(snap => {
+          snap.docs.forEach(d => {
+            const data = d.data();
+            picksMap[data.matchupId] = { id: d.id, ...data };
+          });
         });
         setUserPicks(picksMap);
       }
@@ -383,64 +433,83 @@ export default function PickEmPage() {
 
       setLeaderboardLoading(true);
       try {
-        // Fetch all joined participants for this campaign so everyone shows on the leaderboard and counts towards prize pot
-        const partQuery = query(
-          collection(db, 'pickemParticipants'),
-          where('campaignId', '==', selectedCampaign.id),
-          limit(3000)
-        );
-        const partSnap = await getDocs(partQuery);
-
+        const campaignIds = getCampaignIds(selectedCampaign);
         const participantStats: Record<string, { wins: number, losses: number, pushes: number, points: number, picks: any[] }> = {};
-        partSnap.docs.forEach(d => {
-          const data = d.data();
-          if (data.participantId) {
-            participantStats[data.participantId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
-          }
+
+        // Fetch participants across campaign ID aliases
+        const partSnaps = await Promise.all(
+          campaignIds.map(cid =>
+            getDocs(query(
+              collection(db, 'pickemParticipants'),
+              where('campaignId', '==', cid),
+              limit(3000)
+            )).catch(() => ({ docs: [] }))
+          )
+        );
+
+        partSnaps.forEach(snap => {
+          snap.docs.forEach(d => {
+            const data = d.data();
+            const pId = data.participantId || data.userId;
+            if (pId) {
+              if (!participantStats[pId]) {
+                participantStats[pId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
+              }
+            }
+          });
         });
 
-        // Limited to recent picks to prevent O(N) client-side memory lockups
-        const pQuery = leaderboardView === 'week' && selectedWeek !== undefined
-          ? query(
-              collection(db, 'pickemPicks'),
-              where('campaignId', '==', selectedCampaign.id),
-              where('week', '==', selectedWeek),
-              limit(3000)
-            )
-          : query(
-              collection(db, 'pickemPicks'),
-              where('campaignId', '==', selectedCampaign.id),
-              limit(3000)
-            );
-        const pSnap = await getDocs(pQuery);
+        // Fetch picks across campaign ID aliases
+        const pSnaps = await Promise.all(
+          campaignIds.map(cid => {
+            const q = leaderboardView === 'week' && selectedWeek !== undefined
+              ? query(
+                  collection(db, 'pickemPicks'),
+                  where('campaignId', '==', cid),
+                  where('week', '==', selectedWeek),
+                  limit(3000)
+                )
+              : query(
+                  collection(db, 'pickemPicks'),
+                  where('campaignId', '==', cid),
+                  limit(3000)
+                );
+            return getDocs(q).catch(() => ({ docs: [] }));
+          })
+        );
 
-        pSnap.docs.forEach(d => {
-          const pick = { id: d.id, ...d.data() } as any;
-          const pId = pick.participantId;
-          if (!participantStats[pId]) {
-            participantStats[pId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
-          }
+        const processedPickIds = new Set<string>();
+        pSnaps.forEach(snap => {
+          snap.docs.forEach(d => {
+            if (processedPickIds.has(d.id)) return;
+            processedPickIds.add(d.id);
 
-          participantStats[pId].picks.push(pick);
-          if (leaderboardView === 'week' && pick.week !== selectedWeek) return;
+            const pick = { id: d.id, ...d.data() } as any;
+            const pId = pick.participantId || pick.userId;
+            if (!pId) return;
 
-          if (pick.status === 'WIN') {
-            participantStats[pId].wins += 1;
-            participantStats[pId].points += pick.pointsEarned || 1;
-          } else if (pick.status === 'LOSS') {
-            participantStats[pId].losses += 1;
-          } else if (pick.status === 'PUSH') {
-            participantStats[pId].pushes += 1;
-          }
+            if (!participantStats[pId]) {
+              participantStats[pId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
+            }
+
+            participantStats[pId].picks.push(pick);
+            if (leaderboardView === 'week' && pick.week !== selectedWeek) return;
+
+            if (pick.status === 'WIN') {
+              participantStats[pId].wins += 1;
+              participantStats[pId].points += pick.pointsEarned || 1;
+            } else if (pick.status === 'LOSS') {
+              participantStats[pId].losses += 1;
+            } else if (pick.status === 'PUSH') {
+              participantStats[pId].pushes += 1;
+            }
+          });
         });
 
         const participantIds = Object.keys(participantStats);
         if (participantIds.length > 0) {
-          // Chunk participant IDs to avoid 10-item limit in 'in' queries, or fetch all users and filter
-          // For simplicity and safety, we'll fetch the users directly or query if small
           const usersMap: Record<string, any> = {};
 
-          // Fetch public user profiles via API endpoint to avoid permission denied errors
           const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
           const headers: Record<string, string> = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -463,19 +532,30 @@ export default function PickEmPage() {
             }
           }));
 
-        // Fetch campaign matchups to evaluate tiebreaker games for all weeks or selected week
-        const allMQuery = leaderboardView === 'week' && selectedWeek !== undefined
-          ? query(
-              collection(db, 'pickemMatchups'),
-              where('campaignId', '==', selectedCampaign.id),
-              where('week', '==', selectedWeek)
-            )
-          : query(
-              collection(db, 'pickemMatchups'),
-              where('campaignId', '==', selectedCampaign.id)
-            );
-        const allMSnap = await getDocs(allMQuery);
-        const campaignMatchups = allMSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        // Fetch campaign matchups across campaign ID aliases
+        const allMSnaps = await Promise.all(
+          campaignIds.map(cid => {
+            const q = leaderboardView === 'week' && selectedWeek !== undefined
+              ? query(
+                  collection(db, 'pickemMatchups'),
+                  where('campaignId', '==', cid),
+                  where('week', '==', selectedWeek)
+                )
+              : query(
+                  collection(db, 'pickemMatchups'),
+                  where('campaignId', '==', cid)
+                );
+            return getDocs(q).catch(() => ({ docs: [] }));
+          })
+        );
+
+        const campaignMatchupsMap = new Map<string, any>();
+        allMSnaps.forEach(snap => {
+          snap.docs.forEach(d => {
+            campaignMatchupsMap.set(d.id, { id: d.id, ...d.data() });
+          });
+        });
+        const campaignMatchups = Array.from(campaignMatchupsMap.values());
         setAllCampaignMatchups(campaignMatchups);
 
         const formattedLeaderboard = participantIds.map(uid => {
@@ -843,28 +923,9 @@ export default function PickEmPage() {
         )}
       </div>
 
-      {selectedCampaign && !isParticipant && (() => {
-        const isCharity = selectedCampaign.isCharity || selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.id === 'charity';
-        return (
-          <div className="max-w-3xl mx-auto my-12 space-y-6">
-            {isCharity && <CharityBanner />}
-
-            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-8 md:p-12 text-center relative z-10 shadow-xl">
-               <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
-               <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
-               <p className="text-zinc-400 text-lg mb-8">
-                 {isCharity
-                   ? "Once you have made your donation, click below to enter the league and make your picks."
-                   : (selectedCampaign.theme?.subtitle || "Click below to enter the league and start making your weekly picks!")}
-               </p>
-               <Button size="lg" onClick={handleJoinCampaign} disabled={joining} className="px-10 h-12 text-lg font-bold">{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
-            </div>
-          </div>
-        );
-      })()}
-      {selectedCampaign && isParticipant && (
+      {selectedCampaign && (
         <>
-          {selectedCampaign.name === 'YES Day Walk for Autism 2026' && (
+          {(selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.isCharity || selectedCampaign.id === 'charity' || selectedCampaign.id === 'yes_day_2026') && (
             <div className="w-full mb-8">
               <CharityProgressTracker />
             </div>
@@ -937,7 +998,22 @@ export default function PickEmPage() {
 
       {activeTab === 'matchups' && (
         <>
-          {(selectedCampaign?.weekSettings?.[selectedWeek]?.isVisible === false && profile?.role !== 'ADMIN') ? (
+          {!isParticipant ? (
+            <div className="max-w-3xl mx-auto my-12 space-y-6">
+              {(selectedCampaign.isCharity || selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.id === 'charity' || selectedCampaign.id === 'yes_day_2026') && <CharityBanner />}
+
+              <div className="bg-[#121212] border border-zinc-800 rounded-xl p-8 md:p-12 text-center relative z-10 shadow-xl">
+                 <Layers className="w-16 h-16 text-[#22c55e] mx-auto mb-4" />
+                 <h2 className="text-3xl font-bold text-white mb-4">Join {selectedCampaign.theme?.title || selectedCampaign.name}</h2>
+                 <p className="text-zinc-400 text-lg mb-8">
+                   {(selectedCampaign.isCharity || selectedCampaign.name === 'YES Day Walk for Autism 2026' || selectedCampaign.id === 'charity' || selectedCampaign.id === 'yes_day_2026')
+                     ? "Once you have made your donation, click below to enter the league and make your picks."
+                     : (selectedCampaign.theme?.subtitle || "Click below to enter the league and start making your weekly picks!")}
+                 </p>
+                 <Button size="lg" onClick={handleJoinCampaign} disabled={joining} className="px-10 h-12 text-lg font-bold">{joining ? 'Joining...' : 'Join Campaign Now'}</Button>
+              </div>
+            </div>
+          ) : (selectedCampaign?.weekSettings?.[selectedWeek]?.isVisible === false && profile?.role !== 'ADMIN') ? (
             <div className="text-center py-12 bg-[#121212] border border-zinc-800 rounded-xl">
               <h3 className="text-xl font-bold text-white mb-2">Week {selectedWeek} Not Yet Available</h3>
               <p className="text-zinc-400">The matchups for this week are currently being finalized. Please check back later.</p>
@@ -1314,6 +1390,15 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
               </button>
             </div>
           </div>
+
+          {!isParticipant && (
+            <div className="p-4 bg-zinc-900/80 border-b border-zinc-800 text-center flex items-center justify-between px-6">
+              <span className="text-sm text-zinc-300">You are currently viewing the leaderboard. Join this campaign to make your picks and compete!</span>
+              <Button size="sm" onClick={handleJoinCampaign} disabled={joining} className="ml-4 font-bold">
+                {joining ? 'Joining...' : 'Join Campaign'}
+              </Button>
+            </div>
+          )}
 
           {leaderboardLoading ? (
             <div className="p-12 text-center text-zinc-500 font-medium">Loading leaderboard...</div>

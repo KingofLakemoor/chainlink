@@ -164,9 +164,9 @@ describe('OddsProcessor Optimization Tests', () => {
     });
   });
 
-  it('syncTennisOdds skips if ODDS_API_KEY and THE_ODDS_API_KEY are missing', async () => {
+  it('syncTennisOdds returns error if ODDS_API_KEY, THE_ODDS_API_KEY, and SHARP_API_KEY are missing', async () => {
     const res = await syncTennisOdds();
-    expect(res).toEqual({ success: true, message: 'ODDS_API_KEY missing, skipping.' });
+    expect(res).toEqual({ success: false, error: 'No odds API keys configured (THE_ODDS_API_KEY, ODDS_API_KEY, or SHARP_API_KEY missing).' });
   });
 
   it('syncTennisOdds accepts THE_ODDS_API_KEY if ODDS_API_KEY is missing', async () => {
@@ -182,9 +182,9 @@ describe('OddsProcessor Optimization Tests', () => {
     expect(res).toEqual({ success: true, message: 'No scheduled tennis matches in DB.' });
   });
 
-  it('syncSoccerOdds skips if ODDS_API_KEY is missing', async () => {
+  it('syncSoccerOdds returns error if ODDS_API_KEY, THE_ODDS_API_KEY, and SHARP_API_KEY are missing', async () => {
     const res = await syncSoccerOdds();
-    expect(res).toEqual({ success: true, message: 'ODDS_API_KEY missing, skipping.' });
+    expect(res).toEqual({ success: false, error: 'No odds API keys configured (THE_ODDS_API_KEY, ODDS_API_KEY, or SHARP_API_KEY missing).' });
   });
 
   it('syncTennisOdds skips external calls when DB matchups are empty', async () => {

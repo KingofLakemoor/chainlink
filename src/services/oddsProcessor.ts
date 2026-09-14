@@ -79,8 +79,8 @@ export async function syncTennisOdds() {
   const sharpApiKey = (process.env.SHARP_API_KEY || '').trim();
 
   if (!oddsApiKey && !sharpApiKey) {
-    console.log("[OddsProcessor] ODDS_API_KEY is not set. Skipping tennis odds sync.");
-    return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
+    console.warn("[OddsProcessor] No odds API keys (THE_ODDS_API_KEY, ODDS_API_KEY, SHARP_API_KEY) are set. Skipping tennis odds sync.");
+    return { success: false, error: 'No odds API keys configured (THE_ODDS_API_KEY, ODDS_API_KEY, or SHARP_API_KEY missing).' };
   }
 
   try {
@@ -332,7 +332,8 @@ export async function syncSoccerOdds() {
   const sharpApiKey = (process.env.SHARP_API_KEY || '').trim();
 
   if (!oddsApiKey && !sharpApiKey) {
-    return { success: true, message: 'ODDS_API_KEY missing, skipping.' };
+    console.warn("[OddsProcessor] No odds API keys (THE_ODDS_API_KEY, ODDS_API_KEY, SHARP_API_KEY) are set. Skipping soccer odds sync.");
+    return { success: false, error: 'No odds API keys configured (THE_ODDS_API_KEY, ODDS_API_KEY, or SHARP_API_KEY missing).' };
   }
 
   const leaguesToSync = [

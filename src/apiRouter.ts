@@ -12,6 +12,7 @@ import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleP
 import { gradeMatchups } from './services/grader.js';
 import { gradeLink4Matchups, payoutLink4Segment, aggregateAndPurgeLink4Segment, purgeCompletedLink4Segments } from './services/link4Grader.js';
 import { gradePickemMatchups, payoutPickemCampaign } from './services/pickemGrader.js';
+import { getStaticPickemLeaderboard, generateAndSavePickemLeaderboard } from './services/pickemLeaderboardService.js';
 import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
@@ -824,6 +825,37 @@ apiRouter.post("/pickem/clear-pick", validateAuth, async (req, res) => {
     res.json({ success: true });
   } catch (e: any) {
     console.error("Clear pickem pick error:", e.message, e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Pickem Static Leaderboard endpoints
+apiRouter.get("/pickem/leaderboard", async (req, res) => {
+  try {
+    const { campaignId, refresh } = req.query;
+    if (!campaignId || typeof campaignId !== 'string') {
+      return res.status(400).json({ success: false, error: "Missing required query parameter 'campaignId'" });
+    }
+
+    const leaderboard = await getStaticPickemLeaderboard(campaignId, refresh === 'true');
+    res.json({ success: true, leaderboard });
+  } catch (e: any) {
+    console.error("Fetch pickem leaderboard error:", e.message, e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/pickem/leaderboard/sync", async (req, res) => {
+  try {
+    const { campaignId } = req.body;
+    if (!campaignId) {
+      return res.status(400).json({ success: false, error: "Missing required body parameter 'campaignId'" });
+    }
+
+    const leaderboard = await generateAndSavePickemLeaderboard(campaignId);
+    res.json({ success: true, leaderboard });
+  } catch (e: any) {
+    console.error("Sync pickem leaderboard error:", e.message, e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -1648,6 +1680,18 @@ apiRouter.post("/admin/grade-pickem-matchup", validateAdmin, async (req, res) =>
     res.json({ success: true });
   } catch (e: any) {
     console.error("Grade Pick 'Em matchup error:", e.message, e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/rebuild-pickem-leaderboard", validateAdmin, async (req, res) => {
+  try {
+    const { campaignId } = req.body;
+    const cid = campaignId || 'yes_day_2026';
+    const result = await generateAndSavePickemLeaderboard(cid);
+    res.json({ success: true, leaderboard: result });
+  } catch (e: any) {
+    console.error("Rebuild Pick 'Em leaderboard error:", e.message, e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

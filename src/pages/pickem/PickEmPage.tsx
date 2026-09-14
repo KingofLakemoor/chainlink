@@ -82,7 +82,16 @@ export default function PickEmPage() {
   const [userPicks, setUserPicks] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [matchupsLoading, setMatchupsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'matchups' | 'leaderboard'>('matchups');
+  const [activeTab, setActiveTab] = useState<'matchups' | 'leaderboard'>(
+    searchParams.get('tab') === 'leaderboard' ? 'leaderboard' : 'matchups'
+  );
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'leaderboard' || tabParam === 'matchups') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
   const [leaderboardView, setLeaderboardView] = useState<'season' | 'week'>('season');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
@@ -450,6 +459,40 @@ export default function PickEmPage() {
       setLeaderboardLoading(true);
       try {
         const campaignIds = getCampaignIds(selectedCampaign, campaigns);
+
+        // OPTIMIZATION: Check for static pre-aggregated leaderboard document first (1 read instead of hundreds)
+        let staticDocFound = false;
+        for (const cid of campaignIds) {
+          try {
+            const staticSnap = await getDoc(doc(db, 'pickemLeaderboards', cid));
+            if (staticSnap.exists()) {
+              const data = staticSnap.data();
+              const items: any[] = leaderboardView === 'week'
+                ? (data.weeks?.[selectedWeek] || data.weeks?.[String(selectedWeek)] || [])
+                : (data.season || []);
+
+              if (items && items.length > 0) {
+                const formatted = items.map((p: any) => ({
+                  ...p,
+                  id: p.id || p.uid,
+                  uid: p.uid || p.id,
+                  avatar: p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid || p.id || 'guest'}`
+                }));
+                setLeaderboardData(formatted);
+                staticDocFound = true;
+                break;
+              }
+            }
+          } catch (staticErr) {
+            console.warn(`[PickEmPage] Could not load static leaderboard for ${cid}, falling back to live calculation:`, staticErr);
+          }
+        }
+
+        if (staticDocFound) {
+          return;
+        }
+
+        // Fallback: dynamic aggregation across campaign ID aliases if no static document exists yet
         const participantStats: Record<string, { wins: number, losses: number, pushes: number, points: number, picks: any[] }> = {};
 
         // Fetch participants across campaign ID aliases
@@ -639,6 +682,7 @@ export default function PickEmPage() {
            }
 
            return {
+               id: uid,
                uid,
                name: usersMap[uid]?.username || usersMap[uid]?.name || usersMap[uid]?.displayName || 'Unknown User',
                avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || usersMap[uid]?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,

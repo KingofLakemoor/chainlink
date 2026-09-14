@@ -4,7 +4,7 @@ import { collection, getDocs, query, where, setDoc, doc, getDoc } from 'firebase
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink, ArrowLeft } from 'lucide-react';
+import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink, ArrowLeft, Trophy } from 'lucide-react';
 import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { cn } from '../../lib/utils';
@@ -14,7 +14,8 @@ export default function PickEmLandingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'my_picks' | 'join'>('my_picks');
+  const initialTab = searchParams.get('tab') === 'leaderboard' ? 'leaderboard' : 'my_picks';
+  const [activeTab, setActiveTab] = useState<'my_picks' | 'join' | 'leaderboard'>(initialTab);
   
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [joinedCampaignIds, setJoinedCampaignIds] = useState<Set<string>>(new Set());
@@ -51,10 +52,20 @@ export default function PickEmLandingPage() {
 
         const joinedIds = new Set<string>();
         const partCampaignIds = new Set<string>();
+        const addWithAliases = (cid: string) => {
+          if (!cid) return;
+          joinedIds.add(cid);
+          if (cid === 'charity' || cid === 'yes_day_2026' || cid === 'YES Day Walk for Autism 2026') {
+            joinedIds.add('charity');
+            joinedIds.add('yes_day_2026');
+            joinedIds.add('YES Day Walk for Autism 2026');
+          }
+        };
+
         [...(partSnap as any).docs, ...(partUserSnap as any).docs].forEach(d => {
           const cid = d.data().campaignId;
           if (cid) {
-            joinedIds.add(cid);
+            addWithAliases(cid);
             partCampaignIds.add(cid);
           }
         });
@@ -63,7 +74,7 @@ export default function PickEmLandingPage() {
         [...(picksSnap as any).docs, ...(picksUserSnap as any).docs].forEach(d => {
           const cid = d.data().campaignId;
           if (cid) {
-            joinedIds.add(cid);
+            addWithAliases(cid);
             if (!partCampaignIds.has(cid)) {
               unhealedCampaignIds.add(cid);
             }
@@ -467,14 +478,22 @@ export default function PickEmLandingPage() {
 
       <div className="flex gap-4 mb-8 border-b border-zinc-800">
         <button
-          onClick={() => setActiveTab('my_picks')}
+          onClick={() => { setActiveTab('my_picks'); setSearchParams({}); }}
           className={cn("px-4 py-3 font-semibold text-sm transition-colors relative", activeTab === 'my_picks' ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
         >
           My Pick Em
           {activeTab === 'my_picks' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#22c55e]" />}
         </button>
         <button
-          onClick={() => setActiveTab('join')}
+          onClick={() => { setActiveTab('leaderboard'); setSearchParams({ tab: 'leaderboard' }); }}
+          className={cn("px-4 py-3 font-semibold text-sm transition-colors relative flex items-center gap-2", activeTab === 'leaderboard' ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
+        >
+          <Trophy className="w-4 h-4 text-yellow-500" />
+          Leaderboards
+          {activeTab === 'leaderboard' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#22c55e]" />}
+        </button>
+        <button
+          onClick={() => { setActiveTab('join'); setSearchParams({ tab: 'join' }); }}
           className={cn("px-4 py-3 font-semibold text-sm transition-colors relative flex items-center gap-2", activeTab === 'join' ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
         >
           Join Pick Em
@@ -585,9 +604,143 @@ export default function PickEmLandingPage() {
                         </div>
                       </div>
                     )}
+
+                    <div className="p-4 bg-[#141416] border-t border-zinc-800/80 flex items-center justify-between gap-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-white font-semibold flex items-center justify-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/pickem/${c.id}?tab=leaderboard`);
+                        }}
+                      >
+                        <Trophy className="w-4 h-4 text-yellow-500" />
+                        Leaderboard
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-[#22c55e] hover:bg-[#22c55e]/90 text-black font-bold flex items-center justify-center gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/pickem/${c.id}?tab=matchups`);
+                        }}
+                      >
+                        Make Picks
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'leaderboard' && (
+        <div className="space-y-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Trophy className="w-6 h-6 text-yellow-500" />
+                Pick'em Leaderboards & Standings
+              </h2>
+              <p className="text-sm text-zinc-400">Select any active contest below to view current standings, scores, and participant picks.</p>
+            </div>
+          </div>
+
+          {myCampaigns.length === 0 && publicCampaigns.length === 0 ? (
+            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-12 text-center">
+              <Trophy className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">No active leaderboards</h3>
+              <p className="text-zinc-400 mb-6">There are no active contests available right now.</p>
+              <Button onClick={() => setActiveTab('join')}>Browse Open Contests</Button>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {myCampaigns.length > 0 && (
+                <div>
+                  <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#22c55e]"></span>
+                    My Contests ({myCampaigns.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {myCampaigns.map(c => (
+                      <div
+                        key={c.id}
+                        onClick={() => navigate(`/pickem/${c.id}?tab=leaderboard`)}
+                        className="bg-[#121212] border border-zinc-800 hover:border-yellow-500/50 rounded-xl p-6 flex flex-col justify-between transition-all hover:scale-[1.01] cursor-pointer shadow-lg"
+                      >
+                        <div className="flex items-start gap-4 mb-4">
+                          {c.theme?.logoUrl ? (
+                            <FirebaseImage src={c.theme.logoUrl} className="w-12 h-12 object-contain rounded-md bg-zinc-900" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-md bg-zinc-900 flex items-center justify-center">
+                              <Trophy className="w-6 h-6 text-yellow-500" />
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="text-lg font-bold text-white leading-tight">{c.theme?.title || c.name}</h3>
+                            <p className="text-xs text-zinc-400 mt-1">Week {c.currentWeek ?? 1} • {c.defaultMatchType === 'SPREAD' ? 'Against The Spread' : 'Moneyline'}</p>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between">
+                          <span className="text-xs font-semibold text-yellow-500 flex items-center gap-1.5 bg-yellow-500/10 px-2.5 py-1 rounded-full border border-yellow-500/20">
+                            <Trophy className="w-3.5 h-3.5" />
+                            Standings Ready
+                          </span>
+                          <span className="text-sm font-bold text-white flex items-center gap-1 hover:text-[#22c55e] transition-colors">
+                            View Standings <ChevronRight className="w-4 h-4" />
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {publicCampaigns.length > 0 && (
+                <div>
+                  <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-zinc-500"></span>
+                    {myCampaigns.length > 0 ? 'Other Public Contests' : 'All Contests'} ({publicCampaigns.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {publicCampaigns.map(c => (
+                      <div
+                        key={c.id}
+                        onClick={() => navigate(`/pickem/${c.id}?tab=leaderboard`)}
+                        className="bg-[#121212] border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 flex flex-col justify-between transition-all hover:scale-[1.01] cursor-pointer shadow-lg"
+                      >
+                        <div className="flex items-start gap-4 mb-4">
+                          {c.theme?.logoUrl ? (
+                            <FirebaseImage src={c.theme.logoUrl} className="w-12 h-12 object-contain rounded-md bg-zinc-900" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-md bg-zinc-900 flex items-center justify-center">
+                              <Trophy className="w-6 h-6 text-zinc-500" />
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="text-lg font-bold text-white leading-tight">{c.theme?.title || c.name}</h3>
+                            <p className="text-xs text-zinc-400 mt-1">Week {c.currentWeek ?? 1} • {c.defaultMatchType === 'SPREAD' ? 'Against The Spread' : 'Moneyline'}</p>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between">
+                          <span className="text-xs font-medium text-zinc-400 bg-zinc-800/60 px-2.5 py-1 rounded-full border border-zinc-700/50">
+                            Public Contest
+                          </span>
+                          <span className="text-sm font-bold text-zinc-300 flex items-center gap-1 hover:text-white transition-colors">
+                            View Leaderboard <ChevronRight className="w-4 h-4" />
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

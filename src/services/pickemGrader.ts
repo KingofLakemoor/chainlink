@@ -1,5 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { isTeamMatch } from '../lib/teamUtils.js';
+import { generateAndSavePickemLeaderboard } from './pickemLeaderboardService.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -18,6 +19,20 @@ export async function gradePickemMatchups(pickemMatchups: any[]) {
       await gradeSinglePickemMatchup(matchup);
     } catch (e: any) {
       console.error(`[PickemGrader] Error grading pickem matchup ${matchup.id}:`, e);
+    }
+  }
+
+  // Update static leaderboard document for all graded campaigns
+  const campaignIdsToUpdate = new Set<string>();
+  finalMatchups.forEach(m => {
+    if (m.campaignId) campaignIdsToUpdate.add(m.campaignId);
+    if (m.campaignName) campaignIdsToUpdate.add(m.campaignName);
+  });
+  for (const cid of campaignIdsToUpdate) {
+    try {
+      await generateAndSavePickemLeaderboard(cid);
+    } catch (err) {
+      console.error(`[PickemGrader] Failed to update static leaderboard for ${cid}:`, err);
     }
   }
 }

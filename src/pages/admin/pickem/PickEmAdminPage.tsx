@@ -1030,23 +1030,43 @@ export default function PickEmAdminPage() {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
                     <div>
                       <h4 className="font-bold text-base text-white">Week Management & Scheduling</h4>
-                      <p className="text-xs text-zinc-400">Select active campaign week and configure game sync boundaries.</p>
+                      <p className="text-xs text-zinc-400">Set current campaign week, toggle user picking visibility, and configure game sync boundaries.</p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={selectedWeek}
-                        onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                        className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
-                      >
-                        {[...Array(detailCampaign?.hasWeekZero ? editTotalWeeks + 1 : editTotalWeeks)].map((_, i) => {
-                          const w = detailCampaign?.hasWeekZero ? i : i + 1;
-                          const lbl = detailCampaign?.weekSettings?.[w]?.label;
-                          return (
-                            <option key={w} value={w}>{lbl ? `Week ${w} (${lbl})` : `Week ${w}`}</option>
-                          );
-                        })}
-                      </select>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-zinc-400 font-semibold uppercase">Current Week:</span>
+                        <select
+                          value={activeLiveWeek}
+                          onChange={(e) => setActiveLiveWeek(Number(e.target.value))}
+                          className="bg-zinc-900 border border-purple-500/50 rounded-lg px-2.5 py-1.5 text-xs font-bold text-purple-400 focus:outline-none focus:border-purple-500"
+                          title="Current default week presented to users"
+                        >
+                          {[...Array(detailCampaign?.hasWeekZero ? editTotalWeeks + 1 : editTotalWeeks)].map((_, i) => {
+                            const w = detailCampaign?.hasWeekZero ? i : i + 1;
+                            return (
+                              <option key={w} value={w}>Week {w}</option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-zinc-400 font-semibold uppercase">Editing Week:</span>
+                        <select
+                          value={selectedWeek}
+                          onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                          className="bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
+                        >
+                          {[...Array(detailCampaign?.hasWeekZero ? editTotalWeeks + 1 : editTotalWeeks)].map((_, i) => {
+                            const w = detailCampaign?.hasWeekZero ? i : i + 1;
+                            const lbl = detailCampaign?.weekSettings?.[w]?.label;
+                            return (
+                              <option key={w} value={w}>{lbl ? `Week ${w} (${lbl})` : `Week ${w}`}</option>
+                            );
+                          })}
+                        </select>
+                      </div>
 
                       <Button onClick={handleSaveDetail} disabled={savingDetail} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs">
                         {savingDetail ? 'Saving...' : 'Save Settings'}
@@ -1054,7 +1074,7 @@ export default function PickEmAdminPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                     <div>
                       <label className="block font-semibold text-zinc-400 mb-1">Week Display Label</label>
                       <input
@@ -1064,6 +1084,21 @@ export default function PickEmAdminPage() {
                         placeholder="e.g. Week 1 Opening Slate"
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-zinc-400 mb-1">User Picking Access</label>
+                      <label className="flex items-center gap-2.5 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 cursor-pointer hover:border-zinc-700 h-[34px]">
+                        <input
+                          type="checkbox"
+                          checked={weekIsVisible}
+                          onChange={e => setWeekIsVisible(e.target.checked)}
+                          className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
+                        />
+                        <span className={`text-xs font-semibold ${weekIsVisible ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                          {weekIsVisible ? 'Picking Allowed' : 'Picking Hidden/Locked'}
+                        </span>
+                      </label>
                     </div>
 
                     <div>

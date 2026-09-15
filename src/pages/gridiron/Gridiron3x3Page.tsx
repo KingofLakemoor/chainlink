@@ -108,7 +108,7 @@ export default function Gridiron3x3Page() {
         } else if (!selectedContest) {
           setSelectedContest(fetchedContests[0]);
           const curr = getCurrentFootballWeek();
-          setSeason(curr.season || fetchedContests[0].season || 2026);
+          setSeason(curr.season);
           setWeekNumber(curr.weekNumber);
         }
       }
@@ -265,6 +265,9 @@ export default function Gridiron3x3Page() {
         setNewSecondaryColor('#06b6d4');
         await fetchContests();
         setSelectedContest(data.contest);
+        const curr = getCurrentFootballWeek();
+        setSeason(curr.season);
+        setWeekNumber(curr.weekNumber);
         setLandingViewMode('workspace');
       } else {
         showToast(data.error || 'Failed to create group', 'error');
@@ -295,6 +298,9 @@ export default function Gridiron3x3Page() {
         setJoinInviteCode('');
         await fetchContests();
         setSelectedContest(data.contest);
+        const curr = getCurrentFootballWeek();
+        setSeason(curr.season);
+        setWeekNumber(curr.weekNumber);
         setLandingViewMode('workspace');
       } else {
         showToast(data.error || 'Failed to join contest', 'error');
@@ -546,7 +552,7 @@ export default function Gridiron3x3Page() {
                             onClick={() => {
                               setSelectedContest(c);
                               const curr = getCurrentFootballWeek();
-                              setSeason(curr.season || c.season || 2026);
+                              setSeason(curr.season);
                               setWeekNumber(curr.weekNumber);
                               setLandingViewMode('workspace');
                             }}
@@ -576,6 +582,9 @@ export default function Gridiron3x3Page() {
                                   showToast(`Joined public group "${c.name}"!`, 'success');
                                   await fetchContests();
                                   setSelectedContest(data.contest);
+                                  const curr = getCurrentFootballWeek();
+                                  setSeason(curr.season);
+                                  setWeekNumber(curr.weekNumber);
                                   setLandingViewMode('workspace');
                                 } else {
                                   showToast(data.error || 'Failed to join group', 'error');
@@ -782,7 +791,12 @@ export default function Gridiron3x3Page() {
               value={selectedContest?.contestId || ''}
               onChange={(e) => {
                 const found = contests.find(c => c.contestId === e.target.value);
-                if (found) setSelectedContest(found);
+                if (found) {
+                  setSelectedContest(found);
+                  const curr = getCurrentFootballWeek();
+                  setSeason(curr.season);
+                  setWeekNumber(curr.weekNumber);
+                }
               }}
               className="bg-zinc-900 border border-[#3f3f46] rounded-xl px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
             >

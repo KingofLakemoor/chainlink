@@ -1154,6 +1154,7 @@ export default function PickEmAdminPage() {
                             <th className="px-4 py-2.5 font-medium">Title</th>
                             <th className="px-4 py-2.5 font-medium">Status</th>
                             <th className="px-4 py-2.5 font-medium">Start Time</th>
+                            <th className="px-4 py-2.5 font-medium">Odds</th>
                             <th className="px-4 py-2.5 font-medium text-center">Type</th>
                             <th className="px-4 py-2.5 font-medium text-center">Tiebreaker</th>
                             <th className="px-4 py-2.5 font-medium text-right">Actions</th>
@@ -1179,6 +1180,41 @@ export default function PickEmAdminPage() {
                               </td>
                               <td className="px-4 py-2.5 text-zinc-400">{m.statusDesc || m.status}</td>
                               <td className="px-4 py-2.5 text-zinc-400">{new Date(m.startTime).toLocaleString()}</td>
+                              <td className="px-4 py-2.5 text-xs font-mono">
+                                {(() => {
+                                  const hasSpread = m.metadata?.spread !== undefined && m.metadata?.spread !== null && m.metadata?.spread !== '';
+                                  const spreadStr = hasSpread ? (Number(m.metadata.spread) > 0 ? `+${m.metadata.spread}` : `${m.metadata.spread}`) : null;
+
+                                  const hasMlAway = m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlAway !== '';
+                                  const hasMlHome = m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null && m.metadata?.mlHome !== '';
+                                  const hasML = hasMlAway || hasMlHome;
+
+                                  const formatML = (val: any) => {
+                                    if (val === undefined || val === null || val === '') return '-';
+                                    const num = Number(val);
+                                    return isNaN(num) ? String(val) : (num > 0 ? `+${num}` : String(num));
+                                  };
+
+                                  if (!hasSpread && !hasML) {
+                                    return <span className="text-zinc-600">-</span>;
+                                  }
+
+                                  return (
+                                    <div className="flex flex-col gap-0.5">
+                                      {hasSpread && (
+                                        <span className="text-zinc-300 font-semibold">
+                                          Spread: {spreadStr}
+                                        </span>
+                                      )}
+                                      {hasML && (
+                                        <span className="text-zinc-400">
+                                          ML: {formatML(m.metadata?.mlAway)} / {formatML(m.metadata?.mlHome)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
                               <td className="px-4 py-2.5 text-center">
                                 {(detailCampaign?.isCharity || detailCampaign?.name === 'YES Day Walk for Autism 2026' || detailCampaign?.id === 'charity' || detailCampaign?.id === 'yes_day_2026') ? (
                                   <span className="px-2 py-0.5 text-[10px] rounded font-bold uppercase tracking-wider bg-zinc-800 text-zinc-500">

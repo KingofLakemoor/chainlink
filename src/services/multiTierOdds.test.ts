@@ -22,13 +22,28 @@ describe('Sport Mapping & Name Normalizer', () => {
     expect(teamsMatch('', 'Boston Celtics')).toBe(false);
   });
 
-  it('contains expected league mappings including tennis', () => {
+  it('contains expected league mappings including tennis and soccer', () => {
     expect(ESPN_TO_ODDS_API_SPORT['nfl']).toBe('americanfootball_nfl');
     expect(ESPN_TO_ODDS_API_SPORT['nba']).toBe('basketball_nba');
     expect(ESPN_TO_ODDS_API_SPORT['atp']).toBe('tennis_atp');
     expect(ESPN_TO_ODDS_API_SPORT['wta']).toBe('tennis_wta');
+    expect(ESPN_TO_ODDS_API_SPORT['rpl']).toBe('soccer_russia_premier_league');
+    expect(ESPN_TO_ODDS_API_SPORT['tur']).toBe('soccer_turkey_super_league');
+    expect(ESPN_TO_ODDS_API_SPORT['arg']).toBe('soccer_argentina_primera_division');
+    expect(ESPN_TO_ODDS_API_SPORT['bra']).toBe('soccer_brazil_campeonato');
+    expect(ESPN_TO_ODDS_API_SPORT['lmx']).toBe('soccer_mexico_ligamx');
+    expect(ESPN_TO_ODDS_API_SPORT['fra']).toBe('soccer_france_ligue_one');
+    expect(ESPN_TO_ODDS_API_SPORT['nwsl']).toBe('soccer_usa_nwsl');
+
     expect(ESPN_TO_SHARP_API_LEAGUE['nfl']).toBe('nfl');
     expect(ESPN_TO_SHARP_API_LEAGUE['epl']).toBe('epl');
+    expect(ESPN_TO_SHARP_API_LEAGUE['fra']).toBe('fra');
+    expect(ESPN_TO_SHARP_API_LEAGUE['rpl']).toBe('rpl');
+    expect(ESPN_TO_SHARP_API_LEAGUE['tur']).toBe('tur');
+    expect(ESPN_TO_SHARP_API_LEAGUE['arg']).toBe('arg');
+    expect(ESPN_TO_SHARP_API_LEAGUE['bra']).toBe('bra');
+    expect(ESPN_TO_SHARP_API_LEAGUE['lmx']).toBe('lmx');
+    expect(ESPN_TO_SHARP_API_LEAGUE['nwsl']).toBe('nwsl');
     expect(ESPN_TO_SHARP_API_LEAGUE['atp']).toBe('atp');
     expect(ESPN_TO_SHARP_API_LEAGUE['wta']).toBe('wta');
   });

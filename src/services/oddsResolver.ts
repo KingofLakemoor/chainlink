@@ -54,6 +54,13 @@ function getEspnPath(sport: string): string {
     case 'nhl': return 'hockey/nhl';
     case 'mls': return 'soccer/usa.1';
     case 'epl': return 'soccer/eng.1';
+    case 'fra': return 'soccer/fra.1';
+    case 'tur': return 'soccer/tur.1';
+    case 'rpl': return 'soccer/rus.1';
+    case 'lmx': return 'soccer/mex.1';
+    case 'arg': return 'soccer/arg.1';
+    case 'bra': return 'soccer/bra.1';
+    case 'nwsl': return 'soccer/usa.nwsl';
     case 'atp': return 'tennis/atp';
     case 'wta': return 'tennis/wta';
     default: return `${sport}/${sport}`;

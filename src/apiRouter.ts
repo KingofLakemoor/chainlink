@@ -2435,13 +2435,6 @@ apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, r
     const { scoreboardOnly } = req.body || {};
     const isScoreboardOnly = !!scoreboardOnly;
 
-    // Run odds sync before schedule sync to ensure existing scheduled matches have latest odds
-    try {
-      await Promise.all([syncSoccerOdds(), syncTennisOdds()]);
-    } catch (e) {
-      console.error('Pre-sync odds run error in sync-schedules-all:', e);
-    }
-
     const leagues = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "PROP"];
 
     let totalUpdated = 0;
@@ -2468,13 +2461,6 @@ apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, r
           }
         }
       }));
-    }
-
-    // Run odds sync after schedule sync to immediately populate odds for newly scraped matches
-    try {
-      await Promise.all([syncSoccerOdds(), syncTennisOdds()]);
-    } catch (e) {
-      console.error('Post-sync odds run error in sync-schedules-all:', e);
     }
 
     try {
@@ -2505,13 +2491,6 @@ apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) 
     const isScoreboardOnly = !!scoreboardOnly;
     let result = {};
 
-    // Run odds sync before schedule sync to ensure existing scheduled matches have latest odds
-    try {
-      await Promise.all([syncSoccerOdds(), syncTennisOdds()]);
-    } catch (e) {
-      console.error('Pre-sync odds run error in sync-schedules:', e);
-    }
-    
     // Handle potential aliases from external crons
     if (league === 'MEX' || league === 'Liga MX') {
       league = 'LMX';
@@ -2567,13 +2546,6 @@ apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) 
       } catch (err) {
         console.error('Failed to update props during sync-schedules:', err);
       }
-    }
-
-    // Run odds sync after schedule sync to immediately populate odds for newly scraped matches
-    try {
-      await Promise.all([syncSoccerOdds(), syncTennisOdds()]);
-    } catch (e) {
-      console.error('Post-sync odds run error in sync-schedules:', e);
     }
 
     // Call process-notifications internally to avoid requiring a separate cron job

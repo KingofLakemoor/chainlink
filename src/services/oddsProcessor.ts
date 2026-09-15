@@ -111,96 +111,7 @@ export async function syncTennisOdds() {
     const matchedIds = new Set<string>();
     let fetchedAnyOddsSuccessfully = false;
 
-    // Try The-Odds-API first if key is present
-    if (oddsApiKey) {
-      const sportsRes = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${oddsApiKey}`);
-      if (sportsRes.ok) {
-        const sportsData: any = await sportsRes.json();
-        const tennisSports = sportsData
-          .filter((s: any) => s.key && (s.key.startsWith('tennis_atp') || s.key.startsWith('tennis_wta')))
-          .map((s: any) => s.key);
-
-        for (const sport of tennisSports) {
-           const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${oddsApiKey}&regions=us&markets=h2h&oddsFormat=american`);
-           if (!oddsRes.ok) {
-             console.warn(`[OddsProcessor] The-Odds-API returned HTTP ${oddsRes.status} for tennis sport ${sport}`);
-             continue;
-           }
-           fetchedAnyOddsSuccessfully = true;
-           const oddsData: any = await oddsRes.json();
-
-           for (const event of oddsData) {
-             const homeTeamName = event.home_team;
-             const awayTeamName = event.away_team;
-             const bookmaker = event.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
-             if (!bookmaker) continue;
-
-             const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
-             if (!h2hMarket || !h2hMarket.outcomes) continue;
-
-             const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName || teamsMatch(homeTeamName, o.name, true));
-             const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName || teamsMatch(awayTeamName, o.name, true));
-
-             if (!homeOutcome || !awayOutcome) continue;
-
-             const mlHome = homeOutcome.price;
-             const mlAway = awayOutcome.price;
-             let isSwapped = false;
-
-             const match = dbMatchups.find((m: any) => {
-                if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
-                const espnHome = m.homeTeam.name;
-                const espnAway = m.awayTeam.name;
-                if (teamsMatch(espnHome, homeTeamName, true) && teamsMatch(espnAway, awayTeamName, true)) { isSwapped = false; return true; }
-                if (teamsMatch(espnHome, awayTeamName, true) && teamsMatch(espnAway, homeTeamName, true)) { isSwapped = true; return true; }
-                if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) { isSwapped = false; return true; }
-                if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) { isSwapped = true; return true; }
-                return false;
-             });
-
-             if (match) {
-                matchedIds.add(match.id);
-                let finalMlHome = isSwapped ? mlAway : mlHome;
-                let finalMlAway = isSwapped ? mlHome : mlAway;
-
-                const matchRef = adminDb.collection('matchups').doc(match.id);
-                const finalMlHomeNum = parseInt(finalMlHome, 10);
-                const finalMlAwayNum = parseInt(finalMlAway, 10);
-
-                let active = true;
-                if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
-                    active = false;
-                } else {
-                    if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
-                    if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
-                }
-
-                let abandoned = active ? false : (match.abandoned || false);
-                if (!active) {
-                    const hasPicks = await checkMatchupHasPicks(adminDb, match);
-                    if (hasPicks || match.manuallyActivated) { active = true; abandoned = false; }
-                    else { abandoned = true; }
-                }
-
-                batch.update(matchRef, {
-                  'metadata.mlHome': finalMlHome,
-                  'metadata.mlAway': finalMlAway,
-                  'active': active,
-                  'abandoned': abandoned,
-                  'updatedAt': Date.now()
-                });
-                updatedCount++;
-                batchCount++;
-                if (batchCount === 490) { await batch.commit(); batchCount = 0; }
-             }
-           }
-        }
-      } else {
-        console.warn(`[OddsProcessor] The-Odds-API sports list returned HTTP ${sportsRes.status}`);
-      }
-    }
-
-    // Try SharpAPI for unmatched tennis games or if Odds API was unavailable/failed
+    // 1. Try SharpAPI first (Secondary odds provider)
     if (sharpApiKey) {
       for (const leagueSlug of ['atp', 'wta']) {
         try {
@@ -281,6 +192,96 @@ export async function syncTennisOdds() {
         } catch (err) {
           console.warn(`[OddsProcessor] SharpAPI fetch failed for ${leagueSlug}:`, err);
         }
+      }
+    }
+
+    // 2. Try The-Odds-API second for any unmatched tennis games (Tertiary odds provider)
+    if (oddsApiKey && matchedIds.size < dbMatchups.length) {
+      const sportsRes = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${oddsApiKey}`);
+      if (sportsRes.ok) {
+        const sportsData: any = await sportsRes.json();
+        const tennisSports = sportsData
+          .filter((s: any) => s.key && (s.key.startsWith('tennis_atp') || s.key.startsWith('tennis_wta')))
+          .map((s: any) => s.key);
+
+        for (const sport of tennisSports) {
+           const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${oddsApiKey}&regions=us&markets=h2h&oddsFormat=american`);
+           if (!oddsRes.ok) {
+             console.warn(`[OddsProcessor] The-Odds-API returned HTTP ${oddsRes.status} for tennis sport ${sport}`);
+             continue;
+           }
+           fetchedAnyOddsSuccessfully = true;
+           const oddsData: any = await oddsRes.json();
+
+           for (const event of oddsData) {
+             const homeTeamName = event.home_team;
+             const awayTeamName = event.away_team;
+             const bookmaker = event.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
+             if (!bookmaker) continue;
+
+             const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
+             if (!h2hMarket || !h2hMarket.outcomes) continue;
+
+             const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName || teamsMatch(homeTeamName, o.name, true));
+             const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName || teamsMatch(awayTeamName, o.name, true));
+
+             if (!homeOutcome || !awayOutcome) continue;
+
+             const mlHome = homeOutcome.price;
+             const mlAway = awayOutcome.price;
+             let isSwapped = false;
+
+             const match = dbMatchups.find((m: any) => {
+                if (matchedIds.has(m.id)) return false;
+                if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
+                const espnHome = m.homeTeam.name;
+                const espnAway = m.awayTeam.name;
+                if (teamsMatch(espnHome, homeTeamName, true) && teamsMatch(espnAway, awayTeamName, true)) { isSwapped = false; return true; }
+                if (teamsMatch(espnHome, awayTeamName, true) && teamsMatch(espnAway, homeTeamName, true)) { isSwapped = true; return true; }
+                if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) { isSwapped = false; return true; }
+                if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) { isSwapped = true; return true; }
+                return false;
+             });
+
+             if (match) {
+                matchedIds.add(match.id);
+                let finalMlHome = isSwapped ? mlAway : mlHome;
+                let finalMlAway = isSwapped ? mlHome : mlAway;
+
+                const matchRef = adminDb.collection('matchups').doc(match.id);
+                const finalMlHomeNum = parseInt(finalMlHome, 10);
+                const finalMlAwayNum = parseInt(finalMlAway, 10);
+
+                let active = true;
+                if (isNaN(finalMlHomeNum) && isNaN(finalMlAwayNum)) {
+                    active = false;
+                } else {
+                    if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
+                    if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
+                }
+
+                let abandoned = active ? false : (match.abandoned || false);
+                if (!active) {
+                    const hasPicks = await checkMatchupHasPicks(adminDb, match);
+                    if (hasPicks || match.manuallyActivated) { active = true; abandoned = false; }
+                    else { abandoned = true; }
+                }
+
+                batch.update(matchRef, {
+                  'metadata.mlHome': finalMlHome,
+                  'metadata.mlAway': finalMlAway,
+                  'active': active,
+                  'abandoned': abandoned,
+                  'updatedAt': Date.now()
+                });
+                updatedCount++;
+                batchCount++;
+                if (batchCount === 490) { await batch.commit(); batchCount = 0; }
+             }
+           }
+        }
+      } else {
+        console.warn(`[OddsProcessor] The-Odds-API sports list returned HTTP ${sportsRes.status}`);
       }
     }
     
@@ -377,99 +378,8 @@ export async function syncSoccerOdds() {
         const matchedIds = new Set();
         let fetchedAnyOddsForLeague = false;
 
-        // 1. Try Odds API first if key available
-        if (oddsApiKey) {
-          try {
-            const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${oddsApiKey}&regions=us&markets=h2h&oddsFormat=american`);
-            if (!oddsRes.ok) {
-              console.warn(`[OddsProcessor] The-Odds-API returned HTTP ${oddsRes.status} for soccer league ${l.espn}`);
-            } else {
-              fetchedAnyOddsForLeague = true;
-              const oddsData: any[] = (await oddsRes.json()) as any[];
-
-              for (const event of oddsData) {
-                 const homeTeamName = event.home_team;
-                 const awayTeamName = event.away_team;
-
-                 const bookmaker = event.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
-                 if (!bookmaker) continue;
-
-                 const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
-                 if (!h2hMarket || !h2hMarket.outcomes) continue;
-
-                 const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName);
-                 const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName);
-                 if (!homeOutcome || !awayOutcome) continue;
-
-                 const mlHome = homeOutcome.price;
-                 const mlAway = awayOutcome.price;
-
-                 const match = dbMatchups.find((m: any) => {
-                    if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
-                    const espnHome = m.homeTeam.name;
-                    const espnAway = m.awayTeam.name;
-                    if (teamsMatch(espnHome, homeTeamName) && teamsMatch(espnAway, awayTeamName)) return true;
-                    if (teamsMatch(espnHome, awayTeamName) && teamsMatch(espnAway, homeTeamName)) return true;
-                    if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) return true;
-                    if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) return true;
-                    return false;
-                 });
-
-                 if (match) {
-                    matchedIds.add(match.id);
-                    let finalMlHome = mlHome;
-                    let finalMlAway = mlAway;
-                    if ((teamsMatch((match as any).homeTeam.name, awayTeamName) && teamsMatch((match as any).awayTeam.name, homeTeamName)) ||
-                        (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName))) {
-                        finalMlHome = mlAway;
-                        finalMlAway = mlHome;
-                    }
-                    const matchRef = adminDb.collection('matchups').doc(match.id);
-                    const finalMlHomeNum = parseInt(finalMlHome, 10);
-                    const finalMlAwayNum = parseInt(finalMlAway, 10);
-                    let active = true;
-                    if (isNaN(finalMlHomeNum) || isNaN(finalMlAwayNum)) {
-                        active = false;
-                    } else {
-                        if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
-                        if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
-                    }
-
-                    let abandoned = active ? false : (match.abandoned || false);
-                    if (!active) {
-                        const hasPicks = await checkMatchupHasPicks(adminDb, match);
-                        if (hasPicks || (match as any).manuallyActivated) {
-                            active = true;
-                            abandoned = false;
-                        } else {
-                            abandoned = true;
-                        }
-                    }
-
-                    batch.update(matchRef, {
-                      'metadata.mlHome': finalMlHome,
-                      'metadata.mlAway': finalMlAway,
-                      'active': active,
-                      'abandoned': abandoned,
-                      'updatedAt': Date.now()
-                    });
-                    totalUpdated++;
-                    batchCount++;
-
-                    if (batchCount === 490) {
-                       await batch.commit();
-                       batchCount = 0;
-                    }
-                 }
-              }
-            }
-          } catch (err) {
-            console.warn(`[OddsProcessor] Odds API fetch failed for ${l.espn}:`, err);
-          }
-        }
-
-        // 2. Try SharpAPI for unmatched matches or if Odds API failed / was missing
-        if (sharpApiKey && matchedIds.size < dbMatchups.length) {
+        // 1. Try SharpAPI first if key available (Secondary odds provider)
+        if (sharpApiKey) {
           try {
             const sharpRes = await fetch(`https://api.sharpapi.io/api/v1/odds?league=${l.sharpApi || l.espn.toLowerCase()}`, {
               headers: { 'X-API-Key': sharpApiKey }
@@ -558,6 +468,98 @@ export async function syncSoccerOdds() {
             }
           } catch (err) {
             console.warn(`[OddsProcessor] Sharp API fetch failed for ${l.espn}:`, err);
+          }
+        }
+
+        // 2. Try The-Odds-API second for unmatched matches or if SharpAPI failed (Tertiary odds provider)
+        if (oddsApiKey && matchedIds.size < dbMatchups.length) {
+          try {
+            const oddsRes = await fetch(`https://api.the-odds-api.com/v4/sports/${l.oddsApi}/odds/?apiKey=${oddsApiKey}&regions=us&markets=h2h&oddsFormat=american`);
+            if (!oddsRes.ok) {
+              console.warn(`[OddsProcessor] The-Odds-API returned HTTP ${oddsRes.status} for soccer league ${l.espn}`);
+            } else {
+              fetchedAnyOddsForLeague = true;
+              const oddsData: any[] = (await oddsRes.json()) as any[];
+
+              for (const event of oddsData) {
+                 const homeTeamName = event.home_team;
+                 const awayTeamName = event.away_team;
+
+                 const bookmaker = event.bookmakers?.find((b: any) => b.key === 'draftkings' || b.key === 'fanduel') || event.bookmakers?.[0];
+                 if (!bookmaker) continue;
+
+                 const h2hMarket = bookmaker.markets?.find((m: any) => m.key === 'h2h');
+                 if (!h2hMarket || !h2hMarket.outcomes) continue;
+
+                 const homeOutcome = h2hMarket.outcomes.find((o: any) => o.name === homeTeamName);
+                 const awayOutcome = h2hMarket.outcomes.find((o: any) => o.name === awayTeamName);
+                 if (!homeOutcome || !awayOutcome) continue;
+
+                 const mlHome = homeOutcome.price;
+                 const mlAway = awayOutcome.price;
+
+                 const match = dbMatchups.find((m: any) => {
+                    if (matchedIds.has(m.id)) return false;
+                    if (!m.homeTeam?.name || !m.awayTeam?.name) return false;
+                    const espnHome = m.homeTeam.name;
+                    const espnAway = m.awayTeam.name;
+                    if (teamsMatch(espnHome, homeTeamName) && teamsMatch(espnAway, awayTeamName)) return true;
+                    if (teamsMatch(espnHome, awayTeamName) && teamsMatch(espnAway, homeTeamName)) return true;
+                    if (namesMatch(espnHome, homeTeamName) && namesMatch(espnAway, awayTeamName)) return true;
+                    if (namesMatch(espnHome, awayTeamName) && namesMatch(espnAway, homeTeamName)) return true;
+                    return false;
+                 });
+
+                 if (match) {
+                    matchedIds.add(match.id);
+                    let finalMlHome = mlHome;
+                    let finalMlAway = mlAway;
+                    if ((teamsMatch((match as any).homeTeam.name, awayTeamName) && teamsMatch((match as any).awayTeam.name, homeTeamName)) ||
+                        (namesMatch((match as any).homeTeam.name, awayTeamName) && namesMatch((match as any).awayTeam.name, homeTeamName))) {
+                        finalMlHome = mlAway;
+                        finalMlAway = mlHome;
+                    }
+                    const matchRef = adminDb.collection('matchups').doc(match.id);
+                    const finalMlHomeNum = parseInt(finalMlHome, 10);
+                    const finalMlAwayNum = parseInt(finalMlAway, 10);
+                    let active = true;
+                    if (isNaN(finalMlHomeNum) || isNaN(finalMlAwayNum)) {
+                        active = false;
+                    } else {
+                        if (!isNaN(finalMlHomeNum) && (finalMlHomeNum <= -threshold || finalMlHomeNum >= threshold)) active = false;
+                        if (!isNaN(finalMlAwayNum) && (finalMlAwayNum <= -threshold || finalMlAwayNum >= threshold)) active = false;
+                    }
+
+                    let abandoned = active ? false : (match.abandoned || false);
+                    if (!active) {
+                        const hasPicks = await checkMatchupHasPicks(adminDb, match);
+                        if (hasPicks || (match as any).manuallyActivated) {
+                            active = true;
+                            abandoned = false;
+                        } else {
+                            abandoned = true;
+                        }
+                    }
+
+                    batch.update(matchRef, {
+                      'metadata.mlHome': finalMlHome,
+                      'metadata.mlAway': finalMlAway,
+                      'active': active,
+                      'abandoned': abandoned,
+                      'updatedAt': Date.now()
+                    });
+                    totalUpdated++;
+                    batchCount++;
+
+                    if (batchCount === 490) {
+                       await batch.commit();
+                       batchCount = 0;
+                    }
+                 }
+              }
+            }
+          } catch (err) {
+            console.warn(`[OddsProcessor] Odds API fetch failed for ${l.espn}:`, err);
           }
         }
 

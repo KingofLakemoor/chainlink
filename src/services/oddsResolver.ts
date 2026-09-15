@@ -12,17 +12,7 @@ export async function resolveGameOdds(espnGame: any, sportKey: string): Promise<
     return espnOdds;
   }
 
-  // 2. Secondary Fallback: The Odds API
-  try {
-    const oddsApiResult = await matchAndFetchOddsApiFallback(espnGame, sportKey);
-    if (oddsApiResult && (oddsApiResult.spread !== null || oddsApiResult.homeMoneyline !== null)) {
-      return oddsApiResult;
-    }
-  } catch (error) {
-    console.warn(`[Odds Fallback] The Odds API failed for ${espnGame.name || espnGame.id}:`, error);
-  }
-
-  // 3. Tertiary Fallback: SharpAPI
+  // 2. Secondary Fallback: SharpAPI
   try {
     const sharpApiResult = await matchAndFetchSharpApiFallback(espnGame, sportKey);
     if (sharpApiResult && (sharpApiResult.spread !== null || sharpApiResult.homeMoneyline !== null)) {
@@ -30,6 +20,16 @@ export async function resolveGameOdds(espnGame: any, sportKey: string): Promise<
     }
   } catch (error) {
     console.warn(`[Odds Fallback] SharpAPI failed for ${espnGame.name || espnGame.id}:`, error);
+  }
+
+  // 3. Tertiary Fallback: The Odds API
+  try {
+    const oddsApiResult = await matchAndFetchOddsApiFallback(espnGame, sportKey);
+    if (oddsApiResult && (oddsApiResult.spread !== null || oddsApiResult.homeMoneyline !== null)) {
+      return oddsApiResult;
+    }
+  } catch (error) {
+    console.warn(`[Odds Fallback] The Odds API failed for ${espnGame.name || espnGame.id}:`, error);
   }
 
   // 4. Baseline if no bookmaker lines exist anywhere

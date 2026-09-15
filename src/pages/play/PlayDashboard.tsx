@@ -342,6 +342,7 @@ export default function PlayDashboard() {
       const pickDoc = {
         userId: user.uid,
         matchupId: matchup.gameId,
+        pickId: pickId,
         pick: {
           id: team.id,
           name: team.name,
@@ -359,10 +360,34 @@ export default function PlayDashboard() {
          return;
       }
 
-      await setDoc(doc(db, 'picks', pickId), pickDoc);
-    } catch (error) {
+      try {
+        await setDoc(doc(db, 'picks', pickId), pickDoc);
+      } catch (clientErr) {
+        console.warn("Direct Firestore setDoc failed, attempting server API fallback:", clientErr);
+        const idToken = await user.getIdToken();
+        const response = await fetch('/api/picks/make-pick', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            matchupId: matchup.gameId,
+            team: {
+              id: team.id,
+              name: team.name,
+              image: team.image
+            }
+          })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to save pick via server');
+        }
+      }
+    } catch (error: any) {
       console.error("Failed to save pick", error);
-      alert("Failed to save pick.");
+      alert("Failed to save pick: " + (error?.message || "Unknown error"));
     }
   };
 

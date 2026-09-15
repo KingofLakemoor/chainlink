@@ -1,7 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { logServerError } from '../lib/serverErrorLogger.js';
 import { teamsMatch } from '../utils/sportMapping.js';
-import fetch from 'node-fetch';
 import cron from 'node-cron';
 
 let getAdminDb = () => firebaseAdmin.adminDb;

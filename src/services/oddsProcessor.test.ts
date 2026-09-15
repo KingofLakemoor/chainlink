@@ -1,17 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { syncTennisOdds, syncSoccerOdds, setAdminDbMock } from './oddsProcessor';
-import fetch from 'node-fetch';
-
-vi.mock('node-fetch', async () => {
-  const actual = await vi.importActual<any>('node-fetch');
-  return {
-    ...actual,
-    default: vi.fn(),
-  };
-});
 
 describe('OddsProcessor Optimization Tests', () => {
   let mockAdminDb: any;
+
+  let fetchSpy: any;
 
   beforeEach(() => {
     delete process.env.ODDS_API_KEY;
@@ -22,6 +15,11 @@ describe('OddsProcessor Optimization Tests', () => {
       batch: vi.fn(),
     };
     setAdminDbMock(mockAdminDb);
+    fetchSpy = vi.spyOn(globalThis, 'fetch');
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
   });
 
   it('syncTennisOdds matches games using SHARP_API_KEY when Odds API is unconfigured', async () => {
@@ -51,7 +49,7 @@ describe('OddsProcessor Optimization Tests', () => {
       return {};
     });
 
-    vi.mocked(fetch).mockImplementation(async (url: any, opts: any) => {
+    fetchSpy.mockImplementation(async (url: any, opts: any) => {
       const urlStr = url.toString();
       if (urlStr.includes('api.sharpapi.io/api/v1/odds?league=atp')) {
         return {
@@ -126,7 +124,7 @@ describe('OddsProcessor Optimization Tests', () => {
       return {};
     });
 
-    vi.mocked(fetch).mockImplementation(async (url: any, opts: any) => {
+    fetchSpy.mockImplementation(async (url: any, opts: any) => {
       const urlStr = url.toString();
       if (urlStr.includes('api.sharpapi.io/api/v1/odds?league=rpl')) {
         return {
@@ -300,7 +298,7 @@ describe('OddsProcessor Optimization Tests', () => {
       return {};
     });
 
-    vi.mocked(fetch).mockImplementation(async (url: any) => {
+    fetchSpy.mockImplementation(async (url: any) => {
       const urlStr = url.toString();
       if (urlStr.includes('/v4/sports/?')) {
         return {

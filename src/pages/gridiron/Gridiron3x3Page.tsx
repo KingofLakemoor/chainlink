@@ -5,7 +5,7 @@ import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useGridironDraft } from '../../hooks/useGridironDraft';
 import { Gridiron3x3Card } from '../../components/gridiron/Gridiron3x3Card';
 import { GridironContest, Gridiron3x3Game, GridironEntry, GridironLeaderboardRecord } from '../../types/gridiron';
-import { getFootballWeekDateRange } from '../../utils/footballWeek';
+import { getFootballWeekDateRange, getCurrentFootballWeek } from '../../utils/footballWeek';
 import { Button } from '../../components/ui/button';
 import { Trophy, Users, Plus, Key, Copy, Check, Lock, Shield, Layers, RefreshCw, CheckCircle2, XCircle, MinusCircle, ChevronLeft, ChevronRight, HelpCircle, ArrowLeft, Calendar, Flame } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -21,8 +21,9 @@ export default function Gridiron3x3Page() {
   const [contests, setContests] = useState<GridironContest[]>([]);
   const [selectedContest, setSelectedContest] = useState<GridironContest | null>(null);
 
-  const [season, setSeason] = useState<number>(2026);
-  const [weekNumber, setWeekNumber] = useState<number>(1);
+  const currentWeekInfo = getCurrentFootballWeek();
+  const [season, setSeason] = useState<number>(currentWeekInfo.season);
+  const [weekNumber, setWeekNumber] = useState<number>(currentWeekInfo.weekNumber);
 
   const [games, setGames] = useState<Gridiron3x3Game[]>([]);
   const [entries, setEntries] = useState<GridironEntry[]>([]);
@@ -106,8 +107,9 @@ export default function Gridiron3x3Page() {
           setLandingTab('join_create');
         } else if (!selectedContest) {
           setSelectedContest(fetchedContests[0]);
-          setSeason(fetchedContests[0].season || 2026);
-          setWeekNumber(fetchedContests[0].weekNumber || 1);
+          const curr = getCurrentFootballWeek();
+          setSeason(curr.season || fetchedContests[0].season || 2026);
+          setWeekNumber(curr.weekNumber);
         }
       }
     } catch (e) {
@@ -202,6 +204,9 @@ export default function Gridiron3x3Page() {
   useEffect(() => {
     if (selectedContest && (activeTab === 'leaderboard' || activeTab === 'group')) {
       fetchEntries();
+      if (activeTab === 'leaderboard') {
+        fetchLeaderboard();
+      }
     }
   }, [activeTab]);
 
@@ -540,8 +545,9 @@ export default function Gridiron3x3Page() {
                           <Button
                             onClick={() => {
                               setSelectedContest(c);
-                              setSeason(c.season || 2026);
-                              setWeekNumber(c.weekNumber || 1);
+                              const curr = getCurrentFootballWeek();
+                              setSeason(curr.season || c.season || 2026);
+                              setWeekNumber(curr.weekNumber);
                               setLandingViewMode('workspace');
                             }}
                             style={{

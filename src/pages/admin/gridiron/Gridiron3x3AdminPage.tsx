@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
 import { Gridiron3x3LinesDocument, GridironContest, GridironEntry } from '../../../types/gridiron';
-import { getFootballWeekDateRange } from '../../../utils/footballWeek';
+import { getFootballWeekDateRange, getCurrentFootballWeek } from '../../../utils/footballWeek';
 import { Button } from '../../../components/ui/button';
 import { RefreshCw, CheckCircle2, Trophy, Users, Layers, AlertCircle, Calendar, Shield, Clock } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 export default function Gridiron3x3AdminPage() {
-  const [season, setSeason] = useState<number>(2026);
-  const [weekNumber, setWeekNumber] = useState<number>(1);
+  const currentWeekInfo = getCurrentFootballWeek();
+  const [season, setSeason] = useState<number>(currentWeekInfo.season);
+  const [weekNumber, setWeekNumber] = useState<number>(currentWeekInfo.weekNumber);
 
   const [linesDoc, setLinesDoc] = useState<Gridiron3x3LinesDocument | null>(null);
   const [contests, setContests] = useState<GridironContest[]>([]);
@@ -75,8 +76,6 @@ export default function Gridiron3x3AdminPage() {
         if (list.length > 0 && !selectedContestId) {
           const first = list[0];
           setSelectedContestId(first.contestId);
-          if (first.season) setSeason(first.season);
-          if (first.weekNumber) setWeekNumber(first.weekNumber);
         }
       }
     } catch (err: any) {

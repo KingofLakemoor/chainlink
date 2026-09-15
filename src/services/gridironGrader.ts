@@ -204,6 +204,35 @@ export async function gradeGridironWeek(
     } catch (e) {
       console.warn("[GridironGrader] Matchups collection lookup error:", e);
     }
+
+    // Direct ESPN Event Summary API fallback for any remaining games neither in live scrape nor in matchups DB
+    const stillUnresolvedIds = missingGameIds.filter(id => !dbMatchupsMap.has(id));
+    if (stillUnresolvedIds.length > 0) {
+      for (const gid of stillUnresolvedIds) {
+        const snapGame = snapshotGamesMap.get(gid);
+        const lg = snapGame?.league?.toUpperCase() === "NFL" ? "nfl" : "college-football";
+        try {
+          const url = `https://site.api.espn.com/apis/site/v2/sports/football/${lg}/summary?event=${gid}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const data: any = await res.json();
+            const comp = data.header?.competitions?.[0];
+            const status = comp?.status?.type?.name;
+            const away = comp?.competitors?.find((c: any) => c.homeAway === "away");
+            const home = comp?.competitors?.find((c: any) => c.homeAway === "home");
+            if (status && (home?.score !== undefined || away?.score !== undefined)) {
+              dbMatchupsMap.set(gid, {
+                homeScore: Number(home?.score || 0),
+                awayScore: Number(away?.score || 0),
+                status: status
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`[GridironGrader] Direct ESPN summary fallback failed for game ${gid}:`, err);
+        }
+      }
+    }
   }
 
   // Fetch active unpurged entries for this season & week
@@ -412,11 +441,12 @@ export async function updateGridironLeaderboard(contestId: string) {
 
   const activeEntries: GridironEntry[] = activeEntriesSnap.docs.map(d => d.data() as GridironEntry);
 
-  // 2. Query weekly snapshots filtered by contestId to avoid scanning all historical snapshots
+  // 2. Query weekly snapshots to retrieve historical weeks
   const snapshotEntries: GridironEntry[] = [];
   const activeEntryIds = new Set(activeEntries.map(e => e.entryId));
 
   try {
+    // Check snapshots matching contestIds array
     const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots")
       .where("contestIds", "array-contains", contestId)
       .get();
@@ -425,11 +455,29 @@ export async function updateGridironLeaderboard(contestId: string) {
       const snapData = doc.data();
       const entriesList: GridironEntry[] = snapData?.entries || [];
       entriesList.forEach(e => {
-        if (e.contestId === contestId && !activeEntryIds.has(e.entryId)) {
+        const entryCid = e.contestId || "public";
+        if (entryCid === contestId && !activeEntryIds.has(e.entryId)) {
           snapshotEntries.push(e);
         }
       });
     });
+
+    // Fallback: If this is the public contest or if no snapshots matched, check all snapshots
+    if (snapshotEntries.length === 0 || contestId === "public") {
+      const allSnaps = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+      allSnaps.docs.forEach(doc => {
+        // Skip docs already processed above
+        if (weeklySnapshotsSnap.docs.some(d => d.id === doc.id)) return;
+        const snapData = doc.data();
+        const entriesList: GridironEntry[] = snapData?.entries || [];
+        entriesList.forEach(e => {
+          const entryCid = e.contestId || "public";
+          if (entryCid === contestId && !activeEntryIds.has(e.entryId)) {
+            snapshotEntries.push(e);
+          }
+        });
+      });
+    }
   } catch (e) {
     console.warn("[GridironLeaderboard] Error querying weekly snapshots for contest:", contestId, e);
   }

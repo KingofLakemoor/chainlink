@@ -173,6 +173,15 @@ export async function fetchAndStoreTuesdayGridironLines(
   };
 
   try {
+    const existingDoc = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
+    const existingGamesCount = existingDoc.exists ? (existingDoc.data()?.games?.length || 0) : 0;
+
+    // Guardrail: Do not overwrite an existing populated lines document with an empty games list
+    if (allGames.length === 0 && existingGamesCount > 0) {
+      console.warn(`[GridironIngestion] Scrape returned 0 valid games for ${docId}, but document already contains ${existingGamesCount} games. Preserving existing lines.`);
+      return { success: false, season, weekNumber, count: existingGamesCount, error: "Scrape returned 0 games; preserved existing lines." };
+    }
+
     await adminDb.collection("gridiron_3x3_lines").doc(docId).set(snapshotDoc, { merge: true });
     console.log(`[GridironIngestion] Successfully stored snapshot lines for ${docId} (${allGames.length} valid games).`);
     return { success: true, season, weekNumber, count: allGames.length };

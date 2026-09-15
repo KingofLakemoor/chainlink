@@ -3458,8 +3458,8 @@ apiRouter.get("/gridiron-3x3/lines/:season/:weekNumber", validateAuth, async (re
     const docId = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
     let docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
 
-    if (!docSnap.exists) {
-      // Auto-trigger ingestion if snapshot lines document is missing and current time >= Tuesday 12:00 PM EST
+    if (!docSnap.exists || (Array.isArray(docSnap.data()?.games) && docSnap.data()?.games.length === 0)) {
+      // Auto-trigger ingestion if snapshot lines document is missing or empty and current time >= Tuesday 12:00 PM EST
       await fetchAndStoreTuesdayGridironLines(season, weekNumber);
       docSnap = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
     }

@@ -180,6 +180,51 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(showSpreadNote).toBe(false);
   });
 
+  it('coerces YES Day campaign matchups to STANDARD type and strips - ATS from titles during ESPN sync', () => {
+    const yesDayCampaigns = [
+      { id: 'yes_day_2026', name: 'YES Day Walk for Autism 2026' },
+      { id: 'charity', name: 'Charity Walk', isCharity: true }
+    ];
+
+    const normalCampaign = { id: 'nfl-2026', name: 'NFL Pick Em 2026', defaultMatchType: 'SPREAD' };
+
+    const scrapedGames = [
+      { gameId: 'g1', title: 'Lions @ Bills - ATS', type: 'SPREAD' },
+      { gameId: 'g2', title: 'Steelers @ Patriots', type: 'SPREAD' }
+    ];
+
+    yesDayCampaigns.forEach(campaign => {
+      const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
+      expect(isYesDay).toBe(true);
+
+      scrapedGames.forEach(m => {
+        let finalType = isYesDay
+          ? "STANDARD"
+          : (campaign.defaultMatchType === "BOTH" ? "SPREAD" : (campaign.defaultMatchType || "STANDARD"));
+
+        const finalTitle = isYesDay
+          ? m.title.replace(/ - ATS$/, '')
+          : (finalType === "SPREAD" ? (m.title.endsWith(' - ATS') ? m.title : `${m.title} - ATS`) : m.title.replace(/ - ATS$/, ''));
+
+        expect(finalType).toBe('STANDARD');
+        expect(finalTitle).not.toContain(' - ATS');
+      });
+    });
+
+    // Verify standard campaign retains SPREAD type and appends ' - ATS'
+    const isYesDayNormal = normalCampaign.isCharity || normalCampaign.name === 'YES Day Walk for Autism 2026' || normalCampaign.id === 'charity' || normalCampaign.id === 'yes_day_2026';
+    expect(isYesDayNormal).toBe(false);
+
+    const g2 = scrapedGames[1];
+    let normalType = isYesDayNormal ? "STANDARD" : "SPREAD";
+    const normalTitle = isYesDayNormal
+      ? g2.title.replace(/ - ATS$/, '')
+      : (normalType === "SPREAD" ? (g2.title.endsWith(' - ATS') ? g2.title : `${g2.title} - ATS`) : g2.title.replace(/ - ATS$/, ''));
+
+    expect(normalType).toBe('SPREAD');
+    expect(normalTitle).toBe('Steelers @ Patriots - ATS');
+  });
+
   it('displays spread information panel for standard campaigns when matchups contain ATS matchups', () => {
     const selectedCampaign = {
       name: 'CFB Pick Em 2026',

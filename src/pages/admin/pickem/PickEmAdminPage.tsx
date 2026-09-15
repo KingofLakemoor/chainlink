@@ -477,12 +477,13 @@ export default function PickEmAdminPage() {
 
           const existingMatchup = matchups.find(ex => ex.id === pickemMatchupId);
           let metadataToSave = m.metadata ? { ...m.metadata } : null;
-          let finalType = detailCampaign.name === 'YES Day Walk for Autism 2026'
+          const isYesDay = detailCampaign.isCharity || detailCampaign.name === 'YES Day Walk for Autism 2026' || detailCampaign.id === 'charity' || detailCampaign.id === 'yes_day_2026';
+          let finalType = isYesDay
             ? "STANDARD"
             : (detailCampaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (detailCampaign.defaultMatchType || "STANDARD"));
 
           let isManualOverride = false;
-          if (existingMatchup && detailCampaign.name !== 'YES Day Walk for Autism 2026') {
+          if (existingMatchup && !isYesDay) {
             if (existingMatchup.manualTypeOverride || existingMatchup.isManualOverride) {
               finalType = existingMatchup.type;
               isManualOverride = true;
@@ -491,9 +492,11 @@ export default function PickEmAdminPage() {
             }
           }
 
-          const finalTitle = finalType === "SPREAD"
-            ? (m.title.endsWith(' - ATS') ? m.title : `${m.title} - ATS`)
-            : m.title.replace(/ - ATS$/, '');
+          const finalTitle = isYesDay
+            ? m.title.replace(/ - ATS$/, '')
+            : (finalType === "SPREAD"
+                ? (m.title.endsWith(' - ATS') ? m.title : `${m.title} - ATS`)
+                : m.title.replace(/ - ATS$/, ''));
 
           batch.set(docRef, {
             campaignId: editingCampaignId,
@@ -575,7 +578,8 @@ export default function PickEmAdminPage() {
   };
 
   const handleTypeChange = async (matchupId: string, newType: string, manualOverride: boolean = true) => {
-    if (detailCampaign?.name === 'YES Day Walk for Autism 2026') {
+    const isYesDay = detailCampaign?.isCharity || detailCampaign?.name === 'YES Day Walk for Autism 2026' || detailCampaign?.id === 'charity' || detailCampaign?.id === 'yes_day_2026';
+    if (isYesDay) {
       alert("YES Day Walk for Autism 2026 is strictly Moneyline (STANDARD) picks.");
       return;
     }
@@ -597,7 +601,8 @@ export default function PickEmAdminPage() {
   };
 
   const handleSetAutoType = async (matchupId: string) => {
-    if (detailCampaign?.name === 'YES Day Walk for Autism 2026') {
+    const isYesDay = detailCampaign?.isCharity || detailCampaign?.name === 'YES Day Walk for Autism 2026' || detailCampaign?.id === 'charity' || detailCampaign?.id === 'yes_day_2026';
+    if (isYesDay) {
       return;
     }
     try {
@@ -1175,7 +1180,7 @@ export default function PickEmAdminPage() {
                               <td className="px-4 py-2.5 text-zinc-400">{m.statusDesc || m.status}</td>
                               <td className="px-4 py-2.5 text-zinc-400">{new Date(m.startTime).toLocaleString()}</td>
                               <td className="px-4 py-2.5 text-center">
-                                {detailCampaign?.name === 'YES Day Walk for Autism 2026' ? (
+                                {(detailCampaign?.isCharity || detailCampaign?.name === 'YES Day Walk for Autism 2026' || detailCampaign?.id === 'charity' || detailCampaign?.id === 'yes_day_2026') ? (
                                   <span className="px-2 py-0.5 text-[10px] rounded font-bold uppercase tracking-wider bg-zinc-800 text-zinc-500">
                                     STD
                                   </span>

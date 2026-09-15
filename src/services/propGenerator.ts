@@ -1,5 +1,4 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
-import fetch from 'node-fetch';
 
 const NFL_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
 

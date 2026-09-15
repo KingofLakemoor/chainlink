@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 async function run() {
     const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/baseball/llb/scoreboard?dates=20260824', {
         headers: { 'User-Agent': 'Mozilla/5.0' }

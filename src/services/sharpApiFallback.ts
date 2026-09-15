@@ -64,6 +64,8 @@ export async function matchAndFetchSharpApiFallback(
   try {
     const sharpEvents = await getSharpApiSlate(leagueSlug);
 
+    let isSwapped = false;
+
     const matchedEvent = sharpEvents.find((item: any) => {
       const eventTime = new Date(item.start_time || item.commence_time || item.date).getTime();
       const timeDiffHours = Math.abs(eventTime - espnGameTime) / (1000 * 60 * 60);
@@ -71,7 +73,16 @@ export async function matchAndFetchSharpApiFallback(
 
       const homeName = item.home_team?.name || item.home_team || '';
       const awayName = item.away_team?.name || item.away_team || '';
-      return teamsMatch(espnHomeName, homeName, isTennis) && teamsMatch(espnAwayName, awayName, isTennis);
+
+      if (teamsMatch(espnHomeName, homeName, isTennis) && teamsMatch(espnAwayName, awayName, isTennis)) {
+        isSwapped = false;
+        return true;
+      }
+      if (teamsMatch(espnHomeName, awayName, isTennis) && teamsMatch(espnAwayName, homeName, isTennis)) {
+        isSwapped = true;
+        return true;
+      }
+      return false;
     });
 
     if (!matchedEvent) return null;
@@ -83,12 +94,15 @@ export async function matchAndFetchSharpApiFallback(
     let awayMoneyline: number | null = null;
 
     const markets = matchedEvent.markets || [];
+
     const spreadMarket = markets.find((m: any) => (m.market_type === 'spread' || m.market === 'spread') && !isSetSpecificMarket(m));
     if (spreadMarket?.lines?.length) {
-      const homeLine = spreadMarket.lines.find((l: any) => l.is_home || teamsMatch(l.team_name, matchedEvent.home_team?.name || matchedEvent.home_team || espnHomeName, isTennis));
+      const homeLine = spreadMarket.lines.find((l: any) =>
+        teamsMatch(l.team_name, espnHomeName, isTennis) || (!isSwapped && l.is_home) || (isSwapped && !l.is_home)
+      );
       if (homeLine?.spread !== undefined) {
         spread = parseFloat(homeLine.spread);
-        favoriteTeamId = spread < 0 ? homeCompetitor?.id : awayCompetitor?.id;
+        favoriteTeamId = spread < 0 ? homeCompetitor?.id : (spread > 0 ? awayCompetitor?.id : undefined);
       }
     }
 
@@ -100,10 +114,14 @@ export async function matchAndFetchSharpApiFallback(
 
     const mlMarket = markets.find((m: any) => (m.market_type === 'moneyline' || m.market_type === 'h2h' || m.market === 'moneyline' || m.market === 'h2h') && !isSetSpecificMarket(m));
     if (mlMarket?.lines?.length) {
-      const homeMl = mlMarket.lines.find((l: any) => l.is_home || teamsMatch(l.team_name, matchedEvent.home_team?.name || matchedEvent.home_team || espnHomeName, isTennis));
-      const awayMl = mlMarket.lines.find((l: any) => !l.is_home || teamsMatch(l.team_name, matchedEvent.away_team?.name || matchedEvent.away_team || espnAwayName, isTennis));
-      if (homeMl?.odds !== undefined) homeMoneyline = parseInt(homeMl.odds, 10);
-      if (awayMl?.odds !== undefined) awayMoneyline = parseInt(awayMl.odds, 10);
+      const homeMlObj = mlMarket.lines.find((l: any) =>
+        teamsMatch(l.team_name, espnHomeName, isTennis) || (!isSwapped && l.is_home) || (isSwapped && !l.is_home)
+      );
+      const awayMlObj = mlMarket.lines.find((l: any) =>
+        teamsMatch(l.team_name, espnAwayName, isTennis) || (!isSwapped && !l.is_home) || (isSwapped && l.is_home)
+      );
+      if (homeMlObj?.odds !== undefined) homeMoneyline = parseInt(homeMlObj.odds, 10);
+      if (awayMlObj?.odds !== undefined) awayMoneyline = parseInt(awayMlObj.odds, 10);
     }
 
     return {

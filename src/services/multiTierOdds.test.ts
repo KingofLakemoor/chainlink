@@ -52,11 +52,18 @@ describe('Sport Mapping & Name Normalizer', () => {
     expect(parsePlayerName('J. Sinner')).toEqual({ firstName: 'J.', lastName: 'Sinner', initial: 'j' });
     expect(parsePlayerName('Jannik Sinner')).toEqual({ firstName: 'Jannik', lastName: 'Sinner', initial: 'j' });
     expect(parsePlayerName('Sinner, Jannik')).toEqual({ firstName: 'Jannik', lastName: 'Sinner', initial: 'j' });
+    expect(parsePlayerName('Sinner J.')).toEqual({ firstName: 'J.', lastName: 'Sinner', initial: 'j' });
 
     expect(tennisPlayersMatch('J. Sinner', 'Jannik Sinner')).toBe(true);
     expect(tennisPlayersMatch('Sinner, Jannik', 'J. Sinner')).toBe(true);
+    expect(tennisPlayersMatch('Sinner J.', 'Jannik Sinner')).toBe(true);
     expect(tennisPlayersMatch('Carlos Alcaraz Garfia', 'C. Alcaraz')).toBe(true);
     expect(tennisPlayersMatch('Alex de Minaur', 'A. de Minaur')).toBe(true);
+
+    // Accent and diacritic normalization
+    expect(tennisPlayersMatch('Novak Đoković', 'Novak Djokovic')).toBe(true);
+    expect(tennisPlayersMatch('Jiří Lehečka', 'Jiri Lehecka')).toBe(true);
+    expect(tennisPlayersMatch('Đoković N.', 'N. Djokovic')).toBe(true);
 
     // Conflicting first initials should NOT match
     expect(tennisPlayersMatch('A. Zverev', 'M. Zverev')).toBe(false);
@@ -388,6 +395,58 @@ describe('Tier 3: SharpAPI Fallback', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => mockSharpTennisData,
+    } as Response);
+
+    const espnTennisGame = {
+      date: '2025-09-10T20:00:00Z',
+      competitions: [{
+        date: '2025-09-10T20:00:00Z',
+        competitors: [
+          { homeAway: 'home', id: 'p1', athlete: { displayName: 'Jannik Sinner' } },
+          { homeAway: 'away', id: 'p2', athlete: { displayName: 'Carlos Alcaraz' } },
+        ]
+      }]
+    };
+
+    const result = await matchAndFetchSharpApiFallback(espnTennisGame, 'atp');
+    expect(result).toEqual({
+      spread: null,
+      favoriteTeamId: undefined,
+      overUnder: null,
+      homeMoneyline: -155,
+      awayMoneyline: 135,
+      provider: 'sharp-api',
+      lineSummary: undefined,
+    });
+
+    vi.restoreAllMocks();
+  });
+
+  it('matches tennis odds from SharpAPI when home and away players are swapped', async () => {
+    process.env.SHARP_API_KEY = 'sharp-key';
+
+    const mockSharpTennisSwapped = {
+      data: [
+        {
+          start_time: '2025-09-10T20:00:00Z',
+          home_team: { name: 'Carlos Alcaraz' },
+          away_team: { name: 'Jannik Sinner' },
+          markets: [
+            {
+              market_type: 'moneyline',
+              lines: [
+                { is_home: true, team_name: 'Carlos Alcaraz', odds: '+135' },
+                { is_home: false, team_name: 'Jannik Sinner', odds: '-155' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockSharpTennisSwapped,
     } as Response);
 
     const espnTennisGame = {

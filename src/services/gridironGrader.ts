@@ -357,14 +357,18 @@ if (linesUpdated) {
   const shouldPurge = options?.finalizeAndPurge || (allGamesFinal && snapshotGames.length > 0);
   const snapshotContestIds = Array.from(new Set(updatedEntries.map(e => e.contestId).filter(Boolean)));
 
-  await weeklySnapshotRef.set({
-    season,
-    weekNumber,
-    snapshotTimestamp: Date.now(),
-    isFinalized: shouldPurge,
-    contestIds: snapshotContestIds,
-    entries: updatedEntries
-  }, { merge: true });
+  const shouldWriteSnapshot = !existingSnapshotSnap.exists || gradedCount > 0 || linesUpdated || shouldPurge;
+
+  if (shouldWriteSnapshot) {
+    await weeklySnapshotRef.set({
+      season,
+      weekNumber,
+      snapshotTimestamp: Date.now(),
+      isFinalized: shouldPurge,
+      contestIds: snapshotContestIds,
+      entries: updatedEntries
+    }, { merge: true });
+  }
 
   // 3. Purge individual pick documents in favor of the weekly snapshot document
   let purgedCount = 0;

@@ -127,21 +127,24 @@ export function startAutoSyncJob() {
         }
       }
 
-      // Automatically grade Gridiron 3x3 active week games in background (skipping if week is already finalized)
+      // Automatically grade Gridiron 3x3 active week games in background (skipping if week is already finalized or off-peak)
       try {
         const { season, weekNumber } = getCurrentFootballWeek();
         const weekKey = `${season}_week_${weekNumber.toString().padStart(2, '0')}`;
 
         if (!finalizedGridironWeeksCache.has(weekKey)) {
-          const snapRef = adminDb.collection('gridiron_3x3_weekly_snapshots').doc(weekKey);
-          const snapDoc = await snapRef.get();
+          // Only perform grading if games are live or on full syncs to avoid redundant reads/writes off-peak
+          if (hasLiveGames || isFullSync) {
+            const snapRef = adminDb.collection('gridiron_3x3_weekly_snapshots').doc(weekKey);
+            const snapDoc = await snapRef.get();
 
-          if (snapDoc.exists && snapDoc.data()?.isFinalized === true) {
-            finalizedGridironWeeksCache.add(weekKey);
-          } else {
-            const result = await gradeGridironWeek(season, weekNumber);
-            if (result && result.isFinalized) {
+            if (snapDoc.exists && snapDoc.data()?.isFinalized === true) {
               finalizedGridironWeeksCache.add(weekKey);
+            } else {
+              const result = await gradeGridironWeek(season, weekNumber);
+              if (result && result.isFinalized) {
+                finalizedGridironWeeksCache.add(weekKey);
+              }
             }
           }
         }

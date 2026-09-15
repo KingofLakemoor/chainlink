@@ -66,12 +66,12 @@ async function processSingleNotification(notifId: string, notifData: any) {
         }
       });
     } else if (audience === 'GLOBAL') {
-      // Use pagination to avoid downloading the entire user database into memory simultaneously
+      // Query specifically for users with non-null fcmTokens to avoid scanning users without registered tokens
       let lastDoc: any = null;
       let hasMore = true;
       
       while (hasMore) {
-        let q = adminDb!.collection('users').orderBy('__name__').limit(500);
+        let q = adminDb!.collection('users').where('fcmTokens', '!=', null).limit(500);
         if (lastDoc) {
           q = q.startAfter(lastDoc);
         }

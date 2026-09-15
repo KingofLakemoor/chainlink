@@ -9,9 +9,9 @@ let getAdminDb = () => firebaseAdmin.adminDb;
 // Export for mocking in tests
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
 
-// Setup internal cron to run every 6 hours for odds sync
-cron.schedule('0 */6 * * *', async () => {
-    console.log('[OddsProcessor] Running scheduled 6-hour odds sync (Tennis & Soccer)');
+// Setup internal cron to pull odds at key points during the day after overnight runs (06:00, 12:00, 18:00)
+cron.schedule('0 6,12,18 * * *', async () => {
+    console.log('[OddsProcessor] Running scheduled key-time odds sync (Tennis & Soccer)');
     await syncTennisOdds();
     await syncSoccerOdds();
 });
@@ -342,7 +342,11 @@ export async function syncSoccerOdds() {
     { espn: 'TUR', oddsApi: 'soccer_turkey_super_league', sharpApi: 'tur' },
     { espn: 'ARG', oddsApi: 'soccer_argentina_primera_division', sharpApi: 'arg' },
     { espn: 'BRA', oddsApi: 'soccer_brazil_campeonato', sharpApi: 'bra' },
-    { espn: 'LMX', oddsApi: 'soccer_mexico_ligamx', sharpApi: 'lmx' }
+    { espn: 'LMX', oddsApi: 'soccer_mexico_ligamx', sharpApi: 'lmx' },
+    { espn: 'FRA', oddsApi: 'soccer_france_ligue_one', sharpApi: 'fra' },
+    { espn: 'EPL', oddsApi: 'soccer_epl', sharpApi: 'epl' },
+    { espn: 'MLS', oddsApi: 'soccer_usa_mls', sharpApi: 'mls' },
+    { espn: 'NWSL', oddsApi: 'soccer_usa_nwsl', sharpApi: 'nwsl' }
   ];
 
   let totalUpdated = 0;

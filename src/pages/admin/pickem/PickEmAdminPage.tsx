@@ -1009,7 +1009,7 @@ export default function PickEmAdminPage() {
       {/* --- Slide-over Modal Drawer: Edit Campaign & Week Matchups --- */}
       {editingCampaignId && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end">
-          <div className="bg-[#121212] border-l border-zinc-800 w-full max-w-4xl h-full flex flex-col p-6 overflow-y-auto custom-scrollbar space-y-6">
+          <div className="bg-[#121212] border-l border-zinc-800 w-full max-w-[95vw] lg:max-w-7xl h-full flex flex-col p-6 overflow-y-auto custom-scrollbar space-y-6">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
               <div>
                 <h3 className="font-bold text-xl text-white">{detailCampaign?.name || 'Manage Campaign'}</h3>

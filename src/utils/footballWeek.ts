@@ -102,7 +102,11 @@ export function isBeforeThursdaySpreadLock(startTime: number, now: number = Date
 }
 
 export function getCurrentFootballWeek(now: Date = new Date()): { season: number; weekNumber: number } {
-  const season = now.getFullYear();
+  let season = now.getFullYear();
+  // January/February fall into the tail-end of the previous calendar year's NFL season
+  if (now.getMonth() < 2) {
+    season = season - 1;
+  }
   const week1Range = getFootballWeekDateRange(season, 1);
 
   if (now.getTime() < week1Range.startMs) {

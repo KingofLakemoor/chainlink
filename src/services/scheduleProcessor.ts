@@ -984,8 +984,6 @@ export async function syncLeagueSchedules(
               matchupsToGrade.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
             }
             matchupsToSyncToPickem.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
-          } else if (existingData.status === 'STATUS_FINAL' || existingData.status === 'STATUS_POSTPONED') {
-            matchupsToSyncToPickem.push({ ...existingData, gameId: scrapedMatchup.gameId, id: gameId });
           }
         } else {
           const newDocRef = adminDb.collection("matchups").doc(gameId);

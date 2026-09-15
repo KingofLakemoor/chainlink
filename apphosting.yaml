@@ -20,6 +20,18 @@ env:
     secret: FIREBASE_SERVICE_ACCOUNT_KEY
     availability:
       - RUNTIME
+  - variable: ODDS_API_KEY
+    secret: ODDS_API_KEY
+    availability:
+      - RUNTIME
+  - variable: THE_ODDS_API_KEY
+    secret: THE_ODDS_API_KEY
+    availability:
+      - RUNTIME
+  - variable: SHARP_API_KEY
+    secret: SHARP_API_KEY
+    availability:
+      - RUNTIME
 
 runConfig:
   runCommand: npm start

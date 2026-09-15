@@ -8,7 +8,7 @@ import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDo
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export const getCampaignIds = (campaign: any, allCampaigns: any[] = []): string[] => {
@@ -95,6 +95,8 @@ export default function PickEmPage() {
   const [leaderboardView, setLeaderboardView] = useState<'season' | 'week'>('season');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardRefreshing, setLeaderboardRefreshing] = useState(false);
+  const [leaderboardRefreshCount, setLeaderboardRefreshCount] = useState(0);
   const [allCampaignMatchups, setAllCampaignMatchups] = useState<any[]>([]);
   const [isParticipant, setIsParticipant] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -681,6 +683,9 @@ export default function PickEmPage() {
              }
            }
 
+           const totalDecided = (participantStats[uid].wins || 0) + (participantStats[uid].losses || 0);
+           const winPct = totalDecided > 0 ? (((participantStats[uid].wins || 0) / totalDecided) * 100).toFixed(1) + '%' : '0.0%';
+
            return {
                id: uid,
                uid,
@@ -688,6 +693,7 @@ export default function PickEmPage() {
                avatar: usersMap[uid]?.image || usersMap[uid]?.avatarUrl || usersMap[uid]?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid}`,
                tbValue,
                tbDisplay,
+               winPct,
                ...participantStats[uid]
            };
         }).sort((a, b) => {
@@ -713,7 +719,28 @@ export default function PickEmPage() {
     };
 
     fetchLeaderboard();
-  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups, campaigns]);
+  }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups, campaigns, leaderboardRefreshCount]);
+
+  const handleManualRefreshLeaderboard = async () => {
+    if (leaderboardRefreshing || !selectedCampaign) return;
+    setLeaderboardRefreshing(true);
+    try {
+      const campaignIds = getCampaignIds(selectedCampaign, campaigns);
+      const cid = campaignIds[0] || selectedCampaign.id || 'yes_day_2026';
+      await fetch('/api/admin/rebuild-pickem-leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: cid })
+      }).catch(e => {
+        console.warn("Manual leaderboard server sync request notice:", e);
+      });
+    } catch (e) {
+      console.warn("Manual refresh sync error:", e);
+    } finally {
+      setLeaderboardRefreshCount(c => c + 1);
+      setTimeout(() => setLeaderboardRefreshing(false), 500);
+    }
+  };
 
   
   const userPicksRef = useRef<Record<string, any>>({});
@@ -1447,8 +1474,19 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
             );
           })()}
 
-          <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-[#18181A]">
-            <h3 className="font-bold text-lg text-white">Leaderboard</h3>
+          <div className="p-4 border-b border-zinc-800 flex flex-wrap justify-between items-center gap-4 bg-[#18181A]">
+            <div className="flex items-center gap-3">
+              <h3 className="font-bold text-lg text-white">Leaderboard</h3>
+              <button
+                onClick={handleManualRefreshLeaderboard}
+                disabled={leaderboardRefreshing || leaderboardLoading}
+                title="Refresh leaderboard standings from server"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-all disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${leaderboardRefreshing ? 'animate-spin text-amber-400' : ''}`} />
+                <span>{leaderboardRefreshing ? 'Syncing...' : 'Refresh'}</span>
+              </button>
+            </div>
             <div className="flex bg-zinc-800 rounded-lg p-1">
               <button
                 onClick={() => setLeaderboardView('season')}
@@ -1464,6 +1502,63 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
               </button>
             </div>
           </div>
+
+          {/* Your Standing Banner */}
+          {user && (() => {
+            const userIndex = leaderboardData.findIndex(p => p.uid === user.uid || p.id === user.uid);
+            if (userIndex === -1) return null;
+            const myData = leaderboardData[userIndex];
+            const myRank = userIndex + 1;
+            const myWins = isNaN(myData.wins) ? 0 : Number(myData.wins);
+            const myLosses = isNaN(myData.losses) ? 0 : Number(myData.losses);
+            const myPushes = isNaN(myData.pushes) ? 0 : Number(myData.pushes);
+            const myPoints = isNaN(myData.points) ? 0 : myData.points;
+            const decided = myWins + myLosses;
+            const myWinRate = myData.winPct || (decided > 0 ? ((myWins / decided) * 100).toFixed(1) + '%' : '0.0%');
+
+            return (
+              <div className="p-4 bg-zinc-900/90 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-black text-base shadow-sm"
+                    style={{ backgroundColor: `${primaryColor}25`, color: primaryColor, border: `1px solid ${primaryColor}50` }}
+                  >
+                    #{myRank}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">Your Standing</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                        {leaderboardView === 'week' ? `Week ${selectedWeek}` : 'Overall Season'}
+                      </span>
+                    </div>
+                    <span className="text-xs text-zinc-400">
+                      Ranked #{myRank} of {leaderboardData.length} participant{leaderboardData.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 sm:gap-4 divide-x divide-zinc-800 bg-[#121212] border border-zinc-800 rounded-lg p-2.5 sm:px-4">
+                  <div className="text-center px-1 sm:px-2">
+                    <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Rank</span>
+                    <span className="text-sm sm:text-base font-bold text-white">#{myRank}</span>
+                  </div>
+                  <div className="text-center px-1 sm:px-2">
+                    <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Points</span>
+                    <span className="text-sm sm:text-base font-bold" style={{ color: primaryColor }}>{myPoints}</span>
+                  </div>
+                  <div className="text-center px-1 sm:px-2">
+                    <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Record</span>
+                    <span className="text-sm sm:text-base font-mono font-bold text-zinc-300">{myWins}-{myLosses}-{myPushes}</span>
+                  </div>
+                  <div className="text-center px-1 sm:px-2">
+                    <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Win %</span>
+                    <span className="text-sm sm:text-base font-mono font-bold text-emerald-400">{myWinRate}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {!isParticipant && (
             <div className="p-4 bg-zinc-900/80 border-b border-zinc-800 text-center flex items-center justify-between px-6">
@@ -1499,6 +1594,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                           <th className="px-6 py-4 font-medium">Participant</th>
                           <th className="px-6 py-4 font-medium text-center">Points</th>
                           <th className="px-6 py-4 font-medium text-center">W-L-P</th>
+                          <th className="px-6 py-4 font-medium text-center">Win %</th>
                           {showTiebreakerCol && (
                             <th className="px-6 py-4 font-medium text-center">Tiebreaker</th>
                           )}
@@ -1506,7 +1602,14 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-800/50">
-                        {leaderboardData.map((participant, index) => (
+                        {leaderboardData.map((participant, index) => {
+                          const wins = isNaN(participant.wins) ? 0 : Number(participant.wins);
+                          const losses = isNaN(participant.losses) ? 0 : Number(participant.losses);
+                          const pushes = isNaN(participant.pushes) ? 0 : Number(participant.pushes);
+                          const totalDecided = wins + losses;
+                          const winPct = participant.winPct || (totalDecided > 0 ? ((wins / totalDecided) * 100).toFixed(1) + '%' : '0.0%');
+
+                          return (
                           <tr
                             key={participant.uid}
                             className={`hover:bg-zinc-800/20 transition-colors ${participant.uid === user?.uid ? '' : ''}`}
@@ -1532,7 +1635,10 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                               <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
                             </td>
                             <td className="px-6 py-4 text-center text-zinc-400 font-mono">
-                              {isNaN(participant.wins) ? 0 : String(participant.wins)}-{isNaN(participant.losses) ? 0 : String(participant.losses)}-{isNaN(participant.pushes) ? 0 : String(participant.pushes)}
+                              {wins}-{losses}-{pushes}
+                            </td>
+                            <td className="px-6 py-4 text-center text-zinc-300 font-mono">
+                              {winPct}
                             </td>
                             {showTiebreakerCol && (
                               <td className="px-6 py-4 text-center text-amber-500 font-mono font-bold">
@@ -1600,7 +1706,8 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                         </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </>
                   );

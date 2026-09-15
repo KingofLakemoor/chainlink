@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "supportedArchitectures": {
+    "os": ["current", "linux", "darwin", "win32"],
+    "cpu": ["current", "x64", "arm64"]
+  },
   "scripts": {
     "dev": "tsx server.ts",
     "build": "NODE_OPTIONS=--max_old_space_size=4096 esbuild src/sw.ts --bundle --outfile=public/sw.js --format=iife --target=es2015 && vite build && esbuild server.ts --platform=node --target=node22 --outfile=dist/server.cjs --bundle --format=cjs --packages=external",

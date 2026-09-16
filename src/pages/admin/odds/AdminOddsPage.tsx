@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { RefreshCw, Sliders, Layers, Zap, CheckCircle2, AlertCircle, Database, Shield } from 'lucide-react';
+import { RefreshCw, Sliders, Layers, Zap, CheckCircle2, AlertCircle, Database, Shield, Activity, FileText, ArrowRightLeft } from 'lucide-react';
 
 const ALL_LEAGUES = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA"];
 
@@ -18,6 +18,13 @@ export default function AdminOddsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  // SharpAPI Tennis Inspector State
+  const [sharpLoading, setSharpLoading] = useState(false);
+  const [sharpData, setSharpData] = useState<any | null>(null);
+  const [sharpError, setSharpError] = useState<string | null>(null);
+  const [sharpTab, setSharpTab] = useState<'matched' | 'sharpOnly' | 'dbOnly' | 'raw'>('matched');
+  const [rawLeague, setRawLeague] = useState<'atp' | 'wta'>('atp');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -79,6 +86,32 @@ export default function AdminOddsPage() {
       alert("Failed to save settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleFetchSharpComparison = async () => {
+    setSharpLoading(true);
+    setSharpData(null);
+    setSharpError(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/admin/sharpapi/tennis', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to pull SharpAPI tennis data.');
+      }
+      setSharpData(data);
+    } catch (err: any) {
+      console.error('SharpAPI tennis comparison error:', err);
+      setSharpError(err.message || 'An error occurred fetching SharpAPI tennis data');
+    } finally {
+      setSharpLoading(false);
     }
   };
 
@@ -240,6 +273,260 @@ export default function AdminOddsPage() {
             {saving ? 'Saving Settings...' : 'Save Threshold Settings'}
           </Button>
         </div>
+      </div>
+
+      {/* SharpAPI Tennis Inspector & Comparison Card */}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500/10 rounded-lg">
+              <Activity className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-zinc-100">SharpAPI Tennis Data Inspector & Comparison</h2>
+              <p className="text-xs text-zinc-400">Pull ATP & WTA tennis endpoints directly from SharpAPI and compare events & lines against active database matchups.</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleFetchSharpComparison}
+            disabled={sharpLoading}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 h-10 px-4 text-xs font-semibold"
+          >
+            <RefreshCw className={`w-4 h-4 ${sharpLoading ? 'animate-spin' : ''}`} />
+            {sharpLoading ? 'Fetching SharpAPI Data...' : 'Pull & Compare SharpAPI Tennis Data'}
+          </Button>
+        </div>
+
+        {sharpError && (
+          <div className="p-4 bg-red-950/40 border border-red-800/60 rounded-lg text-xs flex items-center gap-2 text-red-400">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{sharpError}</span>
+          </div>
+        )}
+
+        {sharpData && (
+          <div className="space-y-6">
+            {/* KPI Summary Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="bg-zinc-900/80 border border-zinc-800 p-3.5 rounded-lg space-y-1">
+                <span className="text-[11px] font-medium text-zinc-400">Total SharpAPI Events</span>
+                <p className="text-xl font-bold text-zinc-100">{sharpData.summary?.totalSharpApiEvents ?? 0}</p>
+                <p className="text-[10px] text-zinc-500">ATP: {sharpData.summary?.atpSharpApiEvents ?? 0} | WTA: {sharpData.summary?.wtaSharpApiEvents ?? 0}</p>
+              </div>
+
+              <div className="bg-zinc-900/80 border border-zinc-800 p-3.5 rounded-lg space-y-1">
+                <span className="text-[11px] font-medium text-zinc-400">DB Tennis Matchups</span>
+                <p className="text-xl font-bold text-cyan-400">{sharpData.summary?.totalDbMatchups ?? 0}</p>
+                <p className="text-[10px] text-zinc-500">Active / Scheduled</p>
+              </div>
+
+              <div className="bg-zinc-900/80 border border-emerald-900/50 p-3.5 rounded-lg space-y-1">
+                <span className="text-[11px] font-medium text-emerald-400">Matched Matches</span>
+                <p className="text-xl font-bold text-emerald-300">{sharpData.summary?.matchedCount ?? 0}</p>
+                <p className="text-[10px] text-emerald-500/80">In both SharpAPI & DB</p>
+              </div>
+
+              <div className="bg-zinc-900/80 border border-amber-900/50 p-3.5 rounded-lg space-y-1">
+                <span className="text-[11px] font-medium text-amber-400">SharpAPI Only</span>
+                <p className="text-xl font-bold text-amber-300">{sharpData.summary?.sharpOnlyCount ?? 0}</p>
+                <p className="text-[10px] text-amber-500/80">Missing in DB</p>
+              </div>
+
+              <div className="bg-zinc-900/80 border border-purple-900/50 p-3.5 rounded-lg space-y-1">
+                <span className="text-[11px] font-medium text-purple-400">DB Only</span>
+                <p className="text-xl font-bold text-purple-300">{sharpData.summary?.dbOnlyCount ?? 0}</p>
+                <p className="text-[10px] text-purple-500/80">Missing in SharpAPI</p>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-zinc-800 gap-2">
+              <button
+                onClick={() => setSharpTab('matched')}
+                className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors ${sharpTab === 'matched' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+              >
+                Matched Matches ({sharpData.matched?.length ?? 0})
+              </button>
+              <button
+                onClick={() => setSharpTab('sharpOnly')}
+                className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors ${sharpTab === 'sharpOnly' ? 'border-amber-500 text-amber-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+              >
+                SharpAPI Only ({sharpData.sharpOnly?.length ?? 0})
+              </button>
+              <button
+                onClick={() => setSharpTab('dbOnly')}
+                className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors ${sharpTab === 'dbOnly' ? 'border-purple-500 text-purple-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+              >
+                DB Only ({sharpData.dbOnly?.length ?? 0})
+              </button>
+              <button
+                onClick={() => setSharpTab('raw')}
+                className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors ${sharpTab === 'raw' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+              >
+                Raw SharpAPI Payloads
+              </button>
+            </div>
+
+            {/* Tab Views */}
+            {sharpTab === 'matched' && (
+              <div className="overflow-x-auto">
+                {sharpData.matched?.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-zinc-500">No matched matches between SharpAPI and current DB matchups.</div>
+                ) : (
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-900/90 text-zinc-400 font-semibold uppercase text-[10px]">
+                      <tr>
+                        <th className="p-2.5">League</th>
+                        <th className="p-2.5">DB Players</th>
+                        <th className="p-2.5">SharpAPI Players</th>
+                        <th className="p-2.5 text-center">DB Moneyline</th>
+                        <th className="p-2.5 text-center">SharpAPI Moneyline</th>
+                        <th className="p-2.5 text-center">Sharp Line</th>
+                        <th className="p-2.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 font-mono">
+                      {sharpData.matched.map((m: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-zinc-900/40">
+                          <td className="p-2.5 font-bold text-zinc-200">{m.league}</td>
+                          <td className="p-2.5">
+                            <div className="font-sans font-medium text-zinc-100">{m.dbHome} vs {m.dbAway}</div>
+                          </td>
+                          <td className="p-2.5">
+                            <div className="font-sans text-zinc-300 flex items-center gap-1.5">
+                              <span>{m.sharpApiHome} vs {m.sharpApiAway}</span>
+                              {m.isSwapped && (
+                                <span className="bg-amber-950 text-amber-400 text-[9px] px-1.5 py-0.5 rounded border border-amber-800 flex items-center gap-1 font-sans">
+                                  <ArrowRightLeft className="w-2.5 h-2.5" /> Swapped
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2.5 text-center text-cyan-300">
+                            {m.dbHomeMl !== null ? `${m.dbHomeMl > 0 ? '+' : ''}${m.dbHomeMl}` : '-'} / {m.dbAwayMl !== null ? `${m.dbAwayMl > 0 ? '+' : ''}${m.dbAwayMl}` : '-'}
+                          </td>
+                          <td className="p-2.5 text-center text-emerald-300">
+                            {m.sharpApiHomeMl !== null ? `${m.sharpApiHomeMl > 0 ? '+' : ''}${m.sharpApiHomeMl}` : '-'} / {m.sharpApiAwayMl !== null ? `${m.sharpApiAwayMl > 0 ? '+' : ''}${m.sharpApiAwayMl}` : '-'}
+                          </td>
+                          <td className="p-2.5 text-center text-zinc-400">
+                            {m.sharpApiSpread !== null ? `Spr: ${m.sharpApiSpread}` : ''} {m.sharpApiTotal !== null ? `O/U: ${m.sharpApiTotal}` : ''}
+                            {m.sharpApiSpread === null && m.sharpApiTotal === null ? 'ML Only' : ''}
+                          </td>
+                          <td className="p-2.5 text-right font-sans">
+                            {m.dbActive ? (
+                              <span className="bg-emerald-950 text-emerald-400 text-[10px] px-2 py-0.5 rounded border border-emerald-800 font-semibold">Active</span>
+                            ) : (
+                              <span className="bg-zinc-800 text-zinc-400 text-[10px] px-2 py-0.5 rounded border border-zinc-700">Inactive</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {sharpTab === 'sharpOnly' && (
+              <div className="overflow-x-auto">
+                {sharpData.sharpOnly?.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-zinc-500">No SharpAPI-only matches. All SharpAPI events matched DB matchups.</div>
+                ) : (
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-900/90 text-zinc-400 font-semibold uppercase text-[10px]">
+                      <tr>
+                        <th className="p-2.5">League</th>
+                        <th className="p-2.5">SharpAPI Players</th>
+                        <th className="p-2.5 text-center">Sharp Moneyline</th>
+                        <th className="p-2.5 text-center">Spread / Total</th>
+                        <th className="p-2.5 text-right">Start Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 font-mono">
+                      {sharpData.sharpOnly.map((m: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-zinc-900/40">
+                          <td className="p-2.5 font-bold text-amber-400">{m.league}</td>
+                          <td className="p-2.5 font-sans font-medium text-zinc-200">{m.sharpApiHome} vs {m.sharpApiAway}</td>
+                          <td className="p-2.5 text-center text-emerald-300">
+                            {m.sharpApiHomeMl !== null ? `${m.sharpApiHomeMl > 0 ? '+' : ''}${m.sharpApiHomeMl}` : '-'} / {m.sharpApiAwayMl !== null ? `${m.sharpApiAwayMl > 0 ? '+' : ''}${m.sharpApiAwayMl}` : '-'}
+                          </td>
+                          <td className="p-2.5 text-center text-zinc-400">
+                            {m.sharpApiSpread !== null ? `Spr: ${m.sharpApiSpread}` : ''} {m.sharpApiTotal !== null ? `O/U: ${m.sharpApiTotal}` : ''}
+                            {m.sharpApiSpread === null && m.sharpApiTotal === null ? 'ML Only' : ''}
+                          </td>
+                          <td className="p-2.5 text-right text-zinc-400 font-sans">
+                            {m.startTime ? new Date(m.startTime).toLocaleString() : 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {sharpTab === 'dbOnly' && (
+              <div className="overflow-x-auto">
+                {sharpData.dbOnly?.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-zinc-500">No DB-only matches. All scheduled DB tennis matches were found in SharpAPI.</div>
+                ) : (
+                  <table className="w-full text-left text-xs text-zinc-300">
+                    <thead className="bg-zinc-900/90 text-zinc-400 font-semibold uppercase text-[10px]">
+                      <tr>
+                        <th className="p-2.5">League</th>
+                        <th className="p-2.5">DB Players</th>
+                        <th className="p-2.5 text-center">DB Moneyline</th>
+                        <th className="p-2.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 font-mono">
+                      {sharpData.dbOnly.map((m: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-zinc-900/40">
+                          <td className="p-2.5 font-bold text-purple-400">{m.league}</td>
+                          <td className="p-2.5 font-sans font-medium text-zinc-200">{m.dbHome} vs {m.dbAway}</td>
+                          <td className="p-2.5 text-center text-cyan-300">
+                            {m.dbHomeMl !== null ? `${m.dbHomeMl > 0 ? '+' : ''}${m.dbHomeMl}` : '-'} / {m.dbAwayMl !== null ? `${m.dbAwayMl > 0 ? '+' : ''}${m.dbAwayMl}` : '-'}
+                          </td>
+                          <td className="p-2.5 text-right font-sans">
+                            {m.dbActive ? (
+                              <span className="bg-emerald-950 text-emerald-400 text-[10px] px-2 py-0.5 rounded border border-emerald-800 font-semibold">Active</span>
+                            ) : (
+                              <span className="bg-zinc-800 text-zinc-400 text-[10px] px-2 py-0.5 rounded border border-zinc-700">Inactive</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {sharpTab === 'raw' && (
+              <div className="space-y-3">
+                <div className="flex gap-2 text-xs">
+                  <button
+                    onClick={() => setRawLeague('atp')}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition-colors ${rawLeague === 'atp' ? 'bg-cyan-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    ATP Payload ({sharpData.rawPayloads?.atp?.length ?? 0} events)
+                  </button>
+                  <button
+                    onClick={() => setRawLeague('wta')}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition-colors ${rawLeague === 'wta' ? 'bg-cyan-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    WTA Payload ({sharpData.rawPayloads?.wta?.length ?? 0} events)
+                  </button>
+                </div>
+
+                <pre className="text-xs text-zinc-300 font-mono bg-zinc-950/80 p-4 rounded-lg border border-zinc-900 max-h-96 overflow-y-auto overflow-x-auto">
+                  {JSON.stringify(sharpData.rawPayloads?.[rawLeague] || [], null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Multi-Tier Provider Pipeline Overview */}

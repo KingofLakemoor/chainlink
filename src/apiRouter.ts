@@ -16,6 +16,7 @@ import { getStaticPickemLeaderboard, generateAndSavePickemLeaderboard } from './
 import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
+import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -2416,6 +2417,24 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
       tennis: tennisResult,
       soccer: soccerResult,
     });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+apiRouter.get("/admin/sharpapi/tennis", validateAdminOrApiKey, async (req, res) => {
+  try {
+    const comparison = await getSharpApiTennisComparison(adminDb);
+    res.status(comparison.success ? 200 : 400).json(comparison);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+apiRouter.post("/admin/sharpapi/tennis", validateAdminOrApiKey, async (req, res) => {
+  try {
+    const comparison = await getSharpApiTennisComparison(adminDb);
+    res.status(comparison.success ? 200 : 400).json(comparison);
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -76,33 +76,19 @@ export function SidebarProgress() {
 
         const token = await user?.getIdToken();
 
-        // 1. Fetch matchups that take place in the target month
-        const matchupsSnap = await getDocs(query(collection(db, 'matchups'),
-             where('startTime', '>=', startTimestamp),
-             where('startTime', '<', endTimestamp)));
+        // Fetch picks created in the target month directly by createdAt range
+        const picksSnap = await getDocs(query(collection(db, 'picks'),
+             where('createdAt', '>=', startTimestamp),
+             where('createdAt', '<', endTimestamp)));
 
-        const validMatchupIds = matchupsSnap.docs.map(doc => doc.data().gameId).filter(Boolean);
-
-        let totalPicks = 0;
         const uniqueUsers = new Set();
-
-        // 2. Fetch picks for those matchups in chunks of 30 (Firestore in-query limit is 30)
-        const chunkSize = 30;
-        for (let i = 0; i < validMatchupIds.length; i += chunkSize) {
-          const chunk = validMatchupIds.slice(i, i + chunkSize);
-          if (chunk.length === 0) continue;
-
-          const picksSnap = await getDocs(query(collection(db, 'picks'),
-               where('matchupId', 'in', chunk)));
-
-          totalPicks += picksSnap.size;
-          picksSnap.docs.forEach(doc => {
-              uniqueUsers.add(doc.data().userId);
-          });
-        }
+        picksSnap.docs.forEach(doc => {
+          const userId = doc.data().userId;
+          if (userId) uniqueUsers.add(userId);
+        });
 
         setActiveUsers(uniqueUsers.size);
-        setGlobalPicks(totalPicks);
+        setGlobalPicks(picksSnap.size);
         
         // 3. Fetch referrals for the target month
         const targetMonthStr = currentPrizeData.targetMonth || new Date().toISOString().slice(0, 7);
@@ -117,7 +103,7 @@ export function SidebarProgress() {
         setCached(cacheKey, {
           prizeData: currentPrizeData,
           activeUsers: uniqueUsers.size,
-          globalPicks: totalPicks,
+          globalPicks: picksSnap.size,
           globalReferrals: referralsVal
         });
       } catch (err) {

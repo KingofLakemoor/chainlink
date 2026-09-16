@@ -46,10 +46,14 @@ export const ESPN_TO_SHARP_API_LEAGUE: Record<string, string> = {
  */
 export function cleanTeamName(name: string): string {
   if (!name) return '';
-  return name
+  return stripAccents(name)
     .toLowerCase()
     .replace(/[.'-]/g, '')
+    .replace(/\b(fc|fk|pfc|afc|cf|sc|cd)\b/g, '')
     .replace(/\b(la|ny|st|saint|ft|fort)\b/g, '')
+    .replace(/\bmoskva\b/g, 'moscow')
+    .replace(/\bdynamo\b/g, 'dinamo')
+    .replace(/([b-df-hj-np-tv-z])ya/g, '$1ia')
     .replace(/\s+/g, ' ')
     .trim();
 }

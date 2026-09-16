@@ -87,6 +87,112 @@ describe('OddsProcessor Optimization Tests', () => {
     });
   });
 
+  it('syncSoccerOdds matches RPL team name variations with Sharp API odds', async () => {
+    process.env.SHARP_API_KEY = 'test-sharp-key';
+
+    const mockBatch = {
+      update: vi.fn(),
+      commit: vi.fn().mockResolvedValue(undefined),
+    };
+    mockAdminDb.batch.mockReturnValue(mockBatch);
+
+    const mockMatchups = [
+      {
+        id: 'rplRodina',
+        data: () => ({
+          gameId: 'gameRodina',
+          league: 'RPL',
+          active: false,
+          homeTeam: { name: 'Rodina Moscow' },
+          awayTeam: { name: 'Rubin Kazan' },
+        }),
+      },
+      {
+        id: 'rplKrylia',
+        data: () => ({
+          gameId: 'gameKrylia',
+          league: 'RPL',
+          active: false,
+          homeTeam: { name: 'Lokomotiv Moscow' },
+          awayTeam: { name: 'Krylia Sovetov' },
+        }),
+      },
+    ];
+
+    mockAdminDb.collection.mockImplementation((collName: string) => {
+      if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
+      if (collName === 'matchups') return {
+        where: () => ({
+          where: () => ({
+            get: async () => ({ empty: false, docs: mockMatchups })
+          })
+        }),
+        doc: (id: string) => `${id}Ref`
+      };
+      if (collName === 'picks' || collName === 'pickemPicks') {
+        return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
+      }
+      return {};
+    });
+
+    fetchSpy.mockImplementation(async (url: any) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('api.sharpapi.io/api/v1/odds?league=rpl')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                home_team: 'FC Rodina Moscow',
+                away_team: 'FC Rubin Kazan',
+                markets: [
+                  {
+                    market_type: 'moneyline',
+                    lines: [
+                      { is_home: true, odds: '+150' },
+                      { is_home: false, odds: '-180' },
+                    ],
+                  },
+                ],
+              },
+              {
+                home_team: 'FC Lokomotiv Moskva',
+                away_team: 'Krylya Sovetov Samara',
+                markets: [
+                  {
+                    market_type: 'moneyline',
+                    lines: [
+                      { is_home: true, odds: '-120' },
+                      { is_home: false, odds: '+100' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        } as any;
+      }
+      return { ok: true, json: async () => [] } as any;
+    });
+
+    const res = await syncSoccerOdds();
+    expect(res).toEqual({ success: true, updated: 2 });
+    expect(mockBatch.update).toHaveBeenCalledWith('rplRodinaRef', {
+      'metadata.mlHome': 150,
+      'metadata.mlAway': -180,
+      active: true,
+      abandoned: false,
+      updatedAt: expect.any(Number),
+    });
+    expect(mockBatch.update).toHaveBeenCalledWith('rplKryliaRef', {
+      'metadata.mlHome': -120,
+      'metadata.mlAway': 100,
+      active: true,
+      abandoned: false,
+      updatedAt: expect.any(Number),
+    });
+  });
+
   it('syncSoccerOdds matches games using SHARP_API_KEY when Odds API is unconfigured', async () => {
     process.env.SHARP_API_KEY = 'test-sharp-key';
 

@@ -222,9 +222,9 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
 export async function fetchScheduleData(endpoint: string, league: League, isScoreboardOnly: boolean = false) {
   const fetchOptions = {
     headers: {
-      
       'Accept': 'application/json'
-    }
+    },
+    signal: AbortSignal.timeout(10000)
   };
   const response = await fetch(endpoint, fetchOptions);
   const data = await response.json();
@@ -472,10 +472,12 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                           finalStatusDesc = "Suspended";
                       } else 
                       if (compState === 'pre') {
-                          finalStatus = "STATUS_SCHEDULED";
-                          finalStatusDesc = comp.status?.type?.detail || comp.status?.type?.shortDetail || "Delayed";
                           if (startTime > 0 && Date.now() >= startTime) {
-                              startTime = Date.now() + 30 * 60 * 1000;
+                              finalStatus = "STATUS_IN_PROGRESS";
+                              finalStatusDesc = comp.status?.type?.detail || comp.status?.type?.shortDetail || "Delayed";
+                          } else {
+                              finalStatus = "STATUS_SCHEDULED";
+                              finalStatusDesc = comp.status?.type?.detail || comp.status?.type?.shortDetail || "Delayed";
                           }
                       } else {
                           finalStatus = "STATUS_DELAYED";
@@ -680,10 +682,12 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                           finalStatusDesc = "Suspended";
                       } else 
                     if (competition.status?.type?.state === 'pre') {
-                        finalStatus = "STATUS_SCHEDULED";
-                        finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
                         if (gameTime && Date.now() >= gameTime) {
-                            gameTime = Date.now() + 30 * 60 * 1000;
+                            finalStatus = "STATUS_IN_PROGRESS";
+                            finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
+                        } else {
+                            finalStatus = "STATUS_SCHEDULED";
+                            finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
                         }
                     } else {
                         finalStatus = "STATUS_DELAYED";
@@ -920,10 +924,12 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                           finalStatusDesc = "Suspended";
                       } else 
                     if (competition.status?.type?.state === 'pre') {
-                        finalStatus = "STATUS_SCHEDULED";
-                        finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
                         if (gameTime && Date.now() >= gameTime) {
-                            gameTime = Date.now() + 30 * 60 * 1000;
+                            finalStatus = "STATUS_IN_PROGRESS";
+                            finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
+                        } else {
+                            finalStatus = "STATUS_SCHEDULED";
+                            finalStatusDesc = competition.status?.type?.detail || competition.status?.type?.shortDetail || "Delayed";
                         }
                     } else {
                         finalStatus = "STATUS_DELAYED";

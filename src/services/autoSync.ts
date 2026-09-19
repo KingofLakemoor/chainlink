@@ -67,7 +67,7 @@ export function startAutoSyncJob() {
         lastMetadataFetchTime = nowMs;
       }
 
-      // ALWAYS sync leagues that have games currently in progress, to ensure they don't get stuck forever if a league is deactivated
+      // ALWAYS sync leagues that have games currently in progress or starting soon/past start time
       try {
           const inProgressSnap = await adminDb.collection('matchups').where('status', 'in', ['STATUS_IN_PROGRESS', 'STATUS_DELAYED']).get();
           if (!inProgressSnap.empty) {
@@ -75,6 +75,35 @@ export function startAutoSyncJob() {
           }
           inProgressSnap.docs.forEach(doc => {
               if (doc.data().league) activeLeaguesSet.add(doc.data().league);
+          });
+
+          // Check active scheduled matchups whose start time has arrived or is arriving soon (next 15 minutes)
+          const activeScheduledSnap = await adminDb.collection('matchups')
+              .where('status', '==', 'STATUS_SCHEDULED')
+              .where('active', '==', true)
+              .get();
+
+          activeScheduledSnap.docs.forEach(doc => {
+              const m = doc.data();
+              const startTime = typeof m.startTime === 'number' ? m.startTime : (m.startTime ? new Date(m.startTime).getTime() : 0);
+              if (startTime > 0 && startTime <= nowMs + 15 * 60 * 1000 && startTime >= nowMs - 12 * 60 * 60 * 1000) {
+                  hasLiveGames = true;
+                  if (m.league) activeLeaguesSet.add(m.league);
+              }
+          });
+
+          // Check active Pick'Em matchups in progress or starting soon
+          const activePickemSnap = await adminDb.collection('pickemMatchups')
+              .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_DELAYED'])
+              .get();
+
+          activePickemSnap.docs.forEach(doc => {
+              const pm = doc.data();
+              const startTime = typeof pm.startTime === 'number' ? pm.startTime : (pm.startTime ? new Date(pm.startTime).getTime() : 0);
+              if (pm.status === 'STATUS_IN_PROGRESS' || pm.status === 'STATUS_DELAYED' || (startTime > 0 && startTime <= nowMs + 15 * 60 * 1000 && startTime >= nowMs - 12 * 60 * 60 * 1000)) {
+                  hasLiveGames = true;
+                  if (pm.league) activeLeaguesSet.add(pm.league);
+              }
           });
       } catch (e) {}
 
@@ -105,7 +134,12 @@ export function startAutoSyncJob() {
       
       for (let league of activeLeagues) {
         if (league === 'PROP') {
-           await updateAllProps();
+           try {
+             await updateAllProps();
+           } catch (err: any) {
+             console.error(`[AutoSync] Error updating props: ${err?.message || err}`);
+             logServerError('AutoSync Update Props', err);
+           }
         } else {
            try {
              if (league === 'MEX' || league === 'Liga MX') league = 'LMX';

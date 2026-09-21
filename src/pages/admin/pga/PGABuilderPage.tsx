@@ -10,34 +10,45 @@ export default function PGABuilderPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [golfers, setGolfers] = useState<any[]>([]);
-
+  const [selectedEventId, setSelectedEventId] = useState<string>('default');
+  const [customEventId, setCustomEventId] = useState<string>('');
+  const [eventName, setEventName] = useState<string>('');
 
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?league=pga');
+      const targetEventId = selectedEventId === 'custom' ? customEventId.trim() : (selectedEventId === '401824815' ? '401824815' : '');
+      const url = targetEventId
+        ? `https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?event=${targetEventId}`
+        : 'https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard?league=pga';
+
+      const res = await fetch(url);
       const data = await res.json();
       const events = data.events || [];
       if (events.length > 0 && events[0].competitions && events[0].competitions.length > 0) {
+        setEventName(events[0].name || events[0].shortName || 'Golf Event');
         const comp = events[0].competitions[0];
         const competitors = comp.competitors?.filter((c: any) => c.athlete || c.team) || [];
 
         const parsedGolfers = competitors.map((c: any) => {
           const golfer = c.athlete || c.team;
+          const logoImage = golfer.logos?.[0]?.href || golfer.flag?.href || '/logo.png';
           return {
             id: String(c.id),
             name: golfer.displayName || golfer.name || 'Unknown',
             score: c.score?.displayValue ?? (typeof c.score === 'string' || typeof c.score === 'number' ? c.score : c.displayValue) ?? 'E',
-            image: golfer.flag?.href || '/logo.png',
+            image: logoImage,
             raw: c
           };
         }).sort((a: any, b: any) => a.name.localeCompare(b.name));
 
         setGolfers(parsedGolfers);
+      } else {
+        alert("No tournament competitors found for this event ID.");
       }
     } catch (e) {
-      console.error("Error fetching PGA leaderboard:", e);
-      alert("Failed to fetch PGA leaderboard. Check console.");
+      console.error("Error fetching Golf leaderboard:", e);
+      alert("Failed to fetch Golf leaderboard. Check console.");
     } finally {
       setLoading(false);
     }
@@ -199,11 +210,40 @@ export default function PGABuilderPage() {
         </h1>
       </div>
 
-      <div className="mb-6 flex gap-4">
-        <Button onClick={fetchLeaderboard} disabled={loading} className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
-          <Download className="w-4 h-4" />
-          {loading ? 'Fetching...' : 'Fetch Current Leaderboard'}
-        </Button>
+      <div className="mb-6 bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
+        <label className="block text-sm font-medium text-zinc-300">Event Source</label>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-green-500"
+          >
+            <option value="default">Active PGA Tour Event (Default)</option>
+            <option value="401824815">Presidents Cup (Event 401824815)</option>
+            <option value="custom">Custom Event ID...</option>
+          </select>
+
+          {selectedEventId === 'custom' && (
+            <input
+              type="text"
+              placeholder="e.g. 401824815"
+              value={customEventId}
+              onChange={(e) => setCustomEventId(e.target.value)}
+              className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-white text-sm focus:outline-none focus:border-green-500 w-44"
+            />
+          )}
+
+          <Button onClick={fetchLeaderboard} disabled={loading} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-sm">
+            <Download className="w-4 h-4" />
+            {loading ? 'Fetching...' : 'Fetch Leaderboard'}
+          </Button>
+        </div>
+
+        {eventName && (
+          <p className="text-xs text-green-400 font-medium pt-1">
+            Loaded Event: <span className="text-white font-bold">{eventName}</span> ({golfers.length} competitors/golfers)
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-zinc-900 p-6 rounded-xl border border-zinc-800">

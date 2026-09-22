@@ -11,8 +11,13 @@ function getSidebarStatsTTL(): number {
   const now = new Date();
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const isLastDayOfMonth = tomorrow.getMonth() !== now.getMonth();
-  // 1 hour TTL on the last day of the month; 24 hours TTL daily otherwise
-  return isLastDayOfMonth ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  if (isLastDayOfMonth) {
+    // 1 hour TTL on the last day of the month
+    return 60 * 60 * 1000;
+  }
+  // Standard days: TTL until midnight (start of next day / overnight)
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  return Math.max(0, nextMidnight.getTime() - now.getTime());
 }
 
 export function SidebarProgress() {
@@ -76,49 +81,62 @@ export function SidebarProgress() {
 
         const token = await user?.getIdToken();
 
-        // 1. Fetch matchups that take place in the target month
-        const matchupsSnap = await getDocs(query(collection(db, 'matchups'),
-             where('startTime', '>=', startTimestamp),
-             where('startTime', '<', endTimestamp)));
+        // Check if specific criteria are already satisfied in cached or prior state
+        const usersReq = currentPrizeData.activeUsersRequirement || 0;
+        const picksReq = currentPrizeData.picksRequirement || 0;
+        const refReq = currentPrizeData.referralsRequirement || 0;
 
-        const validMatchupIds = matchupsSnap.docs.map(doc => doc.data().gameId).filter(Boolean);
+        const cachedUsers = cached?.activeUsers || 0;
+        const cachedPicks = cached?.globalPicks || 0;
+        const cachedRefs = cached?.globalReferrals || 0;
 
-        let totalPicks = 0;
-        const uniqueUsers = new Set();
+        const usersMet = usersReq > 0 && cachedUsers >= usersReq;
+        const picksMet = picksReq > 0 && cachedPicks >= picksReq;
+        const refsMet = refReq > 0 && cachedRefs >= refReq;
 
-        // 2. Fetch picks for those matchups in chunks of 30 (Firestore in-query limit is 30)
-        const chunkSize = 30;
-        for (let i = 0; i < validMatchupIds.length; i += chunkSize) {
-          const chunk = validMatchupIds.slice(i, i + chunkSize);
-          if (chunk.length === 0) continue;
+        let finalUsers = cachedUsers;
+        let finalPicks = cachedPicks;
+        let finalRefs = cachedRefs;
 
+        // Query picks only if users or picks criteria are not yet satisfied
+        if (!usersMet || !picksMet) {
           const picksSnap = await getDocs(query(collection(db, 'picks'),
-               where('matchupId', 'in', chunk)));
+               where('createdAt', '>=', startTimestamp),
+               where('createdAt', '<', endTimestamp)));
 
-          totalPicks += picksSnap.size;
-          picksSnap.docs.forEach(doc => {
-              uniqueUsers.add(doc.data().userId);
-          });
+          if (!picksMet) {
+            finalPicks = picksSnap.size;
+          }
+
+          if (!usersMet) {
+            const uniqueUsers = new Set();
+            picksSnap.docs.forEach(doc => {
+              const userId = doc.data().userId;
+              if (userId) uniqueUsers.add(userId);
+            });
+            finalUsers = uniqueUsers.size;
+          }
         }
 
-        setActiveUsers(uniqueUsers.size);
-        setGlobalPicks(totalPicks);
-        
-        // 3. Fetch referrals for the target month
-        const targetMonthStr = currentPrizeData.targetMonth || new Date().toISOString().slice(0, 7);
-        const monthlyStatsRef = doc(db, 'settings', `monthlyStats_${targetMonthStr}`);
-        const statsSnap = await getDoc(monthlyStatsRef);
-        let referralsVal = 0;
-        if (statsSnap.exists()) {
-          referralsVal = statsSnap.data().referrals || 0;
+        // Query referrals only if referrals criterion is not yet satisfied
+        if (refReq > 0 && !refsMet) {
+          const targetMonthStr = currentPrizeData.targetMonth || new Date().toISOString().slice(0, 7);
+          const monthlyStatsRef = doc(db, 'settings', `monthlyStats_${targetMonthStr}`);
+          const statsSnap = await getDoc(monthlyStatsRef);
+          if (statsSnap.exists()) {
+            finalRefs = statsSnap.data().referrals || 0;
+          }
         }
-        setGlobalReferrals(referralsVal);
+
+        setActiveUsers(finalUsers);
+        setGlobalPicks(finalPicks);
+        setGlobalReferrals(finalRefs);
 
         setCached(cacheKey, {
           prizeData: currentPrizeData,
-          activeUsers: uniqueUsers.size,
-          globalPicks: totalPicks,
-          globalReferrals: referralsVal
+          activeUsers: finalUsers,
+          globalPicks: finalPicks,
+          globalReferrals: finalRefs
         });
       } catch (err) {
         console.error(err);

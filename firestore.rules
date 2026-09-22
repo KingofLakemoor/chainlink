@@ -299,6 +299,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /settings/{settingId} { allow read: if true; allow write: if isAdmin(); }
     match /leagueSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
     match /link4Picks/{pickId} {
       allow read: if isSignedIn();

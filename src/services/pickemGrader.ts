@@ -41,10 +41,58 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const adminDb = getAdminDb();
   if (!adminDb) return;
 
+  const targetIds = new Set<string>();
+  if (matchup.id) targetIds.add(String(matchup.id));
+  if (matchup.gameId) targetIds.add(String(matchup.gameId));
+
+  const weekNum = matchup.week || matchup.weekNumber || 1;
+  const gameId = matchup.gameId || (matchup.id ? String(matchup.id).split('_').pop() : '');
+
+  let isYesDay = matchup.campaignName === 'YES Day Walk for Autism 2026' || matchup.campaignId === 'yes_day_2026' || matchup.campaignId === 'charity';
+
+  if (!isYesDay && matchup.campaignId) {
+    try {
+      const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
+      if (campDoc.exists) {
+        const cData = campDoc.data();
+        if (cData?.name === 'YES Day Walk for Autism 2026') {
+          isYesDay = true;
+        }
+      }
+    } catch (e) {
+      console.warn(`[PickemGrader] Could not fetch campaign ${matchup.campaignId}:`, e);
+    }
+  }
+
+  if (isYesDay) {
+    const charityAliases = ['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', 'aUqhDhT3vKWfkPgSAVzf', matchup.campaignId, matchup.campaignName].filter(Boolean);
+    for (const cid of charityAliases) {
+      if (gameId) {
+        targetIds.add(`${cid}_${weekNum}_${gameId}`);
+        targetIds.add(`${cid}__${gameId}`);
+        targetIds.add(`${cid}_${gameId}`);
+      }
+      if (matchup.id) {
+        targetIds.add(`${cid}_${matchup.id}`);
+      }
+    }
+  }
+
   const picksRef = adminDb.collection('pickemPicks');
-  const allPicksSnap = await picksRef
-    .where('matchupId', '==', matchup.id)
-    .get();
+  const targetIdList = Array.from(targetIds).filter(Boolean);
+
+  const pickDocMap = new Map<string, any>();
+  for (let i = 0; i < targetIdList.length; i += 30) {
+    const chunk = targetIdList.slice(i, i + 30);
+    try {
+      const snap = await picksRef.where('matchupId', 'in', chunk).get();
+      snap.docs.forEach((d: any) => pickDocMap.set(d.id, d));
+    } catch (e) {
+      console.warn('[PickemGrader] Error querying picks for targetIds chunk:', e);
+    }
+  }
+
+  const allPicksDocs = Array.from(pickDocMap.values());
 
   const homeScore = Number(matchup.homeTeam?.score || 0);
   const awayScore = Number(matchup.awayTeam?.score || 0);
@@ -52,7 +100,6 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const isPostponed = matchup.status === 'STATUS_POSTPONED';
 
   let isMoneyline = matchup.type === 'STANDARD';
-  let isYesDay = matchup.campaignName === 'YES Day Walk for Autism 2026' || matchup.campaignId === 'yes_day_2026';
 
   if (isYesDay) {
     isMoneyline = true;
@@ -63,9 +110,6 @@ export async function gradeSinglePickemMatchup(matchup: any) {
         const cData = campDoc.data();
         if (cData?.name === 'YES Day Walk for Autism 2026' || cData?.defaultMatchType === 'STANDARD') {
           isMoneyline = true;
-        }
-        if (cData?.name === 'YES Day Walk for Autism 2026') {
-          isYesDay = true;
         }
       }
     } catch (e) {
@@ -153,7 +197,7 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     console.error('Failed to update pickemMatchup winnerId:', err);
   }
 
-  if (allPicksSnap.empty) {
+  if (allPicksDocs.length === 0) {
     return;
   }
 
@@ -161,7 +205,7 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   let batch = adminDb.batch();
   let opCount = 0;
 
-  for (const pickDoc of allPicksSnap.docs) {
+  for (const pickDoc of allPicksDocs) {
     const pickData = pickDoc.data();
 
     let pickStatus = 'LOSS';

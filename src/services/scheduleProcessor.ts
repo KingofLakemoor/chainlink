@@ -1170,13 +1170,17 @@ export async function syncLeagueSchedules(
         let pickemBatch = adminDb.batch();
         let pickemOpCount = 0;
 
-        for (let i = 0; i < uniqueGameIds.length; i += 30) {
-          const chunk = uniqueGameIds.slice(i, i + 30);
+        for (let i = 0; i < uniqueGameIds.length; i += 15) {
+          const rawChunk = uniqueGameIds.slice(i, i + 15);
+          const chunk = Array.from(new Set([
+            ...rawChunk.map(id => String(id)),
+            ...rawChunk.map(id => Number(id)).filter(n => !isNaN(n))
+          ])).slice(0, 30);
           try {
             const pickemSnaps = await adminDb.collection('pickemMatchups').where('gameId', 'in', chunk).get();
             for (const doc of pickemSnaps.docs) {
               const pData = doc.data();
-              const matchup = matchupMap.get(pData.gameId);
+              const matchup = matchupMap.get(pData.gameId) || matchupMap.get(String(pData.gameId)) || matchupMap.get(Number(pData.gameId));
               if (!matchup) continue;
 
               // Sync standard matchup score and status into the pickem matchup
@@ -1284,21 +1288,35 @@ export async function syncLeagueSchedules(
                   });
                 } else {
                   // If status/score didn't change but game is final, check for pending picks to retry
-                  const pendingPicksSnap = await adminDb.collection('pickemPicks')
-                    .where('matchupId', '==', doc.id)
-                    .where('status', '==', 'PENDING')
-                    .limit(1)
-                    .get();
-
-                  if (!pendingPicksSnap.empty) {
-                    pickemMatchupsToGrade.push({
-                      ...pData,
-                      status: matchup.status,
-                      statusDesc: matchup.statusDesc,
-                      homeTeam: { ...(pData.homeTeam || {}), score: matchup.homeTeam?.score ?? 0 },
-                      awayTeam: { ...(pData.awayTeam || {}), score: matchup.awayTeam?.score ?? 0 },
-                      id: doc.id
+                  const checkTargetIds = new Set<string>();
+                  if (doc.id) checkTargetIds.add(String(doc.id));
+                  if (pData.gameId) checkTargetIds.add(String(pData.gameId));
+                  if (isYesDay) {
+                    const aliases = ['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', pData.campaignId].filter(Boolean);
+                    aliases.forEach(cid => {
+                      if (pData.gameId) checkTargetIds.add(`${cid}_${pData.week || 1}_${pData.gameId}`);
+                      if (doc.id) checkTargetIds.add(`${cid}_${doc.id}`);
                     });
+                  }
+                  const checkList = Array.from(checkTargetIds).slice(0, 30);
+
+                  if (checkList.length > 0) {
+                    const pendingPicksSnap = await adminDb.collection('pickemPicks')
+                      .where('matchupId', 'in', checkList)
+                      .where('status', '==', 'PENDING')
+                      .limit(1)
+                      .get();
+
+                    if (!pendingPicksSnap.empty) {
+                      pickemMatchupsToGrade.push({
+                        ...pData,
+                        status: matchup.status,
+                        statusDesc: matchup.statusDesc,
+                        homeTeam: { ...(pData.homeTeam || {}), score: matchup.homeTeam?.score ?? 0 },
+                        awayTeam: { ...(pData.awayTeam || {}), score: matchup.awayTeam?.score ?? 0 },
+                        id: doc.id
+                      });
+                    }
                   }
                 }
               }

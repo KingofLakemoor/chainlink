@@ -520,6 +520,29 @@ export default function PickEmPage() {
           });
         });
 
+        // Fetch all matchups across campaign ID aliases to resolve week for picks
+        const mSnapsAll = await Promise.all(
+          campaignIds.map(cid =>
+            getDocs(query(
+              collection(db, 'pickemMatchups'),
+              where('campaignId', '==', cid)
+            )).catch(() => ({ docs: [] }))
+          )
+        );
+        const leaderboardMatchupsMap = new Map<string, any>();
+        mSnapsAll.forEach(snap => {
+          snap.docs.forEach(d => {
+            const data = d.data();
+            const mObj = { id: d.id, ...data };
+            leaderboardMatchupsMap.set(d.id, mObj);
+            if (data.gameId) leaderboardMatchupsMap.set(String(data.gameId), mObj);
+            if (d.id.includes('_')) {
+              const rawId = d.id.split('_').pop();
+              if (rawId) leaderboardMatchupsMap.set(rawId, mObj);
+            }
+          });
+        });
+
         // Fetch picks across campaign ID aliases
         const pSnaps = await Promise.all(
           campaignIds.map(cid => {
@@ -550,7 +573,13 @@ export default function PickEmPage() {
             }
 
             participantStats[pId].picks.push(pick);
-            if (leaderboardView === 'week' && Number(pick.week) !== Number(selectedWeek)) return;
+
+            const m = leaderboardMatchupsMap.get(pick.matchupId);
+            const pickWeek = pick.week !== undefined && pick.week !== null
+              ? Number(pick.week)
+              : (m?.week !== undefined && m?.week !== null ? Number(m.week) : 1);
+
+            if (leaderboardView === 'week' && Number(pickWeek) !== Number(selectedWeek)) return;
 
             if (pick.status === 'WIN') {
               participantStats[pId].wins += 1;

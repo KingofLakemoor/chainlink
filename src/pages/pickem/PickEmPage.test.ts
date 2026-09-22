@@ -1021,4 +1021,46 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(targetIds.has('YES Day Walk for Autism 2026_2_401547412')).toBe(true);
     expect(targetIds.has('401547412')).toBe(true);
   });
+
+  it('correctly calculates Week 2 wins and losses when picks have missing or string week values', () => {
+    const matchups = [
+      { id: 'm_w1_1', week: 1, status: 'STATUS_FINAL', homeTeam: { id: 'KC', name: 'Chiefs' }, awayTeam: { id: 'BAL', name: 'Ravens' } },
+      { id: 'm_w2_1', week: 2, status: 'STATUS_FINAL', homeTeam: { id: 'GB', name: 'Packers' }, awayTeam: { id: 'PHI', name: 'Eagles' } }
+    ];
+
+    const matchupsMap = new Map<string, any>();
+    matchups.forEach(m => matchupsMap.set(m.id, m));
+
+    const userPicks = [
+      { id: 'p1', participantId: 'user1', matchupId: 'm_w1_1', status: 'WIN', pointsEarned: 1, week: 1 },
+      { id: 'p2', participantId: 'user1', matchupId: 'm_w2_1', status: 'WIN', pointsEarned: 1 }, // week is undefined on pick doc
+      { id: 'p3', participantId: 'user2', matchupId: 'm_w2_1', status: 'LOSS', pointsEarned: 0, week: '2' } // week is string "2"
+    ];
+
+    const weeklyStats: Record<number, Record<string, { wins: number; losses: number; points: number }>> = {};
+
+    userPicks.forEach(p => {
+      const m = matchupsMap.get(p.matchupId);
+      const week = p.week !== undefined && p.week !== null
+        ? Number(p.week)
+        : (m?.week !== undefined && m?.week !== null ? Number(m.week) : 1);
+
+      if (!weeklyStats[week]) weeklyStats[week] = {};
+      if (!weeklyStats[week][p.participantId]) {
+        weeklyStats[week][p.participantId] = { wins: 0, losses: 0, points: 0 };
+      }
+
+      if (p.status === 'WIN') {
+        weeklyStats[week][p.participantId].wins += 1;
+        weeklyStats[week][p.participantId].points += Number(p.pointsEarned || 1);
+      } else if (p.status === 'LOSS') {
+        weeklyStats[week][p.participantId].losses += 1;
+      }
+    });
+
+    // Verify Week 2 stats inherit week 2 from matchup m_w2_1 for user1
+    expect(weeklyStats[2]).toBeDefined();
+    expect(weeklyStats[2]['user1']).toEqual({ wins: 1, losses: 0, points: 1 });
+    expect(weeklyStats[2]['user2']).toEqual({ wins: 0, losses: 1, points: 0 });
+  });
 });

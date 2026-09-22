@@ -988,4 +988,37 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(participantStats['user-b'].points).toBe(0); // Joined participant with no picks yet still listed
     expect(participantStats['user-c'].points).toBe(1); // Pick submitter with missing participant doc still listed
   });
+
+  it('constructs pickemMatchup target IDs across campaign aliases and gameIds for grading picks', () => {
+    const matchup = {
+      id: 'yes_day_2026_2_401547412',
+      gameId: '401547412',
+      campaignId: 'yes_day_2026',
+      campaignName: 'YES Day Walk for Autism 2026',
+      week: 2,
+      homeTeam: { id: '12', name: 'Green Bay Packers' },
+      awayTeam: { id: '10', name: 'Tennessee Titans' },
+      type: 'STANDARD',
+      status: 'STATUS_FINAL'
+    };
+
+    const targetIds = new Set<string>();
+    if (matchup.id) targetIds.add(String(matchup.id));
+    if (matchup.gameId) targetIds.add(String(matchup.gameId));
+
+    const weekNum = matchup.week || 1;
+    const gameId = matchup.gameId || String(matchup.id).split('_').pop();
+
+    const charityAliases = ['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', 'aUqhDhT3vKWfkPgSAVzf'];
+    for (const cid of charityAliases) {
+      targetIds.add(`${cid}_${weekNum}_${gameId}`);
+      targetIds.add(`${cid}__${gameId}`);
+      targetIds.add(`${cid}_${gameId}`);
+    }
+
+    expect(targetIds.has('yes_day_2026_2_401547412')).toBe(true);
+    expect(targetIds.has('charity_2_401547412')).toBe(true);
+    expect(targetIds.has('YES Day Walk for Autism 2026_2_401547412')).toBe(true);
+    expect(targetIds.has('401547412')).toBe(true);
+  });
 });

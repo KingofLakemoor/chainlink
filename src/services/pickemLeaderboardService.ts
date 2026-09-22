@@ -120,20 +120,23 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 
   // Pre-grade all completed matchups across all campaign aliases before calculating standings
   try {
-    const completedMatchupSnaps = await Promise.all(
+    const allMatchupSnaps = await Promise.all(
       aliases.map(cid =>
         adminDb.collection('pickemMatchups')
           .where('campaignId', '==', cid)
-          .where('status', 'in', ['STATUS_FINAL', 'STATUS_POSTPONED'])
           .get()
           .catch(() => ({ docs: [] } as any))
       )
     );
 
     const completedMatchupsMap = new Map<string, any>();
-    completedMatchupSnaps.forEach(snap => {
+    allMatchupSnaps.forEach(snap => {
       snap.docs.forEach((d: any) => {
-        completedMatchupsMap.set(d.id, { id: d.id, ...d.data() });
+        const data = d.data();
+        const isCompleted = data.status === 'STATUS_FINAL' || data.status === 'FINAL' || data.status === 'STATUS_POSTPONED' || data.winnerId !== undefined || data.manualWinnerId !== undefined;
+        if (isCompleted) {
+          completedMatchupsMap.set(d.id, { id: d.id, ...data });
+        }
       });
     });
 
@@ -191,7 +194,14 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
   const matchupsMap = new Map<string, any>();
   matchupSnaps.forEach(snap => {
     snap.docs.forEach((d: any) => {
-      matchupsMap.set(d.id, { id: d.id, ...d.data() });
+      const data = d.data();
+      const mObj = { id: d.id, ...data };
+      matchupsMap.set(d.id, mObj);
+      if (data.gameId) matchupsMap.set(String(data.gameId), mObj);
+      if (d.id.includes('_')) {
+        const rawId = d.id.split('_').pop();
+        if (rawId) matchupsMap.set(rawId, mObj);
+      }
     });
   });
 
@@ -264,7 +274,10 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     const uid = p.participantId || p.userId;
     if (!uid || !stats[uid]) return;
 
-    const week = p.week ?? 1;
+    const m = matchupsMap.get(p.matchupId);
+    const week = p.week !== undefined && p.week !== null
+      ? Number(p.week)
+      : (m?.week !== undefined && m?.week !== null ? Number(m.week) : 1);
     if (!stats[uid].weekly[week]) {
       stats[uid].weekly[week] = {
         points: 0,
@@ -283,7 +296,6 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 
     const pointsEarned = p.pointsEarned !== undefined && p.pointsEarned !== null ? Number(p.pointsEarned) : (p.status === 'WIN' ? 1 : 0);
 
-    const m = matchupsMap.get(p.matchupId);
     let teamImage = '';
     let teamName = '';
     const teamId = p.pick?.teamId || p.pick;

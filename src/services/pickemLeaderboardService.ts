@@ -1,4 +1,5 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
+import { gradeSinglePickemMatchup } from './pickemGrader.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -116,6 +117,32 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
   const { canonicalId, aliases, campaignData } = await getCampaignAliases(campaignId);
   const campName = campaignData?.theme?.title || campaignData?.name || 'Pick\'em Contest';
   const currentWeek = campaignData?.currentWeek ?? 1;
+
+  // Pre-grade all completed matchups across all campaign aliases before calculating standings
+  try {
+    const completedMatchupSnaps = await Promise.all(
+      aliases.map(cid =>
+        adminDb.collection('pickemMatchups')
+          .where('campaignId', '==', cid)
+          .where('status', 'in', ['STATUS_FINAL', 'STATUS_POSTPONED'])
+          .get()
+          .catch(() => ({ docs: [] } as any))
+      )
+    );
+
+    const completedMatchupsMap = new Map<string, any>();
+    completedMatchupSnaps.forEach(snap => {
+      snap.docs.forEach((d: any) => {
+        completedMatchupsMap.set(d.id, { id: d.id, ...d.data() });
+      });
+    });
+
+    for (const matchup of completedMatchupsMap.values()) {
+      await gradeSinglePickemMatchup(matchup);
+    }
+  } catch (gradeErr) {
+    console.warn('[LeaderboardService] Error pre-grading completed matchups:', gradeErr);
+  }
 
   // 1. Gather all participants across all aliases
   const partSnaps = await Promise.all(

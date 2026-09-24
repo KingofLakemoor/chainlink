@@ -572,12 +572,14 @@ export default function PickEmPage() {
               participantStats[pId] = { wins: 0, losses: 0, pushes: 0, points: 0, picks: [] };
             }
 
-            participantStats[pId].picks.push(pick);
-
             const m = leaderboardMatchupsMap.get(pick.matchupId);
             const pickWeek = pick.week !== undefined && pick.week !== null
               ? Number(pick.week)
               : (m?.week !== undefined && m?.week !== null ? Number(m.week) : 1);
+
+            pick.week = pickWeek;
+
+            participantStats[pId].picks.push(pick);
 
             if (leaderboardView === 'week' && Number(pickWeek) !== Number(selectedWeek)) return;
 
@@ -1697,29 +1699,47 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
                           {participant.picks && participant.picks.filter((p: any) => Number(p.week) === Number(selectedWeek)).map((pick: any) => {
-                            if (!pick?.pick?.teamId) return null;
-                            const matchup = matchups.find((m: any) => m.id === pick.matchupId);
-                            if (!matchup) return null;
-                            
+                            const teamId = pick.teamId || pick.pick?.teamId || (typeof pick.pick === 'string' ? pick.pick : null);
+                            if (!teamId) return null;
+
+                            let matchup = matchups.find((m: any) =>
+                              m.id === pick.matchupId ||
+                              m.gameId === pick.matchupId ||
+                              (pick.matchupId && typeof pick.matchupId === 'string' && m.id.endsWith(`_${pick.matchupId}`)) ||
+                              (m.id && typeof m.id === 'string' && pick.matchupId && typeof pick.matchupId === 'string' && pick.matchupId.endsWith(`_${m.id.split('_').pop()}`))
+                            );
+                            if (!matchup && allCampaignMatchups.length > 0) {
+                              matchup = allCampaignMatchups.find((m: any) =>
+                                m.id === pick.matchupId ||
+                                m.gameId === pick.matchupId ||
+                                (pick.matchupId && typeof pick.matchupId === 'string' && m.id.endsWith(`_${pick.matchupId}`)) ||
+                                (m.id && typeof m.id === 'string' && pick.matchupId && typeof pick.matchupId === 'string' && pick.matchupId.endsWith(`_${m.id.split('_').pop()}`))
+                              );
+                            }
+
                             const isMyPick = participant.uid === user?.uid;
-                            const isRevealed = matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime);
-                            
+                            const isRevealed = pick.isRevealed ?? (matchup ? (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) : false);
+
                             if (!isRevealed && !isMyPick) {
                                 return (
-                                  <div key={pick.id} className="w-8 h-8 rounded-full border-2 border-zinc-600 overflow-hidden bg-zinc-800 flex items-center justify-center flex-shrink-0" title="Pick Hidden (Game not started)">
+                                  <div key={pick.id || pick.matchupId || teamId} className="w-8 h-8 rounded-full border-2 border-zinc-600 overflow-hidden bg-zinc-800 flex items-center justify-center flex-shrink-0" title="Pick Hidden (Game not started)">
                                     <HelpCircle className="w-4 h-4 text-zinc-400" />
                                   </div>
                                 );
                             }
 
-                            let imageUrl = '';
-                            let altText = '';
-                            if (matchup.type === 'OVER_UNDER') {
-                                imageUrl = pick.pick.teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
-                                altText = pick.pick.teamId;
-                            } else {
-                                imageUrl = pick.pick.teamId === matchup.awayTeam.id ? matchup.awayTeam.image : matchup.homeTeam.image;
-                                altText = pick.pick.teamId === matchup.awayTeam.id ? matchup.awayTeam.name : matchup.homeTeam.name;
+                            let imageUrl = pick.teamImage || '';
+                            let altText = pick.teamName || teamId;
+
+                            if (!imageUrl && matchup) {
+                                if (matchup.type === 'OVER_UNDER') {
+                                    imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
+                                    altText = teamId;
+                                } else {
+                                    const isAway = teamId === matchup.awayTeam?.id || teamId === matchup.awayTeam?.name || teamId === matchup.awayTeam?.shortName;
+                                    imageUrl = isAway ? matchup.awayTeam?.image : matchup.homeTeam?.image;
+                                    altText = isAway ? matchup.awayTeam?.name : matchup.homeTeam?.name;
+                                }
                             }
 
                             let borderColorClass = 'border-zinc-500';
@@ -1727,8 +1747,14 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             else if (pick.status === 'LOSS') borderColorClass = 'border-red-500';
 
                             return (
-                              <div key={pick.id} className={`w-8 h-8 rounded-full border-2 overflow-hidden bg-zinc-800 flex-shrink-0 ${borderColorClass}`} title={`${altText} - ${pick.status}`}>
-                                <FirebaseImage src={imageUrl} alt={altText} className="w-full h-full object-contain p-0.5" />
+                              <div key={pick.id || pick.matchupId || teamId} className={`w-8 h-8 rounded-full border-2 overflow-hidden bg-zinc-800 flex-shrink-0 ${borderColorClass}`} title={`${altText} - ${pick.status}`}>
+                                {imageUrl ? (
+                                  <FirebaseImage src={imageUrl} alt={altText} className="w-full h-full object-contain p-0.5" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-300">
+                                    {altText ? altText.slice(0, 3).toUpperCase() : '?'}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

@@ -1,5 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { gradeSinglePickemMatchup } from './pickemGrader.js';
+import { isTeamMatch } from '../lib/teamUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -274,10 +275,16 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     const uid = p.participantId || p.userId;
     if (!uid || !stats[uid]) return;
 
-    const m = matchupsMap.get(p.matchupId);
+    let m = matchupsMap.get(p.matchupId);
+    if (!m && p.matchupId && typeof p.matchupId === 'string') {
+      const rawId = p.matchupId.split('_').pop();
+      if (rawId) m = matchupsMap.get(rawId);
+    }
+
     const week = p.week !== undefined && p.week !== null
       ? Number(p.week)
       : (m?.week !== undefined && m?.week !== null ? Number(m.week) : 1);
+
     if (!stats[uid].weekly[week]) {
       stats[uid].weekly[week] = {
         points: 0,
@@ -298,7 +305,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 
     let teamImage = '';
     let teamName = '';
-    const teamId = p.pick?.teamId || p.pick;
+    const teamId = p.pick?.teamId || (typeof p.pick === 'string' ? p.pick : p.pick?.team) || p.teamId || '';
     const isLocked = m ? (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime)) : false;
 
     if (m) {
@@ -306,8 +313,18 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
         teamImage = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
         teamName = teamId;
       } else {
-        teamImage = teamId === m.awayTeam?.id ? (m.awayTeam?.image || '') : (m.homeTeam?.image || '');
-        teamName = teamId === m.awayTeam?.id ? (m.awayTeam?.name || teamId) : (m.homeTeam?.name || teamId);
+        const isAway = isTeamMatch(teamId, m.awayTeam);
+        const isHome = isTeamMatch(teamId, m.homeTeam);
+        if (isAway) {
+          teamImage = m.awayTeam?.image || '';
+          teamName = m.awayTeam?.name || m.awayTeam?.shortName || teamId;
+        } else if (isHome) {
+          teamImage = m.homeTeam?.image || '';
+          teamName = m.homeTeam?.name || m.homeTeam?.shortName || teamId;
+        } else {
+          teamImage = m.awayTeam?.image || m.homeTeam?.image || '';
+          teamName = teamId;
+        }
       }
     }
 

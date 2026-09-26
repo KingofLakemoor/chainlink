@@ -1,7 +1,7 @@
 import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { CharityProgressTracker } from '../../components/pickem/CharityProgressTracker';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
-import { getTeamShortName } from '../../lib/teamUtils';
+import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
@@ -491,6 +491,23 @@ export default function PickEmPage() {
         }
 
         if (staticDocFound) {
+          if (allCampaignMatchups.length === 0) {
+            const allMSnaps = await Promise.all(
+              campaignIds.map(cid =>
+                getDocs(query(
+                  collection(db, 'pickemMatchups'),
+                  where('campaignId', '==', cid)
+                )).catch(() => ({ docs: [] }))
+              )
+            );
+            const campaignMatchupsMap = new Map<string, any>();
+            allMSnaps.forEach(snap => {
+              snap.docs.forEach(d => {
+                campaignMatchupsMap.set(d.id, { id: d.id, ...d.data() });
+              });
+            });
+            setAllCampaignMatchups(Array.from(campaignMatchupsMap.values()));
+          }
           return;
         }
 
@@ -1718,7 +1735,8 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             }
 
                             const isMyPick = participant.uid === user?.uid;
-                            const isRevealed = pick.isRevealed ?? (matchup ? (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) : false);
+                            const isGameStarted = matchup ? (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) : false;
+                            const isRevealed = pick.isRevealed === true || isGameStarted;
 
                             if (!isRevealed && !isMyPick) {
                                 return (
@@ -1736,9 +1754,10 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                                     imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
                                     altText = teamId;
                                 } else {
-                                    const isAway = teamId === matchup.awayTeam?.id || teamId === matchup.awayTeam?.name || teamId === matchup.awayTeam?.shortName;
-                                    imageUrl = isAway ? matchup.awayTeam?.image : matchup.homeTeam?.image;
-                                    altText = isAway ? matchup.awayTeam?.name : matchup.homeTeam?.name;
+                                    const isAway = isTeamMatch(teamId, matchup.awayTeam);
+                                    const isHome = isTeamMatch(teamId, matchup.homeTeam);
+                                    imageUrl = isAway ? matchup.awayTeam?.image : (isHome ? matchup.homeTeam?.image : matchup.awayTeam?.image);
+                                    altText = isAway ? matchup.awayTeam?.name : (isHome ? matchup.homeTeam?.name : teamId);
                                 }
                             }
 

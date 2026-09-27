@@ -1,4 +1,5 @@
 import { adminDb } from '../lib/firebase-admin.js';
+import { isMatchupLocked } from '../utils/matchupUtils.js';
 
 let enforcerInterval: NodeJS.Timeout | null = null;
 
@@ -74,7 +75,7 @@ export function startPickemEnforcerJob() {
                   let canDelete = true;
                   if (p.matchupId && matchupMap.has(p.matchupId)) {
                      const mData = matchupMap.get(p.matchupId);
-                     if (mData && mData.startTime && mData.startTime <= now) {
+                     if (mData && isMatchupLocked(mData, now)) {
                         canDelete = false; // Locked game
                      }
                   }

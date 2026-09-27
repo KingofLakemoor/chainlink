@@ -12,6 +12,7 @@ import { MdOutlineSportsSoccer, MdOutlineSportsFootball,  MdOutlineSportsBasketb
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { PlayBannerConfig } from '../admin/system/BannerAdminPage';
+import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
 
 export default function PlayDashboard() {
   const { user, profile, chain } = useAuth();
@@ -206,7 +207,7 @@ export default function PlayDashboard() {
     // Auto-detect if database timestamps are shifted in the future (e.g. sandbox timezone in 2026 vs real browser in 2024)
     const scheduledMatchups = allFetchedMatchups.filter((m: any) => m.status === 'STATUS_SCHEDULED' && !m.abandoned && m.active !== false);
     if (scheduledMatchups.length > 0) {
-      const minStartTime = Math.min(...scheduledMatchups.map((m: any) => m.startTime));
+      const minStartTime = Math.min(...scheduledMatchups.map((m: any) => getMatchupStartTime(m.startTime)));
       if (minStartTime > now + 48 * 60 * 60 * 1000) {
         // Shift "now" to 1 hour before the first scheduled matchup so they fall in the active upcoming window
         now = minStartTime - 60 * 60 * 1000;
@@ -228,14 +229,15 @@ export default function PlayDashboard() {
       const isFinal = m.status === 'STATUS_FINAL' || m.statusDesc?.toLowerCase().includes('final');
       const isLive = m.status !== 'STATUS_SCHEDULED' && !isFinal && m.status !== 'STATUS_POSTPONED' && m.status !== 'STATUS_CANCELED';
 
-      let isUpcoming = m.status === 'STATUS_SCHEDULED' && m.startTime <= next24Hours && m.startTime > (now - 24 * 60 * 60 * 1000);
+      const startTimeMs = getMatchupStartTime(m.startTime);
+      let isUpcoming = m.status === 'STATUS_SCHEDULED' && startTimeMs <= next24Hours && startTimeMs > (now - 24 * 60 * 60 * 1000);
       if ((m.league === 'PGA' || m.manuallyActivated) && m.status === 'STATUS_SCHEDULED') {
         isUpcoming = true;
       }
 
       if (!((isLive || isUpcoming) && !isFinal)) return false;
       
-      if (filterType === 'available' && (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime))) return false;
+      if (filterType === 'available' && isMatchupLocked(m)) return false;
 
       if (m.type === 'MONEYLINE' && !m.manuallyActivated && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null || m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
           return false;
@@ -254,7 +256,7 @@ export default function PlayDashboard() {
       return true;
     });
 
-    filtered.sort((a: any, b: any) => a.startTime - b.startTime);
+    filtered.sort((a: any, b: any) => getMatchupStartTime(a.startTime) - getMatchupStartTime(b.startTime));
     return filtered;
   }, [allFetchedMatchups, selectedSport, filterType]);
 
@@ -290,7 +292,7 @@ export default function PlayDashboard() {
 
     const isCancelablePGA = matchup.league === 'PGA' && matchup.status === 'STATUS_IN_PROGRESS' && (matchup.statusDesc === 'In Progress' || matchup.statusDesc === 'Delayed');
 
-    if ((matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) && !isCancelablePGA) {
+    if (isMatchupLocked(matchup) && !isCancelablePGA) {
       alert("This game has already started and cannot be cancelled.");
       return;
     }
@@ -320,7 +322,7 @@ export default function PlayDashboard() {
     }
     if (!profile || !chain) return;
 
-    if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) {
+    if (isMatchupLocked(matchup)) {
         alert("This game has already started.");
         return;
     }

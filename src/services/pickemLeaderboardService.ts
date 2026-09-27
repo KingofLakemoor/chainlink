@@ -1,6 +1,7 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { gradeSinglePickemMatchup } from './pickemGrader.js';
 import { isTeamMatch } from '../lib/teamUtils.js';
+import { isMatchupLocked } from '../utils/matchupUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
@@ -306,7 +307,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     let teamImage = '';
     let teamName = '';
     const teamId = p.pick?.teamId || (typeof p.pick === 'string' ? p.pick : p.pick?.team) || p.teamId || '';
-    const isLocked = m ? (m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime)) : false;
+    const isLocked = m ? isMatchupLocked(m) : false;
 
     if (m) {
       if (m.type === 'OVER_UNDER') {

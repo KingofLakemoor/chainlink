@@ -1973,8 +1973,7 @@ apiRouter.post("/link4/submit", async (req, res) => {
             const mDoc = await transaction.get(matchupRef);
             if (!mDoc.exists) throw new Error("Invalid matchup selected.");
             const mData = mDoc.data();
-            if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
-            if (mData.startTime && mData.startTime <= Date.now()) throw new Error("Matchup is locked.");
+            if (isMatchupLocked(mData)) throw new Error("Matchup is locked.");
         }
         if (sanitizedPicks.length > 4) {
             throw new Error("Invalid submission. Cannot exceed 4 picks.");
@@ -1996,8 +1995,7 @@ apiRouter.post("/link4/submit", async (req, res) => {
             const mDoc = await transaction.get(matchupRef);
             if (!mDoc.exists) throw new Error("Invalid matchup selected.");
             const mData = mDoc.data();
-            if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
-            if (mData.startTime && mData.startTime <= Date.now()) throw new Error("Matchup is locked.");
+            if (isMatchupLocked(mData)) throw new Error("Matchup is locked.");
         }
 
         if (currentLinks < cost) {
@@ -2235,12 +2233,8 @@ apiRouter.post("/picks/make-pick", async (req, res) => {
       if (!matchupDoc.exists) throw new Error("Matchup not found");
 
       const matchup = matchupDoc.data()!;
-      if (!matchup.active) throw new Error("Matchup is locked");
-      if (matchup.status !== 'STATUS_SCHEDULED' && matchup.status !== 'STATUS_POSTPONED') {
-        throw new Error("Matchup has already started");
-      }
-      if (matchup.startTime && Date.now() >= matchup.startTime) {
-        throw new Error("Matchup has already started");
+      if (!matchup.active || isMatchupLocked(matchup)) {
+        throw new Error("Matchup is locked");
       }
 
       const profile = userDoc.data()!;

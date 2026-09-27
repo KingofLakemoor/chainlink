@@ -5,6 +5,7 @@ import { cn, formatUpcomingTime } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { FirebaseImage } from './FirebaseImage';
 import { useAuth } from '../../lib/auth-context';
+import { isMatchupLocked } from '../../utils/matchupUtils';
 
 interface MatchupCardProps {
   m: any;
@@ -48,8 +49,9 @@ export const MatchupCard = React.memo(function MatchupCard({
   const hasActivePicksArray = Array.isArray(hasActivePickAnywhere);
   const activePicksCount = hasActivePicksArray ? hasActivePickAnywhere.length : (hasActivePickAnywhere ? 1 : 0);
 
-  const isPickDisabled = !user || hasPicked || activePicksCount >= (activeProfile?.premium ? 2 : 1);
-  const isQueueState = !hasPicked && activeProfile?.premium && activePicksCount === 1;
+  const isLocked = isMatchupLocked(m);
+  const isPickDisabled = !user || hasPicked || isLocked || activePicksCount >= (activeProfile?.premium ? 2 : 1);
+  const isQueueState = !hasPicked && !isLocked && activeProfile?.premium && activePicksCount === 1;
   const totalPicksForCalc = globalActivePicksCount && globalActivePicksCount > 0 ? globalActivePicksCount : mCounts.total;
   const awayHotPct = totalPicksForCalc > 0 ? Math.round(((mCounts.away || 0) / totalPicksForCalc) * 100) : 0;
   const homeHotPct = totalPicksForCalc > 0 ? Math.round(((mCounts.home || 0) / totalPicksForCalc) * 100) : 0;
@@ -60,7 +62,7 @@ export const MatchupCard = React.memo(function MatchupCard({
     if (pct > 0) return "bg-blue-500";
     return "bg-zinc-700";
   };
-  const isScheduled = m.status === 'STATUS_SCHEDULED' && (!m.metadata?.homeLinescores || m.metadata?.homeLinescores.length === 0) && (!m.metadata?.awayLinescores || m.metadata?.awayLinescores.length === 0) && (m.homeTeam.score === 0 && m.awayTeam.score === 0);
+  const isScheduled = !isLocked && m.status === 'STATUS_SCHEDULED' && (!m.metadata?.homeLinescores || m.metadata?.homeLinescores.length === 0) && (!m.metadata?.awayLinescores || m.metadata?.awayLinescores.length === 0) && (m.homeTeam.score === 0 && m.awayTeam.score === 0);
 
   const hasMoneyline = m.metadata?.mlAway !== undefined && m.metadata?.mlHome !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlHome !== null && m.metadata?.mlAway !== "" && m.metadata?.mlHome !== "";
   const mlAwayNum = hasMoneyline ? Number(m.metadata.mlAway) : NaN;

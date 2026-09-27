@@ -237,7 +237,7 @@ export default function PlayDashboard() {
 
       if (!((isLive || isUpcoming) && !isFinal)) return false;
       
-      if (filterType === 'available' && isMatchupLocked(m)) return false;
+      if (filterType === 'available' && isMatchupLocked(m, now)) return false;
 
       if (m.type === 'MONEYLINE' && !m.manuallyActivated && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null || m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
           return false;

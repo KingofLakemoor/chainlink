@@ -1,5 +1,6 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { gradeMatchups } from './grader.js';
+import { getMatchupStartTime } from '../utils/matchupUtils.js';
 
 const boxscoreCache = new Map<string, any>();
 const gameStatusCache = new Map<string, any>();
@@ -267,7 +268,7 @@ export async function updateAllProps() {
                 } else if (statusA.status === 'STATUS_POSTPONED' || statusB.status === 'STATUS_POSTPONED') {
                     newStatus = 'STATUS_POSTPONED';
                     statusDesc = 'Postponed';
-                } else if (statusA.status === 'STATUS_IN_PROGRESS' || statusB.status === 'STATUS_IN_PROGRESS' || (m.startTime && Date.now() >= m.startTime)) {
+                } else if (statusA.status === 'STATUS_IN_PROGRESS' || statusB.status === 'STATUS_IN_PROGRESS' || (getMatchupStartTime(m.startTime) > 0 && Date.now() >= getMatchupStartTime(m.startTime))) {
                     newStatus = 'STATUS_IN_PROGRESS';
                     if (!m.metadata.optionB || m.metadata.optionA.gameId === m.metadata.optionB.gameId) {
                          statusDesc = statusA.detail || 'In Progress';
@@ -358,7 +359,7 @@ export async function updateAllProps() {
                 if (newStatus === 'STATUS_FINAL' && m.status !== 'STATUS_FINAL') {
                     matchupsToGrade.push({ id: doc.id, ...m, status: 'STATUS_FINAL', statusDesc: 'Final', homeTeam: { ...m.homeTeam, score: currentScoreB }, awayTeam: { ...m.awayTeam, score: currentScoreA } });
                 }
-            } else if (m.startTime && Date.now() >= m.startTime && m.status === 'STATUS_SCHEDULED') {
+            } else if (getMatchupStartTime(m.startTime) > 0 && Date.now() >= getMatchupStartTime(m.startTime) && m.status === 'STATUS_SCHEDULED') {
                 // If games have started by time but boxscore is not ready, update status to lock the prop
                 const picksSnap = await adminDb.collection('picks')
                     .where('matchupId', '==', doc.id)
@@ -438,7 +439,7 @@ async function fetchGameStatus(adminDb: any, config: PropAthleteConfig, timefram
                 status = 'STATUS_IN_PROGRESS';
             } else if (data.status === 'STATUS_POSTPONED' || data.status === 'STATUS_CANCELED') {
                 status = 'STATUS_POSTPONED';
-            } else if (data.startTime && Date.now() >= data.startTime) {
+            } else if (getMatchupStartTime(data.startTime) > 0 && Date.now() >= getMatchupStartTime(data.startTime)) {
                 status = 'STATUS_IN_PROGRESS';
             }
             return {

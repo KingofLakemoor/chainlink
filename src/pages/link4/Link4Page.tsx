@@ -7,6 +7,7 @@ import { MatchupCard } from '../../components/ui/MatchupCard';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
 import { useAuth } from '../../lib/auth-context';
 import { isTeamMatch } from '../../lib/teamUtils';
+import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
 
 interface Link4SegmentTheme {
   primaryColor?: string;
@@ -295,14 +296,11 @@ export default function Link4Page() {
               let status = pick.status || 'PENDING';
 
               const startTimeMs = pick.startTime
-                ? (typeof pick.startTime === 'number' ? pick.startTime : new Date(pick.startTime).getTime())
-                : (pickMatchup?.startTime
-                  ? (typeof pickMatchup.startTime === 'number' ? pickMatchup.startTime : new Date(pickMatchup.startTime).getTime())
-                  : 0);
+                ? getMatchupStartTime(pick.startTime)
+                : (pickMatchup ? getMatchupStartTime(pickMatchup.startTime) : 0);
 
               const now = Date.now();
-              const isLocked = (startTimeMs > 0 && now >= startTimeMs) ||
-                (pickMatchup?.status && pickMatchup.status !== 'STATUS_SCHEDULED' && pickMatchup.status !== 'SCHEDULED');
+              const isLocked = pickMatchup ? isMatchupLocked(pickMatchup, now) : (startTimeMs > 0 && now >= startTimeMs);
 
               // If backend hasn't graded it yet, do a local calculation for display
               if (!pick.status || pick.status === 'PENDING') {
@@ -540,14 +538,15 @@ export default function Link4Page() {
     if (statusStr !== 'STATUS_SCHEDULED' && statusStr !== 'SCHEDULED') return false;
     
     const now = Date.now();
-    if (m.startTime && m.startTime <= now) return false;
+    const gameStartMs = getMatchupStartTime(m.startTime);
+    if (gameStartMs > 0 && gameStartMs <= now) return false;
 
     if (nextPickIndex > 0 && picks[nextPickIndex - 1]) {
       const prevPick = picks[nextPickIndex - 1];
       if (prevPick?.startTime && m.startTime) {
-        const prevTime = typeof prevPick.startTime === 'number' ? prevPick.startTime : new Date(prevPick.startTime).getTime();
-        const curTime = typeof m.startTime === 'number' ? m.startTime : new Date(m.startTime).getTime();
-        if (!isNaN(prevTime) && !isNaN(curTime) && curTime <= prevTime) {
+        const prevTime = getMatchupStartTime(prevPick.startTime);
+        const curTime = gameStartMs;
+        if (prevTime > 0 && curTime > 0 && curTime <= prevTime) {
           return false;
         }
       }
@@ -555,8 +554,8 @@ export default function Link4Page() {
 
     return true;
   }).sort((a, b) => {
-    const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
-    const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+    const timeA = getMatchupStartTime(a.startTime);
+    const timeB = getMatchupStartTime(b.startTime);
     return timeA - timeB;
   });
 

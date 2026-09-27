@@ -17,6 +17,7 @@ import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
 import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
+import { isMatchupLocked, getMatchupStartTime } from './utils/matchupUtils.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -715,9 +716,7 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
     const matchupDoc = await adminDb.collection('pickemMatchups').doc(matchupId).get();
     if (matchupDoc.exists) {
       const matchup = matchupDoc.data()!;
-      const startTime = matchup.startTime ? (typeof matchup.startTime === 'number' ? matchup.startTime : new Date(matchup.startTime).getTime()) : 0;
-      const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (startTime > 0 && Date.now() >= startTime);
-      if (isLocked) {
+      if (isMatchupLocked(matchup)) {
         return res.status(400).json({ success: false, error: "Game is locked. Cannot submit pick." });
       }
     }
@@ -790,8 +789,7 @@ apiRouter.post("/pickem/clear-pick", validateAuth, async (req, res) => {
     const matchupDoc = await adminDb.collection('pickemMatchups').doc(matchupId).get();
     if (matchupDoc.exists) {
       const matchup = matchupDoc.data()!;
-      const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (matchup.startTime && Date.now() >= matchup.startTime);
-      if (isLocked) {
+      if (isMatchupLocked(matchup)) {
         return res.status(400).json({ success: false, error: "Game is locked. Cannot clear pick." });
       }
     }

@@ -2,6 +2,7 @@ import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { CharityProgressTracker } from '../../components/pickem/CharityProgressTracker';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
+import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
@@ -45,8 +46,8 @@ export const getWeekTiebreakerMatchup = (campaign: any, weekMatchups: any[]): an
   const explicit = weekMatchups.find((m: any) => m.isTiebreaker === true || m.isTiebreaker === 'true');
   if (explicit) return explicit;
   const sorted = [...weekMatchups].sort((a: any, b: any) => {
-    const timeA = typeof a.startTime === 'number' ? a.startTime : (a.startTime ? new Date(a.startTime).getTime() : 0);
-    const timeB = typeof b.startTime === 'number' ? b.startTime : (b.startTime ? new Date(b.startTime).getTime() : 0);
+    const timeA = getMatchupStartTime(a.startTime);
+    const timeB = getMatchupStartTime(b.startTime);
     return timeA - timeB;
   });
   return sorted[sorted.length - 1] || null;
@@ -366,7 +367,7 @@ export default function PickEmPage() {
         });
       });
 
-      setMatchups(Array.from(allMatchupsMap.values()).sort((a: any, b: any) => a.startTime - b.startTime));
+      setMatchups(Array.from(allMatchupsMap.values()).sort((a: any, b: any) => getMatchupStartTime(a.startTime) - getMatchupStartTime(b.startTime)));
 
       if (user) {
         const pSnapsPart = await Promise.all(
@@ -799,7 +800,7 @@ export default function PickEmPage() {
   const handleTiebreakerChange = (matchup: any, rawVal: string) => {
     if (!user || !selectedCampaign) return;
 
-    const isLocked = matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime);
+    const isLocked = isMatchupLocked(matchup);
     if (isLocked) {
       alert("This matchup is locked. Tiebreaker score cannot be changed.");
       return;
@@ -901,7 +902,7 @@ export default function PickEmPage() {
   const handleClearPick = async (matchup: any) => {
     if (!user || !selectedCampaign) return;
     if (isEliminated && selectedCampaign.format === 'SURVIVOR') return;
-    if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
+    if (isMatchupLocked(matchup)) return;
 
     if (tiebreakerTimeoutRef.current[matchup.id]) {
       clearTimeout(tiebreakerTimeoutRef.current[matchup.id]);
@@ -950,7 +951,7 @@ export default function PickEmPage() {
 
   const handlePick = async (matchup: any, teamId: string) => {
     if (!user || !selectedCampaign) return;
-    if (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) return;
+    if (isMatchupLocked(matchup)) return;
 
     try {
       const pickId = `${selectedCampaign.id}_${selectedWeek}_${matchup.id}_${user.uid}`;
@@ -1227,7 +1228,7 @@ export default function PickEmPage() {
                 const weekTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, matchups);
                 return matchups.map(m => {
                 const pick = userPicks[m.id];
-                const isLocked = m.status !== 'STATUS_SCHEDULED' || (!!m.startTime && Date.now() >= m.startTime);
+                const isLocked = isMatchupLocked(m);
                 const isTiebreakerGame = weekTbMatchup?.id === m.id;
                 const hasSelection = !!(
                   pick?.pick?.teamId ||
@@ -1702,7 +1703,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                                       return Math.abs(tbPick.tiebreakerTotal - actualTotal);
                                     } else {
                                       if (!tbPick) return '-';
-                                      const isLocked = weekTbMatchup.startTime && Date.now() >= weekTbMatchup.startTime;
+                                      const isLocked = isMatchupLocked(weekTbMatchup);
                                       const isSelf = participant.uid === user?.uid;
                                       if (isLocked || isSelf) return tbPick.tiebreakerTotal;
                                       return <span title="Hidden until kickoff" className="flex items-center justify-center opacity-50"><Lock className="w-4 h-4 inline" /></span>;
@@ -1735,7 +1736,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             }
 
                             const isMyPick = participant.uid === user?.uid;
-                            const isGameStarted = matchup ? (matchup.status !== 'STATUS_SCHEDULED' || (!!matchup.startTime && Date.now() >= matchup.startTime)) : false;
+                            const isGameStarted = matchup ? isMatchupLocked(matchup) : false;
                             const isRevealed = pick.isRevealed === true || isGameStarted;
 
                             if (!isRevealed && !isMyPick) {

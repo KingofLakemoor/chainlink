@@ -5,8 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const formatUpcomingTime = (timestamp: number) => {
-  const date = new Date(timestamp);
+import { getMatchupStartTime } from '../utils/matchupUtils';
+
+export const formatUpcomingTime = (timestamp: number | string | any) => {
+  const date = new Date(getMatchupStartTime(timestamp));
   const now = new Date();
 
   const diffMs = date.getTime() - now.getTime();

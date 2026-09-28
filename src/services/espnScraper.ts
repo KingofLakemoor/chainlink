@@ -89,7 +89,10 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       const [month, day, year] = str.split("/");
       return `${year}${month}${day}`;
     };
-    if (league === 'NFL' || league === 'CFB') { for (let i = -2; i <= 21; i++) { dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000))); } } else { dates = [twoDaysAgo, yesterday, today, tomorrow, theDayAfterTomorrow].map(formatESTDate); }
+    const daysAhead = (league === 'NFL' || league === 'CFB') ? 21 : 14;
+    for (let i = -2; i <= daysAhead; i++) {
+      dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000)));
+    }
   }
 
 

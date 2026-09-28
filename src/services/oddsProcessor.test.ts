@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { syncTennisOdds, syncSoccerOdds, setAdminDbMock } from './oddsProcessor';
+import { canMakeOddsApiCall, recordOddsApiCall, resetInMemoryOddsRateLimiter } from './oddsRateLimiter';
 
 describe('OddsProcessor Optimization Tests', () => {
   let mockAdminDb: any;
@@ -7,6 +8,7 @@ describe('OddsProcessor Optimization Tests', () => {
   let fetchSpy: any;
 
   beforeEach(() => {
+    resetInMemoryOddsRateLimiter();
     delete process.env.ODDS_API_KEY;
     delete process.env.THE_ODDS_API_KEY;
     delete process.env.SHARP_API_KEY;
@@ -16,6 +18,17 @@ describe('OddsProcessor Optimization Tests', () => {
     };
     setAdminDbMock(mockAdminDb);
     fetchSpy = vi.spyOn(globalThis, 'fetch');
+  });
+
+  it('enforces max 2 calls per day for The Odds API', async () => {
+    resetInMemoryOddsRateLimiter();
+    expect(await canMakeOddsApiCall()).toBe(true);
+
+    await recordOddsApiCall();
+    expect(await canMakeOddsApiCall()).toBe(true);
+
+    await recordOddsApiCall();
+    expect(await canMakeOddsApiCall()).toBe(false);
   });
 
   afterEach(() => {

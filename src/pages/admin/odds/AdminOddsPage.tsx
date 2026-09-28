@@ -553,22 +553,22 @@ export default function AdminOddsPage() {
           </div>
 
           <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-lg space-y-2">
-            <div className="flex items-center justify-between font-bold text-purple-400">
-              <span className="flex items-center gap-1.5"><Zap className="w-4 h-4" /> Tier 2: The-Odds-API</span>
-              <span className="bg-purple-950 text-purple-300 text-[10px] px-2 py-0.5 rounded border border-purple-800">Secondary Fallback</span>
+            <div className="flex items-center justify-between font-bold text-emerald-400">
+              <span className="flex items-center gap-1.5"><Zap className="w-4 h-4" /> Tier 2: SharpAPI</span>
+              <span className="bg-emerald-950 text-emerald-300 text-[10px] px-2 py-0.5 rounded border border-emerald-800">Primary Heavy Lifting</span>
             </div>
             <p className="text-zinc-400 leading-relaxed">
-              DraftKings & FanDuel lines via The-Odds-API. Used for ATP/WTA Tennis, international soccer, and sports lacking ESPN lines.
+              Primary external provider doing heavy lifting for ATP/WTA Tennis, international soccer slates, moneyline, spread, and totals lines.
             </p>
           </div>
 
           <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-lg space-y-2">
-            <div className="flex items-center justify-between font-bold text-amber-400">
-              <span className="flex items-center gap-1.5"><Shield className="w-4 h-4" /> Tier 3: SharpAPI / Baseline</span>
-              <span className="bg-amber-950 text-amber-300 text-[10px] px-2 py-0.5 rounded border border-amber-800">Tertiary / Baseline</span>
+            <div className="flex items-center justify-between font-bold text-purple-400">
+              <span className="flex items-center gap-1.5"><Shield className="w-4 h-4" /> Tier 3: The-Odds-API</span>
+              <span className="bg-purple-950 text-purple-300 text-[10px] px-2 py-0.5 rounded border border-purple-800">Quota Capped (Max 2/day)</span>
             </div>
             <p className="text-zinc-400 leading-relaxed">
-              Tertiary fallback provider when higher tiers return no match, ensuring no game is left without standard line defaults (-110).
+              Tertiary fallback provider strictly capped at 2 calls per day to preserve monthly quota limits.
             </p>
           </div>
         </div>

@@ -85,6 +85,41 @@ async function seed() {
   }, { merge: true });
 
   console.log("Seeded world cup bracket.");
+
+  const mlbBracketRef = adminDb.collection('brackets').doc('mlb-playoffs-2026');
+  const defaultMlbTeams = [
+    "Tampa Bay", "BYE",
+    "NY Yankees", "Boston",
+    "Houston", "Chicago White Sox",
+    "Cleveland", "BYE",
+    "Milwaukee", "BYE",
+    "San Diego", "Chicago Cubs",
+    "Atlanta", "Philadelphia",
+    "LA Dodgers", "BYE"
+  ];
+
+  await mlbBracketRef.set({
+    name: "2026 MLB Postseason Bracket",
+    sport: "MLB",
+    teams: defaultMlbTeams,
+    pointValues: {
+      "Wild Card Series": 10,
+      "Division Series": 20,
+      "League Championship Series": 40,
+      "World Series": 80
+    },
+    cost: 10,
+    prizePotPercent: 0.60,
+    isPublic: true,
+    maxEntries: 0,
+    openDate: Date.now(),
+    lockDate: Date.now() + 86400000 * 30,
+    status: 'OPEN',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }, { merge: true });
+
+  console.log("Seeded MLB playoff bracket.");
 }
 
 seed();

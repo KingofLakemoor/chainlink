@@ -95,7 +95,8 @@ export function BracketsPage() {
             "World Series": 80
           },
           cost: 10,
-          prizePotPercent: 0.60
+          prizePotPercent: 0.65,
+          payoutSplit: { first: 70, second: 20, third: 10 }
         };
 
         const defaultWorldCupBracket: any = {
@@ -113,7 +114,8 @@ export function BracketsPage() {
             "Finals": 160
           },
           cost: 10,
-          prizePotPercent: 0.60,
+          prizePotPercent: 0.65,
+          payoutSplit: { first: 70, second: 20, third: 10 },
           theme: bracketId === 'charity' ? {
             title: "Charity Cup 2026",
             subtitle: "Make your picks to support a great cause!",
@@ -330,14 +332,44 @@ export function BracketsPage() {
             </div>
           )}
 
-          {activeTab === 'leaderboard' && (
+          {activeTab === 'leaderboard' && (() => {
+            const totalEntriesPot = bracket.totalPot ?? (leaderboardData.length * (bracket.cost ?? 10));
+            const prizePotPercent = bracket.prizePotPercent ?? 0.65;
+            const totalPrizePot = Number.isNaN(totalEntriesPot) ? 0 : Math.floor(totalEntriesPot * prizePotPercent);
+
+            const payoutSplit = bracket.payoutSplit || { first: 70, second: 20, third: 10 };
+            const firstPayout = Math.floor(totalPrizePot * ((payoutSplit.first ?? 70) / 100));
+            const secondPayout = Math.floor(totalPrizePot * ((payoutSplit.second ?? 20) / 100));
+            const thirdPayout = Math.floor(totalPrizePot * ((payoutSplit.third ?? 10) / 100));
+
+            return (
             <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden max-w-7xl mx-auto">
               {bracket?.cost !== undefined && (
-                <div className="bg-zinc-800/50 p-4 border-b border-zinc-800 flex justify-between items-center px-6">
-                  <div className="text-zinc-400 font-medium uppercase text-sm tracking-wider">Prize Pot (1st Place)</div>
-                  <div className="text-2xl font-black text-white flex items-center gap-2">
-                    <Trophy className="w-6 h-6 text-yellow-500" />
-                    {Number.isNaN(Math.floor((bracket.totalPot ?? (leaderboardData.length * (bracket.cost ?? 10))) * (bracket.prizePotPercent ?? 0.60))) ? 0 : Math.floor((bracket.totalPot ?? (leaderboardData.length * (bracket.cost ?? 10))) * (bracket.prizePotPercent ?? 0.60))} <span className="text-sm font-medium text-zinc-500">Links</span>
+                <div className="bg-zinc-800/50 p-4 border-b border-zinc-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-6">
+                  <div>
+                    <div className="text-zinc-400 font-medium uppercase text-xs tracking-wider mb-1">Total Prize Pot ({Math.round(prizePotPercent * 100)}% Payout)</div>
+                    <div className="text-2xl font-black text-white flex items-center gap-2 font-mono">
+                      <Trophy className="w-6 h-6 text-yellow-500" />
+                      {totalPrizePot.toLocaleString()} <span className="text-sm font-medium text-zinc-500">Links</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 sm:gap-6 text-xs bg-zinc-900/80 px-4 py-2 rounded-xl border border-zinc-800">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                      <span className="text-zinc-400 font-semibold">1st:</span>
+                      <span className="text-white font-bold font-mono">{firstPayout.toLocaleString()} Links</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-zinc-300"></span>
+                      <span className="text-zinc-400 font-semibold">2nd:</span>
+                      <span className="text-white font-bold font-mono">{secondPayout.toLocaleString()} Links</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                      <span className="text-zinc-400 font-semibold">3rd:</span>
+                      <span className="text-white font-bold font-mono">{thirdPayout.toLocaleString()} Links</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -448,7 +480,8 @@ export function BracketsPage() {
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
         </div>
       ) : (
         <div className="bg-[#1a1a1a] border border-[#27272a] rounded-xl p-8 text-center max-w-7xl mx-auto">

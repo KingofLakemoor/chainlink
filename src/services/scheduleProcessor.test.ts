@@ -218,6 +218,61 @@ describe('scheduleProcessor - manuallyActivated Preservation Tests', () => {
     expect(filtered).toHaveLength(1);
     expect(filtered[0].gameId).toBe('atp_manual_1');
   });
+
+  it('filters out scheduled matchups beyond the 24-hour rolling window for PlayDashboard display', () => {
+    const now = Date.now();
+    const next24Hours = now + 24 * 60 * 60 * 1000;
+
+    const allFetchedMatchups = [
+      {
+        gameId: 'within_24h',
+        id: 'within_24h',
+        league: 'NFL',
+        type: 'SPREAD',
+        active: true,
+        status: 'STATUS_SCHEDULED',
+        startTime: now + 12 * 60 * 60 * 1000,
+      },
+      {
+        gameId: 'beyond_24h',
+        id: 'beyond_24h',
+        league: 'NFL',
+        type: 'SPREAD',
+        active: true,
+        status: 'STATUS_SCHEDULED',
+        startTime: now + 36 * 60 * 60 * 1000,
+      },
+    ];
+
+    const userPicks: Record<string, any> = {};
+    const matchupPickCounts: Record<string, any> = {};
+
+    const filtered = allFetchedMatchups.filter((m: any) => {
+      const hasPicksOnMatchup = Boolean(
+        userPicks[m.gameId] || userPicks[m.id] ||
+        (matchupPickCounts[m.gameId] && matchupPickCounts[m.gameId].total > 0) ||
+        (matchupPickCounts[m.id] && matchupPickCounts[m.id].total > 0)
+      );
+
+      if (m.abandoned && !hasPicksOnMatchup) return false;
+      if (m.active === false && !hasPicksOnMatchup) return false;
+
+      const isFinal = m.status === 'STATUS_FINAL' || m.statusDesc?.toLowerCase().includes('final');
+      const isLive = m.status !== 'STATUS_SCHEDULED' && !isFinal && m.status !== 'STATUS_POSTPONED' && m.status !== 'STATUS_CANCELED';
+
+      let isUpcoming = m.status === 'STATUS_SCHEDULED' && m.startTime <= next24Hours && m.startTime > (now - 24 * 60 * 60 * 1000);
+      if ((m.league === 'PGA' || m.manuallyActivated) && m.status === 'STATUS_SCHEDULED') {
+        isUpcoming = true;
+      }
+
+      if (!((isLive || isUpcoming) && !isFinal)) return false;
+
+      return true;
+    });
+
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].gameId).toBe('within_24h');
+  });
 });
 
 describe('isBeforeThursdaySpreadLock helper', () => {

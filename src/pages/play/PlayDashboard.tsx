@@ -214,7 +214,7 @@ export default function PlayDashboard() {
       }
     }
 
-    const next7Days = now + 7 * 24 * 60 * 60 * 1000;
+    const next24Hours = now + 24 * 60 * 60 * 1000;
 
     const filtered = allFetchedMatchups.filter((m: any) => {
       const hasPicksOnMatchup = Boolean(
@@ -230,7 +230,7 @@ export default function PlayDashboard() {
       const isLive = m.status !== 'STATUS_SCHEDULED' && !isFinal && m.status !== 'STATUS_POSTPONED' && m.status !== 'STATUS_CANCELED';
 
       const startTimeMs = getMatchupStartTime(m.startTime);
-      let isUpcoming = m.status === 'STATUS_SCHEDULED' && startTimeMs <= next7Days && startTimeMs > (now - 24 * 60 * 60 * 1000);
+      let isUpcoming = m.status === 'STATUS_SCHEDULED' && startTimeMs <= next24Hours && startTimeMs > (now - 24 * 60 * 60 * 1000);
       if ((m.league === 'PGA' || m.manuallyActivated) && m.status === 'STATUS_SCHEDULED') {
         isUpcoming = true;
       }

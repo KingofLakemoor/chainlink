@@ -71,14 +71,14 @@ export function BracketsPage() {
         };
 
         const defaultMlbTeams = [
-          "AL Seed 1", "BYE",
-          "AL Seed 4", "AL Seed 5",
-          "AL Seed 3", "AL Seed 6",
-          "AL Seed 2", "BYE",
-          "NL Seed 1", "BYE",
-          "NL Seed 4", "NL Seed 5",
-          "NL Seed 3", "NL Seed 6",
-          "NL Seed 2", "BYE"
+          "Tampa Bay", "BYE",
+          "NY Yankees", "Boston",
+          "Houston", "Chicago White Sox",
+          "Cleveland", "BYE",
+          "Milwaukee", "BYE",
+          "San Diego", "Chicago Cubs",
+          "Atlanta", "Philadelphia",
+          "LA Dodgers", "BYE"
         ];
 
         const defaultMlbBracket: any = {

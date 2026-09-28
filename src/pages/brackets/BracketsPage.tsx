@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { useToast } from '../../components/ui/Toast';
 import { BracketMatchupCard } from '../../components/ui/BracketMatchupCard';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
+import { getRoundNamesForBracket, formatPointValuesInOrder } from '../../utils/bracketUtils';
 
 const getTeamAbbreviation = (team: string) => {
   if (!team) return "";
@@ -21,88 +22,6 @@ const getTeamAbbreviation = (team: string) => {
     "South Africa": "RSA",
   };
   return specialCases[team] || team.substring(0, 3).toUpperCase();
-};
-
-const defaultTeams = [
-  "Canada", "Morocco",
-  "Paraguay", "France",
-  "Brazil", "Norway",
-  "Mexico", "England",
-  "Portugal", "Spain",
-  "United States", "Belgium",
-  "Argentina", "Egypt",
-  "Switzerland", "Colombia"
-];
-
-const matchTimes: Record<string, string> = {
-  'r0-m0': '2026-07-04T17:00:00.000Z',
-  'r0-m1': '2026-07-04T21:00:00.000Z',
-  'r0-m2': '2026-07-05T20:00:00.000Z',
-  'r0-m3': '2026-07-06T00:00:00.000Z',
-  'r0-m4': '2026-07-06T19:00:00.000Z',
-  'r0-m5': '2026-07-07T00:00:00.000Z',
-  'r0-m6': '2026-07-07T16:00:00.000Z',
-  'r0-m7': '2026-07-07T20:00:00.000Z'
-};
-
-const matchIds: Record<string, string> = {
-  'r0-m0': '760502',
-  'r0-m1': '760503',
-  'r0-m2': '760504',
-  'r0-m3': '760505',
-  'r0-m4': '760506',
-  'r0-m5': '760507',
-  'r0-m6': '760509',
-  'r0-m7': '760508'
-};
-
-const defaultMlbTeams = [
-  "Tampa Bay", "BYE",
-  "NY Yankees", "Boston",
-  "Houston", "Chicago White Sox",
-  "Cleveland", "BYE",
-  "Milwaukee", "BYE",
-  "San Diego", "Chicago Cubs",
-  "Atlanta", "Philadelphia",
-  "LA Dodgers", "BYE"
-];
-
-const defaultMlbBracket: any = {
-  id: 'mlb-playoffs-2026',
-  name: "2026 MLB Postseason Bracket",
-  sport: "MLB",
-  isPublic: true,
-  teams: defaultMlbTeams,
-  matchTimes: {},
-  matchIds: {},
-  pointValues: {
-    "Wild Card Series": 10,
-    "Division Series": 20,
-    "League Championship Series": 40,
-    "World Series": 80
-  },
-  cost: 10,
-  prizePotPercent: 0.65,
-  payoutSplit: { first: 70, second: 20, third: 10 }
-};
-
-const defaultWorldCupBracket: any = {
-  id: 'world-cup-2026',
-  name: "2026 World Cup Bracket",
-  sport: "World Cup 2026",
-  isPublic: true,
-  teams: defaultTeams,
-  matchTimes,
-  matchIds,
-  pointValues: {
-    "Round of 16": 20,
-    "Quarter Finals": 40,
-    "Semi Finals": 80,
-    "Finals": 160
-  },
-  cost: 10,
-  prizePotPercent: 0.65,
-  payoutSplit: { first: 70, second: 20, third: 10 }
 };
 
 export function BracketsPage() {
@@ -146,13 +65,6 @@ export function BracketsPage() {
           }
         });
 
-        // Ensure default brackets exist in list if not returned from Firestore
-        const hasWorldCup = fetchedBrackets.some(b => b.id === 'world-cup-2026' || b.id === '8YdIvl2U0TRKOGKJkYC9');
-        const hasMlb = fetchedBrackets.some(b => b.id === 'mlb-playoffs-2026' || b.id === 'mlb-playoffs');
-
-        if (!hasWorldCup) fetchedBrackets.unshift(defaultWorldCupBracket);
-        if (!hasMlb) fetchedBrackets.push(defaultMlbBracket);
-
         setPublicBrackets(fetchedBrackets);
 
         // Fetch user's predictions across all brackets
@@ -168,7 +80,7 @@ export function BracketsPage() {
         }
       } catch (err) {
         console.error("Error fetching public brackets list:", err);
-        setPublicBrackets([defaultWorldCupBracket, defaultMlbBracket]);
+        setPublicBrackets([]);
       } finally {
         setLoadingBracketsList(false);
       }
@@ -188,36 +100,24 @@ export function BracketsPage() {
       if (!db) return;
       setLoadingBracket(true);
 
-      let targetId = bracketId;
-      if (targetId === '8YdIvl2U0TRKOGKJkYC9') targetId = 'world-cup-2026';
-      if (targetId === 'mlb-playoffs') targetId = 'mlb-playoffs-2026';
-
-      const defaultTemplate = targetId.includes('mlb') ? defaultMlbBracket : defaultWorldCupBracket;
-
       try {
-        const docRef = doc(db, 'brackets', targetId);
+        const docRef = doc(db, 'brackets', bracketId);
         const docSnap = await getDoc(docRef);
 
-        let activeB: any;
         if (docSnap.exists()) {
           const data = docSnap.data();
-          activeB = {
-            ...defaultTemplate,
+          const activeB = {
             id: docSnap.id,
-            ...data,
-            teams: data.teams && data.teams.length > 0 ? data.teams : defaultTemplate.teams,
-            matchTimes: data.matchTimes && Object.keys(data.matchTimes).length > 0 ? data.matchTimes : defaultTemplate.matchTimes,
-            matchIds: data.matchIds && Object.keys(data.matchIds).length > 0 ? data.matchIds : defaultTemplate.matchIds,
-            pointValues: data.pointValues && Object.keys(data.pointValues).length > 0 ? data.pointValues : defaultTemplate.pointValues,
+            ...data
           };
+          setBracket(activeB);
         } else {
-          activeB = { ...defaultTemplate, id: targetId };
+          setBracket(null);
         }
-        setBracket(activeB);
 
         // Fetch user prediction doc
         if (user) {
-          const predRef = doc(db, 'bracketGamePredictions', `${targetId}_${user.uid}`);
+          const predRef = doc(db, 'bracketGamePredictions', `${bracketId}_${user.uid}`);
           const predSnap = await getDoc(predRef);
           if (predSnap.exists()) {
             const predData = predSnap.data();
@@ -234,7 +134,7 @@ export function BracketsPage() {
         setHasUnsavedChanges(false);
       } catch (err) {
         console.error("Error fetching bracket detail:", err);
-        setBracket({ ...defaultTemplate, id: targetId });
+        setBracket(null);
       } finally {
         setLoadingBracket(false);
       }
@@ -349,17 +249,7 @@ export function BracketsPage() {
 
   // Round names & total rounds computation
   const roundNames = useMemo(() => {
-    if (!bracket || !bracket.teams) return [];
-    const baseTeams = bracket.teams.length;
-    const isMlb = bracket.sport === 'MLB' || bracket.id?.includes('mlb');
-    if (isMlb) {
-      return ["Wild Card Series", "Division Series", "League Championship Series", "World Series"];
-    }
-    if (baseTeams === 8) return ["Quarter Finals", "Semi Finals", "Finals"];
-    if (baseTeams === 16) return ["Round of 16", "Quarter Finals", "Semi Finals", "Finals"];
-    if (baseTeams === 32) return ["Round of 32", "Round of 16", "Quarter Finals", "Semi Finals", "Finals"];
-    const numRounds = Math.ceil(Math.log2(baseTeams));
-    return Array.from({ length: numRounds }, (_, i) => `Round ${i + 1}`);
+    return getRoundNamesForBracket(bracket);
   }, [bracket]);
 
   const totalRounds = roundNames.length;
@@ -374,11 +264,18 @@ export function BracketsPage() {
 
     const rounds = [];
 
-    // Helper to get winner of a previous match
+    // Helper to get winner of a match, with automatic BYE advancement
     const getWinnerOfMatch = (rIdx: number, mIdx: number): string | null => {
       const mId = `r${rIdx}-m${mIdx}`;
       if (results[mId]) return results[mId];
       if (selections[mId]) return selections[mId];
+
+      if (rIdx === 0) {
+        const t1 = baseTeams[mIdx * 2] || null;
+        const t2 = baseTeams[mIdx * 2 + 1] || null;
+        if (t1 === "BYE" && t2 && t2 !== "BYE") return t2;
+        if (t2 === "BYE" && t1 && t1 !== "BYE") return t1;
+      }
       return null;
     };
 
@@ -394,13 +291,6 @@ export function BracketsPage() {
         if (r === 0) {
           team1 = baseTeams[m * 2] || null;
           team2 = baseTeams[m * 2 + 1] || null;
-
-          // Auto handle BYE slots
-          if (team1 === "BYE" && team2 && !results[matchId] && !selections[matchId]) {
-             selections[matchId] = team2;
-          } else if (team2 === "BYE" && team1 && !results[matchId] && !selections[matchId]) {
-             selections[matchId] = team1;
-          }
         } else {
           team1 = getWinnerOfMatch(r - 1, m * 2);
           team2 = getWinnerOfMatch(r - 1, m * 2 + 1);
@@ -636,7 +526,7 @@ export function BracketsPage() {
                             Points / Round
                           </span>
                           <span className="text-zinc-300 font-medium text-xs font-mono">
-                            {Object.values(b.pointValues).join(' / ')}
+                            {formatPointValuesInOrder(b)}
                           </span>
                         </div>
                       )}
@@ -735,7 +625,7 @@ export function BracketsPage() {
               </span>
               {bracket.pointValues && (
                 <span className="text-xs text-zinc-400 hidden lg:inline-block">
-                  Points per round: {Object.values(bracket.pointValues).join(' / ')}
+                  Points per round: {formatPointValuesInOrder(bracket)}
                 </span>
               )}
             </div>

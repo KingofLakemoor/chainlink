@@ -37,79 +37,30 @@ const defaultMatchIds: Record<string, string> = {
 
 
 async function seed() {
-  const bracketRef = adminDb.collection('brackets').doc('world-cup-2026');
-
-  const res = await scrapeLeagueSchedules('FIFA');
-  const allFifaMatchups = res.data || [];
-
-  // Only consider matchups on or after July 4th (Arizona time, UTC-7)
-  const fifaMatchups = allFifaMatchups.filter(m => new Date(m.startTime) >= new Date('2026-07-04T07:00:00.000Z'));
-
-  const matchTimes: Record<string, string> = { ...defaultMatchTimes };
-  const matchIds: Record<string, string> = { ...defaultMatchIds };
-  const bracketTeams: string[] = [...defaultTeams];
-
-  // Update match times dynamically if the matchup exists in the filtered ESPN data
-  for (let i = 0; i < bracketTeams.length / 2; i++) {
-     const mIdKey = `r0-m${i}`;
-     const gameId = matchIds[mIdKey];
-
-     const matchedGame = fifaMatchups.find(m => m.gameId === gameId);
-
-     if (matchedGame) {
-       matchTimes[mIdKey] = new Date(matchedGame.startTime).toISOString();
-     }
-  }
+  const bracketRef = adminDb.collection('brackets').doc('sample-nba-bracket');
 
   await bracketRef.set({
-    name: "2026 World Cup Bracket",
-    sport: "World Cup 2026",
-    teams: bracketTeams,
+    name: "2026 NBA Championship Bracket",
+    sport: "NBA",
+    teams: [
+      "Boston Celtics", "Miami Heat",
+      "New York Knicks", "Philadelphia 76ers",
+      "Milwaukee Bucks", "Indiana Pacers",
+      "Cleveland Cavaliers", "Orlando Magic",
+      "Oklahoma City Thunder", "New Orleans Pelicans",
+      "Denver Nuggets", "Los Angeles Lakers",
+      "Minnesota Timberwolves", "Phoenix Suns",
+      "LA Clippers", "Dallas Mavericks"
+    ],
     pointValues: {
-      "Round of 16": 20,
-      "Quarter Finals": 40,
-      "Semi Finals": 80,
-      "Finals": 160
+      "Round 1": 10,
+      "Quarter Finals": 20,
+      "Semi Finals": 40,
+      "Finals": 80
     },
     cost: 10,
-    prizePotPercent: 0.60,
-    isPublic: true,
-    maxEntries: 0,
-    openDate: Date.now(),
-    lockDate: Date.now() + 86400000 * 30, // 30 days lock
-    matchTimes,
-    matchIds,
-    status: 'OPEN',
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  }, { merge: true });
-
-  console.log("Seeded world cup bracket.");
-
-  const mlbBracketRef = adminDb.collection('brackets').doc('mlb-playoffs-2026');
-  const defaultMlbTeams = [
-    "Tampa Bay", "BYE",
-    "NY Yankees", "Boston",
-    "Houston", "Chicago White Sox",
-    "Cleveland", "BYE",
-    "Milwaukee", "BYE",
-    "San Diego", "Chicago Cubs",
-    "Atlanta", "Philadelphia",
-    "LA Dodgers", "BYE"
-  ];
-
-  await mlbBracketRef.set({
-    name: "2026 MLB Postseason Bracket",
-    sport: "MLB",
-    teams: defaultMlbTeams,
-    pointValues: {
-      "Wild Card Series": 10,
-      "Division Series": 20,
-      "League Championship Series": 40,
-      "World Series": 80
-    },
-    cost: 10,
-    prizePotPercent: 0.60,
+    prizePotPercent: 0.65,
+    payoutSplit: { first: 70, second: 20, third: 10 },
     isPublic: true,
     maxEntries: 0,
     openDate: Date.now(),
@@ -119,7 +70,7 @@ async function seed() {
     updatedAt: Date.now()
   }, { merge: true });
 
-  console.log("Seeded MLB playoff bracket.");
+  console.log("Seeded sample NBA bracket.");
 }
 
 seed();

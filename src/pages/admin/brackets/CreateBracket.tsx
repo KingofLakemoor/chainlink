@@ -4,6 +4,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
+import { getRoundNamesForBracket, getOrderedPointValues } from '../../../utils/bracketUtils';
 
 export default function CreateBracket() {
   const navigate = useNavigate();
@@ -33,25 +34,6 @@ export default function CreateBracket() {
 
   const handleSportChange = (newSport: string) => {
     setSport(newSport);
-    if (newSport === 'MLB') {
-      if (!name) setName('2026 MLB Postseason Bracket');
-      setTeamList([
-        "Tampa Bay", "BYE",
-        "NY Yankees", "Boston",
-        "Houston", "Chicago White Sox",
-        "Cleveland", "BYE",
-        "Milwaukee", "BYE",
-        "San Diego", "Chicago Cubs",
-        "Atlanta", "Philadelphia",
-        "LA Dodgers", "BYE"
-      ].join(', '));
-      setPointValues({
-        'Wild Card Series': 10,
-        'Division Series': 20,
-        'League Championship Series': 40,
-        'World Series': 80
-      });
-    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -257,16 +239,14 @@ export default function CreateBracket() {
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-2">Points per Round</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {Object.entries(pointValues)
-                .sort(([roundA], [roundB]) => roundA.localeCompare(roundB, undefined, { numeric: true }))
-                .map(([round, points]) => (
+              {getRoundNamesForBracket({ sport, teams: teamList ? teamList.split(',').map(t=>t.trim()).filter(Boolean) : Array(16).fill('Team') }).map((round) => (
                 <div key={round} className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-300 w-20">{round}</span>
+                  <span className="text-sm text-zinc-300 flex-1 truncate">{round}</span>
                   <input
                     type="number"
-                    value={points}
+                    value={pointValues[round] ?? 10}
                     onChange={e => handlePointChange(round, Number(e.target.value))}
-                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1 text-white text-sm"
+                    className="w-24 bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1 text-white text-sm text-right"
                   />
                 </div>
               ))}

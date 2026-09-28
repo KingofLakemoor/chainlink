@@ -2312,12 +2312,7 @@ apiRouter.post("/brackets/enter", validateAuth, async (req, res) => {
 
       let bracketData = bracketDoc.exists ? bracketDoc.data()! : null;
       if (!bracketData) {
-        // Only allow lazy initialization for the default World Cup bracket
-        if (bracketId === 'world-cup-2026') {
-           bracketData = { cost: 10, totalPot: 0 };
-        } else {
-           throw new Error("Bracket not found or has not been fully initialized yet.");
-        }
+        throw new Error("Bracket not found or has not been fully initialized yet.");
       }
 
       const predictionRef = adminDb.collection("bracketGamePredictions").doc(`${bracketId}_${uid}`);
@@ -3118,6 +3113,45 @@ apiRouter.post("/admin/monthly-rollover", validateAdmin, async (req, res) => {
   } catch (error: any) {
     console.error("Monthly rollover error:", error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+apiRouter.post("/admin/brackets/purge-legacy", validateAdmin, async (req, res) => {
+  try {
+    const legacyIds = ['world-cup-2026', 'mlb-playoffs-2026', '8YdIvl2U0TRKOGKJkYC9', 'mlb-playoffs'];
+    const legacyNames = ['2026 World Cup Bracket', '2026 MLB Postseason Bracket'];
+
+    let deletedBracketsCount = 0;
+    let deletedPredictionsCount = 0;
+
+    // 1. Delete brackets by ID or name
+    const bracketsSnap = await adminDb.collection('brackets').get();
+    for (const doc of bracketsSnap.docs) {
+      const data = doc.data();
+      if (legacyIds.includes(doc.id) || legacyNames.includes(data.name)) {
+        await doc.ref.delete();
+        deletedBracketsCount++;
+      }
+    }
+
+    // 2. Delete predictions matching legacy bracket IDs
+    const predSnap = await adminDb.collection('bracketGamePredictions').get();
+    for (const pDoc of predSnap.docs) {
+      const pData = pDoc.data();
+      if (legacyIds.includes(pData.bracketId) || pDoc.id.startsWith('world-cup-2026_') || pDoc.id.startsWith('mlb-playoffs-2026_')) {
+        await pDoc.ref.delete();
+        deletedPredictionsCount++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Purged ${deletedBracketsCount} legacy brackets and ${deletedPredictionsCount} predictions.`,
+      deletedBracketsCount,
+      deletedPredictionsCount
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

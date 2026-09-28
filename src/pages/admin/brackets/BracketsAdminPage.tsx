@@ -4,6 +4,7 @@ import { db } from '../../../lib/firebase';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { GitMerge, Plus, Search, Edit, Trash2, Users, RefreshCw, X, Shield, Lock, Unlock } from 'lucide-react';
+import { getRoundNamesForBracket, getOrderedPointValues, formatPointValuesInOrder } from '../../../utils/bracketUtils';
 
 interface Bracket {
   id: string;
@@ -35,6 +36,8 @@ export default function BracketsAdminPage() {
   const [editingBracketId, setEditingBracketId] = useState<string | null>(null);
   const [entriesBracketId, setEntriesBracketId] = useState<string | null>(null);
 
+  const [purgingLegacy, setPurgingLegacy] = useState(false);
+
   // Create Form State
   const [createData, setCreateData] = useState<{
     name: string;
@@ -50,7 +53,7 @@ export default function BracketsAdminPage() {
     pointValues: Record<string, number>;
   }>({
     name: '',
-    sport: 'World Cup 2026',
+    sport: 'NBA',
     isPublic: true,
     maxEntries: 0,
     cost: 10,
@@ -63,38 +66,40 @@ export default function BracketsAdminPage() {
       'Round 1': 10,
       'Round 2': 20,
       'Round 3': 40,
-      'Round 4': 80,
-      'Round 5': 160,
-      'Round 6': 320
+      'Round 4': 80
     }
   });
 
-  const handleCreateSportChange = (newSport: string) => {
-    if (newSport === 'MLB') {
-      setCreateData(prev => ({
-        ...prev,
-        sport: newSport,
-        name: prev.name || '2026 MLB Postseason Bracket',
-        teamList: [
-          "Tampa Bay", "BYE",
-          "NY Yankees", "Boston",
-          "Houston", "Chicago White Sox",
-          "Cleveland", "BYE",
-          "Milwaukee", "BYE",
-          "San Diego", "Chicago Cubs",
-          "Atlanta", "Philadelphia",
-          "LA Dodgers", "BYE"
-        ].join(', '),
-        pointValues: {
-          'Wild Card Series': 10,
-          'Division Series': 20,
-          'League Championship Series': 40,
-          'World Series': 80
+  const handlePurgeLegacy = async () => {
+    if (!window.confirm("Are you sure you want to purge all old/legacy brackets (2026 World Cup Bracket & 2026 MLB Postseason Bracket)?")) return;
+    setPurgingLegacy(true);
+    try {
+      const auth = (await import('firebase/auth')).getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/brackets/purge-legacy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-      }));
-    } else {
-      setCreateData(prev => ({ ...prev, sport: newSport }));
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || 'Legacy brackets successfully purged.');
+        fetchBrackets();
+      } else {
+        alert(`Error: ${data.error || 'Failed to purge legacy brackets'}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to purge legacy brackets: ' + err.message);
+    } finally {
+      setPurgingLegacy(false);
     }
+  };
+
+  const handleCreateSportChange = (newSport: string) => {
+    setCreateData(prev => ({ ...prev, sport: newSport }));
   };
   const [creating, setCreating] = useState(false);
 
@@ -383,6 +388,16 @@ export default function BracketsAdminPage() {
               />
             </div>
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePurgeLegacy}
+              disabled={purgingLegacy}
+              className="text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              {purgingLegacy ? 'Purging...' : 'Purge Legacy Brackets'}
+            </Button>
+
             <Button variant="secondary" size="sm" onClick={fetchBrackets} className="text-xs">Refresh</Button>
 
             <Button
@@ -551,6 +566,53 @@ export default function BracketsAdminPage() {
                     onChange={e => setCreateData({ ...createData, maxEntries: Number(e.target.value) })}
                     className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
+                </div>
+              </div>
+
+              {/* Points Per Round Settings */}
+              <div className="border-t border-zinc-800 pt-4 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Points Per Round</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {getRoundNamesForBracket({ sport: createData.sport, teams: createData.teamList ? createData.teamList.split(',').map(t=>t.trim()).filter(Boolean) : Array(16).fill('Team') }).map(roundName => (
+                    <div key={roundName} className="flex items-center justify-between bg-[#18181A] border border-zinc-800 rounded-lg p-2">
+                      <span className="text-xs font-medium text-zinc-300">{roundName}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={createData.pointValues[roundName] ?? 10}
+                        onChange={e => setCreateData(prev => ({
+                          ...prev,
+                          pointValues: { ...prev.pointValues, [roundName]: Number(e.target.value) }
+                        }))}
+                        className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white font-mono text-right"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Points Per Round Settings */}
+              <div className="border-t border-zinc-800 pt-4 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Points Per Round</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {getRoundNamesForBracket({
+                    sport: editBracket.sport,
+                    teams: typeof editBracket.teams === 'string' ? editBracket.teams.split(',').map((t: string) => t.trim()).filter(Boolean) : editBracket.teams
+                  }).map(roundName => (
+                    <div key={roundName} className="flex items-center justify-between bg-[#18181A] border border-zinc-800 rounded-lg p-2">
+                      <span className="text-xs font-medium text-zinc-300">{roundName}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editBracket.pointValues?.[roundName] ?? 10}
+                        onChange={e => setEditBracket((prev: any) => ({
+                          ...prev,
+                          pointValues: { ...(prev?.pointValues || {}), [roundName]: Number(e.target.value) }
+                        }))}
+                        className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white font-mono text-right"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 

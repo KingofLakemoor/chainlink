@@ -384,7 +384,11 @@ if (linesUpdated) {
 
   // 2. Snapshot entire week into a single Firestore document to replace individual pick history
   const shouldPurge = options?.finalizeAndPurge || (allGamesFinal && snapshotGames.length > 0);
-  const snapshotContestIds = Array.from(new Set(updatedEntries.map(e => e.contestId).filter(Boolean)));
+  const existingContestIds: string[] = existingSnapshotSnap.data()?.contestIds || [];
+  const snapshotContestIds = Array.from(new Set([
+    ...existingContestIds,
+    ...updatedEntries.map(e => e.contestId).filter(Boolean)
+  ]));
 
   const shouldWriteSnapshot = !existingSnapshotSnap.exists || gradedCount > 0 || linesUpdated || shouldPurge;
 
@@ -441,43 +445,24 @@ export async function updateGridironLeaderboard(contestId: string) {
 
   const activeEntries: GridironEntry[] = activeEntriesSnap.docs.map(d => d.data() as GridironEntry);
 
-  // 2. Query weekly snapshots to retrieve historical weeks
+  // 2. Query weekly snapshots to retrieve historical weeks across all snapshot documents
   const snapshotEntries: GridironEntry[] = [];
   const activeEntryIds = new Set(activeEntries.map(e => e.entryId));
 
   try {
-    // Check snapshots matching contestIds array
-    const weeklySnapshotsSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots")
-      .where("contestIds", "array-contains", contestId)
-      .get();
-
-    weeklySnapshotsSnap.docs.forEach(doc => {
+    const allSnaps = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
+    allSnaps.docs.forEach(doc => {
       const snapData = doc.data();
       const entriesList: GridironEntry[] = snapData?.entries || [];
       entriesList.forEach(e => {
         const entryCid = e.contestId || "public";
-        if (entryCid === contestId && !activeEntryIds.has(e.entryId)) {
+        const isMatch = entryCid === contestId ||
+          ((contestId === "public" || contestId === "the_picks") && (entryCid === "public" || entryCid === "the_picks"));
+        if (isMatch && !activeEntryIds.has(e.entryId)) {
           snapshotEntries.push(e);
         }
       });
     });
-
-    // Fallback: If this is the public contest or if no snapshots matched, check all snapshots
-    if (snapshotEntries.length === 0 || contestId === "public") {
-      const allSnaps = await adminDb.collection("gridiron_3x3_weekly_snapshots").get();
-      allSnaps.docs.forEach(doc => {
-        // Skip docs already processed above
-        if (weeklySnapshotsSnap.docs.some(d => d.id === doc.id)) return;
-        const snapData = doc.data();
-        const entriesList: GridironEntry[] = snapData?.entries || [];
-        entriesList.forEach(e => {
-          const entryCid = e.contestId || "public";
-          if (entryCid === contestId && !activeEntryIds.has(e.entryId)) {
-            snapshotEntries.push(e);
-          }
-        });
-      });
-    }
   } catch (e) {
     console.warn("[GridironLeaderboard] Error querying weekly snapshots for contest:", contestId, e);
   }

@@ -1,5 +1,6 @@
 import { ESPN_TO_ODDS_API_SPORT, teamsMatch } from '../utils/sportMapping';
 import { NormalizedOdds } from '../types/odds';
+import { canMakeOddsApiCall, recordOddsApiCall } from './oddsRateLimiter';
 
 const BASE_URL = 'https://api.the-odds-api.com/v4/sports';
 
@@ -22,6 +23,11 @@ async function getActiveSports(apiKey: string): Promise<any[]> {
   }
 
   try {
+    if (!(await canMakeOddsApiCall())) {
+      console.warn('[The-Odds-API] Daily rate limit reached. Skipping getActiveSports.');
+      return [];
+    }
+    await recordOddsApiCall();
     const res = await fetch(`${BASE_URL}/?apiKey=${apiKey}`);
     if (!res.ok) return [];
     const data = await res.json();
@@ -52,8 +58,13 @@ async function getOddsApiSlate(oddsApiSportKey: string): Promise<any[]> {
 
     if (tournamentKeys.length > 0) {
       const allEvents: any[] = [];
-      const fetchPromises = tournamentKeys.map(async (key: string) => {
+      for (const key of tournamentKeys) {
         try {
+          if (!(await canMakeOddsApiCall())) {
+            console.warn(`[The-Odds-API] Daily rate limit reached. Skipping tennis tournament ${key}.`);
+            break;
+          }
+          await recordOddsApiCall();
           const url = `${BASE_URL}/${key}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
           const res = await fetch(url);
           if (res.ok) {
@@ -65,13 +76,18 @@ async function getOddsApiSlate(oddsApiSportKey: string): Promise<any[]> {
         } catch (err) {
           console.warn(`[The-Odds-API] Failed fetching tennis tournament ${key}:`, err);
         }
-      });
+      }
 
-      await Promise.all(fetchPromises);
       slateCache[oddsApiSportKey] = { timestamp: now, data: allEvents };
       return allEvents;
     }
   }
+
+  if (!(await canMakeOddsApiCall())) {
+    console.warn(`[The-Odds-API] Daily rate limit reached. Skipping odds fetch for ${oddsApiSportKey}.`);
+    return [];
+  }
+  await recordOddsApiCall();
 
   const url = `${BASE_URL}/${oddsApiSportKey}/odds/?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`;
   const res = await fetch(url);

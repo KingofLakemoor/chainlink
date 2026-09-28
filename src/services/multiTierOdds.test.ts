@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { cleanTeamName, teamsMatch, parsePlayerName, tennisPlayersMatch, ESPN_TO_ODDS_API_SPORT, ESPN_TO_SHARP_API_LEAGUE } from '../utils/sportMapping';
 import { extractEspnOdds } from './espnParser';
 import { matchAndFetchOddsApiFallback, clearOddsApiCache } from './oddsApiFallback';
 import { matchAndFetchSharpApiFallback, clearSharpApiCache } from './sharpApiFallback';
 import { resolveGameOdds, syncActiveSlate } from './oddsResolver';
+import { resetInMemoryOddsRateLimiter } from './oddsRateLimiter';
 
 describe('Sport Mapping & Name Normalizer', () => {
   it('cleanTeamName should normalize team names properly', () => {
@@ -126,7 +127,12 @@ describe('Tier 1: ESPN Odds Parser', () => {
 describe('Tier 2: The Odds API Fallback', () => {
   beforeEach(() => {
     clearOddsApiCache();
+    resetInMemoryOddsRateLimiter();
     delete process.env.THE_ODDS_API_KEY;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('returns null if THE_ODDS_API_KEY is not configured', async () => {
@@ -281,6 +287,10 @@ describe('Tier 3: SharpAPI Fallback', () => {
   beforeEach(() => {
     clearSharpApiCache();
     delete process.env.SHARP_API_KEY;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('returns null if SHARP_API_KEY is missing', async () => {

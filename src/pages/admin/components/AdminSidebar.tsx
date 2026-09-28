@@ -37,6 +37,7 @@ const ADMIN_MENU_SECTIONS = [
         icon: Users,
         subItems: [
           { id: 'users-all', label: 'All Users & Management', path: '/admin/users' },
+          { id: 'users-email-blast', label: 'Email Blast Tool', path: '/admin/users/email-blast' },
           { id: 'users-test-accounts', label: 'Test Accounts & Spoofing', path: '/admin/users/test-accounts' },
           { id: 'users-referrals', label: 'Referral Network', path: '/admin/referrals' },
         ]

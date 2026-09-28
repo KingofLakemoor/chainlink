@@ -26,6 +26,7 @@ const BracketsAdminPage = React.lazy(() => import('./brackets/BracketsAdminPage'
 const AdminPicksPage = React.lazy(() => import('./picks/AdminPicksPage'));
 const ReferralsAdminPage = React.lazy(() => import('./referrals/ReferralsAdminPage'));
 const UsersListPage = React.lazy(() => import('./users/UsersListPage'));
+const EmailBlastAdminPage = React.lazy(() => import('./users/EmailBlastAdminPage'));
 const TestAccountsAdminPage = React.lazy(() => import('./users/TestAccountsAdminPage'));
 const AuditLogsHub = React.lazy(() => import('./logs/AuditLogsHub'));
 const AdminOddsPage = React.lazy(() => import('./odds/AdminOddsPage'));
@@ -119,6 +120,7 @@ export default function AdminDashboard() {
                 <Route path="challenges" element={<GenericTable collectionName="globalQuiz" />} />
                 <Route path="link4/*" element={<Link4AdminPage />} />
                 <Route path="users" element={<UsersListPage />} />
+                <Route path="users/email-blast" element={<EmailBlastAdminPage />} />
                 <Route path="users/test-accounts" element={<TestAccountsAdminPage />} />
                 <Route path="logs/*" element={<AuditLogsHub />} />
                 <Route path="logs/transactions" element={<AuditLogsHub />} />

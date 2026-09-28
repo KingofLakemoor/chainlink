@@ -172,16 +172,68 @@ async function payoutBracket(bracketId: string, bracket: any, currentResults: an
 
   if (scores.length === 0) return;
 
-  // Find top score
+  // Calculate total pot and prize distribution
+  const prizePotPercent = bracket.prizePotPercent ?? 0.65;
+  const totalEntriesPot = bracket.totalPot ?? (predictionsSnap.size * (bracket.cost ?? 10));
+  const totalPrizePot = Math.floor(totalEntriesPot * prizePotPercent);
+
+  const payoutSplit = bracket.payoutSplit || { first: 70, second: 20, third: 10 };
+  const firstPot = Math.floor(totalPrizePot * ((payoutSplit.first ?? 70) / 100));
+  const secondPot = Math.floor(totalPrizePot * ((payoutSplit.second ?? 20) / 100));
+  const thirdPot = Math.floor(totalPrizePot * ((payoutSplit.third ?? 10) / 100));
+
   scores.sort((a, b) => b.score - a.score);
-  const topScore = scores[0].score;
-  const winners = scores.filter(s => s.score === topScore);
 
-  const pot = Math.floor((bracket.totalPot ?? (predictionsSnap.size * (bracket.cost ?? 10))) * (bracket.prizePotPercent ?? 0.60));
+  const uniqueScores = Array.from(new Set(scores.map(s => s.score))).sort((a, b) => b - a);
 
-  if (winners.length > 0 && pot > 0) {
-      const payoutPerWinner = Math.floor(pot / winners.length);
+  const tier1 = scores.filter(s => s.score === uniqueScores[0]);
+  const tier2 = uniqueScores.length > 1 ? scores.filter(s => s.score === uniqueScores[1]) : [];
+  const tier3 = uniqueScores.length > 2 ? scores.filter(s => s.score === uniqueScores[2]) : [];
 
+  const payoutsToDistribute: { uid: string; amount: number; rankName: string }[] = [];
+
+  if (tier1.length >= 3) {
+    const potForTier1 = firstPot + secondPot + thirdPot;
+    const share = Math.floor(potForTier1 / tier1.length);
+    if (share > 0) {
+      tier1.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share, rankName: '1st Place (Tied)' }));
+    }
+  } else if (tier1.length === 2) {
+    const potForTier1 = firstPot + secondPot;
+    const share = Math.floor(potForTier1 / 2);
+    if (share > 0) {
+      tier1.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share, rankName: '1st Place (Tied)' }));
+    }
+    if (tier2.length > 0 && thirdPot > 0) {
+      const share3 = Math.floor(thirdPot / tier2.length);
+      if (share3 > 0) {
+        tier2.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share3, rankName: tier2.length > 1 ? '3rd Place (Tied)' : '3rd Place' }));
+      }
+    }
+  } else if (tier1.length === 1) {
+    if (firstPot > 0) {
+      payoutsToDistribute.push({ uid: tier1[0].uid, amount: firstPot, rankName: '1st Place' });
+    }
+    if (tier2.length >= 2) {
+      const potForTier2 = secondPot + thirdPot;
+      const share2 = Math.floor(potForTier2 / tier2.length);
+      if (share2 > 0) {
+        tier2.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share2, rankName: '2nd Place (Tied)' }));
+      }
+    } else if (tier2.length === 1) {
+      if (secondPot > 0) {
+        payoutsToDistribute.push({ uid: tier2[0].uid, amount: secondPot, rankName: '2nd Place' });
+      }
+      if (tier3.length > 0 && thirdPot > 0) {
+        const share3 = Math.floor(thirdPot / tier3.length);
+        if (share3 > 0) {
+          tier3.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share3, rankName: tier3.length > 1 ? '3rd Place (Tied)' : '3rd Place' }));
+        }
+      }
+    }
+  }
+
+  if (payoutsToDistribute.length > 0) {
       await adminDb.runTransaction(async (transaction) => {
           // Verify bracket again inside transaction
           const bracketRef = adminDb.collection('brackets').doc(bracketId);
@@ -189,25 +241,36 @@ async function payoutBracket(bracketId: string, bracket: any, currentResults: an
 
           if (bracketTxDoc.exists && !bracketTxDoc.data().payoutComplete) {
               // 1. ALL READS FIRST
-              const userDocs = await Promise.all(winners.map(async (winner) => {
-                  const userRef = adminDb.collection('users').doc(winner.uid);
+              const userDocs = await Promise.all(payoutsToDistribute.map(async (p) => {
+                  const userRef = adminDb.collection('users').doc(p.uid);
                   const userDoc = await transaction.get(userRef);
-                  return { ref: userRef, doc: userDoc, winnerUid: winner.uid };
+                  return { ref: userRef, doc: userDoc, item: p };
               }));
 
               // 2. THEN ALL WRITES
-              for (const { ref, doc, winnerUid } of userDocs) {
+              for (const { ref, doc, item } of userDocs) {
                   if (doc.exists) {
                       const currentLinks = doc.data().links || 0;
-                      transaction.update(ref, { links: currentLinks + payoutPerWinner });
+                      transaction.update(ref, { links: currentLinks + item.amount });
                       const userDocData = doc.data();
                       const logRef = adminDb.collection('linkTransactions').doc();
                       transaction.set(logRef, {
-                        userId: winnerUid,
+                        userId: item.uid,
                         username: userDocData.username || userDocData.name || 'Unknown User',
                         type: 'BRACKET_WIN',
-                        amount: payoutPerWinner,
-                        description: `Won bracket pot for ${bracket.name || bracketId}`,
+                        amount: item.amount,
+                        description: `Won ${item.rankName} in Bracket: ${bracket.name || bracketId}`,
+                        createdAt: Date.now()
+                      });
+
+                      const notificationsRef = adminDb.collection('notifications').doc();
+                      transaction.set(notificationsRef, {
+                        title: `Bracket Winner! 🎉`,
+                        body: `You finished ${item.rankName} in ${bracket.name || 'Bracket'}! ${item.amount} links have been added to your account.`,
+                        audience: 'USER',
+                        targetUserId: item.uid,
+                        status: 'PENDING',
+                        scheduledTime: Date.now(),
                         createdAt: Date.now()
                       });
                   }

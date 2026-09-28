@@ -14,7 +14,7 @@ import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { NotificationPrompt } from './components/ui/NotificationPrompt';
 import {
   Link2, LayoutDashboard, User as UserIcon, PlayCircle, Layers, Trophy, Grid,
-  ShoppingCart, CheckCircle2, Users, LogOut, ShieldAlert, Menu, X, Flame, HelpCircle
+  ShoppingCart, CheckCircle2, Users, LogOut, ShieldAlert, Menu, X, Flame, HelpCircle, GitMerge
 } from 'lucide-react';
 import {
   MdOutlineSportsSoccer, MdOutlineSportsBasketball, MdOutlineSportsHockey, MdOutlineSportsBaseball, MdOutlineSportsTennis, MdOutlineSportsFootball
@@ -33,6 +33,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
 
   const [hasActivePickEm, setHasActivePickEm] = useState(false);
   const [hasActiveLink4, setHasActiveLink4] = useState(false);
+  const [hasActiveBrackets, setHasActiveBrackets] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +84,29 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
         });
         setHasActiveLink4(active);
         setCached(cacheKeyLink4, active);
+    }).catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const cacheKeyBrackets = 'sidebar_active_brackets';
+    const cachedBrackets = getCached<boolean>(cacheKeyBrackets, 10 * 60 * 1000);
+    if (cachedBrackets !== null) {
+       setHasActiveBrackets(cachedBrackets);
+       return;
+    }
+
+    const q = query(collection(db, 'brackets'), limit(10));
+    getDocs(q).then((snap) => {
+       let active = false;
+       snap.forEach(doc => {
+          const b = doc.data();
+          if (b.isArchived || b.archived || b.status === 'COMPLETED') return;
+          active = true;
+       });
+       setHasActiveBrackets(active);
+       setCached(cacheKeyBrackets, active);
     }).catch(() => {});
   }, [user]);
 
@@ -140,6 +164,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
         <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
         <NavItem icon={ShoppingCart} label="Link Shop" path="/shop" />
         {hasActiveLink4 && <NavItem icon={Grid} label="Link4" path="/link4" showBadge={false} isShimmer={true} />}
+        {hasActiveBrackets && <NavItem icon={GitMerge} label="Brackets" path="/brackets" showBadge={false} isShimmer={true} />}
         <NavItem icon={HelpCircle} label="Help & Rules" path="/help" />
 
         {profile?.role === "ADMIN" && (

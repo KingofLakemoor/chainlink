@@ -12,6 +12,8 @@ interface Bracket {
   isPublic: boolean;
   maxEntries: number;
   cost: number;
+  prizePotPercent?: number;
+  payoutSplit?: { first: number; second: number; third: number };
   status: string;
   openDate?: number;
   lockDate?: number;
@@ -40,6 +42,8 @@ export default function BracketsAdminPage() {
     isPublic: boolean;
     maxEntries: number;
     cost: number;
+    prizePotPercent: number;
+    payoutSplit: { first: number; second: number; third: number };
     openDateStr: string;
     lockDateStr: string;
     teamList: string;
@@ -50,6 +54,8 @@ export default function BracketsAdminPage() {
     isPublic: true,
     maxEntries: 0,
     cost: 10,
+    prizePotPercent: 65,
+    payoutSplit: { first: 70, second: 20, third: 10 },
     openDateStr: '',
     lockDateStr: '',
     teamList: '',
@@ -158,6 +164,8 @@ export default function BracketsAdminPage() {
             isPublic: data.isPublic !== false,
             maxEntries: data.maxEntries || 0,
             cost: data.cost ?? 10,
+            prizePotPercent: data.prizePotPercent !== undefined ? Math.round(data.prizePotPercent * 100) : 65,
+            payoutSplit: data.payoutSplit || { first: 70, second: 20, third: 10 },
             status: data.status || 'OPEN',
             teams: Array.isArray(data.teams) ? data.teams.join(', ') : '',
             pointValues: data.pointValues || {
@@ -226,6 +234,12 @@ export default function BracketsAdminPage() {
         isPublic: createData.isPublic,
         maxEntries: Number(createData.maxEntries),
         cost: Number(createData.cost),
+        prizePotPercent: Number(createData.prizePotPercent) / 100,
+        payoutSplit: {
+          first: Number(createData.payoutSplit.first),
+          second: Number(createData.payoutSplit.second),
+          third: Number(createData.payoutSplit.third)
+        },
         openDate: createData.openDateStr ? new Date(createData.openDateStr).getTime() : Date.now(),
         lockDate: createData.lockDateStr ? new Date(createData.lockDateStr).getTime() : Date.now() + 86400000 * 7,
         teams: teamsArray,
@@ -262,6 +276,12 @@ export default function BracketsAdminPage() {
         isPublic: editBracket.isPublic,
         maxEntries: Number(editBracket.maxEntries),
         cost: Number(editBracket.cost),
+        prizePotPercent: Number(editBracket.prizePotPercent) / 100,
+        payoutSplit: {
+          first: Number(editBracket.payoutSplit?.first ?? 70),
+          second: Number(editBracket.payoutSplit?.second ?? 20),
+          third: Number(editBracket.payoutSplit?.third ?? 10)
+        },
         status: editBracket.status,
         teams: teamsArray,
         pointValues: editBracket.pointValues,
@@ -534,6 +554,63 @@ export default function BracketsAdminPage() {
                 </div>
               </div>
 
+              {/* Payout Settings */}
+              <div className="border-t border-zinc-800 pt-4 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Payout Settings</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Prize Pot (% of Entry Fees)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={createData.prizePotPercent}
+                      onChange={e => setCreateData({ ...createData, prizePotPercent: Number(e.target.value) })}
+                      className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">1st, 2nd & 3rd Place Distribution (% of Prize Pot)</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <span className="text-[11px] text-zinc-400 block mb-1">1st Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={createData.payoutSplit.first}
+                        onChange={e => setCreateData({ ...createData, payoutSplit: { ...createData.payoutSplit, first: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-zinc-400 block mb-1">2nd Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={createData.payoutSplit.second}
+                        onChange={e => setCreateData({ ...createData, payoutSplit: { ...createData.payoutSplit, second: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-zinc-400 block mb-1">3rd Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={createData.payoutSplit.third}
+                        onChange={e => setCreateData({ ...createData, payoutSplit: { ...createData.payoutSplit, third: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Seeded Team List (Comma separated)</label>
                 <textarea
@@ -619,6 +696,63 @@ export default function BracketsAdminPage() {
                     onChange={e => setEditBracket({ ...editBracket, cost: Number(e.target.value) })}
                     className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
+                </div>
+              </div>
+
+              {/* Payout Settings */}
+              <div className="border-t border-zinc-800 pt-4 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Payout Settings</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Prize Pot (% of Entry Fees)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={editBracket.prizePotPercent ?? 65}
+                      onChange={e => setEditBracket({ ...editBracket, prizePotPercent: Number(e.target.value) })}
+                      className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">1st, 2nd & 3rd Place Distribution (% of Prize Pot)</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <span className="text-[11px] text-zinc-400 block mb-1">1st Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editBracket.payoutSplit?.first ?? 70}
+                        onChange={e => setEditBracket({ ...editBracket, payoutSplit: { ...(editBracket.payoutSplit || { first: 70, second: 20, third: 10 }), first: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-zinc-400 block mb-1">2nd Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editBracket.payoutSplit?.second ?? 20}
+                        onChange={e => setEditBracket({ ...editBracket, payoutSplit: { ...(editBracket.payoutSplit || { first: 70, second: 20, third: 10 }), second: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-zinc-400 block mb-1">3rd Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editBracket.payoutSplit?.third ?? 10}
+                        onChange={e => setEditBracket({ ...editBracket, payoutSplit: { ...(editBracket.payoutSplit || { first: 70, second: 20, third: 10 }), third: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 

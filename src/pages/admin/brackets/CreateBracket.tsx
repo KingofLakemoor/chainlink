@@ -15,6 +15,8 @@ export default function CreateBracket() {
   const [lockDate, setLockDate] = useState('');
   const [teamList, setTeamList] = useState('');
   const [cost, setCost] = useState(10);
+  const [prizePotPercent, setPrizePotPercent] = useState(65);
+  const [payoutSplit, setPayoutSplit] = useState({ first: 70, second: 20, third: 10 });
   const [loading, setLoading] = useState(false);
   const [pointValues, setPointValues] = useState<{ [key: string]: number }>({
     'Round 1': 10,
@@ -66,6 +68,12 @@ export default function CreateBracket() {
         isPublic,
         maxEntries: Number(maxEntries),
         cost: Number(cost),
+        prizePotPercent: Number(prizePotPercent) / 100,
+        payoutSplit: {
+          first: Number(payoutSplit.first),
+          second: Number(payoutSplit.second),
+          third: Number(payoutSplit.third)
+        },
         openDate: openDate ? new Date(openDate).getTime() : Date.now(),
         lockDate: lockDate ? new Date(lockDate).getTime() : Date.now() + 86400000 * 7,
         teams: teamsArray,
@@ -176,6 +184,62 @@ export default function CreateBracket() {
                 onChange={e => setLockDate(e.target.value)}
                 className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
               />
+            </div>
+          </div>
+
+          <div className="border-t border-zinc-800 pt-4 space-y-4">
+            <h4 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Payout Settings</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1">Total Prize Pot (% of Entry Fees)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={prizePotPercent}
+                  onChange={e => setPrizePotPercent(Number(e.target.value))}
+                  className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">1st, 2nd & 3rd Place Distribution (% of Prize Pot)</label>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <span className="text-xs text-zinc-400 block mb-1">1st Place (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={payoutSplit.first}
+                    onChange={e => setPayoutSplit({ ...payoutSplit, first: Number(e.target.value) })}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-400 block mb-1">2nd Place (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={payoutSplit.second}
+                    onChange={e => setPayoutSplit({ ...payoutSplit, second: Number(e.target.value) })}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-400 block mb-1">3rd Place (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={payoutSplit.third}
+                    onChange={e => setPayoutSplit({ ...payoutSplit, third: Number(e.target.value) })}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

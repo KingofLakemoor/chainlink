@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getRoundNamesForBracket, getOrderedPointValues, formatPointValuesInOrder } from './bracketUtils';
+import { getRoundNamesForBracket, getOrderedPointValues, formatPointValuesInOrder, isBracketLocked } from './bracketUtils';
 
 describe('bracketUtils', () => {
   it('returns round names in chronological order for 16 team bracket', () => {
@@ -54,8 +54,6 @@ describe('bracketUtils', () => {
   });
 
   describe('isBracketLocked', () => {
-    const { isBracketLocked } = require('./bracketUtils');
-
     it('returns false for null or undefined bracket', () => {
       expect(isBracketLocked(null)).toBe(false);
       expect(isBracketLocked(undefined)).toBe(false);

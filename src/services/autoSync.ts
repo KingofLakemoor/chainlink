@@ -62,6 +62,14 @@ export function startAutoSyncJob() {
             }
         });
 
+        // Ensure sports for any open/active Brackets are synced
+        const activeBracketsSnap = await adminDb.collection('brackets').where('status', 'in', ['OPEN', 'LOCKED', 'ACTIVE']).get();
+        activeBracketsSnap.docs.forEach(doc => {
+            const b = doc.data();
+            if (b.sport) activeLeaguesSet.add(b.sport);
+            if (b.league) activeLeaguesSet.add(b.league);
+        });
+
         cachedActiveLeaguesSet = new Set(activeLeaguesSet);
         cachedLeagueSettingsMap = new Map(leagueSettingsMap);
         lastMetadataFetchTime = nowMs;
@@ -77,14 +85,14 @@ export function startAutoSyncJob() {
               if (doc.data().league) activeLeaguesSet.add(doc.data().league);
           });
 
-          // Check active scheduled matchups whose start time has arrived or is arriving soon (next 15 minutes)
+          // Check scheduled matchups whose start time has arrived or is arriving soon (next 15 minutes)
           const activeScheduledSnap = await adminDb.collection('matchups')
               .where('status', '==', 'STATUS_SCHEDULED')
-              .where('active', '==', true)
               .get();
 
           activeScheduledSnap.docs.forEach(doc => {
               const m = doc.data();
+              if (m.abandoned) return;
               const startTime = typeof m.startTime === 'number' ? m.startTime : (m.startTime ? new Date(m.startTime).getTime() : 0);
               if (startTime > 0 && startTime <= nowMs + 15 * 60 * 1000 && startTime >= nowMs - 12 * 60 * 60 * 1000) {
                   hasLiveGames = true;

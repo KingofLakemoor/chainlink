@@ -179,8 +179,19 @@ export function BracketsPage() {
           let pot = 0;
           const sels = data.selections || {};
           for (const [mId, pickedTeam] of Object.entries(sels)) {
-             const round = mId.split('-')[0].replace('r', '');
-             const rPts = pointsMap[round] || 0;
+             const [rStr, mStr] = mId.split('-');
+             const round = parseInt(rStr.replace('r', ''), 10);
+             const match = parseInt(mStr ? mStr.replace('m', '') : '0', 10);
+
+             if (round === 0 && bracket.teams) {
+               const t1 = bracket.teams[match * 2];
+               const t2 = bracket.teams[match * 2 + 1];
+               if (t1 === 'BYE' || t2 === 'BYE') {
+                 continue;
+               }
+             }
+
+             const rPts = pointsMap[String(round)] || 0;
              if (results[mId] === pickedTeam) {
                 pts += rPts;
                 pot += rPts;
@@ -301,7 +312,9 @@ export function BracketsPage() {
 
         // Check locking
         let locked = false;
-        if (bracket.status === 'COMPLETED' || bracket.payoutComplete) {
+        if (r === 0 && (team1 === "BYE" || team2 === "BYE")) {
+          locked = true;
+        } else if (bracket.status === 'COMPLETED' || bracket.payoutComplete) {
           locked = true;
         } else if (bracket.lockDate && Date.now() >= new Date(bracket.lockDate).getTime()) {
           locked = true;

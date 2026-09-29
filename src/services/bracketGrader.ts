@@ -154,9 +154,19 @@ async function payoutBracket(bracketId: string, bracket: any, currentResults: an
           : ["Round of 32", "Round of 16", "Quarter Finals", "Semi Finals", "Finals"];
 
       for (const [mId, pickedTeam] of Object.entries(selections)) {
-          const rMatch = mId.match(/r(\d+)-m/);
+          const rMatch = mId.match(/r(\d+)-m(\d+)/);
           if (!rMatch) continue;
           const roundIdx = parseInt(rMatch[1], 10);
+          const matchIdx = parseInt(rMatch[2], 10);
+
+          if (roundIdx === 0 && bracket.teams) {
+            const t1 = bracket.teams[matchIdx * 2];
+            const t2 = bracket.teams[matchIdx * 2 + 1];
+            if (t1 === 'BYE' || t2 === 'BYE') {
+              continue;
+            }
+          }
+
           const roundName = roundNames[roundIdx];
           const rPts = pointValues[roundName] || 0;
 

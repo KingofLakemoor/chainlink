@@ -54,3 +54,45 @@ export function formatPointValuesInOrder(bracket: BracketHelperInput): string {
   if (ordered.length === 0) return '';
   return ordered.map(item => item.points).join(' / ');
 }
+
+export function isBracketLocked(bracket: any, now = Date.now()): boolean {
+  if (!bracket) return false;
+
+  if (
+    bracket.status === 'LOCKED' ||
+    bracket.status === 'COMPLETED' ||
+    bracket.payoutComplete === true ||
+    bracket.locked === true ||
+    bracket.isLocked === true
+  ) {
+    return true;
+  }
+
+  if (bracket.lockDate) {
+    const lockTs = typeof bracket.lockDate === 'number'
+      ? bracket.lockDate
+      : new Date(bracket.lockDate).getTime();
+    if (!isNaN(lockTs) && lockTs > 0 && now >= lockTs) {
+      return true;
+    }
+  }
+
+  if (bracket.matchTimes && typeof bracket.matchTimes === 'object') {
+    const validTimes: number[] = [];
+    for (const val of Object.values(bracket.matchTimes)) {
+      if (!val) continue;
+      const t = typeof val === 'number' ? val : new Date(val as string | number).getTime();
+      if (!isNaN(t) && t > 0) {
+        validTimes.push(t);
+      }
+    }
+    if (validTimes.length > 0) {
+      const firstGameTime = Math.min(...validTimes);
+      if (now >= firstGameTime) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}

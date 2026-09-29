@@ -52,4 +52,58 @@ describe('bracketUtils', () => {
 
     expect(formatPointValuesInOrder(bracket)).toBe("15 / 30");
   });
+
+  describe('isBracketLocked', () => {
+    const { isBracketLocked } = require('./bracketUtils');
+
+    it('returns false for null or undefined bracket', () => {
+      expect(isBracketLocked(null)).toBe(false);
+      expect(isBracketLocked(undefined)).toBe(false);
+    });
+
+    it('returns true when status is LOCKED or COMPLETED', () => {
+      expect(isBracketLocked({ status: 'LOCKED' })).toBe(true);
+      expect(isBracketLocked({ status: 'COMPLETED' })).toBe(true);
+      expect(isBracketLocked({ payoutComplete: true })).toBe(true);
+      expect(isBracketLocked({ locked: true })).toBe(true);
+      expect(isBracketLocked({ isLocked: true })).toBe(true);
+    });
+
+    it('returns true when lockDate is in the past', () => {
+      const now = 1700000000000;
+      expect(isBracketLocked({ status: 'OPEN', lockDate: now - 1000 }, now)).toBe(true);
+      expect(isBracketLocked({ status: 'OPEN', lockDate: new Date(now - 1000).toISOString() }, now)).toBe(true);
+    });
+
+    it('returns false when lockDate is in the future', () => {
+      const now = 1700000000000;
+      expect(isBracketLocked({ status: 'OPEN', lockDate: now + 10000 }, now)).toBe(false);
+    });
+
+    it('returns true when earliest game in matchTimes is in the past', () => {
+      const now = 1700000000000;
+      const bracket = {
+        status: 'OPEN',
+        lockDate: now + 100000,
+        matchTimes: {
+          'r0-m0': now + 50000,
+          'r0-m1': now - 500 // Game 2 has started!
+        }
+      };
+      expect(isBracketLocked(bracket, now)).toBe(true);
+    });
+
+    it('returns false when all matchTimes are in the future and lockDate is in the future', () => {
+      const now = 1700000000000;
+      const bracket = {
+        status: 'OPEN',
+        lockDate: now + 100000,
+        matchTimes: {
+          'r0-m0': now + 50000,
+          'r0-m1': now + 60000
+        }
+      };
+      expect(isBracketLocked(bracket, now)).toBe(false);
+    });
+  });
 });

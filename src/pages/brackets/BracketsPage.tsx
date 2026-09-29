@@ -7,7 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { useToast } from '../../components/ui/Toast';
 import { BracketMatchupCard } from '../../components/ui/BracketMatchupCard';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
-import { getRoundNamesForBracket, formatPointValuesInOrder } from '../../utils/bracketUtils';
+import { getRoundNamesForBracket, formatPointValuesInOrder, isBracketLocked } from '../../utils/bracketUtils';
 
 const getTeamAbbreviation = (team: string) => {
   if (!team) return "";
@@ -46,6 +46,7 @@ export function BracketsPage() {
 
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [viewingParticipant, setViewingParticipant] = useState<any | null>(null);
 
   // Fetch all public brackets & user predictions for listing
   useEffect(() => {
@@ -212,7 +213,7 @@ export function BracketsPage() {
           const champion = sels[`r${roundNames.length - 1}-m0` as keyof typeof sels] as string;
 
           if (uid) {
-            participantStats[uid] = { points: pts, potentialPoints: pot, uid, finalFour, champion };
+            participantStats[uid] = { points: pts, potentialPoints: pot, uid, finalFour, champion, selections: sels };
           }
         });
 
@@ -266,6 +267,9 @@ export function BracketsPage() {
   const totalRounds = roundNames.length;
 
   // Compute matchup team slots for each match across all rounds
+  const bracketLocked = isBracketLocked(bracket);
+
+  // Compute matchup team slots for each match across all rounds
   const roundsData = useMemo(() => {
     if (!bracket || !bracket.teams || totalRounds === 0) return [];
 
@@ -311,12 +315,8 @@ export function BracketsPage() {
         const selectedTeam = selections[matchId] || null;
 
         // Check locking
-        let locked = false;
+        let locked = bracketLocked;
         if (r === 0 && (team1 === "BYE" || team2 === "BYE")) {
-          locked = true;
-        } else if (bracket.status === 'COMPLETED' || bracket.payoutComplete) {
-          locked = true;
-        } else if (bracket.lockDate && Date.now() >= new Date(bracket.lockDate).getTime()) {
           locked = true;
         } else if (bracket.matchTimes?.[matchId] && Date.now() >= new Date(bracket.matchTimes[matchId]).getTime()) {
           locked = true;
@@ -352,7 +352,7 @@ export function BracketsPage() {
 
   // Handle selecting a team in an unlocked matchup
   const handleSelectTeam = (matchId: string, teamName: string, locked: boolean) => {
-    if (locked || !teamName || teamName === "BYE") return;
+    if (bracketLocked || locked || !teamName || teamName === "BYE") return;
 
     setSelections(prev => {
       const updated = { ...prev, [matchId]: teamName };
@@ -389,6 +389,11 @@ export function BracketsPage() {
       return;
     }
     if (!bracket) return;
+
+    if (bracketLocked) {
+      addToast({ title: 'Bracket Locked', body: 'This bracket is locked and no longer accepting submissions.' });
+      return;
+    }
 
     setSubmittingPicks(true);
     try {
@@ -471,7 +476,7 @@ export function BracketsPage() {
             {publicBrackets.map((b) => {
               const userPred = userPredictionsMap[b.id];
               const isEntered = userPred && userPred.paid;
-              const isLocked = b.lockDate && Date.now() >= new Date(b.lockDate).getTime();
+              const isLocked = isBracketLocked(b);
 
               const totalEntriesPot = b.totalPot || 0;
               const prizePotPercent = b.prizePotPercent ?? 0.65;
@@ -587,37 +592,47 @@ export function BracketsPage() {
         {/* Action Controls */}
         <div className="flex items-center gap-3 self-start md:self-auto">
           {activeTab === 'bracket' && (
-            <button
-              onClick={handleSubmitPicks}
-              disabled={submittingPicks || (!hasUnsavedChanges && userPrediction?.paid)}
-              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg ${
-                hasUnsavedChanges || !userPrediction?.paid
-                  ? 'bg-[#22c55e] hover:bg-[#1ea34d] text-black shadow-[#22c55e]/20 cursor-pointer animate-pulse'
-                  : 'bg-zinc-800 text-zinc-400 cursor-not-allowed'
-              }`}
-            >
-              {submittingPicks ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving Picks...
-                </>
-              ) : hasUnsavedChanges ? (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Picks
-                </>
-              ) : userPrediction?.paid ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  Picks Submitted
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Submit Bracket Picks
-                </>
-              )}
-            </button>
+            bracketLocked ? (
+              <button
+                disabled
+                className="px-6 py-2.5 rounded-xl font-bold text-sm bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 cursor-not-allowed flex items-center gap-2 shadow"
+              >
+                <Lock className="w-4 h-4 text-amber-400" />
+                Bracket Locked
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmitPicks}
+                disabled={submittingPicks || (!hasUnsavedChanges && userPrediction?.paid)}
+                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg ${
+                  hasUnsavedChanges || !userPrediction?.paid
+                    ? 'bg-[#22c55e] hover:bg-[#1ea34d] text-black shadow-[#22c55e]/20 cursor-pointer animate-pulse'
+                    : 'bg-zinc-800 text-zinc-400 cursor-not-allowed'
+                }`}
+              >
+                {submittingPicks ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving Picks...
+                  </>
+                ) : hasUnsavedChanges ? (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Picks
+                  </>
+                ) : userPrediction?.paid ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                    Picks Submitted
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Submit Bracket Picks
+                  </>
+                )}
+              </button>
+            )
           )}
         </div>
       </div>
@@ -734,7 +749,7 @@ export function BracketsPage() {
             const secondPayout = Math.floor(totalPrizePot * ((payoutSplit.second ?? 20) / 100));
             const thirdPayout = Math.floor(totalPrizePot * ((payoutSplit.third ?? 10) / 100));
 
-            const isBracketLocked = bracket.lockDate && Date.now() >= new Date(bracket.lockDate).getTime();
+            const isLeaderboardLocked = isBracketLocked(bracket);
 
             return (
               <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden max-w-7xl mx-auto">
@@ -826,10 +841,14 @@ export function BracketsPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              {!isBracketLocked ? (
-                                <span className="text-xs font-bold text-zinc-500 italic">Picks are In</span>
+                              {!isLeaderboardLocked ? (
+                                <span className="text-xs font-bold text-zinc-500 italic">Picks Hidden Until Locked</span>
                               ) : (
-                                <div className="flex items-center justify-center gap-2">
+                                <div
+                                  onClick={() => setViewingParticipant(participant)}
+                                  className="flex items-center justify-center gap-2 cursor-pointer group/ff hover:opacity-80 transition-opacity"
+                                  title="Click to view participant's full bracket"
+                                >
                                   {participant.finalFour?.map((team: string, i: number) => {
                                     const isEliminated = bracket?.eliminatedTeams?.includes(team);
                                     const isActualFinalFour = actualR1Winners.includes(team);
@@ -890,6 +909,71 @@ export function BracketsPage() {
           >
             Back to All Brackets
           </button>
+        </div>
+      )}
+
+      {/* Viewing Participant Picks Drawer/Modal */}
+      {viewingParticipant && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-[#18181A]">
+              <div className="flex items-center gap-3">
+                <img src={viewingParticipant.avatar} alt="" className="w-10 h-10 rounded-full bg-zinc-800" />
+                <div>
+                  <h3 className="font-bold text-white text-base">{viewingParticipant.name}'s Bracket</h3>
+                  <div className="text-xs text-zinc-400 font-mono">
+                    Points: <span className="text-emerald-400 font-bold">{viewingParticipant.points}</span> | Potential: <span className="text-zinc-200 font-bold">{viewingParticipant.potentialPoints}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingParticipant(null)}
+                className="text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {roundNames.map((rName, rIdx) => {
+                  const matchesInRound = Math.pow(2, totalRounds - 1 - rIdx);
+                  const roundMatches = [];
+                  for (let m = 0; m < matchesInRound; m++) {
+                    const matchId = `r${rIdx}-m${m}`;
+                    const pickedTeam = viewingParticipant.selections?.[matchId];
+                    const actualWinner = bracket?.results?.[matchId];
+                    roundMatches.push({ matchId, pickedTeam, actualWinner });
+                  }
+
+                  return (
+                    <div key={rName} className="bg-[#18181A] border border-zinc-800 rounded-xl p-4">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-400 mb-3 border-b border-zinc-800/80 pb-2">
+                        {rName}
+                      </h4>
+                      <div className="space-y-2">
+                        {roundMatches.map((m) => {
+                          const isCorrect = m.actualWinner && m.actualWinner === m.pickedTeam;
+                          const isIncorrect = m.actualWinner && m.actualWinner !== m.pickedTeam;
+
+                          return (
+                            <div key={m.matchId} className="flex items-center justify-between text-xs p-2 rounded bg-zinc-900/80 border border-zinc-800/60">
+                              <span className="font-mono text-[10px] text-zinc-500">{m.matchId}</span>
+                              <span className={`font-bold ${
+                                isCorrect ? 'text-green-400' : isIncorrect ? 'text-red-400 line-through' : 'text-zinc-200'
+                              }`}>
+                                {m.pickedTeam || <span className="text-zinc-600 font-normal italic">No Pick</span>}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

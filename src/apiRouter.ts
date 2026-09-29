@@ -18,6 +18,7 @@ import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
 import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
 import { isMatchupLocked, getMatchupStartTime } from './utils/matchupUtils.js';
+import { isBracketLocked } from './utils/bracketUtils.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -2313,6 +2314,10 @@ apiRouter.post("/brackets/enter", validateAuth, async (req, res) => {
       let bracketData = bracketDoc.exists ? bracketDoc.data()! : null;
       if (!bracketData) {
         throw new Error("Bracket not found or has not been fully initialized yet.");
+      }
+
+      if (isBracketLocked(bracketData)) {
+        throw new Error("This bracket is locked and no longer accepting entries.");
       }
 
       const predictionRef = adminDb.collection("bracketGamePredictions").doc(`${bracketId}_${uid}`);

@@ -502,12 +502,14 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                           }
                           finalStatusDesc = currentOvers !== null ? `Thru ${currentOvers}` : `Thru ${comp.status.period}`;
                       } else {
-                          if (comp.status?.displayClock && comp.status.displayClock !== "0'") {
+                          const shortDetail = comp.status?.type?.shortDetail;
+                          const detail = comp.status?.type?.detail;
+                          if (shortDetail && !shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && shortDetail.toLowerCase() !== 'scheduled') {
+                              finalStatusDesc = shortDetail;
+                          } else if (detail && !detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && detail.toLowerCase() !== 'scheduled') {
+                              finalStatusDesc = detail;
+                          } else if (comp.status?.displayClock && comp.status.displayClock !== "0'") {
                               finalStatusDesc = comp.status.displayClock;
-                          } else if (comp.status?.type?.shortDetail && !comp.status.type.shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && comp.status.type.shortDetail.toLowerCase() !== 'scheduled') {
-                              finalStatusDesc = comp.status.type.shortDetail;
-                          } else if (comp.status?.type?.detail && !comp.status.type.detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && comp.status.type.detail.toLowerCase() !== 'scheduled') {
-                              finalStatusDesc = comp.status.type.detail;
                           } else {
                               finalStatusDesc = "In Progress";
                           }
@@ -723,12 +725,14 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   }
                   finalStatusDesc = currentOvers !== null ? `Thru ${currentOvers}` : `Thru ${competition.status.period}`;
               } else {
-                  if (competition.status?.displayClock && competition.status.displayClock !== "0'") {
+                  const shortDetail = competition.status?.type?.shortDetail;
+                  const detail = competition.status?.type?.detail;
+                  if (shortDetail && !shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && shortDetail.toLowerCase() !== 'scheduled') {
+                      finalStatusDesc = shortDetail;
+                  } else if (detail && !detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && detail.toLowerCase() !== 'scheduled') {
+                      finalStatusDesc = detail;
+                  } else if (competition.status?.displayClock && competition.status.displayClock !== "0'") {
                       finalStatusDesc = competition.status.displayClock;
-                  } else if (competition.status?.type?.shortDetail && !competition.status.type.shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && competition.status.type.shortDetail.toLowerCase() !== 'scheduled') {
-                      finalStatusDesc = competition.status.type.shortDetail;
-                  } else if (competition.status?.type?.detail && !competition.status.type.detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && competition.status.type.detail.toLowerCase() !== 'scheduled') {
-                      finalStatusDesc = competition.status.type.detail;
                   } else {
                       finalStatusDesc = "In Progress";
                   }
@@ -964,6 +968,18 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                       }
                   }
                   finalStatusDesc = currentOvers !== null ? `Thru ${currentOvers}` : `Thru ${competition.status.period}`;
+              } else {
+                  const shortDetail = competition.status?.type?.shortDetail;
+                  const detail = competition.status?.type?.detail;
+                  if (shortDetail && !shortDetail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && shortDetail.toLowerCase() !== 'scheduled') {
+                      finalStatusDesc = shortDetail;
+                  } else if (detail && !detail.match(/pm|am|edt|est|cdt|cst|pdt|pst/i) && detail.toLowerCase() !== 'scheduled') {
+                      finalStatusDesc = detail;
+                  } else if (competition.status?.displayClock && competition.status.displayClock !== "0'") {
+                      finalStatusDesc = competition.status.displayClock;
+                  } else {
+                      finalStatusDesc = "In Progress";
+                  }
               }
           } else {
               finalStatus = "STATUS_SCHEDULED";

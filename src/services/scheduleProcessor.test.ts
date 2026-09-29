@@ -109,6 +109,54 @@ describe('scheduleProcessor - manuallyActivated Preservation Tests', () => {
     }
   });
 
+  it('updates MLB status description (innings/outs) immediately during syncLeagueSchedules even when scores are equal', async () => {
+    const scrapedMatchup = {
+      gameId: 'mlb_101',
+      league: 'MLB',
+      title: 'Phillies @ Braves',
+      type: 'MONEYLINE',
+      active: true,
+      status: 'STATUS_IN_PROGRESS',
+      statusDesc: 'Top 3rd - 2 Outs',
+      startTime: Date.now() - 3600000,
+      homeTeam: { id: 'atl', name: 'Braves', score: 2 },
+      awayTeam: { id: 'phi', name: 'Phillies', score: 2 },
+      metadata: {},
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'mlb_101',
+      ref: 'matchupRef_mlb_101',
+      data: () => ({
+        gameId: 'mlb_101',
+        league: 'MLB',
+        title: 'Phillies @ Braves',
+        type: 'MONEYLINE',
+        active: true,
+        status: 'STATUS_IN_PROGRESS',
+        statusDesc: 'Top 3rd - 1 Out',
+        updatedAt: Date.now() - 60000, // Updated 1 minute ago
+        startTime: Date.now() - 3600000,
+        homeTeam: { id: 'atl', name: 'Braves', score: 2 },
+        awayTeam: { id: 'phi', name: 'Phillies', score: 2 },
+        metadata: {},
+      }),
+    };
+
+    const res = await syncLeagueSchedules('MLB' as any, false);
+    expect(res.success).toBe(true);
+
+    // Verify batch.update WAS called updating statusDesc to 'Top 3rd - 2 Outs'
+    expect(mockBatch.update).toHaveBeenCalledWith('matchupRef_mlb_101', expect.objectContaining({
+      statusDesc: 'Top 3rd - 2 Outs',
+    }));
+  });
+
   it('enforces active: false for RPL matchups without moneyline odds during syncLeagueSchedules', async () => {
     const scrapedMatchup = {
       gameId: 'rpl_no_odds_1',

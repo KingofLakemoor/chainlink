@@ -747,6 +747,7 @@ export async function syncLeagueSchedules(
               existingData.homeTeam?.score === homeScore &&
               existingData.awayTeam?.score === awayScore &&
               existingData.statusDesc !== newStatusDesc &&
+              !['MLB', 'CBASE', 'LLWS'].includes(league) &&
               (Date.now() - (existingData.updatedAt || 0)) < (10 * 60 * 1000);
 
           const needsUpdate = (existingData.abandoned === true && isProtected) || existingData.status !== newStatus ||

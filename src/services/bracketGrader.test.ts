@@ -150,4 +150,54 @@ describe('bracketGrader', () => {
     expect(mockDocs['users/u3'].links).toBe(19);
     expect(mockDocs['brackets/b1'].payoutComplete).toBe(true);
   });
+
+  it('ignores round 0 BYE matchups during payout scoring', async () => {
+    mockDocs['brackets/b_mlb'] = {
+      name: 'MLB Playoffs Bracket',
+      sport: 'MLB',
+      teams: ['AL Seed 1', 'BYE', 'AL Seed 4', 'AL Seed 5'],
+      cost: 10,
+      prizePotPercent: 0.65,
+      payoutSplit: { first: 100, second: 0, third: 0 },
+      payoutComplete: false,
+      results: { 'r1-m0': 'AL Seed 1' },
+      pointValues: { 'Wild Card Series': 10, 'Division Series': 20 },
+      matchIds: { 'r1-m0': 'game_mlb_final' }
+    };
+
+    // u1 picked r0-m0 (BYE matchup) and r1-m0
+    // u2 only picked r1-m0
+    mockDocs['bracketGamePredictions/b_mlb_u1'] = {
+      bracketId: 'b_mlb',
+      userId: 'u1',
+      selections: { 'r0-m0': 'AL Seed 1', 'r1-m0': 'AL Seed 1' }
+    };
+    mockDocs['bracketGamePredictions/b_mlb_u2'] = {
+      bracketId: 'b_mlb',
+      userId: 'u2',
+      selections: { 'r1-m0': 'AL Seed 1' }
+    };
+
+    mockDocs['users/u1'] = { links: 0, username: 'User 1' };
+    mockDocs['users/u2'] = { links: 0, username: 'User 2' };
+
+    const finalMatchups = [
+      {
+        gameId: 'game_mlb_final',
+        league: 'MLB',
+        status: 'STATUS_FINAL',
+        homeTeam: { name: 'AL Seed 1', score: 5 },
+        awayTeam: { name: 'AL Seed 4', score: 2 }
+      }
+    ];
+
+    await gradeBrackets(finalMatchups);
+
+    // Both u1 and u2 get 20 pts for r1-m0. r0-m0 is ignored for u1 so both tie at 20 pts.
+    // Prize pot for 2 entries * 10 Links = 20 Links @ 65% = 13 Links total pot.
+    // Tier 1 tied share = Math.floor(13 / 2) = 6 Links each.
+    expect(mockDocs['users/u1'].links).toBe(6);
+    expect(mockDocs['users/u2'].links).toBe(6);
+    expect(mockDocs['brackets/b_mlb'].payoutComplete).toBe(true);
+  });
 });

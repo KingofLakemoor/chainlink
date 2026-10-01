@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
-import { getCached, setCached } from '../lib/firestore-cache';
+import { getCached, setCached, clearCached } from '../lib/firestore-cache';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { Trophy, Copy, Check, Users, Target, UserPlus } from 'lucide-react';
@@ -38,19 +38,23 @@ export function SidebarProgress() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      const cacheKey = 'sidebar_monthly_stats';
-      const ttlMs = getSidebarStatsTTL();
-      const cached = getCached<any>(cacheKey, ttlMs);
-      if (cached) {
-        if (cached.prizeData) setPrizeData(cached.prizeData);
-        setActiveUsers(cached.activeUsers || 0);
-        setGlobalPicks(cached.globalPicks || 0);
-        setGlobalReferrals(cached.globalReferrals || 0);
-        setLoading(false);
-        return;
-      }
+  const fetchStats = async (force: boolean = false) => {
+    const cacheKey = 'sidebar_monthly_stats';
+    const ttlMs = getSidebarStatsTTL();
+
+    if (force) {
+      clearCached(cacheKey);
+    }
+
+    const cached = force ? null : getCached<any>(cacheKey, ttlMs);
+    if (cached) {
+      if (cached.prizeData) setPrizeData(cached.prizeData);
+      setActiveUsers(cached.activeUsers || 0);
+      setGlobalPicks(cached.globalPicks || 0);
+      setGlobalReferrals(cached.globalReferrals || 0);
+      setLoading(false);
+      return;
+    }
 
       try {
         const docRef = doc(db, 'settings', 'monthlyPrize');
@@ -144,7 +148,18 @@ export function SidebarProgress() {
         setLoading(false);
       }
     };
+
+  useEffect(() => {
     fetchStats();
+
+    const handleUpdate = () => {
+      fetchStats(true);
+    };
+
+    window.addEventListener('monthly-prize-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('monthly-prize-updated', handleUpdate);
+    };
   }, []);
 
   const handleCopyReferral = () => {

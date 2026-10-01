@@ -156,7 +156,7 @@ export function BracketsPage() {
         );
         const pSnap = await getDocs(pQuery);
 
-        const participantStats: Record<string, { points: number, potentialPoints: number, uid: string, finalFour?: string[], champion?: string }> = {};
+        const participantStats: Record<string, { points: number, potentialPoints: number, uid: string, finalFour?: string[], champion?: string, selections?: Record<string, string> }> = {};
 
         const isMlb = bracket.sport === 'MLB' || bracket.id?.includes('mlb');
         const baseTeams = bracket.teams?.length || 16;

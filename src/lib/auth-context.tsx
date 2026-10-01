@@ -85,10 +85,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: mockUser.displayName,
           username: username,
           image: mockUser.photoURL,
-          links: 10,
+          links: 1000,
           role: e.detail?.role || 'ADMIN', // Support dynamic role selection in dev mock login
           status: 'ACTIVE',
-          stats: { wins: 0, losses: 0, pushes: 0 },
+          inventory: ['banner_pinktober', 'ring_bull_bear', 'title_beta_tester', 'banner_emerald_storm', 'ring_gold'],
+          equippedCosmetics: { PROFILE_BANNER: 'banner_pinktober', AVATAR_RING: 'ring_bull_bear', TITLE: 'title_beta_tester' },
+          stats: { wins: 12, losses: 3, pushes: 1 },
           referralsCount: 42,
         };
 

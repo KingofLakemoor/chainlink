@@ -47,6 +47,31 @@ export function setCached<T>(key: string, data: T): void {
   }
 }
 
+export function clearCached(key?: string): void {
+  if (key) {
+    memoryCache.delete(key);
+    try {
+      sessionStorage.removeItem(`chainlink_cache_${key}`);
+    } catch (e) {
+      // Session storage unavailable
+    }
+  } else {
+    memoryCache.clear();
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith('chainlink_cache_')) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch (e) {
+      // Session storage unavailable
+    }
+  }
+}
+
 export async function getShopItemsCached(ttlMs: number = DEFAULT_TTL_MS): Promise<any[]> {
   const cacheKey = 'shopItems';
   const cached = getCached<any[]>(cacheKey, ttlMs);

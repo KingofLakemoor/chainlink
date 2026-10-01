@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { clearCached } from '../../../lib/firestore-cache';
 import { Button } from '../../../components/ui/button';
+import { RefreshCw, Save, CheckCircle2 } from 'lucide-react';
 
 export default function PrizeAdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [forceUpdating, setForceUpdating] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [prizeData, setPrizeData] = useState({
     activeUsersRequirement: 25,
     picksRequirement: 375,
@@ -35,14 +39,35 @@ export default function PrizeAdminPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setStatusMessage(null);
     try {
-      await setDoc(doc(db, 'settings', 'monthlyPrize'), prizeData);
-      alert("Saved successfully!");
+      const updatedData = { ...prizeData, updatedAt: Date.now() };
+      await setDoc(doc(db, 'settings', 'monthlyPrize'), updatedData);
+      clearCached('sidebar_monthly_stats');
+      window.dispatchEvent(new Event('monthly-prize-updated'));
+      setStatusMessage("Saved successfully and sidebar cache cleared!");
     } catch (err) {
       console.error(err);
       alert("Failed to save.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleForceUpdate = async () => {
+    setForceUpdating(true);
+    setStatusMessage(null);
+    try {
+      const updatedData = { ...prizeData, updatedAt: Date.now() };
+      await setDoc(doc(db, 'settings', 'monthlyPrize'), updatedData);
+      clearCached('sidebar_monthly_stats');
+      window.dispatchEvent(new Event('monthly-prize-updated'));
+      setStatusMessage("Monthly prize card force updated! Sidebar refreshed immediately.");
+    } catch (err) {
+      console.error("Force update failed", err);
+      alert("Failed to force update.");
+    } finally {
+      setForceUpdating(false);
     }
   };
 
@@ -130,9 +155,24 @@ export default function PrizeAdminPage() {
           />
         </div>
 
-        <Button onClick={handleSave} disabled={saving} className="w-full mt-4 bg-[#22c55e] hover:bg-[#16a34a] text-white">
-          {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
+        {statusMessage && (
+          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium mt-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            <span>{statusMessage}</span>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <Button onClick={handleSave} disabled={saving || forceUpdating} className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white font-medium">
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Settings'}
+          </Button>
+
+          <Button onClick={handleForceUpdate} disabled={saving || forceUpdating} variant="outline" className="flex-1 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-medium">
+            <RefreshCw className={`w-4 h-4 mr-2 ${forceUpdating ? 'animate-spin' : ''}`} />
+            {forceUpdating ? 'Updating...' : 'Force Update Sidebar'}
+          </Button>
+        </div>
       </div>
     </div>
   );

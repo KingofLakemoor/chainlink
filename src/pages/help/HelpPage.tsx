@@ -54,7 +54,6 @@ export function HelpPage() {
               <li><strong>Advanced Metrics:</strong> Unlock the "Advanced Metrics" page to view detailed win/loss/push records by sport, view your all-time pick history, and track achievement medal distribution.</li>
               <li><strong>Line Movement Visibility:</strong> See exactly how moneylines and spreads have shifted directly on the matchup cards.</li>
               <li><strong>Exclusive Shop Items:</strong> Get access to purchase Pro-only premium cosmetics, banners, and rings in the Shop.</li>
-              <li><strong>Monthly Pro Set:</strong> Receive a special Pro Only cosmetic set every month.</li>
               <li><strong><a href="https://scriptless.club602.com/premium" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-300">ScriptLess Premium</a>:</strong> Enjoy full complimentary access to ScriptLess Premium, our sister site for Fantasy Reality TV predictions.</li>
             </ul>
           </div>

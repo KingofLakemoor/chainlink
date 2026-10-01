@@ -37,20 +37,20 @@ export default function ShopPage() {
     const fetchItems = async () => {
       try {
         const defaultItems = [
-          { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, image: 'Hexagons' },
-          { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, image: 'BullBearAvatarRing' },
-          { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
-          { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
-          { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
-          { id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SilverSupernovaBanner' },
-          { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' },
-          { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' },
-          { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' },
-          { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SeismicStrikeBanner' },
-          { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'GoldenSpiralBanner' },
-          { id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'PinktoberBanner' },
-          { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
-          { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
+          { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, forSale: true, image: 'Hexagons' },
+          { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, forSale: true, image: 'BullBearAvatarRing' },
+          { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'InfernoBanner' },
+          { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'EmeraldStormBanner' },
+          { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'WinterBeaconBanner' },
+          { id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SilverSupernovaBanner' },
+          { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'EmpirePulseBanner' },
+          { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'AlpineSurgeBanner' },
+          { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' },
+          { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' },
+          { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' },
+          { id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'PinktoberBanner' },
+          { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
+          { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
         ];
 
         if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
@@ -68,31 +68,31 @@ export default function ShopPage() {
         } else {
           // Ensure new regional banners are available if not seeded in Firestore collection yet
           if (!fetchedItems.some(i => i.id === 'banner_emerald_storm')) {
-            fetchedItems.push({ id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' });
+            fetchedItems.push({ id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'EmeraldStormBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_winter_beacon')) {
-            fetchedItems.push({ id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' });
+            fetchedItems.push({ id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'WinterBeaconBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_silver_supernova')) {
-            fetchedItems.push({ id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SilverSupernovaBanner' });
+            fetchedItems.push({ id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SilverSupernovaBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_empire_pulse')) {
-            fetchedItems.push({ id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' });
+            fetchedItems.push({ id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'EmpirePulseBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_alpine_surge')) {
-            fetchedItems.push({ id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' });
+            fetchedItems.push({ id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'AlpineSurgeBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_crimson_kingdom')) {
-            fetchedItems.push({ id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' });
+            fetchedItems.push({ id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_seismic_strike')) {
-            fetchedItems.push({ id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SeismicStrikeBanner' });
+            fetchedItems.push({ id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_golden_spiral')) {
-            fetchedItems.push({ id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'GoldenSpiralBanner' });
+            fetchedItems.push({ id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' });
           }
           if (!fetchedItems.some(i => i.id === 'banner_pinktober')) {
-            fetchedItems.push({ id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'PinktoberBanner' });
+            fetchedItems.push({ id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'PinktoberBanner' });
           }
         }
         setItems(fetchedItems);
@@ -100,20 +100,20 @@ export default function ShopPage() {
         console.error("Error fetching shop items", e);
         if (import.meta.env.DEV) {
           setItems([
-            { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, image: 'Hexagons' },
-            { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, image: 'BullBearAvatarRing' },
-            { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'InfernoBanner' },
-            { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmeraldStormBanner' },
-            { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'WinterBeaconBanner' },
-            { id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SilverSupernovaBanner' },
-            { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'EmpirePulseBanner' },
-            { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'AlpineSurgeBanner' },
-            { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'CrimsonKingdomBanner' },
-            { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'SeismicStrikeBanner' },
-            { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'GoldenSpiralBanner' },
-            { id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, image: 'PinktoberBanner' },
-            { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
-            { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
+            { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring for your avatar.', cost: 500, type: 'AVATAR_RING', active: true, forSale: true, image: 'Hexagons' },
+            { id: 'ring_bull_bear', name: 'Bull & Bear', description: 'A market ring showing bullish and bearish forces.', cost: 3500, type: 'AVATAR_RING', active: true, forSale: true, image: 'BullBearAvatarRing' },
+            { id: 'banner_neon', name: 'Inferno Banner', description: 'Brighten up your profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'InfernoBanner' },
+            { id: 'banner_emerald_storm', name: 'The Emerald Storm', description: 'Deep oceanic navy banner with wind-driven rain and electric action green energy.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'EmeraldStormBanner' },
+            { id: 'banner_winter_beacon', name: 'The Winter Beacon', description: 'Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'WinterBeaconBanner' },
+            { id: 'banner_silver_supernova', name: 'The Silver Supernova', description: 'A deep metallic navy void pierced by a brilliantly polished, rotating abstract silver burst.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SilverSupernovaBanner' },
+            { id: 'banner_empire_pulse', name: 'The Empire Pulse', description: 'A radar-like matrix of the city grid rendered in classic Big Blue with fast-moving crimson and white traffic streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'EmpirePulseBanner' },
+            { id: 'banner_alpine_surge', name: 'The Alpine Surge', description: 'A deep navy, high-altitude sky above a glowing Denver-inspired mountain ridge cut by high-speed wind streaks.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'AlpineSurgeBanner' },
+            { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' },
+            { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' },
+            { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' },
+            { id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'PinktoberBanner' },
+            { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
+            { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);
         }
       } finally {

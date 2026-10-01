@@ -23,8 +23,8 @@ export function PinktoberBanner({
     }
     if (!gl) return;
 
-    const geometry = new Triangle(gl);
-    const program = new Program(gl, {
+    const geometry = new Triangle(gl as any);
+    const program = new Program(gl as any, {
       vertex: vert,
       fragment: fragPinktober,
       uniforms: {
@@ -36,7 +36,7 @@ export function PinktoberBanner({
       transparent: true,
     });
 
-    const mesh = new Mesh(gl, { geometry, program });
+    const mesh = new Mesh(gl as any, { geometry, program });
 
     function resize() {
       if (!container.current) return;
@@ -66,14 +66,14 @@ export function PinktoberBanner({
       raf = requestAnimationFrame(update);
     }
 
-    container.current.appendChild(gl.canvas);
+    container.current.appendChild(gl.canvas as HTMLCanvasElement);
 
     return () => {
       mounted = false;
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
-      if (container.current && container.current.contains(gl.canvas)) {
-        container.current.removeChild(gl.canvas);
+      if (container.current && container.current.contains(gl.canvas as HTMLCanvasElement)) {
+        container.current.removeChild(gl.canvas as HTMLCanvasElement);
       }
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };

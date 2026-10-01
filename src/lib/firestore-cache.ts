@@ -1,5 +1,6 @@
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
+import shopItemsData from '../../shop_items.json';
 
 interface CacheEntry<T> {
   timestamp: number;
@@ -75,26 +76,35 @@ export function clearCached(key?: string): void {
 export async function getShopItemsCached(ttlMs: number = DEFAULT_TTL_MS): Promise<any[]> {
   const cacheKey = 'shopItems';
   const cached = getCached<any[]>(cacheKey, ttlMs);
-  if (cached) return cached;
+  if (cached && cached.length > 0) return cached;
 
-  if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
-    const mockItems = [
-      { id: 'ring_gold', name: 'Gold Ring', description: 'A fancy gold ring.', cost: 500, type: 'AVATAR_RING', active: true, image: 'border-yellow-500' },
-      { id: 'banner_neon', name: 'Neon Banner', description: 'Bright profile header.', cost: 1000, type: 'PROFILE_BANNER', active: true, image: 'bg-gradient-to-r from-fuchsia-500 to-cyan-500' },
-    ];
-    setCached(cacheKey, mockItems);
-    return mockItems;
-  }
-
+  let firestoreItems: any[] = [];
   try {
-    const snap = await getDocs(collection(db, 'shopItems'));
-    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setCached(cacheKey, items);
-    return items;
+    if (!(import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY'))) {
+      const snap = await getDocs(collection(db, 'shopItems'));
+      firestoreItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
   } catch (err) {
-    console.error('Error fetching cached shopItems', err);
-    return [];
+    console.error('Error fetching cached shopItems from Firestore', err);
   }
+
+  // Merge shop_items.json manifest items with live Firestore items so all catalog items are present
+  const itemsMap = new Map<string, any>();
+  (shopItemsData as any[]).forEach(item => {
+    if (item && item.id) {
+      itemsMap.set(item.id, item);
+    }
+  });
+
+  firestoreItems.forEach(item => {
+    if (item && item.id) {
+      itemsMap.set(item.id, { ...(itemsMap.get(item.id) || {}), ...item });
+    }
+  });
+
+  const merged = Array.from(itemsMap.values());
+  setCached(cacheKey, merged);
+  return merged;
 }
 
 export async function getSponsorsCached(ttlMs: number = DEFAULT_TTL_MS): Promise<any[]> {

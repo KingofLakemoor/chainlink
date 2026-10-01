@@ -116,16 +116,17 @@ export default function DashboardPage() {
   
 
   const equippedBannerItem = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.PROFILE_BANNER);
-  const equippedBannerImage = equippedBannerItem?.image;
-  let BannerComponent = ProfileBannerMap[equippedBannerImage || ''];
+  const equippedBannerImage = equippedBannerItem?.image || profile?.equippedCosmetics?.PROFILE_BANNER;
+  let BannerComponent = ProfileBannerMap[equippedBannerImage || ''] || ProfileBannerMap[profile?.equippedCosmetics?.PROFILE_BANNER || ''];
   if (equippedBannerItem?.id === 'banner_responsible_gambler' && profile?.equippedCosmetics?.BANNER_VARIANT) {
     BannerComponent = ProfileBannerMap[profile.equippedCosmetics.BANNER_VARIANT] || BannerComponent;
   }
 
   const equippedRingItem = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.AVATAR_RING);
-  const equippedRingImage = equippedRingItem?.image;
-  const RingComponent = AvatarRingMap[equippedRingImage || ''];
-  const TitleComponent = profile?.equippedCosmetics?.TITLE ? TitleMap[inventoryItems.find(i => i.id === profile.equippedCosmetics.TITLE)?.image || ''] : null;
+  const equippedRingImage = equippedRingItem?.image || profile?.equippedCosmetics?.AVATAR_RING;
+  const RingComponent = AvatarRingMap[equippedRingImage || ''] || AvatarRingMap[profile?.equippedCosmetics?.AVATAR_RING || ''];
+  const titleImage = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.TITLE)?.image || profile?.equippedCosmetics?.TITLE;
+  const TitleComponent = titleImage ? TitleMap[titleImage] || TitleMap[profile?.equippedCosmetics?.TITLE || ''] : null;
 
   const activePick = picks.find(p => p.status === 'PENDING');
   

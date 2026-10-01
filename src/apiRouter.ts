@@ -2600,10 +2600,25 @@ apiRouter.post("/shop/buy", async (req, res) => {
 
       const itemRef = adminDb.collection('shopItems').doc(itemId);
       const itemDoc = await transaction.get(itemRef);
-      if (!itemDoc.exists) throw new Error("Item not found");
+      let item: any;
 
-      const item = itemDoc.data()!;
-      if (!item.active) throw new Error("Item is no longer available");
+      if (!itemDoc.exists) {
+        // Fallback to local manifest shop_items.json if item document has not been seeded to Firestore yet
+        const catalogPath = path.resolve(process.cwd(), 'shop_items.json');
+        if (fs.existsSync(catalogPath)) {
+          const fileContent = fs.readFileSync(catalogPath, 'utf-8');
+          const localItems = JSON.parse(fileContent);
+          const found = localItems.find((i: any) => i.id === itemId);
+          if (found) {
+            item = found;
+          }
+        }
+        if (!item) throw new Error("Item not found");
+      } else {
+        item = itemDoc.data()!;
+      }
+
+      if (item.active === false) throw new Error("Item is no longer available");
 
       const profile = userDoc.data()!;
       const cost = item.cost ?? 0;

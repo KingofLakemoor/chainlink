@@ -1742,5 +1742,47 @@
     "preview": "GoldenSpiralBanner",
     "order": 9,
     "collectionId": ""
+  },
+  {
+    "id": "banner_emerald_storm",
+    "name": "The Emerald Storm",
+    "description": "Deep oceanic navy banner with wind-driven rain and electric action green energy.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "EmeraldStormBanner",
+    "featured": true,
+    "preview": "EmeraldStormBanner",
+    "order": 10,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_winter_beacon",
+    "name": "The Winter Beacon",
+    "description": "Arctic midnight blue banner with a sweeping lighthouse beam cutting through dense snow.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "WinterBeaconBanner",
+    "featured": true,
+    "preview": "WinterBeaconBanner",
+    "order": 11,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_pinktober",
+    "name": "Pinktober",
+    "description": "Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "PinktoberBanner",
+    "featured": true,
+    "preview": "PinktoberBanner",
+    "order": 12,
+    "collectionId": ""
   }
 ]

@@ -1772,7 +1772,9 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             }
 
                             const isMyPick = participant.uid === user?.uid;
-                            const isGameStarted = matchup ? isMatchupLocked(matchup) : false;
+                            const isGameStarted = matchup
+                              ? isMatchupLocked(matchup)
+                              : (pick.status && pick.status !== 'PENDING');
                             const isRevealed = pick.isRevealed === true || isGameStarted;
 
                             if (!isRevealed && !isMyPick) {
@@ -1786,17 +1788,30 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             let imageUrl = pick.teamImage || '';
                             let altText = pick.teamName || teamId;
 
-                            if (!imageUrl && matchup) {
+                            if (matchup) {
                                 if (matchup.type === 'OVER_UNDER') {
-                                    imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
-                                    altText = teamId;
+                                    imageUrl = imageUrl || (teamId === 'OVER' ? '/images/over.png' : '/images/under.png');
+                                    altText = altText || teamId;
                                 } else {
                                     const isAway = isTeamMatch(teamId, matchup.awayTeam);
                                     const isHome = isTeamMatch(teamId, matchup.homeTeam);
-                                    imageUrl = isAway ? matchup.awayTeam?.image : (isHome ? matchup.homeTeam?.image : matchup.awayTeam?.image);
-                                    altText = isAway ? matchup.awayTeam?.name : (isHome ? matchup.homeTeam?.name : teamId);
+                                    if (!imageUrl) {
+                                      if (isAway && matchup.awayTeam?.image) imageUrl = matchup.awayTeam.image;
+                                      else if (isHome && matchup.homeTeam?.image) imageUrl = matchup.homeTeam.image;
+                                      else imageUrl = matchup.awayTeam?.image || matchup.homeTeam?.image || '';
+                                    }
+                                    if (!altText || altText === teamId) {
+                                      if (isAway && (matchup.awayTeam?.name || matchup.awayTeam?.shortName)) {
+                                        altText = matchup.awayTeam.name || matchup.awayTeam.shortName;
+                                      } else if (isHome && (matchup.homeTeam?.name || matchup.homeTeam?.shortName)) {
+                                        altText = matchup.homeTeam.name || matchup.homeTeam.shortName;
+                                      }
+                                    }
                                 }
                             }
+
+                            // Clean display label if imageUrl is still missing
+                            const displayLabel = altText ? (altText.length > 4 ? altText.slice(0, 3).toUpperCase() : altText.toUpperCase()) : teamId.slice(0, 3).toUpperCase();
 
                             let borderColorClass = 'border-zinc-500';
                             if (pick.status === 'WIN') borderColorClass = 'border-green-500';
@@ -1808,7 +1823,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                                   <FirebaseImage src={imageUrl} alt={altText} className="w-full h-full object-contain p-0.5" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-zinc-300">
-                                    {altText ? altText.slice(0, 3).toUpperCase() : '?'}
+                                    {displayLabel}
                                   </div>
                                 )}
                               </div>

@@ -845,7 +845,7 @@ apiRouter.get("/pickem/leaderboard", async (req, res) => {
   }
 });
 
-apiRouter.post("/pickem/leaderboard/sync", async (req, res) => {
+apiRouter.post(["/pickem/leaderboard/sync", "/pickem/rebuild-leaderboard"], async (req, res) => {
   try {
     const { campaignId } = req.body;
     if (!campaignId) {

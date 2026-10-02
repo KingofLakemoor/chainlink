@@ -17,19 +17,40 @@ export const getCampaignIds = (campaign: any, allCampaigns: any[] = []): string[
   const ids = new Set<string>();
   if (campaign.id) ids.add(campaign.id);
   if (campaign.name) ids.add(campaign.name);
-  const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
+  if (campaign.joinCode) ids.add(campaign.joinCode.trim());
+
+  const isYesDay = campaign.isCharity ||
+    campaign.name === 'YES Day Walk for Autism 2026' ||
+    campaign.id === 'charity' ||
+    campaign.id === 'yes_day_2026' ||
+    (typeof campaign.name === 'string' && campaign.name.toLowerCase().includes('yes day'));
+
   if (isYesDay) {
     ids.add('yes_day_2026');
     ids.add('charity');
     ids.add('YES Day Walk for Autism 2026');
-    if (allCampaigns && allCampaigns.length > 0) {
-      allCampaigns.forEach((c: any) => {
-        if (c.isCharity || c.name === 'YES Day Walk for Autism 2026' || c.id === 'charity' || c.id === 'yes_day_2026') {
-          if (c.id) ids.add(c.id);
-          if (c.name) ids.add(c.name);
-        }
-      });
-    }
+  }
+
+  if (allCampaigns && allCampaigns.length > 0) {
+    allCampaigns.forEach((c: any) => {
+      const isCharityMatch = isYesDay && (
+        c.isCharity ||
+        c.name === 'YES Day Walk for Autism 2026' ||
+        c.id === 'charity' ||
+        c.id === 'yes_day_2026' ||
+        (typeof c.name === 'string' && c.name.toLowerCase().includes('yes day'))
+      );
+      const isDirectMatch = (
+        (campaign.id && c.id === campaign.id) ||
+        (campaign.name && c.name === campaign.name) ||
+        (campaign.joinCode && c.joinCode && c.joinCode.trim().toLowerCase() === campaign.joinCode.trim().toLowerCase())
+      );
+      if (isCharityMatch || isDirectMatch) {
+        if (c.id) ids.add(c.id);
+        if (c.name) ids.add(c.name);
+        if (c.joinCode) ids.add(c.joinCode.trim());
+      }
+    });
   }
   return Array.from(ids);
 };
@@ -478,7 +499,11 @@ export default function PickEmPage() {
                 ? (data.weeks?.[selectedWeek] || data.weeks?.[String(selectedWeek)] || [])
                 : (data.season || []);
 
-              if (items && items.length > 0) {
+              // Ensure static doc has data and includes user's own picks if logged in
+              const userInItems = !user || items.some((p: any) => (p.uid || p.id) === user.uid);
+              const hasPicksInWeek = leaderboardView !== 'week' || items.some((p: any) => Array.isArray(p.picks) && p.picks.length > 0);
+
+              if (items && items.length > 0 && userInItems && hasPicksInWeek) {
                 const formatted = items.map((p: any) => ({
                   ...p,
                   id: p.id || p.uid,

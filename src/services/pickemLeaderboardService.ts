@@ -68,36 +68,44 @@ export async function getCampaignAliases(campaignId: string): Promise<{ canonica
     campaignData?.name === 'YES Day Walk for Autism 2026' ||
     campaignData?.isCharity;
 
-  if (isYesDayInput || !campaignData) {
-    try {
-      const allCamps = await adminDb.collection('pickemCampaigns').get();
-      allCamps.docs.forEach((d: any) => {
-        const data = d.data();
-        const isYes =
-          d.id === 'aUqhDhT3vKWfkPgSAVzf' ||
-          data.name === 'YES Day Walk for Autism 2026' ||
-          data.isCharity ||
-          d.id === 'charity' ||
-          d.id === 'yes_day_2026';
+  try {
+    const allCamps = await adminDb.collection('pickemCampaigns').get();
+    allCamps.docs.forEach((d: any) => {
+      const data = d.data();
+      const isYes =
+        data.name === 'YES Day Walk for Autism 2026' ||
+        data.isCharity ||
+        d.id === 'charity' ||
+        d.id === 'yes_day_2026' ||
+        (typeof data.name === 'string' && data.name.toLowerCase().includes('yes day'));
 
-        if (isYesDayInput && isYes) {
+      if (isYesDayInput && isYes) {
+        if (!campaignData || d.id === campaignId) {
           canonicalId = d.id;
           campaignData = { id: d.id, ...data };
-          aliases.add(d.id);
-          aliases.add('aUqhDhT3vKWfkPgSAVzf');
-          aliases.add('yes_day_2026');
-          aliases.add('charity');
-          aliases.add('YES Day Walk for Autism 2026');
-        } else if (!campaignData && (d.id === campaignId || data.name === campaignId || data.joinCode === campaignId)) {
-          canonicalId = d.id;
-          campaignData = { id: d.id, ...data };
-          aliases.add(d.id);
-          if (data.name) aliases.add(data.name);
         }
-      });
-    } catch (e) {
-      console.warn('[LeaderboardService] Error scanning all campaigns:', e);
-    }
+        aliases.add(d.id);
+        aliases.add('yes_day_2026');
+        aliases.add('charity');
+        aliases.add('YES Day Walk for Autism 2026');
+        if (data.name) aliases.add(data.name);
+        if (data.joinCode) aliases.add(data.joinCode.trim());
+      } else if (
+        d.id === campaignId ||
+        data.name === campaignId ||
+        (data.joinCode && data.joinCode.trim().toLowerCase() === campaignId.trim().toLowerCase())
+      ) {
+        if (!campaignData) {
+          canonicalId = d.id;
+          campaignData = { id: d.id, ...data };
+        }
+        aliases.add(d.id);
+        if (data.name) aliases.add(data.name);
+        if (data.joinCode) aliases.add(data.joinCode.trim());
+      }
+    });
+  } catch (e) {
+    console.warn('[LeaderboardService] Error scanning all campaigns:', e);
   }
 
   if (campaignData?.name) {

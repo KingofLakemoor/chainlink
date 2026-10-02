@@ -409,6 +409,10 @@ export default function PickEmPage() {
   };
 
   useEffect(() => {
+    setAllCampaignMatchups([]);
+  }, [selectedCampaign?.id]);
+
+  useEffect(() => {
     if (selectedCampaign && selectedWeek !== undefined && selectedWeek !== null) {
       // Fetch matchups even if user is not authenticated (for leaderboard)
       fetchMatchupsAndPicks(selectedCampaign.id, selectedWeek);
@@ -770,15 +774,38 @@ export default function PickEmPage() {
     fetchLeaderboard();
   }, [selectedCampaign, activeTab, leaderboardView, selectedWeek, matchups, campaigns, leaderboardRefreshCount]);
 
+  const triggerLeaderboardRebuild = async (campaignIdToSync?: string) => {
+    try {
+      const cid = campaignIdToSync || selectedCampaign?.id || 'yes_day_2026';
+      const token = user ? await user.getIdToken().catch(() => null) : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch('/api/pickem/rebuild-leaderboard', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignId: cid })
+      }).then(() => {
+        setLeaderboardRefreshCount(c => c + 1);
+      }).catch(e => console.warn("Background leaderboard rebuild notice:", e));
+    } catch (e) {
+      console.warn("Trigger leaderboard rebuild error:", e);
+    }
+  };
+
   const handleManualRefreshLeaderboard = async () => {
     if (leaderboardRefreshing || !selectedCampaign) return;
     setLeaderboardRefreshing(true);
     try {
       const campaignIds = getCampaignIds(selectedCampaign, campaigns);
       const cid = campaignIds[0] || selectedCampaign.id || 'yes_day_2026';
-      await fetch('/api/admin/rebuild-pickem-leaderboard', {
+      const token = user ? await user.getIdToken().catch(() => null) : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch('/api/pickem/rebuild-leaderboard', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ campaignId: cid })
       }).catch(e => {
         console.warn("Manual leaderboard server sync request notice:", e);
@@ -896,6 +923,7 @@ export default function PickEmPage() {
           alert("Failed to save tiebreaker score: " + (apiErr.message || String(apiErr)));
         }
       }
+      triggerLeaderboardRebuild();
     }, 400);
   };
 
@@ -917,6 +945,7 @@ export default function PickEmPage() {
         delete next[matchup.id];
         return next;
       });
+      triggerLeaderboardRebuild();
     } catch (err: any) {
       console.warn('Direct Firestore delete failed, falling back to API:', err?.message || err);
       try {
@@ -942,6 +971,7 @@ export default function PickEmPage() {
           delete next[matchup.id];
           return next;
         });
+        triggerLeaderboardRebuild();
       } catch (apiErr: any) {
         console.error('Clear pick API error:', apiErr);
         alert('Failed to clear pick: ' + (apiErr.message || String(apiErr)));
@@ -1004,6 +1034,7 @@ export default function PickEmPage() {
       try {
         await setDoc(pickRef, newPick, { merge: true });
         setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick } }));
+        triggerLeaderboardRebuild();
       } catch (clientErr: any) {
         console.warn('Direct Firestore save pick failed, falling back to API:', clientErr?.message || clientErr);
         const token = await user.getIdToken();
@@ -1025,6 +1056,7 @@ export default function PickEmPage() {
           throw new Error(data.error || 'Failed to save pick via server.');
         }
         setUserPicks(prev => ({ ...prev, [matchup.id]: { id: pickId, ...newPick, ...data.pick } }));
+        triggerLeaderboardRebuild();
       }
     } catch (err: any) {
       console.error('Failed to save pick', err);
@@ -1720,19 +1752,23 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             const teamId = pick.teamId || pick.pick?.teamId || (typeof pick.pick === 'string' ? pick.pick : null);
                             if (!teamId) return null;
 
-                            let matchup = matchups.find((m: any) =>
-                              m.id === pick.matchupId ||
-                              m.gameId === pick.matchupId ||
-                              (pick.matchupId && typeof pick.matchupId === 'string' && m.id.endsWith(`_${pick.matchupId}`)) ||
-                              (m.id && typeof m.id === 'string' && pick.matchupId && typeof pick.matchupId === 'string' && pick.matchupId.endsWith(`_${m.id.split('_').pop()}`))
-                            );
+                            const pIdStr = String(pick.matchupId || '');
+                            const pRawId = pIdStr.includes('_') ? pIdStr.split('_').pop() : pIdStr;
+
+                            const matchCheck = (m: any) => {
+                              if (!m) return false;
+                              if (m.id === pick.matchupId || String(m.id) === pIdStr) return true;
+                              if (m.gameId !== undefined && (m.gameId === pick.matchupId || String(m.gameId) === pIdStr)) return true;
+                              const mIdStr = String(m.id || '');
+                              const mRawId = mIdStr.includes('_') ? mIdStr.split('_').pop() : mIdStr;
+                              if (pRawId && mRawId && pRawId === mRawId) return true;
+                              if (m.gameId !== undefined && pRawId === String(m.gameId)) return true;
+                              return false;
+                            };
+
+                            let matchup = matchups.find(matchCheck);
                             if (!matchup && allCampaignMatchups.length > 0) {
-                              matchup = allCampaignMatchups.find((m: any) =>
-                                m.id === pick.matchupId ||
-                                m.gameId === pick.matchupId ||
-                                (pick.matchupId && typeof pick.matchupId === 'string' && m.id.endsWith(`_${pick.matchupId}`)) ||
-                                (m.id && typeof m.id === 'string' && pick.matchupId && typeof pick.matchupId === 'string' && pick.matchupId.endsWith(`_${m.id.split('_').pop()}`))
-                              );
+                              matchup = allCampaignMatchups.find(matchCheck);
                             }
 
                             const isMyPick = participant.uid === user?.uid;

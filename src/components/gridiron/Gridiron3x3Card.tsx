@@ -24,7 +24,7 @@ export const Gridiron3x3Card: React.FC<Gridiron3x3CardProps> = ({
     ? game.kickoffTime
     : (game.kickoffTime?.toMillis ? game.kickoffTime.toMillis() : new Date(game.kickoffTime).getTime());
 
-  const isLocked = now >= kickoffMs;
+  const isLocked = now >= kickoffMs || game.status === 'in_progress' || game.status === 'final' || (!!game.status && game.status !== 'scheduled');
 
   const awaySpreadFormatted = game.spread.awaySpread > 0 ? `+${game.spread.awaySpread}` : `${game.spread.awaySpread}`;
   const homeSpreadFormatted = game.spread.homeSpread > 0 ? `+${game.spread.homeSpread}` : `${game.spread.homeSpread}`;

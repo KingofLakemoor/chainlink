@@ -3603,8 +3603,9 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
       return res.status(403).json({ success: false, error: "Access denied. You are not a participant in this contest." });
     }
 
-    // Grade week & refresh leaderboard for contest
     const season = contestDoc.data()?.season || 2026;
+
+    // Grade week & refresh leaderboard for contest
     let leaderboard: any[] = [];
     try {
       await gradeGridironWeek(season, weekNum, { contestId });
@@ -3625,7 +3626,6 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
       rawEntries = entriesSnap.docs.map(doc => ({ entryId: doc.id, ...(doc.data() as GridironEntry) }));
     } else {
       // 2. Fallback to weekly consolidated snapshot document if individual entries were purged
-      const season = contestDoc.data()?.season || 2026;
       const docId = `${season}_week_${weekNum.toString().padStart(2, '0')}`;
       const snapshotSnap = await adminDb.collection("gridiron_3x3_weekly_snapshots").doc(docId).get();
 
@@ -3637,16 +3637,23 @@ apiRouter.get("/gridiron-3x3/entries/:contestId/:weekNumber", validateAuth, asyn
 
     const now = Date.now();
 
-    // BLIND REVEAL SECURITY: Mask competitor picks if kickoffTime > now
+    // Load lines snapshot for game status lookup in blind reveal checks
+    const linesDocId = `${season}_week_${weekNum.toString().padStart(2, '0')}`;
+    const linesSnap = await adminDb.collection("gridiron_3x3_lines").doc(linesDocId).get();
+    const snapshotGames: any[] = linesSnap.exists ? (linesSnap.data()?.games || []) : [];
+    const snapshotGamesMap = new Map<string, any>(snapshotGames.map((g: any) => [String(g.gameId), g]));
+
+    // BLIND REVEAL SECURITY: Mask competitor picks if kickoffTime > now and game not in progress/final
     const entries = rawEntries.map(data => {
       const isOwner = data.userId === uid;
 
       const maskedPicks = (data.picks || []).map(p => {
+        const snapGame = snapshotGamesMap.get(String(p.gameId));
         const kickoffTimeMs = typeof p.kickoffTime === 'number'
           ? p.kickoffTime
           : (p.kickoffTime?.toMillis ? p.kickoffTime.toMillis() : new Date(p.kickoffTime).getTime());
 
-        const isLocked = now >= kickoffTimeMs;
+        const isLocked = now >= kickoffTimeMs || (snapGame && (snapGame.status === 'in_progress' || snapGame.status === 'final' || (!!snapGame.status && snapGame.status !== 'scheduled')));
 
         if (isOwner || isLocked) {
           return {
@@ -3758,7 +3765,9 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
         : (snapGame.kickoffTime?.toMillis ? snapGame.kickoffTime.toMillis() : new Date(snapGame.kickoffTime).getTime()))
         : (typeof ep.kickoffTime === 'number' ? ep.kickoffTime : new Date(ep.kickoffTime).getTime());
 
-      if (now >= kickoffTimeMs) {
+      const isGameLocked = now >= kickoffTimeMs || (snapGame && (snapGame.status === 'in_progress' || snapGame.status === 'final' || (!!snapGame.status && snapGame.status !== 'scheduled')));
+
+      if (isGameLocked) {
         // Game has kicked off - pick is locked
         const incoming = incomingPicksMap.get(ep.gameId);
         if (incoming && (incoming.selection !== ep.selection || incoming.value !== ep.value)) {
@@ -3786,7 +3795,9 @@ apiRouter.post("/gridiron-3x3/submit-entry", validateAuth, async (req, res) => {
         ? snapGame.kickoffTime
         : (snapGame.kickoffTime?.toMillis ? snapGame.kickoffTime.toMillis() : new Date(snapGame.kickoffTime).getTime());
 
-      if (now >= kickoffTimeMs) {
+      const isGameLocked = now >= kickoffTimeMs || snapGame.status === 'in_progress' || snapGame.status === 'final' || (!!snapGame.status && snapGame.status !== 'scheduled');
+
+      if (isGameLocked) {
         return res.status(400).json({ success: false, error: `Game ${snapGame.awayTeam.name} @ ${snapGame.homeTeam.name} has already kicked off and cannot be picked.` });
       }
 

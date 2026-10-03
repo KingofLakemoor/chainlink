@@ -31,8 +31,9 @@ export function useGridironDraft(
       ? game.kickoffTime
       : (game.kickoffTime?.toMillis ? game.kickoffTime.toMillis() : new Date(game.kickoffTime).getTime());
 
-    // Lock check: cannot pick if game already kicked off
-    if (now >= kickoffMs) return;
+    // Lock check: cannot pick if game already kicked off or in progress/final
+    const isLocked = now >= kickoffMs || game.status === 'in_progress' || game.status === 'final' || (!!game.status && game.status !== 'scheduled');
+    if (isLocked) return;
 
     let nextPicks: GridironPick[] | null = null;
 

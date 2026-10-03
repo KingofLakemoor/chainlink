@@ -14,7 +14,8 @@ function processTogglePick(
     ? game.kickoffTime
     : (game.kickoffTime?.toMillis ? game.kickoffTime.toMillis() : new Date(game.kickoffTime).getTime());
 
-  if (now >= kickoffMs) return currentPicks;
+  const isLocked = now >= kickoffMs || game.status === 'in_progress' || game.status === 'final' || (!!game.status && game.status !== 'scheduled');
+  if (isLocked) return currentPicks;
 
   const existingIdx = currentPicks.findIndex(p => p.gameId === game.gameId);
 
@@ -117,9 +118,14 @@ describe('useGridironDraft Logic', () => {
     expect(picks.length).toBe(3);
   });
 
-  it('enforces kickoff lock time', () => {
+  it('enforces kickoff lock time and in_progress status', () => {
     let picks: GridironPick[] = [];
     picks = processTogglePick(picks, mockLockedGame, 'spread', 'home_spread', -3.5);
+    expect(picks.length).toBe(0);
+
+    // Game starting early with future kickoffTime but in_progress status
+    const mockEarlyGame: Gridiron3x3Game = { ...mockNflGame1, gameId: 'early_cfb', status: 'in_progress', kickoffTime: futureTime };
+    picks = processTogglePick(picks, mockEarlyGame, 'spread', 'home_spread', -3.5);
     expect(picks.length).toBe(0);
   });
 

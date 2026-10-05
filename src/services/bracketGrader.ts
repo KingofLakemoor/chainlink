@@ -114,6 +114,90 @@ export async function gradeBrackets(matchups: any[]) {
   }
 }
 
+export async function setBracketWinner(bracketId: string, matchId: string, winningTeam: string | null) {
+  const adminDb = getAdminDb();
+  if (!adminDb || !bracketId || !matchId) return;
+
+  const bracketRef = adminDb.collection('brackets').doc(bracketId);
+  const bracketSnap = await bracketRef.get();
+  if (!bracketSnap.exists) {
+    throw new Error(`Bracket ${bracketId} not found.`);
+  }
+
+  const bracket = bracketSnap.data() || {};
+  const results = { ...(bracket.results || {}) };
+  const baseTeams: string[] = bracket.teams || [];
+
+  if (winningTeam === null || winningTeam === '' || winningTeam === 'CLEAR') {
+    delete results[matchId];
+  } else {
+    results[matchId] = winningTeam;
+  }
+
+  // Calculate eliminated teams based on current results across all rounds
+  const eliminatedTeamsSet = new Set<string>();
+  const isMlb = bracket.sport === 'MLB' || bracket.id?.includes('mlb');
+  const totalRounds = isMlb ? 4 : Math.log2(baseTeams.length || 16);
+
+  for (let r = 0; r < totalRounds; r++) {
+    const matchesInRound = Math.pow(2, totalRounds - 1 - r);
+    for (let m = 0; m < matchesInRound; m++) {
+      const mId = `r${r}-m${m}`;
+      const winner = results[mId];
+      if (!winner) continue;
+
+      let t1: string | null = null;
+      let t2: string | null = null;
+
+      if (r === 0) {
+        t1 = baseTeams[m * 2] || null;
+        t2 = baseTeams[m * 2 + 1] || null;
+      } else {
+        const prevM1 = `r${r - 1}-m${m * 2}`;
+        const prevM2 = `r${r - 1}-m${m * 2 + 1}`;
+        t1 = results[prevM1] || null;
+        t2 = results[prevM2] || null;
+
+        if (r - 1 === 0) {
+          if (!t1) {
+            const p1 = baseTeams[(m * 2) * 2];
+            const p2 = baseTeams[(m * 2) * 2 + 1];
+            if (p1 === 'BYE') t1 = p2;
+            if (p2 === 'BYE') t1 = p1;
+          }
+          if (!t2) {
+            const p1 = baseTeams[(m * 2 + 1) * 2];
+            const p2 = baseTeams[(m * 2 + 1) * 2 + 1];
+            if (p1 === 'BYE') t2 = p2;
+            if (p2 === 'BYE') t2 = p1;
+          }
+        }
+      }
+
+      if (t1 && t1 !== winner && t1 !== 'BYE') eliminatedTeamsSet.add(t1);
+      if (t2 && t2 !== winner && t2 !== 'BYE') eliminatedTeamsSet.add(t2);
+    }
+  }
+
+  const eliminatedTeams = Array.from(eliminatedTeamsSet);
+
+  await bracketRef.update({
+    results,
+    eliminatedTeams,
+    updatedAt: Date.now()
+  });
+
+  const updatedBracketSnap = await bracketRef.get();
+  const updatedBracket = updatedBracketSnap.data() || {};
+
+  const finalMatchId = `r${totalRounds - 1}-m0`;
+  if (results[finalMatchId] && !updatedBracket.payoutComplete) {
+    await payoutBracket(bracketId, updatedBracket, results);
+  }
+
+  return { results, eliminatedTeams };
+}
+
 async function payoutBracket(bracketId: string, bracket: any, currentResults: any) {
   const adminDb = getAdminDb();
   if (!adminDb) return;

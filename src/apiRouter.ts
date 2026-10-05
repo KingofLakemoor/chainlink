@@ -1,6 +1,6 @@
 import { executeRollover } from './services/monthlyRollover.js';
 import { processPendingNotifications } from './services/notificationProcessor.js';
-import { gradeBrackets } from './services/bracketGrader.js';
+import { gradeBrackets, setBracketWinner } from './services/bracketGrader.js';
 import { fetchAndStoreTuesdayGridironLines, getCurrentFootballWeek, getGridironLinesLockTime } from './services/gridironIngestion.js';
 import { gradeGridironWeek, updateGridironLeaderboard } from './services/gridironGrader.js';
 import { GridironPick, GridironEntry } from './types/gridiron.js';
@@ -3185,6 +3185,21 @@ apiRouter.post("/admin/force-grade-brackets", validateAdmin, async (req, res) =>
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
+});
+
+apiRouter.post("/admin/brackets/set-winner", validateAdmin, async (req, res) => {
+  try {
+    const { bracketId, matchId, winningTeam } = req.body;
+    if (!bracketId || !matchId) {
+      return res.status(400).json({ success: false, error: "Missing bracketId or matchId" });
+    }
+
+    const updated = await setBracketWinner(bracketId, matchId, winningTeam);
+    res.json({ success: true, ...updated });
+  } catch (e: any) {
+    console.error("Set bracket winner error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 apiRouter.get("/admin/orders", validateAdmin, async (req, res) => {

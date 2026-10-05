@@ -35,6 +35,7 @@ export default function BracketsAdminPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingBracketId, setEditingBracketId] = useState<string | null>(null);
   const [entriesBracketId, setEntriesBracketId] = useState<string | null>(null);
+  const [gradingBracketId, setGradingBracketId] = useState<string | null>(null);
 
   const [purgingLegacy, setPurgingLegacy] = useState(false);
 
@@ -149,6 +150,67 @@ export default function BracketsAdminPage() {
       }
     }
   }, [location.pathname]);
+
+  // Grading Bracket State
+  const [gradingBracket, setGradingBracket] = useState<any | null>(null);
+  const [updatingWinnerMatchId, setUpdatingWinnerMatchId] = useState<string | null>(null);
+
+  // Load Grading Bracket
+  useEffect(() => {
+    if (!gradingBracketId) {
+      setGradingBracket(null);
+      return;
+    }
+    const loadGradingBracket = async () => {
+      try {
+        const docRef = doc(db, 'brackets', gradingBracketId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setGradingBracket({ id: docSnap.id, ...docSnap.data() });
+        }
+      } catch (e) {
+        console.error("Error loading bracket for grading:", e);
+      }
+    };
+    loadGradingBracket();
+  }, [gradingBracketId]);
+
+  const handleSetMatchWinner = async (bracketId: string, matchId: string, winningTeam: string | null) => {
+    setUpdatingWinnerMatchId(matchId);
+    try {
+      const auth = (await import('firebase/auth')).getAuth();
+      const token = await auth.currentUser?.getIdToken();
+
+      const res = await fetch('/api/admin/brackets/set-winner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ bracketId, matchId, winningTeam })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGradingBracket((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            results: data.results,
+            eliminatedTeams: data.eliminatedTeams
+          };
+        });
+        fetchBrackets();
+      } else {
+        alert(`Error: ${data.error || 'Failed to set winner'}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Error setting winner: ' + err.message);
+    } finally {
+      setUpdatingWinnerMatchId(null);
+    }
+  };
 
   // Load Edit Bracket
   useEffect(() => {
@@ -448,6 +510,13 @@ export default function BracketsAdminPage() {
                     </td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setGradingBracketId(bracket.id)}
+                          className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors"
+                          title="Set Winners / Grade Matchups"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => {
                             setEntriesBracketId(bracket.id);
@@ -846,6 +915,143 @@ export default function BracketsAdminPage() {
           </div>
         </div>
       )}
+
+      {/* --- Drawer: Set Winners / Grade Matchups --- */}
+      {gradingBracketId && gradingBracket && (() => {
+        const roundNamesList = getRoundNamesForBracket(gradingBracket);
+        const totalRounds = roundNamesList.length;
+        const baseTeams: string[] = gradingBracket.teams || [];
+        const results = gradingBracket.results || {};
+
+        const getWinner = (rIdx: number, mIdx: number): string | null => {
+          const mId = `r${rIdx}-m${mIdx}`;
+          if (results[mId]) return results[mId];
+          if (rIdx === 0) {
+            const t1 = baseTeams[mIdx * 2] || null;
+            const t2 = baseTeams[mIdx * 2 + 1] || null;
+            if (t1 === "BYE" && t2 && t2 !== "BYE") return t2;
+            if (t2 === "BYE" && t1 && t1 !== "BYE") return t1;
+          }
+          return null;
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end">
+            <div className="bg-[#121212] border-l border-zinc-800 w-full max-w-5xl h-full flex flex-col p-6 overflow-y-auto custom-scrollbar">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
+                <div>
+                  <h3 className="font-bold text-lg text-white">Grade Bracket Matchups</h3>
+                  <p className="text-xs text-zinc-400 font-mono">{gradingBracket.name} (ID: {gradingBracketId})</p>
+                </div>
+                <button
+                  onClick={() => setGradingBracketId(null)}
+                  className="text-zinc-500 hover:text-white p-2"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-8 flex-1">
+                {roundNamesList.map((rName, rIdx) => {
+                  const matchesInRound = Math.pow(2, totalRounds - 1 - rIdx);
+                  const roundMatches = [];
+
+                  for (let m = 0; m < matchesInRound; m++) {
+                    const matchId = `r${rIdx}-m${m}`;
+                    let t1: string | null = null;
+                    let t2: string | null = null;
+
+                    if (rIdx === 0) {
+                      t1 = baseTeams[m * 2] || null;
+                      t2 = baseTeams[m * 2 + 1] || null;
+                    } else {
+                      t1 = getWinner(rIdx - 1, m * 2);
+                      t2 = getWinner(rIdx - 1, m * 2 + 1);
+                    }
+
+                    const currentWinner = results[matchId] || null;
+                    const isUpdating = updatingWinnerMatchId === matchId;
+
+                    roundMatches.push({
+                      matchId,
+                      team1: t1,
+                      team2: t2,
+                      currentWinner,
+                      isUpdating
+                    });
+                  }
+
+                  return (
+                    <div key={rName} className="bg-[#18181A] border border-zinc-800 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                        <h4 className="font-bold text-sm uppercase tracking-wider text-emerald-400">
+                          {rName}
+                        </h4>
+                        <span className="text-xs font-mono text-zinc-400">
+                          {roundMatches.filter(m => m.currentWinner).length} / {matchesInRound} Decided
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {roundMatches.map(match => (
+                          <div key={match.matchId} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5 space-y-3">
+                            <div className="flex justify-between items-center text-[11px] font-mono text-zinc-400">
+                              <span>Match {match.matchId}</span>
+                              {match.currentWinner && (
+                                <span className="text-emerald-400 font-bold uppercase">Winner: {match.currentWinner}</span>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              {/* Team 1 Button */}
+                              <button
+                                disabled={!match.team1 || match.team1 === 'BYE' || match.isUpdating}
+                                onClick={() => handleSetMatchWinner(gradingBracketId, match.matchId, match.team1)}
+                                className={`w-full p-2 rounded text-xs font-bold transition-all flex items-center justify-between border ${
+                                  match.currentWinner === match.team1
+                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                                    : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-200 hover:bg-zinc-800'
+                                } ${(!match.team1 || match.team1 === 'BYE') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <span className="truncate">{match.team1 || 'TBD'}</span>
+                                {match.currentWinner === match.team1 && <Shield className="w-3.5 h-3.5 text-emerald-400" />}
+                              </button>
+
+                              {/* Team 2 Button */}
+                              <button
+                                disabled={!match.team2 || match.team2 === 'BYE' || match.isUpdating}
+                                onClick={() => handleSetMatchWinner(gradingBracketId, match.matchId, match.team2)}
+                                className={`w-full p-2 rounded text-xs font-bold transition-all flex items-center justify-between border ${
+                                  match.currentWinner === match.team2
+                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                                    : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-200 hover:bg-zinc-800'
+                                } ${(!match.team2 || match.team2 === 'BYE') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <span className="truncate">{match.team2 || 'TBD'}</span>
+                                {match.currentWinner === match.team2 && <Shield className="w-3.5 h-3.5 text-emerald-400" />}
+                              </button>
+                            </div>
+
+                            {match.currentWinner && (
+                              <button
+                                disabled={match.isUpdating}
+                                onClick={() => handleSetMatchWinner(gradingBracketId, match.matchId, 'CLEAR')}
+                                className="w-full py-1 text-[11px] text-zinc-400 hover:text-red-400 transition-colors text-center font-medium"
+                              >
+                                Clear Winner
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* --- Drawer: View Bracket Entries --- */}
       {entriesBracketId && (

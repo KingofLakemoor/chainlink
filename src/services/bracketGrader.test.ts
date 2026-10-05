@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { gradeBrackets, setAdminDbMock } from './bracketGrader.js';
+import { gradeBrackets, setBracketWinner, setAdminDbMock } from './bracketGrader.js';
 
 describe('bracketGrader', () => {
   let mockDocs: Record<string, any> = {};
@@ -199,5 +199,45 @@ describe('bracketGrader', () => {
     expect(mockDocs['users/u1'].links).toBe(6);
     expect(mockDocs['users/u2'].links).toBe(6);
     expect(mockDocs['brackets/b_mlb'].payoutComplete).toBe(true);
+  });
+
+  it('manually sets bracket winners, updates eliminated teams, and triggers payout when final match is set', async () => {
+    mockDocs['brackets/b_manual'] = {
+      name: 'Manual Bracket',
+      sport: 'NBA',
+      teams: ['Lakers', 'Celtics', 'Warriors', 'Heat'],
+      cost: 50,
+      prizePotPercent: 0.65,
+      payoutSplit: { first: 100, second: 0, third: 0 },
+      payoutComplete: false,
+      results: {}
+    };
+
+    mockDocs['bracketGamePredictions/b_manual_u1'] = {
+      bracketId: 'b_manual',
+      userId: 'u1',
+      selections: { 'r0-m0': 'Lakers', 'r0-m1': 'Warriors', 'r1-m0': 'Lakers' }
+    };
+
+    mockDocs['users/u1'] = { links: 0, username: 'User 1' };
+
+    // 1. Set r0-m0 winner to Lakers
+    await setBracketWinner('b_manual', 'r0-m0', 'Lakers');
+    expect(mockDocs['brackets/b_manual'].results['r0-m0']).toBe('Lakers');
+    expect(mockDocs['brackets/b_manual'].eliminatedTeams).toContain('Celtics');
+    expect(mockDocs['brackets/b_manual'].payoutComplete).toBe(false);
+
+    // 2. Set r0-m1 winner to Warriors
+    await setBracketWinner('b_manual', 'r0-m1', 'Warriors');
+    expect(mockDocs['brackets/b_manual'].results['r0-m1']).toBe('Warriors');
+    expect(mockDocs['brackets/b_manual'].eliminatedTeams).toContain('Heat');
+
+    // 3. Set r1-m0 (Finals) winner to Lakers -> triggers payout
+    await setBracketWinner('b_manual', 'r1-m0', 'Lakers');
+    expect(mockDocs['brackets/b_manual'].results['r1-m0']).toBe('Lakers');
+    expect(mockDocs['brackets/b_manual'].eliminatedTeams).toContain('Warriors');
+    expect(mockDocs['brackets/b_manual'].payoutComplete).toBe(true);
+    // 1 entry * 50 Links * 0.65 = 32 Links payout
+    expect(mockDocs['users/u1'].links).toBe(32);
   });
 });

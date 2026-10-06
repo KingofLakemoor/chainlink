@@ -1965,20 +1965,31 @@ apiRouter.post("/link4/submit", async (req, res) => {
         }
 
         const sanitizedPicks = picks.filter((p: any) => p !== null);
-        
-        // Validate newly added picks
-        for (let i = currentPicks.length; i < sanitizedPicks.length; i++) {
-            const newPick = sanitizedPicks[i];
-            const mId = newPick.id.replace('pick-', '');
+        if (sanitizedPicks.length > 4) {
+            throw new Error("Invalid submission. Cannot exceed 4 picks.");
+        }
+
+        let lastStartTime = 0;
+        for (let i = 0; i < sanitizedPicks.length; i++) {
+            const pick = sanitizedPicks[i];
+            const mId = pick.id.replace('pick-', '');
             const matchupRef = adminDb.collection('link4Matchups').doc(`${segmentId}_${mId}`);
             const mDoc = await transaction.get(matchupRef);
             if (!mDoc.exists) throw new Error("Invalid matchup selected.");
             const mData = mDoc.data();
-            if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
-            if (mData.startTime && mData.startTime <= Date.now()) throw new Error("Matchup is locked.");
-        }
-        if (sanitizedPicks.length > 4) {
-            throw new Error("Invalid submission. Cannot exceed 4 picks.");
+
+            if (i >= currentPicks.length) {
+              if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
+              if (mData.startTime && getMatchupStartTime(mData.startTime) <= Date.now()) throw new Error("Matchup is locked.");
+            }
+
+            const startTimeMs = getMatchupStartTime(mData.startTime || pick.startTime);
+            if (i > 0 && lastStartTime > 0 && startTimeMs > 0 && startTimeMs <= lastStartTime) {
+              throw new Error("No games from the same start time/slate are allowed. Picks must be in strict chronological order.");
+            }
+            if (startTimeMs > 0) {
+              lastStartTime = startTimeMs;
+            }
         }
 
         transaction.update(pickRef, {
@@ -1989,24 +2000,36 @@ apiRouter.post("/link4/submit", async (req, res) => {
       } else {
         // First pick, deduct fee
         const sanitizedPicks = picks.filter((p: any) => p !== null);
-        // Validate newly added picks
+        if (sanitizedPicks.length === 0) {
+            throw new Error("Must provide at least one pick to enter.");
+        }
+        if (sanitizedPicks.length > 4) {
+            throw new Error("Invalid submission. Cannot exceed 4 picks.");
+        }
+
+        let lastStartTime = 0;
         for (let i = 0; i < sanitizedPicks.length; i++) {
-            const newPick = sanitizedPicks[i];
-            const mId = newPick.id.replace('pick-', '');
+            const pick = sanitizedPicks[i];
+            const mId = pick.id.replace('pick-', '');
             const matchupRef = adminDb.collection('link4Matchups').doc(`${segmentId}_${mId}`);
             const mDoc = await transaction.get(matchupRef);
             if (!mDoc.exists) throw new Error("Invalid matchup selected.");
             const mData = mDoc.data();
+
             if (mData.status !== 'STATUS_SCHEDULED') throw new Error("Cannot pick a game that has already started.");
-            if (mData.startTime && mData.startTime <= Date.now()) throw new Error("Matchup is locked.");
+            if (mData.startTime && getMatchupStartTime(mData.startTime) <= Date.now()) throw new Error("Matchup is locked.");
+
+            const startTimeMs = getMatchupStartTime(mData.startTime || pick.startTime);
+            if (i > 0 && lastStartTime > 0 && startTimeMs > 0 && startTimeMs <= lastStartTime) {
+              throw new Error("No games from the same start time/slate are allowed. Picks must be in strict chronological order.");
+            }
+            if (startTimeMs > 0) {
+              lastStartTime = startTimeMs;
+            }
         }
 
         if (currentLinks < cost) {
           throw new Error(`Not enough links. Link4 requires ${cost} links to enter.`);
-        }
-
-        if (sanitizedPicks.length === 0) {
-            throw new Error("Must provide at least one pick to enter.");
         }
 
         transaction.update(userRef, { links: currentLinks - cost });

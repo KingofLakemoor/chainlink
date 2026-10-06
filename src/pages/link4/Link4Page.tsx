@@ -541,13 +541,16 @@ export default function Link4Page() {
     const gameStartMs = getMatchupStartTime(m.startTime);
     if (gameStartMs > 0 && gameStartMs <= now) return false;
 
-    if (nextPickIndex > 0 && picks[nextPickIndex - 1]) {
-      const prevPick = picks[nextPickIndex - 1];
-      if (prevPick?.startTime && m.startTime) {
-        const prevTime = getMatchupStartTime(prevPick.startTime);
-        const curTime = gameStartMs;
-        if (prevTime > 0 && curTime > 0 && curTime <= prevTime) {
-          return false;
+    // Open parlay rule: no games from the same start time / slate allowed.
+    // Each pick must start strictly after any previously selected picks in the card.
+    if (nextPickIndex > 0) {
+      for (let i = 0; i < nextPickIndex; i++) {
+        const prevPick = picks[i];
+        if (prevPick?.startTime) {
+          const prevTime = getMatchupStartTime(prevPick.startTime);
+          if (prevTime > 0 && gameStartMs > 0 && gameStartMs <= prevTime) {
+            return false;
+          }
         }
       }
     }
@@ -592,7 +595,7 @@ export default function Link4Page() {
             Link4
           </h1>
           <p className="text-zinc-400 text-lg">
-            Connect four to win! Play Link4 and earn links. Entry: {segmentCost} links. You don't have to make all 4 picks at once. Submit them one by one as games become available!
+            Connect four to win! Link4 is an open parlay where you select 4 picks over time to win a share of the prize pot. No games from the same start time or slate are allowed. Submit your picks one by one as games become available! Entry: {segmentCost} links.
             {theme.sponsorName && (
               <span className="block mt-1 text-sm">
                 Presented by{' '}
@@ -817,7 +820,7 @@ export default function Link4Page() {
                       </div>
                       <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500 text-sm flex items-start gap-2">
                         <span className="text-lg leading-none">⚠️</span>
-                        <span><strong>Important:</strong> Games must be picked in chronological order. Selecting a later game will lock out any earlier games for your remaining picks.</span>
+                        <span><strong>Important:</strong> Link4 is an open parlay. Games must be picked in strict chronological order, and <strong>no games from the same start time or slate are allowed</strong>. Each pick must start strictly after your previous pick's kickoff time.</span>
                       </div>
 
                       <div className="grid lg:grid-cols-2 gap-5">

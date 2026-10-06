@@ -65,15 +65,16 @@ export function HelpPage() {
             <div className="p-2 bg-purple-500/10 rounded-lg">
               <Link2 className="w-6 h-6 text-purple-400" />
             </div>
-            <h2 className="text-2xl font-bold text-zinc-100">Link4</h2>
+            <h2 className="text-2xl font-bold text-zinc-100">Link4 (Open Parlay)</h2>
           </div>
           <div className="space-y-4 text-zinc-300 relative z-10">
             <p>
-              <strong>Link4</strong> is a special game mode where you must correctly predict 4 matchups in a row within a specific "Segment" (time period) to win a share of a prize pot.
+              <strong>Link4</strong> is an open parlay game mode where you select 4 picks over time within a specific "Segment" to win a share of a prize pot.
             </p>
             <ul className="list-disc pl-5 space-y-2">
               <li><strong>Entry Fee:</strong> Entering a Link4 segment usually requires spending Links.</li>
-              <li><strong>4 Picks:</strong> You must select exactly 4 different matchups.</li>
+              <li><strong>Open Parlay Mechanics:</strong> You don't have to select all 4 picks at once! Make your picks sequentially as games become available throughout the segment.</li>
+              <li><strong>Unique Game Slates:</strong> No games from the same start time or slate are allowed. Each pick must be from a game starting strictly after your previous pick's kickoff time.</li>
               <li><strong>Moneyline Scoring:</strong> Your score in Link4 is determined by the Moneyline (ML) odds of your picks. Positive odds add to your score, negative odds subtract from it. (e.g., +150 adds 150 points, -110 subtracts 110 points).</li>
               <li><strong>Elimination:</strong> A single wrong pick eliminates you from the current Link4 segment.</li>
               <li><strong>Winning:</strong> The user(s) who successfully win all 4 picks and have the highest total score at the end of the segment win the prize pool!</li>

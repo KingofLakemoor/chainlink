@@ -75,6 +75,53 @@ function mergeMatchupsByGameId(matchupsToProcess: any[]): any[] {
   return Array.from(processedGameIds.values());
 }
 
+function validateLink4PickSequence(picks: { id: string; startTime: number | string }[]) {
+  let lastStartTime = 0;
+  for (let i = 0; i < picks.length; i++) {
+    const pick = picks[i];
+    const startTimeMs = typeof pick.startTime === 'number' ? pick.startTime : new Date(pick.startTime).getTime();
+    if (i > 0 && lastStartTime > 0 && startTimeMs > 0 && startTimeMs <= lastStartTime) {
+      throw new Error("No games from the same start time/slate are allowed. Picks must be in strict chronological order.");
+    }
+    if (startTimeMs > 0) {
+      lastStartTime = startTimeMs;
+    }
+  }
+  return true;
+}
+
+describe('Link4 open parlay validation', () => {
+  it('allows sequential picks with strictly increasing start times', () => {
+    const validPicks = [
+      { id: 'p1', startTime: 1000000 },
+      { id: 'p2', startTime: 2000000 },
+      { id: 'p3', startTime: 3000000 },
+      { id: 'p4', startTime: 4000000 },
+    ];
+    expect(validateLink4PickSequence(validPicks)).toBe(true);
+  });
+
+  it('rejects picks from the same start time / slate', () => {
+    const sameSlatePicks = [
+      { id: 'p1', startTime: 1000000 },
+      { id: 'p2', startTime: 1000000 },
+    ];
+    expect(() => validateLink4PickSequence(sameSlatePicks)).toThrow(
+      "No games from the same start time/slate are allowed. Picks must be in strict chronological order."
+    );
+  });
+
+  it('rejects out-of-order picks', () => {
+    const outOfOrderPicks = [
+      { id: 'p1', startTime: 3000000 },
+      { id: 'p2', startTime: 1000000 },
+    ];
+    expect(() => validateLink4PickSequence(outOfOrderPicks)).toThrow(
+      "No games from the same start time/slate are allowed. Picks must be in strict chronological order."
+    );
+  });
+});
+
 describe('Link4 sync logic', () => {
   it('normalizes metadata correctly', () => {
     const res1 = normalizeLink4Metadata({ mlHome: -150, mlAway: 130 });

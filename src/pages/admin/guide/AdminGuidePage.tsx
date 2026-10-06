@@ -50,6 +50,10 @@ export default function AdminGuidePage() {
             <h2 className="text-2xl font-bold text-zinc-100">Link4 Management</h2>
           </div>
           <div className="space-y-4 text-zinc-300 relative z-10">
+            <h3 className="font-bold text-white text-lg">Open Parlay Rules</h3>
+            <p>
+              Link4 operates as an open parlay. Players can submit picks one by one or all at once. No games from the same start time or slate are allowed; each selected game must start strictly after the previous pick in the entry sequence.
+            </p>
             <h3 className="font-bold text-white text-lg">Excluding Matchups from Link4</h3>
             <p>
               In the main Matchups list, there is a "Link4" column. If a matchup has invalid moneyline odds or you simply don't want it available in the Link4 game, toggle it to <strong>EXCLUDED</strong>.

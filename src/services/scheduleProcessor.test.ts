@@ -157,6 +157,42 @@ describe('scheduleProcessor - manuallyActivated Preservation Tests', () => {
     }));
   });
 
+  it('preserves scheduled PUTTING matchups during syncLeagueSchedules and does not mark them abandoned', async () => {
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'putting_matchup_1',
+      ref: 'matchupRef_putting_1',
+      data: () => ({
+        gameId: 'putting_matchup_1',
+        league: 'PUTTING',
+        title: 'Player 1 vs Player 2',
+        type: 'SCORE',
+        active: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        startTime: Date.now() + 3600000,
+        homeTeam: { id: 'p2', name: 'Player 2', score: 0 },
+        awayTeam: { id: 'p1', name: 'Player 1', score: 0 },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('NFL' as any, false);
+    expect(res.success).toBe(true);
+
+    // Verify batch.update was NOT called abandoning putting_matchup_1
+    const updateCalls = mockBatch.update.mock.calls;
+    for (const call of updateCalls) {
+      if (call[0] === 'matchupRef_putting_1') {
+        expect(call[1].abandoned).not.toBe(true);
+        expect(call[1].active).not.toBe(false);
+      }
+    }
+  });
+
   it('enforces active: false for RPL matchups without moneyline odds during syncLeagueSchedules', async () => {
     const scrapedMatchup = {
       gameId: 'rpl_no_odds_1',

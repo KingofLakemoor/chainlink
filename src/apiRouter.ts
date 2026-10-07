@@ -2955,14 +2955,14 @@ apiRouter.post("/webhooks/putting", async (req, res) => {
        const existingDoc = await matchupRef.get();
        const existingData = existingDoc.exists ? existingDoc.data() : null;
 
-       let finalStartTime = startTime || Date.now();
-       if ((league === 'PUTTING' || req.body.league === 'PUTTING') && !existingDoc.exists) {
-         finalStartTime = Date.now() + 15 * 60 * 1000;
-       } else if ((league === 'PUTTING' || req.body.league === 'PUTTING') && existingDoc.exists) {
-         finalStartTime = existingData?.startTime || finalStartTime;
+       let finalStartTime = startTime ? getMatchupStartTime(startTime) : 0;
+       if (finalStartTime <= 0) {
+         if (existingDoc.exists && existingData?.startTime) {
+           finalStartTime = existingData.startTime;
+         } else {
+           finalStartTime = Date.now() + 15 * 60 * 1000;
+         }
        }
-
-       const isLocked = Date.now() >= finalStartTime;
 
        const matchupData: any = {
          gameId,
@@ -2982,7 +2982,8 @@ apiRouter.post("/webhooks/putting", async (req, res) => {
            score: awayTeam.score || 0
          },
          status: status || 'STATUS_SCHEDULED',
-         active: (league === 'DARTS' || league === 'PUTTING') ? !isLocked : (active !== undefined ? active : true),
+         active: active !== undefined ? Boolean(active) : true,
+         manuallyActivated: true,
          type: "SCORE",
          updatedAt: Date.now()
        };
@@ -2998,6 +2999,8 @@ apiRouter.post("/webhooks/putting", async (req, res) => {
          await gradeLink4Matchups([matchupData]);
        }
        
+       invalidateMatchupCaches();
+
        // Update props and notifications
        try {
          await updateAllProps();
@@ -3074,14 +3077,14 @@ apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, re
     const existingDoc = await matchupRef.get();
     const existingData = existingDoc.exists ? existingDoc.data() : null;
 
-    let finalStartTime = startTime || Date.now();
-    if (league === 'PUTTING' && !existingDoc.exists) {
-      finalStartTime = Date.now() + 15 * 60 * 1000;
-    } else if (league === 'PUTTING' && existingDoc.exists) {
-      finalStartTime = existingData?.startTime || finalStartTime;
+    let finalStartTime = startTime ? getMatchupStartTime(startTime) : 0;
+    if (finalStartTime <= 0) {
+      if (existingDoc.exists && existingData?.startTime) {
+        finalStartTime = existingData.startTime;
+      } else {
+        finalStartTime = (league === 'PUTTING' || league === 'DARTS') ? Date.now() + 15 * 60 * 1000 : Date.now();
+      }
     }
-
-    const isLocked = Date.now() >= finalStartTime;
 
     const matchupData: any = {
       gameId,
@@ -3101,7 +3104,8 @@ apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, re
         score: awayTeam.score || 0
       },
       status: status || 'STATUS_SCHEDULED',
-      active: (league === 'DARTS' || league === 'PUTTING') ? !isLocked : (active !== undefined ? active : true),
+      active: active !== undefined ? Boolean(active) : true,
+      manuallyActivated: true,
       type: "SCORE",
       updatedAt: Date.now()
     };

@@ -231,7 +231,7 @@ export default function PlayDashboard() {
 
       const startTimeMs = getMatchupStartTime(m.startTime);
       let isUpcoming = m.status === 'STATUS_SCHEDULED' && startTimeMs <= next24Hours && startTimeMs > (now - 24 * 60 * 60 * 1000);
-      if ((m.league === 'PGA' || m.manuallyActivated) && m.status === 'STATUS_SCHEDULED') {
+      if ((m.league === 'PGA' || m.league === 'PUTTING' || m.league === 'SCRIPTLESS' || m.league === 'DARTS' || m.league === 'FLIPCUP' || m.manuallyActivated) && m.status === 'STATUS_SCHEDULED') {
         isUpcoming = true;
       }
 
@@ -252,7 +252,7 @@ export default function PlayDashboard() {
       if (selectedSport === 'HOCKEY' && !['NHL'].includes(m.league)) return false;
       if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE', 'LLWS'].includes(m.league)) return false;
       if (selectedSport === 'TENNIS' && !['ATP', 'WTA'].includes(m.league)) return false;
-      if (selectedSport === 'GOLF' && !['PGA'].includes(m.league)) return false;
+      if (selectedSport === 'GOLF' && !['PGA', 'PUTTING'].includes(m.league)) return false;
 
       return true;
     });

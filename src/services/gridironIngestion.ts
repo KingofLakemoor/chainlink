@@ -165,16 +165,10 @@ export async function fetchAndStoreTuesdayGridironLines(
     console.warn(`[GridironAlert] Sanity Warning: CFB slate contains ${cfbGames.length} games with full spread & total lines (< 10 threshold).`);
   }
 
-  const snapshotDoc: Gridiron3x3LinesDocument = {
-    season,
-    weekNumber,
-    snapshotTimestamp: Date.now(),
-    games: allGames
-  };
-
   try {
     const existingDoc = await adminDb.collection("gridiron_3x3_lines").doc(docId).get();
-    const existingGamesCount = existingDoc.exists ? (existingDoc.data()?.games?.length || 0) : 0;
+    const existingGames: Gridiron3x3Game[] = existingDoc.exists ? (existingDoc.data()?.games || []) : [];
+    const existingGamesCount = existingGames.length;
 
     // Guardrail: Do not overwrite an existing populated lines document with an empty games list
     if (allGames.length === 0 && existingGamesCount > 0) {
@@ -182,9 +176,38 @@ export async function fetchAndStoreTuesdayGridironLines(
       return { success: false, season, weekNumber, count: existingGamesCount, error: "Scrape returned 0 games; preserved existing lines." };
     }
 
+    // Preserve all existing games and their lines exactly as they are without adjusting them.
+    // Append any newly scraped valid games (e.g. missing Thursday night or Sunday NFL slate) whose gameId is not in existingGames.
+    const existingGamesMap = new Map<string, Gridiron3x3Game>(
+      existingGames.map(g => [String(g.gameId), g])
+    );
+
+    const mergedGames: Gridiron3x3Game[] = [...existingGames];
+
+    for (const scrapedGame of allGames) {
+      const gid = String(scrapedGame.gameId);
+      if (!existingGamesMap.has(gid)) {
+        mergedGames.push(scrapedGame);
+      }
+    }
+
+    mergedGames.sort((a, b) => {
+      const timeA = getKickoffMs(a.kickoffTime);
+      const timeB = getKickoffMs(b.kickoffTime);
+      if (timeA !== timeB) return timeA - timeB;
+      return a.gameId.localeCompare(b.gameId);
+    });
+
+    const snapshotDoc: Gridiron3x3LinesDocument = {
+      season,
+      weekNumber,
+      snapshotTimestamp: Date.now(),
+      games: mergedGames
+    };
+
     await adminDb.collection("gridiron_3x3_lines").doc(docId).set(snapshotDoc, { merge: true });
-    console.log(`[GridironIngestion] Successfully stored snapshot lines for ${docId} (${allGames.length} valid games).`);
-    return { success: true, season, weekNumber, count: allGames.length };
+    console.log(`[GridironIngestion] Successfully stored snapshot lines for ${docId} (${mergedGames.length} total valid games; preserved ${existingGamesCount} existing lines).`);
+    return { success: true, season, weekNumber, count: mergedGames.length };
   } catch (err: any) {
     console.error(`[GridironIngestion] Failed to store snapshot lines in Firestore:`, err);
     return { success: false, season, weekNumber, count: allGames.length, error: err.message };

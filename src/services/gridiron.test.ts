@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { filterAndNormalizeGridironGames, getFootballWeekDateRange, getCurrentFootballWeek, getGridironLinesLockTime } from './gridironIngestion';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { filterAndNormalizeGridironGames, getFootballWeekDateRange, getCurrentFootballWeek, getGridironLinesLockTime, fetchAndStoreTuesdayGridironLines, setAdminDbMock as setIngestionMock } from './gridironIngestion';
 import { evaluateGridironPick, gradeGridironWeek, updateGridironLeaderboard, isGameStatusFinal, setAdminDbMock } from './gridironGrader';
 import { GridironPick, GridironEntry } from '../types/gridiron';
 
@@ -1215,6 +1215,114 @@ describe('Gridiron Service Tests', () => {
       expect(filteredForWeek.map(g => g.gameId)).toEqual(['g_tue', 'g_sun', 'g_mnf']);
       expect(filteredForWeek.map(g => g.gameId)).not.toContain('g_next_tue');
       expect(filteredForWeek.map(g => g.gameId)).not.toContain('g_prev_mon');
+    });
+  });
+
+  describe('fetchAndStoreTuesdayGridironLines Line Merge & Preservation', () => {
+    it('preserves existing game lines without altering spreads/totals and appends missing scraped games via fetchAndStoreTuesdayGridironLines', async () => {
+      const mockLinesDocId = '2026_week_01';
+      const existingGame = {
+        gameId: 'g_existing_cfb',
+        league: 'CFB',
+        awayTeam: { name: 'Alabama', abbreviation: 'ALA' },
+        homeTeam: { name: 'Georgia', abbreviation: 'UGA' },
+        kickoffTime: new Date(2026, 8, 12, 15, 30, 0).getTime(), // Sat Sept 12
+        status: 'scheduled',
+        spread: { awaySpread: 3.5, homeSpread: -3.5 },
+        total: { line: 52.5 }
+      };
+
+      const dbStore: Record<string, any> = {
+        gridiron_3x3_lines: {
+          [mockLinesDocId]: {
+            season: 2026,
+            weekNumber: 1,
+            snapshotTimestamp: 100000,
+            games: [existingGame]
+          }
+        }
+      };
+
+      const mockAdminDb = {
+        collection: (collName: string) => ({
+          doc: (docId: string) => ({
+            get: async () => ({
+              exists: !!dbStore[collName]?.[docId],
+              data: () => dbStore[collName]?.[docId]
+            }),
+            set: async (data: any, options?: any) => {
+              if (!dbStore[collName]) dbStore[collName] = {};
+              if (options?.merge) {
+                dbStore[collName][docId] = { ...(dbStore[collName][docId] || {}), ...data };
+              } else {
+                dbStore[collName][docId] = data;
+              }
+            }
+          })
+        })
+      };
+
+      setIngestionMock(mockAdminDb);
+
+      const espnScraperModule = await import('./espnScraper');
+      const spyScrape = vi.spyOn(espnScraperModule, 'scrapeLeagueSchedules').mockImplementation(async (league: string) => {
+        if (league === 'CFB') {
+          return {
+            success: true,
+            data: [
+              {
+                gameId: 'g_existing_cfb',
+                awayTeam: { name: 'Alabama', shortName: 'ALA' },
+                homeTeam: { name: 'Georgia', shortName: 'UGA' },
+                startTime: new Date(2026, 8, 12, 15, 30, 0).getTime(),
+                status: 'STATUS_SCHEDULED',
+                metadata: { spread: '-7.0', overUnder: '60.0' } // Newly scraped line (should be ignored for g_existing_cfb)
+              }
+            ]
+          } as any;
+        } else if (league === 'NFL') {
+          return {
+            success: true,
+            data: [
+              {
+                gameId: 'g_thursday_nfl',
+                awayTeam: { name: 'Dallas Cowboys', shortName: 'DAL' },
+                homeTeam: { name: 'Philadelphia Eagles', shortName: 'PHI' },
+                startTime: new Date(2026, 8, 10, 20, 15, 0).getTime(), // Thu Sept 10
+                status: 'STATUS_SCHEDULED',
+                metadata: { spread: '-2.5', overUnder: '47.5' } // Missing NFL game with line available
+              }
+            ]
+          } as any;
+        }
+        return { success: true, data: [] } as any;
+      });
+
+      const res = await fetchAndStoreTuesdayGridironLines(2026, 1);
+      expect(res.success).toBe(true);
+      expect(res.count).toBe(2);
+
+      const storedDoc = dbStore.gridiron_3x3_lines[mockLinesDocId];
+      expect(storedDoc).toBeDefined();
+      const gamesInDoc = storedDoc.games;
+      expect(gamesInDoc.length).toBe(2);
+
+      // Verify existing game maintained its exact original lines (-3.5 spread, 52.5 total), NOT the newly scraped line (-7.0 / 60.0)
+      const existingInDoc = gamesInDoc.find((g: any) => g.gameId === 'g_existing_cfb');
+      expect(existingInDoc.spread.homeSpread).toBe(-3.5);
+      expect(existingInDoc.total.line).toBe(52.5);
+
+      // Verify newly added Thursday NFL game was appended with its lines
+      const thursdayInDoc = gamesInDoc.find((g: any) => g.gameId === 'g_thursday_nfl');
+      expect(thursdayInDoc).toBeDefined();
+      expect(thursdayInDoc.spread.homeSpread).toBe(-2.5);
+      expect(thursdayInDoc.total.line).toBe(47.5);
+
+      // Verify chronological sorting (Thursday Sept 10 game comes before Saturday Sept 12 game)
+      expect(gamesInDoc[0].gameId).toBe('g_thursday_nfl');
+      expect(gamesInDoc[1].gameId).toBe('g_existing_cfb');
+
+      spyScrape.mockRestore();
     });
   });
 });

@@ -3,12 +3,11 @@ import React from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import { ShoppingCart, Trophy, Link2, Coins, ChevronRight, Mail, Calendar, Settings } from 'lucide-react';
+import { ShoppingCart, Trophy, Coins, Mail, Calendar, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { db } from '../../lib/firebase';
-import { collection, getDocs, query, where, documentId, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
+import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { DashboardPick, DashboardPickSkeleton } from '../../components/dashboard/dashboard-pick';
 import { getShopItemsCached, getSponsorsCached, getAnnouncementsCached } from '../../lib/firestore-cache';
 

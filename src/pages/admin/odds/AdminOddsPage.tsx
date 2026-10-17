@@ -19,6 +19,17 @@ export default function AdminOddsPage() {
   const [syncResult, setSyncResult] = useState<any | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  // Apify Equibase Horse Racing Scraper State
+  const [apifyStatusLoading, setApifyStatusLoading] = useState(false);
+  const [apifyStatus, setApifyStatus] = useState<any | null>(null);
+  const [apifyDate, setApifyDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [apifyTracks, setApifyTracks] = useState<string>('SAR, BEL, AQU, DMR, GP');
+  const [apifyDatasetId, setApifyDatasetId] = useState<string>('');
+  const [apifyRawJson, setApifyRawJson] = useState<string>('');
+  const [apifyRunning, setApifyRunning] = useState(false);
+  const [apifyResult, setApifyResult] = useState<any | null>(null);
+  const [apifyError, setApifyError] = useState<string | null>(null);
+
   // SharpAPI Tennis Inspector State
   const [sharpLoading, setSharpLoading] = useState(false);
   const [sharpData, setSharpData] = useState<any | null>(null);
@@ -51,7 +62,93 @@ export default function AdminOddsPage() {
       }
     };
     fetchSettings();
+    fetchApifyStatus();
   }, []);
+
+  const fetchApifyStatus = async () => {
+    setApifyStatusLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/admin/apify/horse-racing/status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setApifyStatus(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch Apify status', e);
+    } finally {
+      setApifyStatusLoading(false);
+    }
+  };
+
+  const handleRunApifyScraper = async () => {
+    setApifyRunning(true);
+    setApifyResult(null);
+    setApifyError(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const tracksArray = apifyTracks.split(',').map(s => s.trim()).filter(Boolean);
+      const response = await fetch('/api/admin/apify/horse-racing/run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          date: apifyDate,
+          tracks: tracksArray.length > 0 ? tracksArray : undefined,
+          datasetId: apifyDatasetId.trim() || undefined
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to run Apify Equibase horse racing scraper');
+      }
+      setApifyResult(data);
+    } catch (err: any) {
+      console.error('Apify scraper run error:', err);
+      setApifyError(err.message || 'Error running Apify Equibase scraper');
+    } finally {
+      setApifyRunning(false);
+    }
+  };
+
+  const handleSyncApifyRawJson = async () => {
+    setApifyRunning(true);
+    setApifyResult(null);
+    setApifyError(null);
+
+    try {
+      if (!apifyRawJson.trim()) {
+        throw new Error('Please paste valid Equibase raw JSON items.');
+      }
+      const parsedItems = JSON.parse(apifyRawJson);
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/admin/apify/horse-racing/sync-dataset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ items: parsedItems })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to sync raw dataset items');
+      }
+      setApifyResult(data);
+    } catch (err: any) {
+      console.error('Apify raw JSON sync error:', err);
+      setApifyError(err.message || 'Error parsing or syncing raw dataset JSON');
+    } finally {
+      setApifyRunning(false);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setSaving(true);
@@ -525,6 +622,129 @@ export default function AdminOddsPage() {
                 </pre>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Apify Equibase US Horse Racing Scraper Card */}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/10 rounded-lg">
+              <Zap className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-zinc-100">Apify Equibase US Horse Racing Scraper</h2>
+              <p className="text-xs text-zinc-400">
+                Scrape daily race cards, post times, morning lines, and official finishes via actor <code className="text-amber-300">jungle_synthesizer/equibase-us-horse-racing-scraper</code>.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {apifyStatus?.tokenConfigured ? (
+              <span className="bg-emerald-950 text-emerald-400 text-xs px-2.5 py-1 rounded-md border border-emerald-800 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" /> API Token Active ({apifyStatus.tokenMasked})
+              </span>
+            ) : (
+              <span className="bg-amber-950 text-amber-400 text-xs px-2.5 py-1 rounded-md border border-amber-800 font-medium flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5" /> APIFY_API_TOKEN Unconfigured
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-zinc-300">Race Date (YYYY-MM-DD)</label>
+            <Input
+              type="date"
+              value={apifyDate}
+              onChange={(e) => setApifyDate(e.target.value)}
+              className="bg-zinc-900 border-zinc-800 text-white text-xs h-9"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-zinc-300">Track Codes (comma-separated)</label>
+            <Input
+              type="text"
+              value={apifyTracks}
+              onChange={(e) => setApifyTracks(e.target.value)}
+              placeholder="e.g. SAR, BEL, AQU, DMR, GP"
+              className="bg-zinc-900 border-zinc-800 text-white text-xs h-9"
+            />
+          </div>
+
+          <Button
+            onClick={handleRunApifyScraper}
+            disabled={apifyRunning}
+            className="bg-amber-600 hover:bg-amber-500 text-white flex items-center justify-center gap-2 h-9 text-xs font-semibold"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${apifyRunning ? 'animate-spin' : ''}`} />
+            {apifyRunning ? 'Running Scraper...' : 'Run Equibase Scraper'}
+          </Button>
+        </div>
+
+        {/* Dataset ID / Direct Payload Import Drawer */}
+        <div className="pt-2 border-t border-zinc-800/80 space-y-3">
+          <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-zinc-400" />
+            Dataset ID & Direct Raw JSON Payload Import
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[11px] text-zinc-400">Existing Apify Dataset ID (Optional)</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={apifyDatasetId}
+                  onChange={(e) => setApifyDatasetId(e.target.value)}
+                  placeholder="e.g. 5xJ8qPzLm9..."
+                  className="bg-zinc-900 border-zinc-800 text-white text-xs h-8"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] text-zinc-400">Direct Raw JSON Payload</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={apifyRawJson}
+                  onChange={(e) => setApifyRawJson(e.target.value)}
+                  placeholder='[{"trackName":"SAR","raceNumber":1,"runners":[]}]'
+                  className="bg-zinc-900 border-zinc-800 text-white text-xs h-8 font-mono"
+                />
+                <Button
+                  onClick={handleSyncApifyRawJson}
+                  disabled={apifyRunning || !apifyRawJson.trim()}
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 h-8 text-xs px-3 flex-shrink-0"
+                >
+                  Import JSON
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {apifyResult && (
+          <div className="p-4 bg-emerald-950/40 border border-emerald-800/60 rounded-lg text-xs space-y-2">
+            <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
+              <CheckCircle2 className="w-4 h-4" />
+              Equibase Horse Racing Races Synced ({apifyResult.syncedCount ?? 0} races)
+            </div>
+            <pre className="text-zinc-300 font-mono bg-zinc-950/60 p-3 rounded border border-zinc-900 overflow-x-auto max-h-60">
+              {JSON.stringify(apifyResult, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {apifyError && (
+          <div className="p-4 bg-red-950/40 border border-red-800/60 rounded-lg text-xs flex items-center gap-2 text-red-400">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{apifyError}</span>
           </div>
         )}
       </div>

@@ -17,6 +17,13 @@ import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
 import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
+import {
+  fetchEquibaseScraperData,
+  syncEquibaseRacesToMatchups,
+  getApifyToken,
+  parseEquibaseItems,
+  EQUIBASE_ACTOR_ID
+} from './services/apifyHorseRacingService.js';
 import { isMatchupLocked, getMatchupStartTime } from './utils/matchupUtils.js';
 import { isBracketLocked } from './utils/bracketUtils.js';
 import Stripe from 'stripe';
@@ -3128,6 +3135,79 @@ apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, re
     res.status(500).json({ error: e.message });
   }
 });
+
+apiRouter.get("/admin/apify/horse-racing/status", validateAdminOrApiKey, async (req, res) => {
+  const token = getApifyToken();
+  const tokenConfigured = Boolean(token);
+  const tokenMasked = tokenConfigured ? `${token.slice(0, 4)}...${token.slice(-4)}` : null;
+  res.json({
+    success: true,
+    actorId: EQUIBASE_ACTOR_ID,
+    tokenConfigured,
+    tokenMasked
+  });
+});
+
+apiRouter.post("/admin/apify/horse-racing/run", validateAdminOrApiKey, async (req, res) => {
+  if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
+  try {
+    const { date, tracks, maxItems, datasetId } = req.body || {};
+    const fetchResult = await fetchEquibaseScraperData({ date, tracks, maxItems, datasetId });
+
+    if (!fetchResult.success) {
+      return res.status(400).json({ success: false, error: fetchResult.error });
+    }
+
+    const syncResult = await syncEquibaseRacesToMatchups(adminDb, fetchResult.cards);
+    invalidateMatchupCaches();
+
+    return res.json({
+      success: true,
+      cardCount: fetchResult.cards.length,
+      syncedCount: syncResult.syncedCount,
+      updatedGameIds: syncResult.updatedGameIds,
+      cards: fetchResult.cards
+    });
+  } catch (e: any) {
+    console.error("Apify horse racing scraper run error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/apify/horse-racing/sync-dataset", validateAdminOrApiKey, async (req, res) => {
+  if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
+  try {
+    const { items, datasetId } = req.body || {};
+
+    let cards = [];
+    if (Array.isArray(items) && items.length > 0) {
+      cards = parseEquibaseItems(items);
+    } else if (datasetId) {
+      const fetchResult = await fetchEquibaseScraperData({ datasetId });
+      if (!fetchResult.success) {
+        return res.status(400).json({ success: false, error: fetchResult.error });
+      }
+      cards = fetchResult.cards;
+    } else {
+      return res.status(400).json({ success: false, error: "Missing required 'items' array or 'datasetId'" });
+    }
+
+    const syncResult = await syncEquibaseRacesToMatchups(adminDb, cards);
+    invalidateMatchupCaches();
+
+    return res.json({
+      success: true,
+      cardCount: cards.length,
+      syncedCount: syncResult.syncedCount,
+      updatedGameIds: syncResult.updatedGameIds,
+      cards
+    });
+  } catch (e: any) {
+    console.error("Apify horse racing sync dataset error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/monthly-rollover", validateAdmin, async (req, res) => {
   try {
     const date = new Date();

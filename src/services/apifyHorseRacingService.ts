@@ -111,6 +111,33 @@ export function parseMorningLineOdds(odds: any): number | undefined {
 }
 
 /**
+ * Recursively cleans an object/array payload for Firestore by replacing `undefined` values with `null`.
+ */
+export function cleanFirestorePayload<T>(obj: T): T {
+  if (obj === undefined) {
+    return null as any;
+  }
+  if (obj === null) {
+    return null as any;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanFirestorePayload(item)) as any;
+  }
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined) {
+        cleaned[key] = null;
+      } else {
+        cleaned[key] = cleanFirestorePayload(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+/**
  * Calculates the implied win probability (0.0 to 1.0) for a horse from morning line odds.
  */
 export function calculateImpliedProbability(odds: any): number {
@@ -179,14 +206,14 @@ export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
         raceNumber,
         raceDate: dateStr,
         postTimeMs,
-        distance: item.distance || item.dist,
-        surface: item.surface,
-        purse: item.purse,
+        distance: item.distance || item.dist || null,
+        surface: item.surface || null,
+        purse: item.purse || null,
         status: raceStatus,
         runners: [],
-        winningHorse: item.winningHorse || item.winner,
-        winningProgramNumber: item.winningProgramNumber || item.winningProgram,
-        rawPayload: item
+        winningHorse: item.winningHorse || item.winner || null,
+        winningProgramNumber: item.winningProgramNumber || item.winningProgram || null,
+        rawPayload: item || null
       });
     }
 
@@ -198,23 +225,24 @@ export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
         const horseName = r.horseName || r.horse || r.name;
         if (!horseName) continue;
         const mlOdds = r.morningLineOdds || r.morningLine || r.mlOdds || r.odds;
-        const finishPos = r.finishPosition !== undefined ? Number(r.finishPosition) : (r.finish !== undefined ? Number(r.finish) : undefined);
+        const rawFinishPos = r.finishPosition !== undefined ? Number(r.finishPosition) : (r.finish !== undefined ? Number(r.finish) : undefined);
+        const finishPos = rawFinishPos !== undefined && !isNaN(rawFinishPos) ? rawFinishPos : null;
 
         card.runners.push({
-          programNumber: r.programNumber || r.program || r.number || r.pp,
-          postPosition: r.postPosition ? Number(r.postPosition) : undefined,
+          programNumber: r.programNumber || r.program || r.number || r.pp || null,
+          postPosition: (r.postPosition !== undefined && r.postPosition !== null && !isNaN(Number(r.postPosition))) ? Number(r.postPosition) : null,
           horseName: String(horseName).trim(),
-          jockey: r.jockey,
-          trainer: r.trainer,
-          morningLineOdds: mlOdds,
-          mlOddsNumber: parseMorningLineOdds(mlOdds),
+          jockey: r.jockey || null,
+          trainer: r.trainer || null,
+          morningLineOdds: mlOdds || null,
+          mlOddsNumber: parseMorningLineOdds(mlOdds) ?? null,
           finishPosition: finishPos,
           status: r.scratched ? 'SCRATCHED' : (finishPos === 1 ? 'WINNER' : 'ACTIVE')
         });
 
         if (finishPos === 1 || r.status === 'WINNER') {
           card.winningHorse = String(horseName).trim();
-          card.winningProgramNumber = r.programNumber || r.program;
+          card.winningProgramNumber = r.programNumber || r.program || null;
           card.status = 'STATUS_FINAL';
         }
       }
@@ -222,23 +250,24 @@ export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
       // Handle flat runner item
       const horseName = item.horseName || item.horse;
       const mlOdds = item.morningLineOdds || item.morningLine || item.mlOdds || item.odds;
-      const finishPos = item.finishPosition !== undefined ? Number(item.finishPosition) : (item.finish !== undefined ? Number(item.finish) : undefined);
+      const rawFinishPos = item.finishPosition !== undefined ? Number(item.finishPosition) : (item.finish !== undefined ? Number(item.finish) : undefined);
+      const finishPos = rawFinishPos !== undefined && !isNaN(rawFinishPos) ? rawFinishPos : null;
 
       card.runners.push({
-        programNumber: item.programNumber || item.program || item.number,
-        postPosition: item.postPosition ? Number(item.postPosition) : undefined,
+        programNumber: item.programNumber || item.program || item.number || null,
+        postPosition: (item.postPosition !== undefined && item.postPosition !== null && !isNaN(Number(item.postPosition))) ? Number(item.postPosition) : null,
         horseName: String(horseName).trim(),
-        jockey: item.jockey,
-        trainer: item.trainer,
-        morningLineOdds: mlOdds,
-        mlOddsNumber: parseMorningLineOdds(mlOdds),
+        jockey: item.jockey || null,
+        trainer: item.trainer || null,
+        morningLineOdds: mlOdds || null,
+        mlOddsNumber: parseMorningLineOdds(mlOdds) ?? null,
         finishPosition: finishPos,
         status: item.scratched ? 'SCRATCHED' : (finishPos === 1 ? 'WINNER' : 'ACTIVE')
       });
 
       if (finishPos === 1 || item.status === 'WINNER') {
         card.winningHorse = String(horseName).trim();
-        card.winningProgramNumber = item.programNumber || item.program;
+        card.winningProgramNumber = item.programNumber || item.program || null;
         card.status = 'STATUS_FINAL';
       }
     }
@@ -280,6 +309,8 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
   const horseWon = Boolean(card.winningHorse && card.winningHorse.toLowerCase() === bestFieldHorse.horseName.toLowerCase());
   const fieldWon = Boolean(card.winningHorse && !horseWon);
 
+  const hvfWinnerId = card.status === 'STATUS_FINAL' ? (horseWon ? `horse_${bestFieldHorse.programNumber || '1'}` : (fieldWon ? 'field' : null)) : null;
+
   const hvfGameId = `equibase_${card.raceId}_hvfield`;
   matchups.push({
     gameId: hvfGameId,
@@ -302,7 +333,7 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
       image: '/logo.png',
       score: fieldWon ? 1 : 0
     },
-    winnerId: card.status === 'STATUS_FINAL' ? (horseWon ? `horse_${bestFieldHorse.programNumber || '1'}` : (fieldWon ? 'field' : undefined)) : undefined,
+    winnerId: hvfWinnerId,
     metadata: {
       matchupType: 'HORSE_VS_FIELD',
       trackName: card.trackName,
@@ -338,7 +369,7 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
 
     let h1Score = 0;
     let h2Score = 0;
-    let h2hWinnerId: string | undefined = undefined;
+    let h2hWinnerId: string | null = null;
 
     if (pos1 && pos2) {
       if (pos1 < pos2) {
@@ -349,6 +380,8 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
         h2hWinnerId = `horse_${horse2.programNumber || '2'}`;
       }
     }
+
+    const finalH2HWinnerId = card.status === 'STATUS_FINAL' ? h2hWinnerId : null;
 
     const h2hGameId = `equibase_${card.raceId}_h2h`;
     matchups.push({
@@ -372,7 +405,7 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
         image: '/logo.png',
         score: h2Score
       },
-      winnerId: card.status === 'STATUS_FINAL' ? h2hWinnerId : undefined,
+      winnerId: finalH2HWinnerId,
       metadata: {
         matchupType: 'HORSE_VS_HORSE',
         trackName: card.trackName,
@@ -529,9 +562,9 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
         trackCode: card.trackCode,
         raceNumber: card.raceNumber,
         raceDate: card.raceDate,
-        distance: card.distance,
-        surface: card.surface,
-        purse: card.purse,
+        distance: card.distance || null,
+        surface: card.surface || null,
+        purse: card.purse || null,
         runners: card.runners,
         winningHorse: card.winningHorse || null,
         winningProgramNumber: card.winningProgramNumber || null
@@ -547,7 +580,8 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
       matchupData.winnerId = card.winningHorse;
     }
 
-    await docRef.set(matchupData, { merge: true });
+    const cleanedMatchupData = cleanFirestorePayload(matchupData);
+    await docRef.set(cleanedMatchupData, { merge: true });
     updatedGameIds.push(gameId);
 
     // 2. Generate and store balanced Horse vs Field & Horse vs Horse Matchups
@@ -558,7 +592,8 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
       if (!bmExisting.exists) {
         bm.createdAt = Date.now();
       }
-      await bmRef.set(bm, { merge: true });
+      const cleanedBm = cleanFirestorePayload(bm);
+      await bmRef.set(cleanedBm, { merge: true });
       updatedGameIds.push(bm.gameId);
     }
   }

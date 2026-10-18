@@ -3,6 +3,7 @@ import {
   getApifyToken,
   parseRacePostTime,
   parseMorningLineOdds,
+  cleanFirestorePayload,
   calculateImpliedProbability,
   parseEquibaseItems,
   generateBalancedHorseRacingMatchups,
@@ -18,6 +19,31 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
     delete process.env.APIFY_API_TOKEN;
     delete process.env.APIFY_TOKEN;
     vi.restoreAllMocks();
+  });
+
+  describe('cleanFirestorePayload', () => {
+    it('converts undefined properties to null recursively', () => {
+      const input = {
+        title: 'Race 1',
+        purse: undefined,
+        metadata: {
+          surface: undefined,
+          runners: [
+            { horseName: 'Horse A', jockey: undefined, trainer: 'Trainer B' }
+          ]
+        }
+      };
+
+      const cleaned = cleanFirestorePayload(input);
+      expect(cleaned.purse).toBeNull();
+      expect(cleaned.metadata.surface).toBeNull();
+      expect(cleaned.metadata.runners[0].jockey).toBeNull();
+      expect(cleaned.metadata.runners[0].trainer).toBe('Trainer B');
+    });
+
+    it('handles top-level undefined', () => {
+      expect(cleanFirestorePayload(undefined)).toBeNull();
+    });
   });
 
   describe('getApifyToken', () => {
@@ -295,6 +321,53 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(syncResult.success).toBe(true);
       expect(syncResult.syncedCount).toBeGreaterThan(0);
       expect(storedDocs.size).toBeGreaterThan(0);
+    });
+
+    it('ensures syncEquibaseRacesToMatchups never passes undefined values to Firestore set', async () => {
+      const raceCards = parseEquibaseItems([
+        {
+          trackName: 'Del Mar',
+          trackCode: 'DMR',
+          raceNumber: 1,
+          date: '2026-09-10',
+          postTime: '2:00 PM',
+          // purse, distance, surface omitted -> will be undefined/null
+          runners: [
+            { programNumber: '1', horseName: 'Horse One', morningLineOdds: '2/1' /* jockey & trainer omitted */ },
+            { programNumber: '2', horseName: 'Horse Two', morningLineOdds: '3/1' }
+          ]
+        }
+      ]);
+
+      const storedPayloads: any[] = [];
+      const mockDb = {
+        collection: (colName: string) => ({
+          doc: (docId: string) => ({
+            get: async () => ({ exists: false }),
+            set: async (data: any) => {
+              storedPayloads.push(data);
+            }
+          })
+        })
+      };
+
+      const syncRes = await syncEquibaseRacesToMatchups(mockDb, raceCards);
+      expect(syncRes.syncedCount).toBeGreaterThan(0);
+      expect(storedPayloads.length).toBeGreaterThan(0);
+
+      // Helper function to check for undefined in an object
+      const containsUndefined = (obj: any): boolean => {
+        if (obj === undefined) return true;
+        if (obj === null || typeof obj !== 'object') return false;
+        for (const k of Object.keys(obj)) {
+          if (containsUndefined(obj[k])) return true;
+        }
+        return false;
+      };
+
+      for (const payload of storedPayloads) {
+        expect(containsUndefined(payload)).toBe(false);
+      }
     });
   });
 });

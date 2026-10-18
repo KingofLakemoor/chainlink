@@ -20,6 +20,7 @@ import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
 import {
   fetchEquibaseScraperData,
   syncEquibaseRacesToMatchups,
+  runDailyHorseRacingScheduleSync,
   getApifyToken,
   parseEquibaseItems,
   EQUIBASE_ACTOR_ID
@@ -2425,6 +2426,7 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
 
     let tennisResult: any = null;
     let soccerResult: any = null;
+    let horseRacingResult: any = null;
 
     if (target === 'ALL' || target === 'TENNIS' || target === 'ATP' || target === 'WTA') {
       tennisResult = await syncTennisOdds();
@@ -2432,11 +2434,16 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
     if (target === 'ALL' || target === 'SOCCER') {
       soccerResult = await syncSoccerOdds();
     }
+    if (target === 'ALL' || target === 'HORSE_RACING' || target === 'HORSE') {
+      horseRacingResult = await runDailyHorseRacingScheduleSync(adminDb!);
+    }
 
     const overallSuccess = (tennisResult ? tennisResult.success !== false : true) &&
-                           (soccerResult ? soccerResult.success !== false : true);
+                           (soccerResult ? soccerResult.success !== false : true) &&
+                           (horseRacingResult ? horseRacingResult.success !== false : true);
     const primaryError = (!tennisResult?.success ? tennisResult?.error : undefined) ||
-                         (!soccerResult?.success ? soccerResult?.error : undefined);
+                         (!soccerResult?.success ? soccerResult?.error : undefined) ||
+                         (!horseRacingResult?.success ? horseRacingResult?.error : undefined);
 
     res.status(overallSuccess ? 200 : 400).json({
       success: overallSuccess,
@@ -2444,9 +2451,34 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
       sport: sport || 'ALL',
       tennis: tennisResult,
       soccer: soccerResult,
+      horseRacing: horseRacingResult,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+apiRouter.post("/admin/horse-racing/sync-manual", validateAdminOrApiKey, async (req, res) => {
+  if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
+  try {
+    const { date, tracks, datasetId, maxItems } = req.body || {};
+    const syncResult = await runDailyHorseRacingScheduleSync(adminDb, { date, tracks, datasetId, maxItems });
+
+    if (!syncResult.success) {
+      return res.status(400).json({ success: false, error: syncResult.error });
+    }
+
+    invalidateMatchupCaches();
+
+    return res.json({
+      success: true,
+      syncedCount: syncResult.syncedCount,
+      purgedCount: syncResult.purgedCount,
+      updatedGameIds: syncResult.updatedGameIds
+    });
+  } catch (e: any) {
+    console.error("Manual horse racing sync error:", e);
+    return res.status(500).json({ success: false, error: e.message });
   }
 });
 

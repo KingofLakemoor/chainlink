@@ -275,7 +275,8 @@ export default function AdminOddsPage() {
               onChange={(e) => setSelectedSport(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
             >
-              <option value="ALL">All Supported Sports (Tennis & Soccer)</option>
+              <option value="ALL">All Supported Sports (Tennis, Soccer, Horse Racing)</option>
+              <option value="HORSE_RACING">Horse Racing (Equibase / Apify)</option>
               <option value="tennis">Tennis (ATP & WTA)</option>
               <option value="soccer">Soccer (RPL, TUR, ARG, BRA, LMX)</option>
               <option value="ATP">ATP Tennis Only</option>

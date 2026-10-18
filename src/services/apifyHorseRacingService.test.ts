@@ -214,6 +214,29 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(result.error).toContain('APIFY_API_TOKEN is missing');
     });
 
+    it('sends sp_intended_usage in POST body payload to Apify API', async () => {
+      process.env.APIFY_API_TOKEN = 'mock_token_789';
+
+      let capturedBody: any = null;
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any, opts: any) => {
+        if (opts?.body) {
+          capturedBody = JSON.parse(opts.body);
+        }
+        return {
+          ok: true,
+          json: async () => []
+        } as Response;
+      });
+
+      await fetchEquibaseScraperData({ date: '2026-09-10' });
+      expect(capturedBody).toBeDefined();
+      expect(capturedBody.sp_intended_usage).toBe('GENERAL');
+
+      // Test custom spIntendedUsage
+      await fetchEquibaseScraperData({ date: '2026-09-10', spIntendedUsage: 'SERP' });
+      expect(capturedBody.sp_intended_usage).toBe('SERP');
+    });
+
     it('executes runDailyHorseRacingScheduleSync when token is configured', async () => {
       process.env.APIFY_API_TOKEN = 'mock_token_789';
 

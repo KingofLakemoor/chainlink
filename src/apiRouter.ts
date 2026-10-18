@@ -2461,8 +2461,14 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
 apiRouter.post("/admin/horse-racing/sync-manual", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
   try {
-    const { date, tracks, datasetId, maxItems } = req.body || {};
-    const syncResult = await runDailyHorseRacingScheduleSync(adminDb, { date, tracks, datasetId, maxItems });
+    const { date, tracks, datasetId, maxItems, spIntendedUsage, sp_intended_usage } = req.body || {};
+    const syncResult = await runDailyHorseRacingScheduleSync(adminDb, {
+      date,
+      tracks,
+      datasetId,
+      maxItems,
+      spIntendedUsage: spIntendedUsage || sp_intended_usage
+    });
 
     if (!syncResult.success) {
       return res.status(400).json({ success: false, error: syncResult.error });
@@ -3183,8 +3189,14 @@ apiRouter.get("/admin/apify/horse-racing/status", validateAdminOrApiKey, async (
 apiRouter.post("/admin/apify/horse-racing/run", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
   try {
-    const { date, tracks, maxItems, datasetId } = req.body || {};
-    const fetchResult = await fetchEquibaseScraperData({ date, tracks, maxItems, datasetId });
+    const { date, tracks, maxItems, datasetId, spIntendedUsage, sp_intended_usage } = req.body || {};
+    const fetchResult = await fetchEquibaseScraperData({
+      date,
+      tracks,
+      maxItems,
+      datasetId,
+      spIntendedUsage: spIntendedUsage || sp_intended_usage
+    });
 
     if (!fetchResult.success) {
       return res.status(400).json({ success: false, error: fetchResult.error });

@@ -39,6 +39,8 @@ export interface ApifyRunOptions {
   tracks?: string[];
   maxItems?: number;
   datasetId?: string;
+  spIntendedUsage?: string;
+  sp_intended_usage?: string;
 }
 
 /**
@@ -416,7 +418,8 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
       body = JSON.stringify({
         date: options.date || new Date().toISOString().split('T')[0],
         tracks: options.tracks && options.tracks.length > 0 ? options.tracks : undefined,
-        maxItems: options.maxItems || 100
+        maxItems: options.maxItems || 100,
+        sp_intended_usage: options.sp_intended_usage || options.spIntendedUsage || 'GENERAL'
       });
     }
 

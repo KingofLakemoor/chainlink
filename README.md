@@ -31,7 +31,7 @@ To support running both local development/AIStudio environments and Cloud Run/Ap
 - **Troubleshooting Firebase App Hosting & Cloud Build Timeouts (`deadline exceeded`):**
   - If a deployment fails with `checkBuildComplete build has taken longer than 1h0m0s to start and complete, marking as timed out: cloud build has taken longer than the polling timeout: deadline exceeded`:
     1. **Transient Cloud Build Stalls:** Cloud Build runner allocation or secret retrieval occasionally stalls in Firebase App Hosting. Triggering a re-run of the build or pushing a new commit will start a fresh build instance.
-    2. **Secret Dependencies:** Ensure all secrets defined in `apphosting.yaml` (e.g., `VITE_FIREBASE_VAPID_KEY`, `FIREBASE_SERVICE_ACCOUNT_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SCRIPTLESS_API_KEY`) exist in Secret Manager and the App Hosting service account has Secret Manager Secret Accessor permission.
+    2. **Secret Dependencies:** Ensure all required secrets defined in `apphosting.yaml` (e.g., `VITE_FIREBASE_VAPID_KEY`, `FIREBASE_SERVICE_ACCOUNT_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SCRIPTLESS_API_KEY`) exist in Google Cloud Secret Manager and the App Hosting backend service account has access. For optional secrets like `APIFY_API_TOKEN`, grant access using `firebase apphosting:secrets:grantaccess APIFY_API_TOKEN` if you create the secret in Secret Manager or pass it directly as an environment variable.
     3. **Build Step Verification:** Local production builds run efficiently in ~20 seconds (`npm run build`). If a build hangs remotely, check the Cloud Build log details via GCP Console to identify if `npm ci` or asset bundling hung waiting for interactive input or network access.
 
 ## 🙏 Acknowledgements & Attribution

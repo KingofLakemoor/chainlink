@@ -256,6 +256,12 @@ export default function PlayDashboard() {
       if (selectedSport === 'GOLF' && !['PGA', 'PUTTING'].includes(m.league)) return false;
       if (selectedSport === 'HORSE_RACING' && !['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league)) return false;
 
+      // Limit horse racing matchups to only appear on the Horse tab unless explicitly featured by an admin for the main board
+      const isHorseLeague = ['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league);
+      if (isHorseLeague && selectedSport !== 'HORSE_RACING' && !m.featured && !m.showOnMainBoard) {
+        return false;
+      }
+
       return true;
     });
 

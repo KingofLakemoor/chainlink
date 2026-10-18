@@ -102,6 +102,34 @@ export function parseMorningLineOdds(odds: any): number | undefined {
 }
 
 /**
+ * Calculates the implied win probability (0.0 to 1.0) for a horse from morning line odds.
+ */
+export function calculateImpliedProbability(odds: any): number {
+  if (odds === undefined || odds === null || odds === '') return 0.10;
+  if (typeof odds === 'number') {
+    if (odds <= 0) return 0.10;
+    return Math.min(Math.max(1 / odds, 0.01), 0.99);
+  }
+
+  const str = String(odds).trim();
+  if (str.includes('/')) {
+    const [numStr, denStr] = str.split('/');
+    const num = parseFloat(numStr);
+    const den = parseFloat(denStr);
+    if (!isNaN(num) && !isNaN(den) && num + den > 0) {
+      return Math.min(Math.max(den / (num + den), 0.01), 0.99);
+    }
+  }
+
+  const parsed = parseFloat(str);
+  if (!isNaN(parsed) && parsed > 0) {
+    return Math.min(Math.max(1 / parsed, 0.01), 0.99);
+  }
+
+  return 0.10;
+}
+
+/**
  * Normalizes raw dataset items returned from the Apify actor into structured EquibaseRaceCard objects.
  */
 export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
@@ -211,6 +239,151 @@ export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
 }
 
 /**
+ * Generates balanced "Horse vs Field" and "Horse vs Horse Better Finish" matchups for a race card.
+ */
+export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any[] {
+  const matchups: any[] = [];
+  const activeRunners = card.runners.filter(r => r.status !== 'SCRATCHED');
+
+  if (activeRunners.length === 0) {
+    return [];
+  }
+
+  // Calculate implied probabilities for each runner
+  const runnersWithProb = activeRunners.map(r => {
+    const prob = calculateImpliedProbability(r.morningLineOdds);
+    return { ...r, impliedProb: prob };
+  });
+
+  // 1. Horse vs Field Matchup
+  let bestFieldHorse = runnersWithProb[0];
+  let minDiffFromHalf = Math.abs(bestFieldHorse.impliedProb - 0.50);
+
+  for (const r of runnersWithProb) {
+    const diff = Math.abs(r.impliedProb - 0.50);
+    if (diff < minDiffFromHalf) {
+      minDiffFromHalf = diff;
+      bestFieldHorse = r;
+    }
+  }
+
+  const fieldProb = Math.max(0.01, 1 - bestFieldHorse.impliedProb);
+  const horseWon = Boolean(card.winningHorse && card.winningHorse.toLowerCase() === bestFieldHorse.horseName.toLowerCase());
+  const fieldWon = Boolean(card.winningHorse && !horseWon);
+
+  const hvfGameId = `equibase_${card.raceId}_hvfield`;
+  matchups.push({
+    gameId: hvfGameId,
+    title: `${card.trackName} R${card.raceNumber}: ${bestFieldHorse.horseName} vs The Field`,
+    league: 'HORSE_RACING',
+    startTime: card.postTimeMs,
+    status: card.status,
+    active: true,
+    manuallyActivated: true,
+    type: 'STANDARD',
+    homeTeam: {
+      id: `horse_${bestFieldHorse.programNumber || '1'}`,
+      name: `${bestFieldHorse.horseName} (${bestFieldHorse.morningLineOdds || 'ML'})`,
+      image: '/logo.png',
+      score: horseWon ? 1 : 0
+    },
+    awayTeam: {
+      id: 'field',
+      name: 'The Field (All Other Runners)',
+      image: '/logo.png',
+      score: fieldWon ? 1 : 0
+    },
+    winnerId: card.status === 'STATUS_FINAL' ? (horseWon ? `horse_${bestFieldHorse.programNumber || '1'}` : (fieldWon ? 'field' : undefined)) : undefined,
+    metadata: {
+      matchupType: 'HORSE_VS_FIELD',
+      trackName: card.trackName,
+      trackCode: card.trackCode,
+      raceNumber: card.raceNumber,
+      raceDate: card.raceDate,
+      horseImpliedProb: Math.round(bestFieldHorse.impliedProb * 100) / 100,
+      fieldImpliedProb: Math.round(fieldProb * 100) / 100,
+      runner: bestFieldHorse,
+      winningHorse: card.winningHorse || null
+    },
+    updatedAt: Date.now()
+  });
+
+  // 2. Horse vs Horse Better Finish Matchup
+  if (runnersWithProb.length >= 2) {
+    let bestPair = [runnersWithProb[0], runnersWithProb[1]];
+    let minOddsDiff = Math.abs(bestPair[0].impliedProb - bestPair[1].impliedProb);
+
+    for (let i = 0; i < runnersWithProb.length; i++) {
+      for (let j = i + 1; j < runnersWithProb.length; j++) {
+        const diff = Math.abs(runnersWithProb[i].impliedProb - runnersWithProb[j].impliedProb);
+        if (diff < minOddsDiff) {
+          minOddsDiff = diff;
+          bestPair = [runnersWithProb[i], runnersWithProb[j]];
+        }
+      }
+    }
+
+    const [horse1, horse2] = bestPair;
+    const pos1 = horse1.finishPosition;
+    const pos2 = horse2.finishPosition;
+
+    let h1Score = 0;
+    let h2Score = 0;
+    let h2hWinnerId: string | undefined = undefined;
+
+    if (pos1 && pos2) {
+      if (pos1 < pos2) {
+        h1Score = 1;
+        h2hWinnerId = `horse_${horse1.programNumber || '1'}`;
+      } else if (pos2 < pos1) {
+        h2Score = 1;
+        h2hWinnerId = `horse_${horse2.programNumber || '2'}`;
+      }
+    }
+
+    const h2hGameId = `equibase_${card.raceId}_h2h`;
+    matchups.push({
+      gameId: h2hGameId,
+      title: `${card.trackName} R${card.raceNumber}: ${horse1.horseName} vs ${horse2.horseName}`,
+      league: 'HORSE_RACING',
+      startTime: card.postTimeMs,
+      status: card.status,
+      active: true,
+      manuallyActivated: true,
+      type: 'STANDARD',
+      homeTeam: {
+        id: `horse_${horse1.programNumber || '1'}`,
+        name: `${horse1.horseName} (${horse1.morningLineOdds || 'ML'})`,
+        image: '/logo.png',
+        score: h1Score
+      },
+      awayTeam: {
+        id: `horse_${horse2.programNumber || '2'}`,
+        name: `${horse2.horseName} (${horse2.morningLineOdds || 'ML'})`,
+        image: '/logo.png',
+        score: h2Score
+      },
+      winnerId: card.status === 'STATUS_FINAL' ? h2hWinnerId : undefined,
+      metadata: {
+        matchupType: 'HORSE_VS_HORSE',
+        trackName: card.trackName,
+        trackCode: card.trackCode,
+        raceNumber: card.raceNumber,
+        raceDate: card.raceDate,
+        horse1ImpliedProb: Math.round(horse1.impliedProb * 100) / 100,
+        horse2ImpliedProb: Math.round(horse2.impliedProb * 100) / 100,
+        horse1,
+        horse2,
+        winningHorse: card.winningHorse || null
+      },
+      updatedAt: Date.now()
+    });
+  }
+
+  return matchups;
+}
+
+/**
  * Executes the Apify Equibase US Horse Racing Scraper actor and returns parsed race cards.
  */
 export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): Promise<{
@@ -297,11 +470,11 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
   const updatedGameIds: string[] = [];
 
   for (const card of cards) {
+    // 1. Primary Full Race Matchup
     const gameId = `equibase_${card.raceId}`;
     const docRef = db.collection('matchups').doc(gameId);
     const existingDoc = await docRef.get();
 
-    // Pick top two contenders or default runners
     const activeRunners = card.runners.filter(r => r.status !== 'SCRATCHED');
     const firstRunner = activeRunners[0] || { horseName: 'Runner 1', programNumber: '1' };
     const secondRunner = activeRunners[1] || { horseName: 'Runner 2', programNumber: '2' };
@@ -355,10 +528,57 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
 
     await docRef.set(matchupData, { merge: true });
     updatedGameIds.push(gameId);
+
+    // 2. Generate and store balanced Horse vs Field & Horse vs Horse Matchups
+    const balancedMatchups = generateBalancedHorseRacingMatchups(card);
+    for (const bm of balancedMatchups) {
+      const bmRef = db.collection('matchups').doc(bm.gameId);
+      const bmExisting = await bmRef.get();
+      if (!bmExisting.exists) {
+        bm.createdAt = Date.now();
+      }
+      await bmRef.set(bm, { merge: true });
+      updatedGameIds.push(bm.gameId);
+    }
   }
 
   return {
     syncedCount: updatedGameIds.length,
     updatedGameIds
+  };
+}
+
+/**
+ * Triggers daily schedule sync for today's horse racing slates.
+ * Intended to run as part of daily/overnight automated ingestion.
+ */
+export async function runDailyHorseRacingScheduleSync(db: any, options: ApifyRunOptions = {}): Promise<{
+  success: boolean;
+  syncedCount: number;
+  updatedGameIds: string[];
+  error?: string;
+}> {
+  const targetDate = options.date || new Date().toISOString().split('T')[0];
+  const fetchResult = await fetchEquibaseScraperData({
+    date: targetDate,
+    tracks: options.tracks,
+    maxItems: options.maxItems || 200
+  });
+
+  if (!fetchResult.success) {
+    return {
+      success: false,
+      syncedCount: 0,
+      updatedGameIds: [],
+      error: fetchResult.error
+    };
+  }
+
+  const syncResult = await syncEquibaseRacesToMatchups(db, fetchResult.cards);
+
+  return {
+    success: true,
+    syncedCount: syncResult.syncedCount,
+    updatedGameIds: syncResult.updatedGameIds
   };
 }

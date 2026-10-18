@@ -8,6 +8,7 @@ import {
   generateBalancedHorseRacingMatchups,
   fetchEquibaseScraperData,
   syncEquibaseRacesToMatchups,
+  purgeUnpickedHorseMatchups,
   runDailyHorseRacingScheduleSync,
   EQUIBASE_ACTOR_ID
 } from './apifyHorseRacingService';
@@ -108,6 +109,54 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
     });
   });
 
+  describe('purgeUnpickedHorseMatchups', () => {
+    it('purges unpicked horse racing matchups when post time has passed', async () => {
+      const mockHorseDocs = [
+        {
+          id: 'equibase_SAR_1',
+          ref: { update: vi.fn() },
+          data: () => ({
+            gameId: 'equibase_SAR_1',
+            league: 'HORSE_RACING',
+            active: true,
+            startTime: Date.now() - 10 * 60 * 1000 // 10 minutes ago
+          })
+        }
+      ];
+
+      const mockDb = {
+        collection: (colName: string) => {
+          if (colName === 'matchups') {
+            return {
+              where: () => ({
+                where: () => ({
+                  get: async () => ({ docs: mockHorseDocs })
+                })
+              })
+            };
+          }
+          if (colName === 'picks' || colName === 'pickemPicks') {
+            return {
+              where: () => ({
+                limit: () => ({
+                  get: async () => ({ empty: true })
+                })
+              })
+            };
+          }
+          return {};
+        }
+      };
+
+      const result = await purgeUnpickedHorseMatchups(mockDb);
+      expect(result.purgedCount).toBe(1);
+      expect(mockHorseDocs[0].ref.update).toHaveBeenCalledWith(expect.objectContaining({
+        active: false,
+        abandoned: true
+      }));
+    });
+  });
+
   describe('parseEquibaseItems', () => {
     it('normalizes pre-grouped race card objects with nested runners', () => {
       const rawInput = [
@@ -196,6 +245,11 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
             set: async (data: any, opts?: any) => {
               storedDocs.set(docId, opts?.merge && storedDocs.has(docId) ? { ...storedDocs.get(docId), ...data } : data);
             }
+          }),
+          where: () => ({
+            where: () => ({
+              get: async () => ({ docs: [] })
+            })
           })
         })
       };

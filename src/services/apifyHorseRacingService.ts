@@ -549,12 +549,78 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
 }
 
 /**
- * Triggers daily schedule sync for today's horse racing slates.
+ * Purges (marks inactive and abandoned) horse racing matchups whose post time has arrived or passed if no user picks exist.
+ */
+export async function purgeUnpickedHorseMatchups(db: any, now: number = Date.now()): Promise<{
+  purgedCount: number;
+  purgedGameIds: string[];
+}> {
+  if (!db) return { purgedCount: 0, purgedGameIds: [] };
+
+  try {
+    const horseMatchupsSnap = await db.collection('matchups')
+      .where('league', '==', 'HORSE_RACING')
+      .where('active', '==', true)
+      .get();
+
+    const purgedGameIds: string[] = [];
+
+    for (const doc of horseMatchupsSnap.docs) {
+      const data = doc.data();
+      const startTime = parseRacePostTime(data.startTime);
+
+      if (startTime > 0 && now >= startTime) {
+        const gameId = data.gameId || doc.id;
+
+        // Check if picks exist in main game 'picks' or 'pickemPicks'
+        let hasPicks = false;
+
+        const mainPicksSnap = await db.collection('picks')
+          .where('gameId', '==', gameId)
+          .limit(1)
+          .get();
+
+        if (!mainPicksSnap.empty) {
+          hasPicks = true;
+        } else {
+          const pickemPicksSnap = await db.collection('pickemPicks')
+            .where('matchupId', '==', gameId)
+            .limit(1)
+            .get();
+          if (!pickemPicksSnap.empty) {
+            hasPicks = true;
+          }
+        }
+
+        if (!hasPicks) {
+          await doc.ref.update({
+            active: false,
+            abandoned: true,
+            updatedAt: now
+          });
+          purgedGameIds.push(gameId);
+        }
+      }
+    }
+
+    return {
+      purgedCount: purgedGameIds.length,
+      purgedGameIds
+    };
+  } catch (e) {
+    console.error('Error purging unpicked horse matchups:', e);
+    return { purgedCount: 0, purgedGameIds: [] };
+  }
+}
+
+/**
+ * Triggers daily schedule sync for today's horse racing slates and purges unpicked locked races.
  * Intended to run as part of daily/overnight automated ingestion.
  */
 export async function runDailyHorseRacingScheduleSync(db: any, options: ApifyRunOptions = {}): Promise<{
   success: boolean;
   syncedCount: number;
+  purgedCount: number;
   updatedGameIds: string[];
   error?: string;
 }> {
@@ -569,16 +635,19 @@ export async function runDailyHorseRacingScheduleSync(db: any, options: ApifyRun
     return {
       success: false,
       syncedCount: 0,
+      purgedCount: 0,
       updatedGameIds: [],
       error: fetchResult.error
     };
   }
 
   const syncResult = await syncEquibaseRacesToMatchups(db, fetchResult.cards);
+  const purgeResult = await purgeUnpickedHorseMatchups(db);
 
   return {
     success: true,
     syncedCount: syncResult.syncedCount,
+    purgedCount: purgeResult.purgedCount,
     updatedGameIds: syncResult.updatedGameIds
   };
 }

@@ -1,6 +1,7 @@
 import { getTeamShortName } from "../../lib/teamUtils";
 import React from 'react';
 import { Trophy, Link2, X, Star } from 'lucide-react';
+import { GiHorseHead } from 'react-icons/gi';
 import { cn, formatUpcomingTime } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { FirebaseImage } from './FirebaseImage';
@@ -72,6 +73,51 @@ export const MatchupCard = React.memo(function MatchupCard({
   const isHomeFavorite = hasMoneyline && !isNaN(mlAwayNum) && !isNaN(mlHomeNum)
     ? mlHomeNum < mlAwayNum
     : (m.metadata?.spread !== undefined && m.metadata.spread !== null ? Number(m.metadata.spread) < 0 : false);
+
+  const isHorseLeague = ['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league);
+
+  const getTeamFallbackIcon = (team: any) => {
+    if (!team) return <Link2 className="w-10 h-10 text-zinc-600" />;
+
+    if (isHorseLeague) {
+      const isField = team.id === 'field' || team.name?.toLowerCase().includes('field');
+      if (isField) {
+        return <GiHorseHead className="w-10 h-10 text-amber-400" />;
+      }
+      const match = (team.id || '').match(/(\d+)/) || (team.name || '').match(/^#?(\d+)/);
+      const postNum = match ? match[1] : '1';
+
+      const saddleColors: Record<string, { bg: string, text: string }> = {
+        '1': { bg: 'bg-red-600', text: 'text-white' },
+        '2': { bg: 'bg-white', text: 'text-black' },
+        '3': { bg: 'bg-blue-600', text: 'text-white' },
+        '4': { bg: 'bg-yellow-400', text: 'text-black' },
+        '5': { bg: 'bg-emerald-600', text: 'text-white' },
+        '6': { bg: 'bg-black', text: 'text-amber-400' },
+        '7': { bg: 'bg-orange-500', text: 'text-black' },
+        '8': { bg: 'bg-pink-400', text: 'text-black' },
+        '9': { bg: 'bg-cyan-400', text: 'text-black' },
+        '10': { bg: 'bg-purple-600', text: 'text-white' },
+        '11': { bg: 'bg-zinc-400', text: 'text-red-600' },
+        '12': { bg: 'bg-lime-400', text: 'text-black' },
+      };
+
+      const style = saddleColors[postNum] || { bg: 'bg-zinc-800', text: 'text-amber-400' };
+
+      return (
+        <div className={cn("w-12 h-12 rounded-lg flex flex-col items-center justify-center font-black shadow-md border border-black/30", style.bg, style.text)}>
+          <span className="text-[9px] uppercase font-extrabold tracking-tight leading-none opacity-80">POST</span>
+          <span className="text-xl leading-none font-black">{postNum}</span>
+        </div>
+      );
+    }
+
+    if (m.league === 'SCRIPTLESS' || (team.image && team.image.startsWith('/contestants/'))) {
+      return undefined;
+    }
+
+    return <Link2 className="w-10 h-10 text-zinc-600" />;
+  };
 
   let featuredColor = "";
   let featuredName = "Featured Sponsor";
@@ -207,7 +253,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                  onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, (m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? { id: 'OVER', name: 'OVER', image: '/images/over.png' } : m.awayTeam)}
                  className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex items-center justify-center p-1.5 bg-[#1a1a1a] transition-all", pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.id) ? 'border-[#22c55e] shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] opacity-80 cursor-pointer' : 'border-[#3f3f46] cursor-default opacity-50')))}
                >
-                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} src={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? '/images/over.png' : (m.awayTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.name} />
+                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.awayTeam.image && m.awayTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? undefined : getTeamFallbackIcon(m.awayTeam)} src={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? '/images/over.png' : (m.awayTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.name} />
                </button>
                {pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'OVER' : m.awayTeam.id) && (
                  <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#22c55e] flex items-center justify-center shadow-lg z-10">
@@ -376,7 +422,7 @@ export const MatchupCard = React.memo(function MatchupCard({
                  onClick={() => (!isPickDisabled || isQueueState) && onMakePick(m, (m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? { id: 'UNDER', name: 'UNDER', image: '/images/under.png' } : m.homeTeam)}
                  className={cn("w-20 h-20 sm:w-28 sm:h-28 rounded-xl border flex items-center justify-center p-1.5 bg-[#1a1a1a] transition-all", pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.id) ? 'border-[#22c55e] shadow-[0_0_15px_rgba(34,197,94,0.2)]' : (!isPickDisabled ? 'border-[#3f3f46] hover:border-[#22c55e] cursor-pointer' : (isQueueState ? 'border-[#3f3f46] opacity-80 cursor-pointer' : 'border-[#3f3f46] cursor-default opacity-50')))}
                >
-                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? undefined : <Link2 className="w-10 h-10 text-zinc-600" />} src={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? '/images/under.png' : (m.homeTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.name} />
+                  <FirebaseImage fallback={(m.league === 'SCRIPTLESS' || (m.homeTeam.image && m.homeTeam.image.startsWith('/contestants/'))) ? '/images/scriptless.png' : undefined} fallbackIcon={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? undefined : getTeamFallbackIcon(m.homeTeam)} src={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? '/images/under.png' : (m.homeTeam.image)} className="w-full h-full object-contain drop-shadow-md flex items-center justify-center" alt={(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.name} />
                </button>
                {pickData?.pick?.id === ((m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : m.homeTeam.id) && (
                  <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[#22c55e] flex items-center justify-center shadow-lg z-10">

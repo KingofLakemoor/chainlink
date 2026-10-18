@@ -41,6 +41,7 @@ export default function PickEmAdminPage() {
     isOpen: true,
     isPrivate: false,
     joinCode: '',
+    trackFilter: '',
     themePrimaryColor: '#22c55e',
     themeTitle: '',
     themeSubtitle: '',
@@ -302,6 +303,7 @@ export default function PickEmAdminPage() {
         isPrivate: createData.isPrivate,
         joinCode: createData.isPrivate ? createData.joinCode : '',
         entryFee: createData.entryFee,
+        trackFilter: createData.trackFilter.trim() || undefined,
         createdAt: Date.now()
       });
 
@@ -879,7 +881,7 @@ export default function PickEmAdminPage() {
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Supported Leagues *</label>
                 <div className="flex flex-wrap gap-3">
-                  {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MLB', 'LLWS', 'LMX'].map(l => (
+                  {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING'].map(l => (
                     <label key={l} className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg hover:border-zinc-700">
                       <input
                         type="checkbox"
@@ -898,6 +900,20 @@ export default function PickEmAdminPage() {
                   ))}
                 </div>
               </div>
+
+              {createData.leagues.includes('HORSE_RACING') && (
+                <div className="p-3 bg-amber-950/30 border border-amber-800/50 rounded-lg space-y-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-amber-300">Horse Racing Track Filter (Optional)</label>
+                  <input
+                    type="text"
+                    value={createData.trackFilter}
+                    onChange={e => setCreateForm({ ...createData, trackFilter: e.target.value })}
+                    placeholder="e.g. SAR, BEL, AQU, DMR, GP (leave blank for all tracks)"
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                  <p className="text-[10px] text-zinc-400">Specifying track codes (e.g. SAR) narrows this campaign specifically to races at those track(s).</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

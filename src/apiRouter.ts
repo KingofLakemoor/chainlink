@@ -17,6 +17,14 @@ import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
 import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
+import {
+  fetchEquibaseScraperData,
+  syncEquibaseRacesToMatchups,
+  runDailyHorseRacingScheduleSync,
+  getApifyToken,
+  parseEquibaseItems,
+  EQUIBASE_ACTOR_ID
+} from './services/apifyHorseRacingService.js';
 import { isMatchupLocked, getMatchupStartTime } from './utils/matchupUtils.js';
 import { isBracketLocked } from './utils/bracketUtils.js';
 import Stripe from 'stripe';
@@ -2418,6 +2426,7 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
 
     let tennisResult: any = null;
     let soccerResult: any = null;
+    let horseRacingResult: any = null;
 
     if (target === 'ALL' || target === 'TENNIS' || target === 'ATP' || target === 'WTA') {
       tennisResult = await syncTennisOdds();
@@ -2425,11 +2434,16 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
     if (target === 'ALL' || target === 'SOCCER') {
       soccerResult = await syncSoccerOdds();
     }
+    if (target === 'ALL' || target === 'HORSE_RACING' || target === 'HORSE') {
+      horseRacingResult = await runDailyHorseRacingScheduleSync(adminDb!);
+    }
 
     const overallSuccess = (tennisResult ? tennisResult.success !== false : true) &&
-                           (soccerResult ? soccerResult.success !== false : true);
+                           (soccerResult ? soccerResult.success !== false : true) &&
+                           (horseRacingResult ? horseRacingResult.success !== false : true);
     const primaryError = (!tennisResult?.success ? tennisResult?.error : undefined) ||
-                         (!soccerResult?.success ? soccerResult?.error : undefined);
+                         (!soccerResult?.success ? soccerResult?.error : undefined) ||
+                         (!horseRacingResult?.success ? horseRacingResult?.error : undefined);
 
     res.status(overallSuccess ? 200 : 400).json({
       success: overallSuccess,
@@ -2437,9 +2451,34 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
       sport: sport || 'ALL',
       tennis: tennisResult,
       soccer: soccerResult,
+      horseRacing: horseRacingResult,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+apiRouter.post("/admin/horse-racing/sync-manual", validateAdminOrApiKey, async (req, res) => {
+  if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
+  try {
+    const { date, tracks, datasetId, maxItems } = req.body || {};
+    const syncResult = await runDailyHorseRacingScheduleSync(adminDb, { date, tracks, datasetId, maxItems });
+
+    if (!syncResult.success) {
+      return res.status(400).json({ success: false, error: syncResult.error });
+    }
+
+    invalidateMatchupCaches();
+
+    return res.json({
+      success: true,
+      syncedCount: syncResult.syncedCount,
+      purgedCount: syncResult.purgedCount,
+      updatedGameIds: syncResult.updatedGameIds
+    });
+  } catch (e: any) {
+    console.error("Manual horse racing sync error:", e);
+    return res.status(500).json({ success: false, error: e.message });
   }
 });
 
@@ -3128,6 +3167,79 @@ apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, re
     res.status(500).json({ error: e.message });
   }
 });
+
+apiRouter.get("/admin/apify/horse-racing/status", validateAdminOrApiKey, async (req, res) => {
+  const token = getApifyToken();
+  const tokenConfigured = Boolean(token);
+  const tokenMasked = tokenConfigured ? `${token.slice(0, 4)}...${token.slice(-4)}` : null;
+  res.json({
+    success: true,
+    actorId: EQUIBASE_ACTOR_ID,
+    tokenConfigured,
+    tokenMasked
+  });
+});
+
+apiRouter.post("/admin/apify/horse-racing/run", validateAdminOrApiKey, async (req, res) => {
+  if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
+  try {
+    const { date, tracks, maxItems, datasetId } = req.body || {};
+    const fetchResult = await fetchEquibaseScraperData({ date, tracks, maxItems, datasetId });
+
+    if (!fetchResult.success) {
+      return res.status(400).json({ success: false, error: fetchResult.error });
+    }
+
+    const syncResult = await syncEquibaseRacesToMatchups(adminDb, fetchResult.cards);
+    invalidateMatchupCaches();
+
+    return res.json({
+      success: true,
+      cardCount: fetchResult.cards.length,
+      syncedCount: syncResult.syncedCount,
+      updatedGameIds: syncResult.updatedGameIds,
+      cards: fetchResult.cards
+    });
+  } catch (e: any) {
+    console.error("Apify horse racing scraper run error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/apify/horse-racing/sync-dataset", validateAdminOrApiKey, async (req, res) => {
+  if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
+  try {
+    const { items, datasetId } = req.body || {};
+
+    let cards = [];
+    if (Array.isArray(items) && items.length > 0) {
+      cards = parseEquibaseItems(items);
+    } else if (datasetId) {
+      const fetchResult = await fetchEquibaseScraperData({ datasetId });
+      if (!fetchResult.success) {
+        return res.status(400).json({ success: false, error: fetchResult.error });
+      }
+      cards = fetchResult.cards;
+    } else {
+      return res.status(400).json({ success: false, error: "Missing required 'items' array or 'datasetId'" });
+    }
+
+    const syncResult = await syncEquibaseRacesToMatchups(adminDb, cards);
+    invalidateMatchupCaches();
+
+    return res.json({
+      success: true,
+      cardCount: cards.length,
+      syncedCount: syncResult.syncedCount,
+      updatedGameIds: syncResult.updatedGameIds,
+      cards
+    });
+  } catch (e: any) {
+    console.error("Apify horse racing sync dataset error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/monthly-rollover", validateAdmin, async (req, res) => {
   try {
     const date = new Date();

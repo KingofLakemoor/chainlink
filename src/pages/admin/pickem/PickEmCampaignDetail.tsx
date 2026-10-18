@@ -294,15 +294,35 @@ export default function PickEmCampaignDetail() {
               days++;
            }
         }
-        const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
-        console.log('API returned games:', res.data?.length);
-        if (res.data) res.data.forEach(m => console.log('Game', m.title, new Date(m.startTime).toLocaleString(), m.startTime, 'vs bounds:', campaign.gamesBeginDate, campaign.endDate));
-        if (!res.data || res.data.length === 0) {
+        let gamesList: any[] = [];
+
+        if (lg === 'HORSE_RACING') {
+          // Query active HORSE_RACING matchups from Firestore DB
+          const q = query(collection(db, 'matchups'), where('league', '==', 'HORSE_RACING'));
+          const snap = await getDocs(q);
+          const allowedTracks = campaign.trackFilter ? campaign.trackFilter.split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean) : [];
+
+          gamesList = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => {
+            if (allowedTracks.length > 0) {
+              const tc = (m.metadata?.trackCode || '').toUpperCase();
+              const tt = (m.title || '').toUpperCase();
+              const matchesTrack = allowedTracks.includes(tc) || allowedTracks.some((t: string) => tt.includes(t));
+              if (!matchesTrack) return false;
+            }
+            return true;
+          });
+        } else {
+          const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
+          gamesList = res.data || [];
+        }
+
+        console.log('API returned games:', gamesList.length);
+        if (!gamesList || gamesList.length === 0) {
           console.warn(`No games found to sync for ${lg}.`);
           continue;
         }
 
-        for (const m of res.data) {
+        for (const m of gamesList) {
           console.log('Game', m.title, new Date(m.startTime).toLocaleString(), 'vs bounds:', effectiveBeginDate ? new Date(effectiveBeginDate).toLocaleString() : null, effectiveEndDate ? new Date(effectiveEndDate).toLocaleString() : null);
           if (effectiveBeginDate && m.startTime < effectiveBeginDate) {
             continue;

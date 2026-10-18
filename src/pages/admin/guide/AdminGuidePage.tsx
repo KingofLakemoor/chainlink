@@ -104,7 +104,7 @@ export default function AdminGuidePage() {
             </p>
             <h3 className="font-bold text-white text-lg">Odds & Scraper Management</h3>
             <p>
-              In <strong>Odds &amp; Scraper</strong>, you can define maximum moneyline odds thresholds and trigger manual odds updates on-demand across supported sports (such as ATP/WTA Tennis and International Soccer). You can set a global max moneyline threshold or specific overrides per sport to automatically hide extreme favourite games.
+              In <strong>Odds &amp; Scraper</strong>, you can define maximum moneyline odds thresholds and trigger manual odds updates on-demand across supported sports (such as ATP/WTA Tennis and International Soccer). You can also run the <strong>Apify Equibase US Horse Racing Scraper</strong> (<code className="text-amber-300">jungle_synthesizer/equibase-us-horse-racing-scraper</code>) to scrape daily race cards, post times, morning line odds, and official finishes, converting them directly into ChainLink <code className="text-cyan-300">HORSE_RACING</code> matchups.
             </p>
           </div>
         </section>

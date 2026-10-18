@@ -32,6 +32,10 @@ env:
     secret: SHARP_API_KEY
     availability:
       - RUNTIME
+  - variable: APIFY_API_TOKEN
+    secret: APIFY_API_TOKEN
+    availability:
+      - RUNTIME
 
 runConfig:
   runCommand: npm start

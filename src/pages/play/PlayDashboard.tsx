@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, X, ExternalLink, ArrowRight } from 'lucide-react';
 import { MdOutlineSportsSoccer, MdOutlineSportsFootball,  MdOutlineSportsBasketball, MdOutlineSportsHockey, MdOutlineSportsBaseball, MdOutlineSportsTennis, MdOutlineSportsGolf } from 'react-icons/md';
+import { GiHorseHead } from 'react-icons/gi';
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { PlayBannerConfig } from '../admin/system/BannerAdminPage';
@@ -253,6 +254,13 @@ export default function PlayDashboard() {
       if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE', 'LLWS'].includes(m.league)) return false;
       if (selectedSport === 'TENNIS' && !['ATP', 'WTA'].includes(m.league)) return false;
       if (selectedSport === 'GOLF' && !['PGA', 'PUTTING'].includes(m.league)) return false;
+      if (selectedSport === 'HORSE_RACING' && !['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league)) return false;
+
+      // Limit horse racing matchups to only appear on the Horse tab unless explicitly featured by an admin for the main board
+      const isHorseLeague = ['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league);
+      if (isHorseLeague && selectedSport !== 'HORSE_RACING' && !m.featured && !m.showOnMainBoard) {
+        return false;
+      }
 
       return true;
     });
@@ -654,6 +662,7 @@ export default function PlayDashboard() {
           <Button variant="ghost" onClick={() => setSelectedSport('BASEBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'BASEBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsBaseball style={{width: "20px", height: "20px"}} /></Button>
           <Button variant="ghost" onClick={() => setSelectedSport('TENNIS')} className={cn("rounded-lg px-3 h-9", selectedSport === 'TENNIS' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsTennis style={{width: "20px", height: "20px"}} /></Button>
           <Button variant="ghost" onClick={() => setSelectedSport('GOLF')} className={cn("rounded-lg px-3 h-9", selectedSport === 'GOLF' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsGolf style={{width: "20px", height: "20px"}} /></Button>
+          <Button variant="ghost" onClick={() => setSelectedSport('HORSE_RACING')} className={cn("rounded-lg px-3 h-9", selectedSport === 'HORSE_RACING' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Horse Racing"><GiHorseHead style={{width: "20px", height: "20px"}} /></Button>
         </div>
       </div>
 

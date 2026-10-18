@@ -29,6 +29,7 @@ export default function MatchupsAdminHub() {
   const [matchups, setMatchups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [horseSyncing, setHorseSyncing] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
@@ -223,6 +224,32 @@ export default function MatchupsAdminHub() {
     newParams.delete('id');
     setSearchParams(newParams);
     fetchMatchupsData();
+  };
+
+  const handleHorseSync = async () => {
+    setHorseSyncing(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/admin/horse-racing/sync-manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const resultData = await res.json();
+      if (res.ok && resultData.success) {
+        alert(`Horse Racing Sync Complete! Synced ${resultData.syncedCount ?? 0} races, purged ${resultData.purgedCount ?? 0} unpicked races.`);
+        await fetchMatchupsData();
+      } else {
+        alert("Horse Racing Sync failed: " + (resultData.error || "Unknown error"));
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Horse Racing Sync failed: " + e.message);
+    } finally {
+      setHorseSyncing(false);
+    }
   };
 
   const handleSync = async () => {
@@ -598,13 +625,22 @@ export default function MatchupsAdminHub() {
                 <RefreshCw className={`w-3.5 h-3.5 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 {syncing ? "Syncing..." : "Sync ESPN APIs"}
               </Button>
+              <Button
+                variant="outline"
+                onClick={handleHorseSync}
+                disabled={horseSyncing}
+                className="text-amber-400 border-amber-800 hover:bg-amber-900/30 text-xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 mr-2 ${horseSyncing ? 'animate-spin' : ''}`} />
+                {horseSyncing ? "Syncing Horses..." : "Sync Horse Racing"}
+              </Button>
               <select
                 value={leagueFilter}
                 onChange={(e) => setLeagueFilter(e.target.value)}
                 className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-700 text-zinc-300"
               >
                 <option value="All">All Leagues</option>
-                {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET"].map(l => <option key={l} value={l}>{l}</option>)}
+                {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "HORSE_RACING"].map(l => <option key={l} value={l}>{l}</option>)}
               </select>
               <select
                 value={statusFilter}

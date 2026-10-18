@@ -214,7 +214,7 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(result.error).toContain('APIFY_API_TOKEN is missing');
     });
 
-    it('sends sp_intended_usage in POST body payload to Apify API', async () => {
+    it('sends required survey and date parameters in POST body payload to Apify API', async () => {
       process.env.APIFY_API_TOKEN = 'mock_token_789';
 
       let capturedBody: any = null;
@@ -228,13 +228,27 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
         } as Response;
       });
 
-      await fetchEquibaseScraperData({ date: '2026-09-10' });
+      await fetchEquibaseScraperData({ date: '2026-09-10', tracks: ['SAR', 'DMR'] });
       expect(capturedBody).toBeDefined();
-      expect(capturedBody.sp_intended_usage).toBe('GENERAL');
+      expect(capturedBody.date).toBe('2026-09-10');
+      expect(capturedBody.raceDate).toBe('2026-09-10');
+      expect(capturedBody.tracks).toEqual(['SAR', 'DMR']);
+      expect(capturedBody.trackCodes).toEqual(['SAR', 'DMR']);
+      expect(capturedBody.dataMode).toBe('both');
+      expect(capturedBody.sp_intended_usage).toBe('Automated horse racing odds and race cards ingestion for ChainLink sports platform');
+      expect(capturedBody.sp_improvement_suggestions).toBe('None');
+      expect(capturedBody.sp_contact).toBe('admin@chainlink.club');
 
-      // Test custom spIntendedUsage
-      await fetchEquibaseScraperData({ date: '2026-09-10', spIntendedUsage: 'SERP' });
+      // Test custom parameters override
+      await fetchEquibaseScraperData({
+        date: '2026-09-10',
+        spIntendedUsage: 'SERP',
+        spImprovementSuggestions: 'Add more tracks',
+        spContact: 'test@example.com'
+      });
       expect(capturedBody.sp_intended_usage).toBe('SERP');
+      expect(capturedBody.sp_improvement_suggestions).toBe('Add more tracks');
+      expect(capturedBody.sp_contact).toBe('test@example.com');
     });
 
     it('executes runDailyHorseRacingScheduleSync when token is configured', async () => {

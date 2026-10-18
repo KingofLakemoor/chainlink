@@ -36,11 +36,18 @@ export interface EquibaseRaceCard {
 
 export interface ApifyRunOptions {
   date?: string; // YYYY-MM-DD
+  raceDate?: string; // YYYY-MM-DD
   tracks?: string[];
+  trackCodes?: string[];
   maxItems?: number;
   datasetId?: string;
   spIntendedUsage?: string;
   sp_intended_usage?: string;
+  spImprovementSuggestions?: string;
+  sp_improvement_suggestions?: string;
+  spContact?: string;
+  sp_contact?: string;
+  dataMode?: string;
 }
 
 /**
@@ -415,11 +422,22 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
       // Trigger synchronous actor run and fetch dataset items
       url = `https://api.apify.com/v2/acts/${EQUIBASE_ACTOR_ID}/run-sync-get-dataset-items?token=${token}`;
       method = 'POST';
+      const targetDate = options.date || options.raceDate || new Date().toISOString().split('T')[0];
+      const targetTracks = (options.tracks && options.tracks.length > 0) ? options.tracks : (options.trackCodes && options.trackCodes.length > 0 ? options.trackCodes : undefined);
+      const intendedUsage = options.sp_intended_usage || options.spIntendedUsage || 'Automated horse racing odds and race cards ingestion for ChainLink sports platform';
+      const improvementSuggestions = options.sp_improvement_suggestions || options.spImprovementSuggestions || 'None';
+      const contact = options.sp_contact || options.spContact || 'admin@chainlink.club';
+
       body = JSON.stringify({
-        date: options.date || new Date().toISOString().split('T')[0],
-        tracks: options.tracks && options.tracks.length > 0 ? options.tracks : undefined,
+        date: targetDate,
+        raceDate: targetDate,
+        tracks: targetTracks,
+        trackCodes: targetTracks,
+        dataMode: options.dataMode || 'both',
         maxItems: options.maxItems || 100,
-        sp_intended_usage: options.sp_intended_usage || options.spIntendedUsage || 'GENERAL'
+        sp_intended_usage: intendedUsage,
+        sp_improvement_suggestions: improvementSuggestions,
+        sp_contact: contact
       });
     }
 

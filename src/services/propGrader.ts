@@ -1,6 +1,7 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { gradeMatchups } from './grader.js';
 import { getMatchupStartTime } from '../utils/matchupUtils.js';
+import { processDependentProps } from './scheduleProcessor.js';
 
 const boxscoreCache = new Map<string, any>();
 const gameStatusCache = new Map<string, any>();
@@ -361,6 +362,9 @@ export async function updateAllProps() {
                 }
             } else if (getMatchupStartTime(m.startTime) > 0 && Date.now() >= getMatchupStartTime(m.startTime) && m.status === 'STATUS_SCHEDULED') {
                 // If games have started by time but boxscore is not ready, update status to lock the prop
+                if (m.metadata?.optionA?.gameId) await processDependentProps(adminDb, m.metadata.optionA.gameId);
+                if (m.metadata?.optionB?.gameId) await processDependentProps(adminDb, m.metadata.optionB.gameId);
+
                 const picksSnap = await adminDb.collection('picks')
                     .where('matchupId', '==', doc.id)
                     .limit(1)

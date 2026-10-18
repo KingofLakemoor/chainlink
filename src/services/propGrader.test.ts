@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { gradeSingleMatchup, setAdminDbMock as setGraderAdminDbMock } from './grader';
 import { gradeSinglePickemMatchup, setAdminDbMock as setPickemAdminDbMock } from './pickemGrader';
 import { updateAllProps, setAdminDbMock as setPropAdminDbMock } from './propGrader';
+import { processDependentProps } from './scheduleProcessor';
 
 describe('Solo Over/Under Prop Grading Tests', () => {
   let mockAdminDb: any;
@@ -457,5 +458,117 @@ describe('Player Prop Scheduled Status Tests', () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+});
+
+describe('Process Dependent Props & Queued Pick Cancellation Tests', () => {
+  it('processDependentProps cancels queued picks on player props when parent game starts and refunds wagers', async () => {
+    const parentGameId = '401547890';
+    const propId = 'solo_prop_999';
+
+    const propDocData = {
+      title: 'Patrick Mahomes - Passing TDs (2.5)',
+      status: 'STATUS_SCHEDULED',
+      metadata: {
+        isPropMatchup: true,
+        isSoloProp: true,
+        optionA: {
+          league: 'NFL',
+          gameId: parentGameId, // string representation
+          playerId: '3139477',
+          statType: 'PASSING_TOUCHDOWNS'
+        }
+      }
+    };
+
+    const userPicks = [
+      { id: 'pick_active', userId: 'user_premium_1', matchupId: 'active_game_123', links: 50, status: 'PENDING', createdAt: 1000 },
+      { id: 'pick_queued', userId: 'user_premium_1', matchupId: propId, links: 25, status: 'PENDING', createdAt: 2000 }
+    ];
+
+    const deleteSpy = vi.fn();
+    const batchUpdateSpy = vi.fn();
+    const batchSetSpy = vi.fn();
+    const batchSpy = {
+      delete: deleteSpy,
+      update: batchUpdateSpy,
+      set: batchSetSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const userDocData = { links: 100, username: 'ProBettor' };
+
+    const mockDb = {
+      collection: (coll: string) => {
+        if (coll === 'matchups') {
+          return {
+            where: (field: string, op: string, val: any) => ({
+              get: async () => {
+                if (field === 'metadata.optionA.gameId') {
+                  return {
+                    docs: [{ id: propId, data: () => propDocData, ref: { id: propId } }]
+                  };
+                }
+                return { docs: [] };
+              }
+            })
+          };
+        }
+        if (coll === 'picks') {
+          return {
+            where: (field: string, op: string, val: any) => ({
+              where: (f2: string, o2: string, v2: any) => ({
+                orderBy: (f3: string, dir: string) => ({
+                  get: async () => ({
+                    docs: userPicks.map(p => ({ id: p.id, data: () => p, ref: { id: p.id } }))
+                  })
+                }),
+                get: async () => {
+                  if (field === 'matchupId' && val === propId) {
+                    const queuedPick = userPicks.find(p => p.id === 'pick_queued');
+                    return { docs: queuedPick ? [{ id: queuedPick.id, data: () => queuedPick, ref: { id: queuedPick.id } }] : [] };
+                  }
+                  return { docs: [] };
+                }
+              })
+            })
+          };
+        }
+        if (coll === 'users') {
+          return {
+            doc: (uid: string) => ({
+              get: async () => ({ exists: true, data: () => userDocData })
+            })
+          };
+        }
+        if (coll === 'linkTransactions' || coll === 'notifications') {
+          return {
+            doc: () => ({ id: 'doc_1' })
+          };
+        }
+        return {};
+      },
+      batch: () => batchSpy
+    };
+
+    await processDependentProps(mockDb, 401547890); // test numeric parameter
+
+    // Queued pick should be deleted
+    expect(deleteSpy).toHaveBeenCalledWith({ id: 'pick_queued' });
+
+    // Wager should be refunded to user's links
+    expect(batchUpdateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ links: 125 })
+    );
+
+    // Notification should be sent to the user
+    expect(batchSetSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        title: 'Queued Pick Cancelled ⏱️',
+        targetUserId: 'user_premium_1'
+      })
+    );
   });
 });

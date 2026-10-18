@@ -10,15 +10,22 @@ const resolveImage = (existingImage: string | undefined, scrapedImage: string | 
 import { adminDb } from '../lib/firebase-admin.js';
 import { isBeforeThursdaySpreadLock } from '../utils/footballWeek.js';
 
-async function processDependentProps(adminDb: any, gameId: string): Promise<void> {
+export async function processDependentProps(adminDb: any, gameId: string | number): Promise<void> {
     try {
+        const gameIdStr = String(gameId);
+        const gameIdNum = Number(gameId);
+        const gameIds: (string | number)[] = Array.from(new Set([
+            gameIdStr,
+            ...(!isNaN(gameIdNum) ? [gameIdNum] : [])
+        ])).filter(Boolean);
+
+        if (gameIds.length === 0) return;
+
         const propsASnap = await adminDb.collection('matchups')
-            .where('metadata.optionA.gameId', '==', gameId)
-            .where('status', '==', 'STATUS_SCHEDULED')
+            .where('metadata.optionA.gameId', 'in', gameIds)
             .get();
         const propsBSnap = await adminDb.collection('matchups')
-            .where('metadata.optionB.gameId', '==', gameId)
-            .where('status', '==', 'STATUS_SCHEDULED')
+            .where('metadata.optionB.gameId', 'in', gameIds)
             .get();
         
         const propDocs = [...propsASnap.docs, ...propsBSnap.docs];
@@ -31,13 +38,6 @@ async function processDependentProps(adminDb: any, gameId: string): Promise<void
 
         for (const propDoc of uniqueProps) {
             let hasValidPicks = false;
-            
-            // First check if there are ANY picks (including graded ones for Yes Only props)
-            // Actually just check if it has picks overall
-            const allPicksSnap = await adminDb.collection('picks')
-                .where('matchupId', '==', propDoc.id)
-                .limit(1)
-                .get();
 
             const pendingPicksSnap = await adminDb.collection('picks')
                 .where('matchupId', '==', propDoc.id)
@@ -88,7 +88,7 @@ async function processDependentProps(adminDb: any, gameId: string): Promise<void
                 }
             }
 
-            if (hasValidPicks || !allPicksSnap.empty) {
+            if (hasValidPicks) {
                 batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', updatedAt: Date.now() });
             } else {
                 batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', abandoned: true, active: false, updatedAt: Date.now() });
@@ -1487,6 +1487,11 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
                 newStatus = 'STATUS_IN_PROGRESS';
             } else {
                 newStatus = 'STATUS_SCHEDULED';
+            }
+
+            if (newStatus !== 'STATUS_SCHEDULED') {
+                if (optionA?.gameId) await processDependentProps(adminDb, optionA.gameId);
+                if (optionB?.gameId) await processDependentProps(adminDb, optionB.gameId);
             }
 
             const newStatusDesc = newStatus === 'STATUS_FINAL' ? 'Final' : (newStatus === 'STATUS_IN_PROGRESS' ? 'In Progress' : (newStatus === 'STATUS_POSTPONED' ? 'Postponed' : (data.statusDesc && data.statusDesc !== 'In Progress' && data.statusDesc !== 'Final' ? data.statusDesc : 'Upcoming')));

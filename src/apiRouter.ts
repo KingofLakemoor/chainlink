@@ -2461,13 +2461,16 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
 apiRouter.post("/admin/horse-racing/sync-manual", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
   try {
-    const { date, tracks, datasetId, maxItems, spIntendedUsage, sp_intended_usage } = req.body || {};
+    const { date, tracks, datasetId, maxItems, spIntendedUsage, sp_intended_usage, spImprovementSuggestions, sp_improvement_suggestions, spContact, sp_contact, dataMode } = req.body || {};
     const syncResult = await runDailyHorseRacingScheduleSync(adminDb, {
       date,
       tracks,
       datasetId,
       maxItems,
-      spIntendedUsage: spIntendedUsage || sp_intended_usage
+      spIntendedUsage: spIntendedUsage || sp_intended_usage,
+      spImprovementSuggestions: spImprovementSuggestions || sp_improvement_suggestions,
+      spContact: spContact || sp_contact,
+      dataMode
     });
 
     if (!syncResult.success) {
@@ -3189,13 +3192,16 @@ apiRouter.get("/admin/apify/horse-racing/status", validateAdminOrApiKey, async (
 apiRouter.post("/admin/apify/horse-racing/run", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
   try {
-    const { date, tracks, maxItems, datasetId, spIntendedUsage, sp_intended_usage } = req.body || {};
+    const { date, tracks, maxItems, datasetId, spIntendedUsage, sp_intended_usage, spImprovementSuggestions, sp_improvement_suggestions, spContact, sp_contact, dataMode } = req.body || {};
     const fetchResult = await fetchEquibaseScraperData({
       date,
       tracks,
       maxItems,
       datasetId,
-      spIntendedUsage: spIntendedUsage || sp_intended_usage
+      spIntendedUsage: spIntendedUsage || sp_intended_usage,
+      spImprovementSuggestions: spImprovementSuggestions || sp_improvement_suggestions,
+      spContact: spContact || sp_contact,
+      dataMode
     });
 
     if (!fetchResult.success) {

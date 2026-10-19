@@ -41,6 +41,8 @@ export interface ApifyRunOptions {
   trackCodes?: string[];
   maxItems?: number;
   datasetId?: string;
+  useLastRun?: boolean;
+  forceRun?: boolean;
   spIntendedUsage?: string;
   sp_intended_usage?: string;
   spImprovementSuggestions?: string;
@@ -171,6 +173,8 @@ export function calculateImpliedProbability(odds: any): number {
 function extractTrackName(item: any): string {
   if (!item || typeof item !== 'object') return 'Unknown Track';
 
+  const subObj = item.raceCard || item.race_card || item.card || item.details || item.race || item.header || item.summary;
+
   const name =
     item.trackName ||
     item.track_name ||
@@ -193,26 +197,23 @@ function extractTrackName(item: any): string {
     item.track_code ||
     item.trackId ||
     item.track_id ||
-    item.raceCard?.trackName ||
-    item.raceCard?.track_name ||
-    item.raceCard?.track ||
-    item.race_card?.trackName ||
-    item.race_card?.track_name ||
-    item.race_card?.track ||
-    item.header?.trackName ||
-    item.header?.track_name ||
-    item.header?.track ||
-    item.summary?.trackName ||
-    item.summary?.track ||
-    item.race?.trackName ||
-    item.race?.track_name ||
-    item.race?.track;
+    subObj?.trackName ||
+    subObj?.track_name ||
+    subObj?.trackTitle ||
+    subObj?.venue ||
+    subObj?.racetrack ||
+    subObj?.course ||
+    (typeof subObj?.track === 'string' ? subObj.track : null);
 
   if (typeof name === 'string' && name.trim()) {
     return name.trim();
   }
   if (typeof item.track === 'object' && item.track) {
     const nested = item.track.name || item.track.trackName || item.track.title || item.track.code;
+    if (typeof nested === 'string' && nested.trim()) return nested.trim();
+  }
+  if (typeof subObj?.track === 'object' && subObj.track) {
+    const nested = subObj.track.name || subObj.track.trackName || subObj.track.title || subObj.track.code;
     if (typeof nested === 'string' && nested.trim()) return nested.trim();
   }
   return 'Unknown Track';
@@ -224,6 +225,8 @@ function extractTrackName(item: any): string {
 function extractTrackCode(item: any, fallbackName: string): string {
   if (!item || typeof item !== 'object') return 'TRK';
 
+  const subObj = item.raceCard || item.race_card || item.card || item.details || item.race || item.header || item.summary;
+
   const code =
     item.trackCode ||
     item.track_code ||
@@ -233,7 +236,12 @@ function extractTrackCode(item: any, fallbackName: string): string {
     item.trackAbbr ||
     item.trackCodeAbbr ||
     item.track_code_abbr ||
-    (typeof item.track === 'string' ? item.track : null);
+    (typeof item.track === 'string' ? item.track : null) ||
+    subObj?.trackCode ||
+    subObj?.track_code ||
+    subObj?.trackId ||
+    subObj?.track_id ||
+    subObj?.trackAbbr;
 
   if (typeof code === 'string' && code.trim().length >= 2 && code.trim().length <= 6) {
     return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -352,9 +360,17 @@ function extractRunnersArray(item: any): any[] {
   if (Array.isArray(item.participants) && item.participants.length > 0) return item.participants;
   if (Array.isArray(item.race_runners) && item.race_runners.length > 0) return item.race_runners;
   if (Array.isArray(item.raceRunners) && item.raceRunners.length > 0) return item.raceRunners;
-  if (item.race && Array.isArray(item.race.runners)) return item.race.runners;
-  if (item.race && Array.isArray(item.race.horses)) return item.race.horses;
-  if (item.race && Array.isArray(item.race.entries)) return item.race.entries;
+  if (Array.isArray(item.results) && item.results.length > 0) return item.results;
+  if (Array.isArray(item.items) && item.items.length > 0) return item.items;
+
+  const subObj = item.race || item.raceCard || item.race_card || item.card || item.details;
+  if (subObj && typeof subObj === 'object') {
+    if (Array.isArray(subObj.runners) && subObj.runners.length > 0) return subObj.runners;
+    if (Array.isArray(subObj.horses) && subObj.horses.length > 0) return subObj.horses;
+    if (Array.isArray(subObj.entries) && subObj.entries.length > 0) return subObj.entries;
+    if (Array.isArray(subObj.starters) && subObj.starters.length > 0) return subObj.starters;
+    if (Array.isArray(subObj.results) && subObj.results.length > 0) return subObj.results;
+  }
 
   return [];
 }
@@ -637,6 +653,7 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
   success: boolean;
   cards: EquibaseRaceCard[];
   datasetId?: string;
+  source?: 'dataset' | 'lastRunDataset' | 'newRun';
   error?: string;
 }> {
   const token = getApifyToken();
@@ -648,39 +665,96 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
     };
   }
 
+  // Helper to extract items array from various Apify response shapes
+  const extractItemsFromResponse = (parsed: any): any[] => {
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.items)) return parsed.items;
+    if (Array.isArray(parsed?.data?.items)) return parsed.data.items;
+    if (Array.isArray(parsed?.data)) return parsed.data;
+    return [];
+  };
+
   try {
-    let url: string;
-    let method = 'GET';
-    let body: string | undefined = undefined;
-
+    // 1. Fetch directly from specified Dataset ID ($0.00)
     if (options.datasetId) {
-      // Fetch directly from existing dataset ID
-      url = `https://api.apify.com/v2/datasets/${options.datasetId}/items?token=${token}`;
-    } else {
-      // Trigger synchronous actor run and fetch dataset items
-      url = `https://api.apify.com/v2/acts/${EQUIBASE_ACTOR_ID}/run-sync-get-dataset-items?token=${token}`;
-      method = 'POST';
-      const targetDate = options.date || options.raceDate || new Date().toISOString().split('T')[0];
-      const targetTracks = (options.tracks && options.tracks.length > 0) ? options.tracks : (options.trackCodes && options.trackCodes.length > 0 ? options.trackCodes : undefined);
-      const intendedUsage = options.sp_intended_usage || options.spIntendedUsage || 'Automated horse racing odds and race cards ingestion for ChainLink sports platform';
-      const improvementSuggestions = options.sp_improvement_suggestions || options.spImprovementSuggestions || 'None';
-      const contact = options.sp_contact || options.spContact || 'admin@chainlink.club';
-
-      body = JSON.stringify({
-        date: targetDate,
-        raceDate: targetDate,
-        tracks: targetTracks,
-        trackCodes: targetTracks,
-        dataMode: options.dataMode || 'both',
-        maxItems: options.maxItems || 100,
-        sp_intended_usage: intendedUsage,
-        sp_improvement_suggestions: improvementSuggestions,
-        sp_contact: contact
-      });
+      const url = `https://api.apify.com/v2/datasets/${options.datasetId}/items?clean=true&token=${token}`;
+      const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+      if (!res.ok) {
+        const errorText = await res.text();
+        return {
+          success: false,
+          cards: [],
+          error: `Apify Dataset API returned HTTP ${res.status}: ${errorText.slice(0, 200)}`
+        };
+      }
+      const parsed = await res.json();
+      const rawItems = extractItemsFromResponse(parsed);
+      const cards = parseEquibaseItems(rawItems);
+      return {
+        success: true,
+        cards,
+        datasetId: options.datasetId,
+        source: 'dataset'
+      };
     }
 
-    const res = await fetch(url, {
-      method,
+    // 2. Fetch dataset items from last actor run ($0.00) unless forceRun is true
+    const shouldTryLastRun = options.useLastRun || (!options.forceRun && options.useLastRun !== false);
+
+    if (shouldTryLastRun) {
+      try {
+        const lastRunUrl = `https://api.apify.com/v2/acts/${EQUIBASE_ACTOR_ID}/runs/last/dataset/items?clean=true&token=${token}`;
+        const res = await fetch(lastRunUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+
+        if (res.ok) {
+          const parsed = await res.json();
+          const rawItems = extractItemsFromResponse(parsed);
+          const cards = parseEquibaseItems(rawItems);
+
+          if (cards.length > 0) {
+            return {
+              success: true,
+              cards,
+              source: 'lastRunDataset'
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch dataset items from last actor run, falling back to new run if permitted:', err);
+      }
+    }
+
+    // If options.useLastRun was explicitly true and forceRun is false, don't trigger new paid run if last run failed
+    if (options.useLastRun && !options.forceRun) {
+      return {
+        success: false,
+        cards: [],
+        error: 'No dataset items found in last actor run.'
+      };
+    }
+
+    // 3. Trigger new synchronous actor run (~$0.27)
+    const runUrl = `https://api.apify.com/v2/acts/${EQUIBASE_ACTOR_ID}/run-sync-get-dataset-items?token=${token}`;
+    const targetDate = options.date || options.raceDate || new Date().toISOString().split('T')[0];
+    const targetTracks = (options.tracks && options.tracks.length > 0) ? options.tracks : (options.trackCodes && options.trackCodes.length > 0 ? options.trackCodes : undefined);
+    const intendedUsage = options.sp_intended_usage || options.spIntendedUsage || 'Automated horse racing odds and race cards ingestion for ChainLink sports platform';
+    const improvementSuggestions = options.sp_improvement_suggestions || options.spImprovementSuggestions || 'None';
+    const contact = options.sp_contact || options.spContact || 'admin@chainlink.club';
+
+    const body = JSON.stringify({
+      date: targetDate,
+      raceDate: targetDate,
+      tracks: targetTracks,
+      trackCodes: targetTracks,
+      dataMode: options.dataMode || 'both',
+      maxItems: options.maxItems || 100,
+      sp_intended_usage: intendedUsage,
+      sp_improvement_suggestions: improvementSuggestions,
+      sp_contact: contact
+    });
+
+    const res = await fetch(runUrl, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -692,18 +766,18 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
       return {
         success: false,
         cards: [],
-        error: `Apify API returned HTTP ${res.status}: ${errorText.slice(0, 200)}`
+        error: `Apify Actor Run API returned HTTP ${res.status}: ${errorText.slice(0, 200)}`
       };
     }
 
-    const items = await res.json();
-    const rawItems = Array.isArray(items) ? items : (items.data?.items || items.items || []);
+    const parsed = await res.json();
+    const rawItems = extractItemsFromResponse(parsed);
     const cards = parseEquibaseItems(rawItems);
 
     return {
       success: true,
       cards,
-      datasetId: options.datasetId
+      source: 'newRun'
     };
   } catch (e: any) {
     console.error('Error executing Apify Equibase scraper:', e);

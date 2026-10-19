@@ -83,7 +83,39 @@ export default function AdminOddsPage() {
     }
   };
 
-  const handleRunApifyScraper = async () => {
+  const handleFetchLastRunDataset = async () => {
+    setApifyRunning(true);
+    setApifyResult(null);
+    setApifyError(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/admin/apify/horse-racing/run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          useLastRun: true,
+          forceRun: false
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || 'No dataset items found in last actor run.');
+      }
+      setApifyResult(data);
+    } catch (err: any) {
+      console.error('Fetch last run dataset error:', err);
+      setApifyError(err.message || 'Error fetching dataset from last actor run');
+    } finally {
+      setApifyRunning(false);
+    }
+  };
+
+  const handleRunApifyScraper = async (forceRunNew = true) => {
     setApifyRunning(true);
     setApifyResult(null);
     setApifyError(null);
@@ -100,7 +132,9 @@ export default function AdminOddsPage() {
         body: JSON.stringify({
           date: apifyDate,
           tracks: tracksArray.length > 0 ? tracksArray : undefined,
-          datasetId: apifyDatasetId.trim() || undefined
+          datasetId: apifyDatasetId.trim() || undefined,
+          forceRun: forceRunNew,
+          useLastRun: !forceRunNew
         })
       });
 
@@ -655,6 +689,26 @@ export default function AdminOddsPage() {
           </div>
         </div>
 
+        {/* Cost Awareness Notice */}
+        <div className="p-3 bg-zinc-900/80 border border-amber-900/40 rounded-lg text-xs flex items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <span className="text-amber-400 font-semibold flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5" /> Apify Scraper Billing & Dataset Control
+            </span>
+            <p className="text-zinc-400 text-[11px]">
+              Running a new scraper run costs <span className="text-amber-300 font-semibold">~$0.27 per run</span>. Re-fetching existing dataset items from the last actor run or a specific Dataset ID costs <span className="text-emerald-400 font-semibold">$0.00</span>.
+            </p>
+          </div>
+          <Button
+            onClick={handleFetchLastRunDataset}
+            disabled={apifyRunning}
+            className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs h-8 px-3 flex-shrink-0 font-semibold flex items-center gap-1.5"
+          >
+            <Database className="w-3.5 h-3.5" />
+            Sync Last Run ($0.00)
+          </Button>
+        </div>
+
         {/* Controls */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="space-y-1">
@@ -679,12 +733,12 @@ export default function AdminOddsPage() {
           </div>
 
           <Button
-            onClick={handleRunApifyScraper}
+            onClick={() => handleRunApifyScraper(true)}
             disabled={apifyRunning}
             className="bg-amber-600 hover:bg-amber-500 text-white flex items-center justify-center gap-2 h-9 text-xs font-semibold"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${apifyRunning ? 'animate-spin' : ''}`} />
-            {apifyRunning ? 'Running Scraper...' : 'Run Equibase Scraper'}
+            {apifyRunning ? 'Running Scraper...' : 'Run New Scraper ($0.27)'}
           </Button>
         </div>
 
@@ -692,19 +746,26 @@ export default function AdminOddsPage() {
         <div className="pt-2 border-t border-zinc-800/80 space-y-3">
           <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
             <FileText className="w-4 h-4 text-zinc-400" />
-            Dataset ID & Direct Raw JSON Payload Import
+            Dataset ID & Direct Raw JSON Payload Import ($0.00)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[11px] text-zinc-400">Existing Apify Dataset ID (Optional)</label>
+              <label className="text-[11px] text-zinc-400">Existing Apify Dataset ID (Free Sync)</label>
               <div className="flex gap-2">
                 <Input
                   type="text"
                   value={apifyDatasetId}
                   onChange={(e) => setApifyDatasetId(e.target.value)}
-                  placeholder="e.g. 5xJ8qPzLm9..."
+                  placeholder="e.g. WkzbQMuFYuamGv3YF"
                   className="bg-zinc-900 border-zinc-800 text-white text-xs h-8"
                 />
+                <Button
+                  onClick={() => handleRunApifyScraper(false)}
+                  disabled={apifyRunning || !apifyDatasetId.trim()}
+                  className="bg-emerald-700 hover:bg-emerald-600 text-white h-8 text-xs px-3 flex-shrink-0 font-semibold"
+                >
+                  Fetch Dataset
+                </Button>
               </div>
             </div>
 
@@ -721,7 +782,7 @@ export default function AdminOddsPage() {
                 <Button
                   onClick={handleSyncApifyRawJson}
                   disabled={apifyRunning || !apifyRawJson.trim()}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 h-8 text-xs px-3 flex-shrink-0"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 h-8 text-xs px-3 flex-shrink-0 font-semibold"
                 >
                   Import JSON
                 </Button>
@@ -732,9 +793,16 @@ export default function AdminOddsPage() {
 
         {apifyResult && (
           <div className="p-4 bg-emerald-950/40 border border-emerald-800/60 rounded-lg text-xs space-y-2">
-            <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
-              <CheckCircle2 className="w-4 h-4" />
-              Equibase Horse Racing Races Synced ({apifyResult.syncedCount ?? 0} races)
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+                Equibase Horse Racing Races Synced ({apifyResult.syncedCount ?? 0} races)
+              </div>
+              {apifyResult.source && (
+                <span className="bg-zinc-900 text-zinc-300 text-[10px] px-2 py-0.5 rounded border border-zinc-700 font-mono">
+                  Source: {apifyResult.source === 'lastRunDataset' ? 'Last Run Dataset ($0.00)' : (apifyResult.source === 'dataset' ? 'Dataset ID ($0.00)' : 'New Actor Run (~$0.27)')}
+                </span>
+              )}
             </div>
             <pre className="text-zinc-300 font-mono bg-zinc-950/60 p-3 rounded border border-zinc-900 overflow-x-auto max-h-60">
               {JSON.stringify(apifyResult, null, 2)}

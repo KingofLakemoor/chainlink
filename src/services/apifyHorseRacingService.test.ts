@@ -231,6 +231,106 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(card.runners[0].horseName).toBe('Fierceness');
       expect(card.runners[0].mlOddsNumber).toBe(2);
     });
+
+    it('parses snake_case, venue, and alternative field keys from raw scraper JSON', () => {
+      const snakeCaseInput = [
+        {
+          venue: 'Del Mar',
+          track_code: 'DMR',
+          race_number: '3',
+          race_date: '2026-09-11',
+          post_time: '4:30 PM PDT',
+          horses: [
+            {
+              saddle: '4',
+              horse_name: 'Subsanador',
+              morning_line_odds: '3/1',
+              jockey_name: 'M. Smith'
+            },
+            {
+              cloth: '7',
+              runner_name: 'Full Serrano',
+              morning_line_odds: '4/1',
+              jockey_name: 'J. Hernandez'
+            }
+          ]
+        }
+      ];
+
+      const cards = parseEquibaseItems(snakeCaseInput);
+      expect(cards.length).toBe(1);
+
+      const card = cards[0];
+      expect(card.trackName).toBe('Del Mar');
+      expect(card.trackCode).toBe('DMR');
+      expect(card.raceNumber).toBe(3);
+      expect(card.raceDate).toBe('2026-09-11');
+      expect(card.runners.length).toBe(2);
+      expect(card.runners[0].horseName).toBe('Subsanador');
+      expect(card.runners[0].programNumber).toBe('4');
+      expect(card.runners[0].morningLineOdds).toBe('3/1');
+      expect(card.runners[1].horseName).toBe('Full Serrano');
+      expect(card.runners[1].programNumber).toBe('7');
+    });
+
+    it('skips empty runner cards in syncEquibaseRacesToMatchups to avoid generic cards', async () => {
+      const emptyCard = parseEquibaseItems([
+        {
+          trackName: 'Unknown Track',
+          raceNumber: 1,
+          date: '2026-09-10',
+          runners: []
+        }
+      ]);
+
+      const storedPayloads: any[] = [];
+      const mockDb = {
+        collection: () => ({
+          doc: () => ({
+            get: async () => ({ exists: false }),
+            set: async (data: any) => { storedPayloads.push(data); }
+          })
+        })
+      };
+
+      const res = await syncEquibaseRacesToMatchups(mockDb, emptyCard);
+      expect(res.syncedCount).toBe(0);
+      expect(storedPayloads.length).toBe(0);
+    });
+
+    it('formats matchup title and team names with horse names and morning line odds', async () => {
+      const cards = parseEquibaseItems([
+        {
+          trackName: 'Keeneland',
+          trackCode: 'KEE',
+          raceNumber: 5,
+          date: '2026-10-02',
+          runners: [
+            { programNumber: '2', horseName: 'Thorpedo Anna', morningLineOdds: '8/5' },
+            { programNumber: '5', horseName: 'Leslie\'s Rose', morningLineOdds: '3/1' }
+          ]
+        }
+      ]);
+
+      const storedMap = new Map<string, any>();
+      const mockDb = {
+        collection: () => ({
+          doc: (id: string) => ({
+            get: async () => ({ exists: false }),
+            set: async (data: any) => { storedMap.set(id, data); }
+          })
+        })
+      };
+
+      const res = await syncEquibaseRacesToMatchups(mockDb, cards);
+      expect(res.syncedCount).toBeGreaterThan(0);
+
+      const mainMatchup = storedMap.get('equibase_KEE_20261002_R5');
+      expect(mainMatchup).toBeDefined();
+      expect(mainMatchup.title).toBe('Keeneland R5: Thorpedo Anna vs Leslie\'s Rose');
+      expect(mainMatchup.homeTeam.name).toBe('Thorpedo Anna (8/5)');
+      expect(mainMatchup.awayTeam.name).toBe('Leslie\'s Rose (3/1)');
+    });
   });
 
   describe('fetchEquibaseScraperData & runDailyHorseRacingScheduleSync', () => {

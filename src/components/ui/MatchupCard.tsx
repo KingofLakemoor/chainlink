@@ -75,6 +75,7 @@ export const MatchupCard = React.memo(function MatchupCard({
     : (m.metadata?.spread !== undefined && m.metadata.spread !== null ? Number(m.metadata.spread) < 0 : false);
 
   const isHorseLeague = ['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league);
+  const isIndividualOrHorse = isHorseLeague || ['ATP', 'WTA', 'PGA', 'GOLF', 'PUTTING', 'SCRIPTLESS', 'DARTS'].includes(m.league);
 
   const getTeamFallbackIcon = (team: any) => {
     if (!team) return <Link2 className="w-10 h-10 text-zinc-600" />;
@@ -415,7 +416,7 @@ export const MatchupCard = React.memo(function MatchupCard({
            </div>
 
            <div className="flex flex-col items-center gap-2 sm:gap-3 w-[100px] sm:w-[140px]">
-             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : `@${getTeamShortName(m, true)}`}</span>
+             <span className="text-xs sm:text-sm font-semibold text-zinc-200 truncate w-full text-center px-1">{(m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER') ? 'UNDER' : `${isIndividualOrHorse ? '' : '@'}${getTeamShortName(m, true)}`}</span>
              <div className="relative">
                <button
                  disabled={isPickDisabled && !isQueueState}

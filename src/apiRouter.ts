@@ -3233,12 +3233,14 @@ apiRouter.get("/admin/apify/horse-racing/status", validateAdminOrApiKey, async (
 apiRouter.post("/admin/apify/horse-racing/run", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });
   try {
-    const { date, tracks, maxItems, datasetId, spIntendedUsage, sp_intended_usage, spImprovementSuggestions, sp_improvement_suggestions, spContact, sp_contact, dataMode } = req.body || {};
+    const { date, tracks, maxItems, datasetId, useLastRun, forceRun, spIntendedUsage, sp_intended_usage, spImprovementSuggestions, sp_improvement_suggestions, spContact, sp_contact, dataMode } = req.body || {};
     const fetchResult = await fetchEquibaseScraperData({
       date,
       tracks,
       maxItems,
       datasetId,
+      useLastRun,
+      forceRun,
       spIntendedUsage: spIntendedUsage || sp_intended_usage,
       spImprovementSuggestions: spImprovementSuggestions || sp_improvement_suggestions,
       spContact: spContact || sp_contact,
@@ -3256,6 +3258,7 @@ apiRouter.post("/admin/apify/horse-racing/run", validateAdminOrApiKey, async (re
       success: true,
       cardCount: fetchResult.cards.length,
       syncedCount: syncResult.syncedCount,
+      source: fetchResult.source,
       updatedGameIds: syncResult.updatedGameIds,
       cards: fetchResult.cards
     });

@@ -386,7 +386,67 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(result.error).toContain('APIFY_API_TOKEN is missing');
     });
 
-    it('sends required survey and date parameters in POST body payload to Apify API', async () => {
+    it('fetches dataset items from datasetId ($0.00) when provided', async () => {
+      process.env.APIFY_API_TOKEN = 'mock_token_789';
+
+      let calledUrl = '';
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+        calledUrl = String(url);
+        return {
+          ok: true,
+          json: async () => [
+            {
+              trackName: 'Saratoga',
+              trackCode: 'SAR',
+              raceNumber: 1,
+              raceDate: '2026-09-10',
+              runners: [
+                { programNumber: '1', horseName: 'Fierceness', morningLineOdds: '2/1' },
+                { programNumber: '2', horseName: 'Sierra Leone', morningLineOdds: '5/2' }
+              ]
+            }
+          ]
+        } as Response;
+      });
+
+      const res = await fetchEquibaseScraperData({ datasetId: 'WkzbQMuFYuamGv3YF' });
+      expect(res.success).toBe(true);
+      expect(res.source).toBe('dataset');
+      expect(calledUrl).toContain('/datasets/WkzbQMuFYuamGv3YF/items');
+      expect(res.cards.length).toBe(1);
+    });
+
+    it('fetches dataset items from last run ($0.00) when useLastRun is true', async () => {
+      process.env.APIFY_API_TOKEN = 'mock_token_789';
+
+      let calledUrl = '';
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+        calledUrl = String(url);
+        return {
+          ok: true,
+          json: async () => [
+            {
+              trackName: 'Belmont',
+              trackCode: 'BEL',
+              raceNumber: 2,
+              raceDate: '2026-09-10',
+              runners: [
+                { programNumber: '1', horseName: 'Arcangelo', morningLineOdds: '3/1' },
+                { programNumber: '2', horseName: 'National Treasure', morningLineOdds: '4/1' }
+              ]
+            }
+          ]
+        } as Response;
+      });
+
+      const res = await fetchEquibaseScraperData({ useLastRun: true });
+      expect(res.success).toBe(true);
+      expect(res.source).toBe('lastRunDataset');
+      expect(calledUrl).toContain('/runs/last/dataset/items');
+      expect(res.cards.length).toBe(1);
+    });
+
+    it('sends required survey and date parameters in POST body payload to Apify API when forceRun is true', async () => {
       process.env.APIFY_API_TOKEN = 'mock_token_789';
 
       let capturedBody: any = null;
@@ -400,7 +460,7 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
         } as Response;
       });
 
-      await fetchEquibaseScraperData({ date: '2026-09-10', tracks: ['SAR', 'DMR'] });
+      await fetchEquibaseScraperData({ date: '2026-09-10', tracks: ['SAR', 'DMR'], forceRun: true });
       expect(capturedBody).toBeDefined();
       expect(capturedBody.date).toBe('2026-09-10');
       expect(capturedBody.raceDate).toBe('2026-09-10');
@@ -416,7 +476,8 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
         date: '2026-09-10',
         spIntendedUsage: 'SERP',
         spImprovementSuggestions: 'Add more tracks',
-        spContact: 'test@example.com'
+        spContact: 'test@example.com',
+        forceRun: true
       });
       expect(capturedBody.sp_intended_usage).toBe('SERP');
       expect(capturedBody.sp_improvement_suggestions).toBe('Add more tracks');

@@ -166,6 +166,200 @@ export function calculateImpliedProbability(odds: any): number {
 }
 
 /**
+ * Helper to extract track name from various JSON shapes.
+ */
+function extractTrackName(item: any): string {
+  if (!item || typeof item !== 'object') return 'Unknown Track';
+
+  const name =
+    item.trackName ||
+    item.track_name ||
+    item.trackTitle ||
+    item.track_title ||
+    item.trackDisplayName ||
+    item.track_display_name ||
+    item.venue ||
+    item.venueName ||
+    item.venue_name ||
+    item.racetrack ||
+    item.raceTrack ||
+    item.race_track ||
+    item.location ||
+    item.course ||
+    item.courseName ||
+    item.course_name ||
+    (typeof item.track === 'string' ? item.track : null) ||
+    item.trackCode ||
+    item.track_code ||
+    item.trackId ||
+    item.track_id ||
+    item.raceCard?.trackName ||
+    item.raceCard?.track_name ||
+    item.raceCard?.track ||
+    item.race_card?.trackName ||
+    item.race_card?.track_name ||
+    item.race_card?.track ||
+    item.header?.trackName ||
+    item.header?.track_name ||
+    item.header?.track ||
+    item.summary?.trackName ||
+    item.summary?.track ||
+    item.race?.trackName ||
+    item.race?.track_name ||
+    item.race?.track;
+
+  if (typeof name === 'string' && name.trim()) {
+    return name.trim();
+  }
+  if (typeof item.track === 'object' && item.track) {
+    const nested = item.track.name || item.track.trackName || item.track.title || item.track.code;
+    if (typeof nested === 'string' && nested.trim()) return nested.trim();
+  }
+  return 'Unknown Track';
+}
+
+/**
+ * Helper to extract track code from various JSON shapes.
+ */
+function extractTrackCode(item: any, fallbackName: string): string {
+  if (!item || typeof item !== 'object') return 'TRK';
+
+  const code =
+    item.trackCode ||
+    item.track_code ||
+    item.trackId ||
+    item.track_id ||
+    item.track_abbr ||
+    item.trackAbbr ||
+    item.trackCodeAbbr ||
+    item.track_code_abbr ||
+    (typeof item.track === 'string' ? item.track : null);
+
+  if (typeof code === 'string' && code.trim().length >= 2 && code.trim().length <= 6) {
+    return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  const sourceStr = (fallbackName && fallbackName !== 'Unknown Track' ? fallbackName : (typeof code === 'string' ? code : 'TRK'));
+  return sourceStr.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5) || 'TRK';
+}
+
+/**
+ * Helper to extract race number.
+ */
+function extractRaceNumber(item: any): number {
+  if (!item || typeof item !== 'object') return 1;
+
+  const raw =
+    item.raceNumber ??
+    item.race_number ??
+    item.raceNum ??
+    item.race_num ??
+    item.raceNo ??
+    item.race_no ??
+    item.number ??
+    item.num ??
+    item.race_id ??
+    item.raceId ??
+    item.race;
+
+  if (typeof raw === 'number' && !isNaN(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    const match = raw.match(/(?:R|Race\s*|#)?(\d+)/i);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+  if (typeof item.race === 'object' && item.race) {
+    const nestedNum = item.race.number || item.race.raceNumber || item.race.num;
+    if (typeof nestedNum === 'number' && !isNaN(nestedNum)) return nestedNum;
+    if (typeof nestedNum === 'string') {
+      const match = nestedNum.match(/\d+/);
+      if (match) return parseInt(match[0], 10);
+    }
+  }
+  return 1;
+}
+
+/**
+ * Helper to extract horse name from runner object or string.
+ */
+function extractHorseName(r: any): string | null {
+  if (!r) return null;
+  if (typeof r === 'string' && r.trim()) return r.trim();
+
+  if (typeof r === 'object') {
+    const rawName =
+      r.horseName ||
+      r.horse_name ||
+      r.horseTitle ||
+      r.horse_title ||
+      r.horseText ||
+      r.horse_text ||
+      r.runnerName ||
+      r.runner_name ||
+      r.entryName ||
+      r.entry_name ||
+      r.name ||
+      r.title;
+
+    if (typeof rawName === 'string' && rawName.trim()) {
+      return rawName.trim();
+    }
+
+    if (typeof r.horse === 'string' && r.horse.trim()) {
+      return r.horse.trim();
+    }
+    if (typeof r.horse === 'object' && r.horse) {
+      const nested = r.horse.name || r.horse.horseName || r.horse.title;
+      if (typeof nested === 'string' && nested.trim()) return nested.trim();
+    }
+
+    if (typeof r.runner === 'string' && r.runner.trim()) {
+      return r.runner.trim();
+    }
+    if (typeof r.runner === 'object' && r.runner) {
+      const nested = r.runner.name || r.runner.runnerName || r.runner.title;
+      if (typeof nested === 'string' && nested.trim()) return nested.trim();
+    }
+
+    if (typeof r.starter === 'string' && r.starter.trim()) {
+      return r.starter.trim();
+    }
+    if (typeof r.starter === 'object' && r.starter) {
+      const nested = r.starter.name || r.starter.horseName;
+      if (typeof nested === 'string' && nested.trim()) return nested.trim();
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Helper to extract runners array from various JSON shapes.
+ */
+function extractRunnersArray(item: any): any[] {
+  if (!item || typeof item !== 'object') return [];
+
+  if (Array.isArray(item.runners) && item.runners.length > 0) return item.runners;
+  if (Array.isArray(item.horses) && item.horses.length > 0) return item.horses;
+  if (Array.isArray(item.entries) && item.entries.length > 0) return item.entries;
+  if (Array.isArray(item.starters) && item.starters.length > 0) return item.starters;
+  if (Array.isArray(item.contenders) && item.contenders.length > 0) return item.contenders;
+  if (Array.isArray(item.field) && item.field.length > 0) return item.field;
+  if (Array.isArray(item.competitors) && item.competitors.length > 0) return item.competitors;
+  if (Array.isArray(item.participants) && item.participants.length > 0) return item.participants;
+  if (Array.isArray(item.race_runners) && item.race_runners.length > 0) return item.race_runners;
+  if (Array.isArray(item.raceRunners) && item.raceRunners.length > 0) return item.raceRunners;
+  if (item.race && Array.isArray(item.race.runners)) return item.race.runners;
+  if (item.race && Array.isArray(item.race.horses)) return item.race.horses;
+  if (item.race && Array.isArray(item.race.entries)) return item.race.entries;
+
+  return [];
+}
+
+/**
  * Normalizes raw dataset items returned from the Apify actor into structured EquibaseRaceCard objects.
  */
 export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
@@ -179,25 +373,27 @@ export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
     if (!item) continue;
 
     // Support both pre-grouped race card objects and flat runner objects
-    const trackName = item.trackName || item.track || item.trackCode || 'Unknown Track';
-    const trackCode = (item.trackCode || item.track || trackName).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5) || 'TRK';
-    const raceNumber = Number(item.raceNumber || item.race_number || item.race || 1);
-    const dateStr = item.raceDate || item.date || item.eventDate || new Date().toISOString().split('T')[0];
+    const trackName = extractTrackName(item);
+    const trackCode = extractTrackCode(item, trackName);
+    const raceNumber = extractRaceNumber(item);
+    const dateStr = item.raceDate || item.race_date || item.date || item.eventDate || item.event_date || new Date().toISOString().split('T')[0];
 
     const raceKey = `${trackCode}_${dateStr.replace(/-/g, '')}_R${raceNumber}`;
 
     if (!raceMap.has(raceKey)) {
-      const postTimeMs = parseRacePostTime(item.postTime || item.post_time || item.time, dateStr);
+      const postTimeMs = parseRacePostTime(item.postTime || item.post_time || item.post_time_ms || item.time || item.startTime || item.start_time, dateStr);
       let raceStatus: EquibaseRaceCard['status'] = 'STATUS_SCHEDULED';
 
-      const rawStatus = String(item.status || item.raceStatus || '').toUpperCase();
-      if (rawStatus.includes('FINAL') || rawStatus.includes('OFFICIAL') || item.winningHorse || item.winner) {
+      const rawStatus = String(item.status || item.raceStatus || item.race_status || '').toUpperCase();
+      if (rawStatus.includes('FINAL') || rawStatus.includes('OFFICIAL') || item.winningHorse || item.winning_horse || item.winner) {
         raceStatus = 'STATUS_FINAL';
-      } else if (rawStatus.includes('RUNNING') || rawStatus.includes('IN_PROGRESS')) {
+      } else if (rawStatus.includes('RUNNING') || rawStatus.includes('IN_PROGRESS') || rawStatus.includes('LIVE')) {
         raceStatus = 'STATUS_IN_PROGRESS';
       } else if (rawStatus.includes('CANCEL')) {
         raceStatus = 'STATUS_CANCELLED';
       }
+
+      const winHorseName = extractHorseName(item.winningHorse || item.winning_horse || item.winner);
 
       raceMap.set(raceKey, {
         raceId: raceKey,
@@ -211,64 +407,73 @@ export function parseEquibaseItems(items: any[]): EquibaseRaceCard[] {
         purse: item.purse || null,
         status: raceStatus,
         runners: [],
-        winningHorse: item.winningHorse || item.winner || null,
-        winningProgramNumber: item.winningProgramNumber || item.winningProgram || null,
+        winningHorse: winHorseName || null,
+        winningProgramNumber: item.winningProgramNumber || item.winning_program_number || item.winningProgram || item.winning_program || null,
         rawPayload: item || null
       });
     }
 
     const card = raceMap.get(raceKey)!;
+    const runnersArray = extractRunnersArray(item);
 
     // Handle nested runners array
-    if (Array.isArray(item.runners) && item.runners.length > 0) {
-      for (const r of item.runners) {
-        const horseName = r.horseName || r.horse || r.name;
+    if (runnersArray.length > 0) {
+      for (const r of runnersArray) {
+        const horseName = extractHorseName(r);
         if (!horseName) continue;
-        const mlOdds = r.morningLineOdds || r.morningLine || r.mlOdds || r.odds;
-        const rawFinishPos = r.finishPosition !== undefined ? Number(r.finishPosition) : (r.finish !== undefined ? Number(r.finish) : undefined);
+        const mlOdds = r.morningLineOdds ?? r.morning_line_odds ?? r.morningLine ?? r.morning_line ?? r.mlOdds ?? r.ml_odds ?? r.odds ?? r.ml;
+        const rawFinishPos = r.finishPosition !== undefined ? Number(r.finishPosition) : (r.finish_position !== undefined ? Number(r.finish_position) : (r.finish !== undefined ? Number(r.finish) : undefined));
         const finishPos = rawFinishPos !== undefined && !isNaN(rawFinishPos) ? rawFinishPos : null;
+        const programNum = r.programNumber ?? r.program_number ?? r.program ?? r.number ?? r.num ?? r.saddle ?? r.cloth ?? r.pp ?? r.postPosition ?? r.post_position ?? null;
+        const postPos = (r.postPosition !== undefined && r.postPosition !== null && !isNaN(Number(r.postPosition))) ? Number(r.postPosition) : ((r.post_position !== undefined && r.post_position !== null && !isNaN(Number(r.post_position))) ? Number(r.post_position) : null);
+        const isScr = Boolean(r.scratched || r.scratch || r.isScratched || r.is_scratched || String(r.status || '').toUpperCase().includes('SCRATCH'));
 
         card.runners.push({
-          programNumber: r.programNumber || r.program || r.number || r.pp || null,
-          postPosition: (r.postPosition !== undefined && r.postPosition !== null && !isNaN(Number(r.postPosition))) ? Number(r.postPosition) : null,
-          horseName: String(horseName).trim(),
-          jockey: r.jockey || null,
-          trainer: r.trainer || null,
-          morningLineOdds: mlOdds || null,
+          programNumber: programNum ? String(programNum).trim() : null,
+          postPosition: postPos,
+          horseName: horseName.trim(),
+          jockey: r.jockey || r.jockeyName || r.jockey_name || null,
+          trainer: r.trainer || r.trainerName || r.trainer_name || null,
+          morningLineOdds: mlOdds !== null && mlOdds !== undefined ? String(mlOdds).trim() : null,
           mlOddsNumber: parseMorningLineOdds(mlOdds) ?? null,
           finishPosition: finishPos,
-          status: r.scratched ? 'SCRATCHED' : (finishPos === 1 ? 'WINNER' : 'ACTIVE')
+          status: isScr ? 'SCRATCHED' : (finishPos === 1 ? 'WINNER' : 'ACTIVE')
         });
 
         if (finishPos === 1 || r.status === 'WINNER') {
-          card.winningHorse = String(horseName).trim();
-          card.winningProgramNumber = r.programNumber || r.program || null;
+          card.winningHorse = horseName.trim();
+          card.winningProgramNumber = programNum ? String(programNum).trim() : null;
           card.status = 'STATUS_FINAL';
         }
       }
-    } else if (item.horseName || item.horse) {
+    } else {
       // Handle flat runner item
-      const horseName = item.horseName || item.horse;
-      const mlOdds = item.morningLineOdds || item.morningLine || item.mlOdds || item.odds;
-      const rawFinishPos = item.finishPosition !== undefined ? Number(item.finishPosition) : (item.finish !== undefined ? Number(item.finish) : undefined);
-      const finishPos = rawFinishPos !== undefined && !isNaN(rawFinishPos) ? rawFinishPos : null;
+      const horseName = extractHorseName(item);
+      if (horseName) {
+        const mlOdds = item.morningLineOdds ?? item.morning_line_odds ?? item.morningLine ?? item.morning_line ?? item.mlOdds ?? item.ml_odds ?? item.odds ?? item.ml;
+        const rawFinishPos = item.finishPosition !== undefined ? Number(item.finishPosition) : (item.finish_position !== undefined ? Number(item.finish_position) : (item.finish !== undefined ? Number(item.finish) : undefined));
+        const finishPos = rawFinishPos !== undefined && !isNaN(rawFinishPos) ? rawFinishPos : null;
+        const programNum = item.programNumber ?? item.program_number ?? item.program ?? item.number ?? item.num ?? item.saddle ?? item.cloth ?? item.pp ?? item.postPosition ?? item.post_position ?? null;
+        const postPos = (item.postPosition !== undefined && item.postPosition !== null && !isNaN(Number(item.postPosition))) ? Number(item.postPosition) : ((item.post_position !== undefined && item.post_position !== null && !isNaN(Number(item.post_position))) ? Number(item.post_position) : null);
+        const isScr = Boolean(item.scratched || item.scratch || item.isScratched || item.is_scratched || String(item.status || '').toUpperCase().includes('SCRATCH'));
 
-      card.runners.push({
-        programNumber: item.programNumber || item.program || item.number || null,
-        postPosition: (item.postPosition !== undefined && item.postPosition !== null && !isNaN(Number(item.postPosition))) ? Number(item.postPosition) : null,
-        horseName: String(horseName).trim(),
-        jockey: item.jockey || null,
-        trainer: item.trainer || null,
-        morningLineOdds: mlOdds || null,
-        mlOddsNumber: parseMorningLineOdds(mlOdds) ?? null,
-        finishPosition: finishPos,
-        status: item.scratched ? 'SCRATCHED' : (finishPos === 1 ? 'WINNER' : 'ACTIVE')
-      });
+        card.runners.push({
+          programNumber: programNum ? String(programNum).trim() : null,
+          postPosition: postPos,
+          horseName: horseName.trim(),
+          jockey: item.jockey || item.jockeyName || item.jockey_name || null,
+          trainer: item.trainer || item.trainerName || item.trainer_name || null,
+          morningLineOdds: mlOdds !== null && mlOdds !== undefined ? String(mlOdds).trim() : null,
+          mlOddsNumber: parseMorningLineOdds(mlOdds) ?? null,
+          finishPosition: finishPos,
+          status: isScr ? 'SCRATCHED' : (finishPos === 1 ? 'WINNER' : 'ACTIVE')
+        });
 
-      if (finishPos === 1 || item.status === 'WINNER') {
-        card.winningHorse = String(horseName).trim();
-        card.winningProgramNumber = item.programNumber || item.program || null;
-        card.status = 'STATUS_FINAL';
+        if (finishPos === 1 || item.status === 'WINNER') {
+          card.winningHorse = horseName.trim();
+          card.winningProgramNumber = programNum ? String(programNum).trim() : null;
+          card.status = 'STATUS_FINAL';
+        }
       }
     }
   }
@@ -524,21 +729,32 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
   const updatedGameIds: string[] = [];
 
   for (const card of cards) {
+    const activeRunners = card.runners.filter(r => r.status !== 'SCRATCHED');
+    if (activeRunners.length === 0) {
+      // Skip race cards with no active runners/horses
+      continue;
+    }
+
     // 1. Primary Full Race Matchup
     const gameId = `equibase_${card.raceId}`;
     const docRef = db.collection('matchups').doc(gameId);
     const existingDoc = await docRef.get();
 
-    const activeRunners = card.runners.filter(r => r.status !== 'SCRATCHED');
-    const firstRunner = activeRunners[0] || { horseName: 'Runner 1', programNumber: '1' };
-    const secondRunner = activeRunners[1] || { horseName: 'Runner 2', programNumber: '2' };
+    const firstRunner = activeRunners[0];
+    const secondRunner = activeRunners[1] || { horseName: 'The Field', programNumber: 'FIELD', morningLineOdds: null };
 
     const homeScore = (firstRunner.finishPosition === 1 || card.winningHorse === firstRunner.horseName) ? 1 : 0;
     const awayScore = (secondRunner.finishPosition === 1 || card.winningHorse === secondRunner.horseName) ? 1 : 0;
 
+    const firstHorseName = firstRunner.horseName || 'Contender 1';
+    const secondHorseName = secondRunner.horseName || 'The Field';
+
+    const firstHorseML = firstRunner.morningLineOdds ? ` (${firstRunner.morningLineOdds})` : '';
+    const secondHorseML = secondRunner.morningLineOdds ? ` (${secondRunner.morningLineOdds})` : '';
+
     const matchupData: any = {
       gameId,
-      title: `${card.trackName} - Race ${card.raceNumber}`,
+      title: `${card.trackName} R${card.raceNumber}: ${firstHorseName} vs ${secondHorseName}`,
       league: 'HORSE_RACING',
       startTime: card.postTimeMs,
       status: card.status,
@@ -547,13 +763,13 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
       type: 'STANDARD',
       homeTeam: {
         id: `program_${firstRunner.programNumber || '1'}`,
-        name: firstRunner.horseName,
+        name: `${firstHorseName}${firstHorseML}`,
         image: '/logo.png',
         score: homeScore
       },
       awayTeam: {
         id: `program_${secondRunner.programNumber || '2'}`,
-        name: secondRunner.horseName,
+        name: `${secondHorseName}${secondHorseML}`,
         image: '/logo.png',
         score: awayScore
       },

@@ -48,14 +48,18 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const weekNum = matchup.week || matchup.weekNumber || 1;
   const gameId = matchup.gameId || (matchup.id ? String(matchup.id).split('_').pop() : '');
 
-  let isYesDay = matchup.campaignName === 'YES Day Walk for Autism 2026' || matchup.campaignId === 'yes_day_2026' || matchup.campaignId === 'charity';
+  let isYesDay = matchup.isCharity ||
+                 matchup.campaignName === 'YES Day Walk for Autism 2026' ||
+                 matchup.campaignId === 'yes_day_2026' ||
+                 matchup.campaignId === 'charity' ||
+                 (typeof matchup.campaignName === 'string' && matchup.campaignName.toLowerCase().includes('yes day'));
 
   if (!isYesDay && matchup.campaignId) {
     try {
       const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
       if (campDoc.exists) {
         const cData = campDoc.data();
-        if (cData?.name === 'YES Day Walk for Autism 2026') {
+        if (cData?.name === 'YES Day Walk for Autism 2026' || cData?.isCharity || (typeof cData?.name === 'string' && cData.name.toLowerCase().includes('yes day'))) {
           isYesDay = true;
         }
       }
@@ -274,8 +278,6 @@ export async function gradeSinglePickemMatchup(matchup: any) {
       } else if (isLionsPick) {
         isWin = true;
       }
-    } else if (isYesDay && isSaintsPick) {
-      isWin = false;
     }
 
     if (isTie) {

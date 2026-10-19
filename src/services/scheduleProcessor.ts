@@ -1186,7 +1186,11 @@ export async function syncLeagueSchedules(
               if (!matchup) continue;
 
               // Sync standard matchup score and status into the pickem matchup
-              const isYesDay = pData.campaignId === 'yes_day_2026' || pData.campaignName === 'YES Day Walk for Autism 2026';
+              const isYesDay = pData.isCharity ||
+                               pData.campaignId === 'yes_day_2026' ||
+                               pData.campaignId === 'charity' ||
+                               pData.campaignName === 'YES Day Walk for Autism 2026' ||
+                               (typeof pData.campaignName === 'string' && pData.campaignName.toLowerCase().includes('yes day'));
               const isManualOverride = !isYesDay && (pData.manualTypeOverride === true || pData.isManualOverride === true);
 
               const updateData: any = {
@@ -1294,7 +1298,7 @@ export async function syncLeagueSchedules(
                   if (doc.id) checkTargetIds.add(String(doc.id));
                   if (pData.gameId) checkTargetIds.add(String(pData.gameId));
                   if (isYesDay) {
-                    const aliases = ['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', pData.campaignId].filter(Boolean);
+                    const aliases = Array.from(new Set(['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', pData.campaignId, pData.campaignName])).filter(Boolean);
                     aliases.forEach(cid => {
                       if (pData.gameId) checkTargetIds.add(`${cid}_${pData.week || 1}_${pData.gameId}`);
                       if (doc.id) checkTargetIds.add(`${cid}_${doc.id}`);

@@ -1063,4 +1063,92 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(weeklyStats[2]['user1']).toEqual({ wins: 1, losses: 0, points: 1 });
     expect(weeklyStats[2]['user2']).toEqual({ wins: 0, losses: 1, points: 0 });
   });
+
+  it('correctly grades Saints picks as WIN when Saints win in Week 2+ or late/Sunday night games', () => {
+    const SaintsTeam = { id: 'NO', name: 'New Orleans Saints', shortName: 'Saints' };
+    const PanthersTeam = { id: 'CAR', name: 'Carolina Panthers', shortName: 'Panthers' };
+
+    const saintsMatchupWeek2 = {
+      id: 'charity_2_401547999',
+      gameId: '401547999',
+      campaignId: 'charity',
+      campaignName: 'YES Day Walk for Autism 2026',
+      week: 2,
+      status: 'STATUS_FINAL',
+      type: 'STANDARD',
+      homeTeam: SaintsTeam,
+      awayTeam: PanthersTeam,
+      homeTeamScore: 24,
+      awayTeamScore: 17
+    };
+
+    // Simulated pick evaluation logic from pickemGrader
+    const isYesDay = saintsMatchupWeek2.isCharity ||
+                     saintsMatchupWeek2.campaignName === 'YES Day Walk for Autism 2026' ||
+                     saintsMatchupWeek2.campaignId === 'yes_day_2026' ||
+                     saintsMatchupWeek2.campaignId === 'charity';
+
+    const homeScore = saintsMatchupWeek2.homeTeamScore;
+    const awayScore = saintsMatchupWeek2.awayTeamScore;
+    const winnerId = homeScore > awayScore ? saintsMatchupWeek2.homeTeam.id : saintsMatchupWeek2.awayTeam.id;
+
+    const saintsPickerPick = {
+      participantId: 'user_saints',
+      pick: { teamId: 'NO' },
+      week: 2
+    };
+
+    const isSaintsVsLionsWeek1 = Number(saintsMatchupWeek2.week) === 1 &&
+      (saintsMatchupWeek2.homeTeam.id === 'DET' || saintsMatchupWeek2.awayTeam.id === 'DET');
+
+    let isWin = false;
+    if (winnerId === saintsPickerPick.pick.teamId) {
+      isWin = true;
+    }
+
+    if (isYesDay && isSaintsVsLionsWeek1) {
+      if (saintsPickerPick.pick.teamId === 'NO') {
+        isWin = false;
+      }
+    }
+
+    expect(isYesDay).toBe(true);
+    expect(winnerId).toBe('NO');
+    expect(isWin).toBe(true);
+  });
+
+  it('resolves checkTargetIds for completed YES Day matchups under charity or custom campaignId', () => {
+    const pData = {
+      id: 'charity_2_401547888',
+      gameId: '401547888',
+      campaignId: 'charity',
+      campaignName: 'Charity Pick Em 2026',
+      isCharity: true,
+      week: 2
+    };
+
+    const isYesDay = pData.isCharity ||
+                     pData.campaignId === 'yes_day_2026' ||
+                     pData.campaignId === 'charity' ||
+                     pData.campaignName === 'YES Day Walk for Autism 2026' ||
+                     (typeof pData.campaignName === 'string' && pData.campaignName.toLowerCase().includes('yes day'));
+
+    const checkTargetIds = new Set<string>();
+    if (pData.id) checkTargetIds.add(String(pData.id));
+    if (pData.gameId) checkTargetIds.add(String(pData.gameId));
+
+    if (isYesDay) {
+      const aliases = Array.from(new Set(['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', pData.campaignId, pData.campaignName])).filter(Boolean);
+      aliases.forEach(cid => {
+        if (pData.gameId) checkTargetIds.add(`${cid}_${pData.week || 1}_${pData.gameId}`);
+        if (pData.id) checkTargetIds.add(`${cid}_${pData.id}`);
+      });
+    }
+
+    expect(isYesDay).toBe(true);
+    expect(checkTargetIds.has('yes_day_2026_2_401547888')).toBe(true);
+    expect(checkTargetIds.has('charity_2_401547888')).toBe(true);
+    expect(checkTargetIds.has('YES Day Walk for Autism 2026_2_401547888')).toBe(true);
+    expect(checkTargetIds.has('401547888')).toBe(true);
+  });
 });

@@ -79,19 +79,22 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     dates = specificDates;
   } else {
     const today = new Date();
-    const twoDaysAgo = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000);
-    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-    const theDayAfterTomorrow = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
-
     const formatESTDate = (d: Date) => {
       const str = d.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
       const [month, day, year] = str.split("/");
       return `${year}${month}${day}`;
     };
-    const daysAhead = (league === 'NFL' || league === 'CFB') ? 21 : 14;
-    for (let i = -2; i <= daysAhead; i++) {
-      dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000)));
+
+    if (scoreboardOnly) {
+      // Scoreboard-only requests focus on live/active scores: yesterday, today, and tomorrow
+      for (let i = -1; i <= 1; i++) {
+        dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000)));
+      }
+    } else {
+      const daysAhead = (league === 'NFL' || league === 'CFB') ? 21 : 14;
+      for (let i = -2; i <= daysAhead; i++) {
+        dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000)));
+      }
     }
   }
 
@@ -225,11 +228,15 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
 export async function fetchScheduleData(endpoint: string, league: League, isScoreboardOnly: boolean = false) {
   const fetchOptions = {
     headers: {
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     },
-    signal: AbortSignal.timeout(10000)
+    signal: AbortSignal.timeout(25000)
   };
   const response = await fetch(endpoint, fetchOptions);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+  }
   const data = await response.json();
   const scheduleData: Record<string, any> = {};
 
@@ -337,17 +344,32 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
 
   
 
-  const scheduleDataPromises = endpoints.map(async (endpoint) => {
-    try {
-      const scheduleData = await fetchScheduleData(endpoint, league, scoreboardOnly);
-      return { endpoint, scheduleData };
-    } catch (err) {
-      console.error(`Failed parsing data for endpoint: ${endpoint}`, err);
-      return null;
+  const scheduleDataResults: { endpoint: string; scheduleData: any }[] = [];
+  const BATCH_SIZE = 6;
+  for (let i = 0; i < endpoints.length; i += BATCH_SIZE) {
+    const chunk = endpoints.slice(i, i + BATCH_SIZE);
+    const chunkResults = await Promise.all(
+      chunk.map(async (endpoint) => {
+        try {
+          const scheduleData = await fetchScheduleData(endpoint, league, scoreboardOnly);
+          return { endpoint, scheduleData };
+        } catch (err: any) {
+          // Retry once with a brief backoff
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            const scheduleData = await fetchScheduleData(endpoint, league, scoreboardOnly);
+            return { endpoint, scheduleData };
+          } catch (retryErr: any) {
+            console.warn(`[espnScraper] Notice: endpoint ${endpoint} fetch skipped (${retryErr.message || retryErr})`);
+            return null;
+          }
+        }
+      })
+    );
+    for (const res of chunkResults) {
+      if (res) scheduleDataResults.push(res);
     }
-  });
-  
-  const scheduleDataResults = await Promise.all(scheduleDataPromises);
+  }
   
   for (const result of scheduleDataResults) {
     if (!result) continue;
@@ -782,7 +804,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
         } // for game
       } // for day
     } catch (err: any) {
-      console.error(`Failed parsing data for endpoint: ${endpoint}`, err);
+      console.warn(`[espnScraper] Notice: Failed parsing data for endpoint: ${endpoint}`, err?.message || err);
     }
   }
   response.data = parsedMatchups;

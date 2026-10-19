@@ -1,10 +1,10 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 
-let getAdminDb = () => firebaseAdmin.adminDb;
+let mockAdminDb: any = null;
 
 // Export for mocking in tests
 export function setAdminDbMockForRateLimiter(mock: any) {
-  getAdminDb = () => mock;
+  mockAdminDb = mock;
 }
 
 const MAX_DAILY_ODDS_API_CALLS = 2;
@@ -20,18 +20,28 @@ export function getTodayKey(): string {
 export function resetInMemoryOddsRateLimiter() {
   inMemoryDateKey = getTodayKey();
   inMemoryCallCount = 0;
+  mockAdminDb = null;
 }
+
+const isTestEnv = () => process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
 
 /**
  * Checks whether The Odds API can be called without exceeding the daily limit (max 2 calls per day).
  */
 export async function canMakeOddsApiCall(): Promise<boolean> {
   const today = getTodayKey();
-  const adminDb = getAdminDb();
+  const adminDb = mockAdminDb || firebaseAdmin.adminDb;
 
-  const isUnmockedTestDb = process.env.NODE_ENV === 'test' && adminDb === firebaseAdmin.adminDb;
+  // In unit test environment without an explicit mockDb, always use the in-memory rate limiter
+  if (isTestEnv() && !mockAdminDb) {
+    if (inMemoryDateKey !== today) {
+      inMemoryDateKey = today;
+      inMemoryCallCount = 0;
+    }
+    return inMemoryCallCount < MAX_DAILY_ODDS_API_CALLS;
+  }
 
-  if (!adminDb || isUnmockedTestDb) {
+  if (!adminDb) {
     if (inMemoryDateKey !== today) {
       inMemoryDateKey = today;
       inMemoryCallCount = 0;
@@ -81,7 +91,7 @@ export async function canMakeOddsApiCall(): Promise<boolean> {
  */
 export async function recordOddsApiCall(): Promise<number> {
   const today = getTodayKey();
-  const adminDb = getAdminDb();
+  const adminDb = mockAdminDb || firebaseAdmin.adminDb;
 
   if (inMemoryDateKey !== today) {
     inMemoryDateKey = today;
@@ -89,9 +99,7 @@ export async function recordOddsApiCall(): Promise<number> {
   }
   inMemoryCallCount++;
 
-  const isUnmockedTestDb = process.env.NODE_ENV === 'test' && adminDb === firebaseAdmin.adminDb;
-
-  if (!adminDb || isUnmockedTestDb) {
+  if ((isTestEnv() && !mockAdminDb) || !adminDb) {
     return inMemoryCallCount;
   }
 

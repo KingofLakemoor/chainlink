@@ -4,6 +4,8 @@ import { syncLeagueSchedules } from './scheduleProcessor.js';
 import { updateAllProps } from './propGrader.js';
 import { gradeGridironWeek, updateGridironLeaderboard } from './gridironGrader.js';
 import { getCurrentFootballWeek } from './gridironIngestion.js';
+import { getActiveLeagues } from './leagueService.js';
+import { getMatchupStartTime } from '../utils/matchupUtils.js';
 
 let syncTimeout: NodeJS.Timeout | null = null;
 let loopCount = 0;
@@ -13,7 +15,7 @@ let cachedPickemMatchupIds = new Set<string>();
 let cachedActiveLeaguesSet = new Set<string>();
 let cachedLeagueSettingsMap = new Map<string, any>();
 let lastMetadataFetchTime = 0;
-const METADATA_TTL_MS = 60 * 60 * 1000;
+const METADATA_TTL_MS = 5 * 60 * 1000;
 
 let finalizedGridironWeeksCache = new Set<string>();
 
@@ -36,11 +38,9 @@ export function startAutoSyncJob() {
         cachedActiveLeaguesSet.forEach(l => activeLeaguesSet.add(l));
         cachedLeagueSettingsMap.forEach((val, key) => leagueSettingsMap.set(key, val));
       } else {
-        const activeLeaguesSnap = await adminDb.collection('leagueSettings').where('active', '==', true).get();
-        activeLeaguesSnap.docs.forEach(doc => {
-          activeLeaguesSet.add(doc.id);
-          leagueSettingsMap.set(doc.id, doc.data());
-        });
+        const { activeLeagues, leagueSettingsMap: freshLeagueSettingsMap } = await getActiveLeagues();
+        activeLeagues.forEach(l => activeLeaguesSet.add(l));
+        freshLeagueSettingsMap.forEach((val, key) => leagueSettingsMap.set(key, val));
 
         // Also ensure any league actively used in a PickEm Campaign is synced
         const pickemCampaignsSnap = await adminDb.collection('pickemCampaigns').where('archived', '!=', true).get();
@@ -85,7 +85,8 @@ export function startAutoSyncJob() {
               if (doc.data().league) activeLeaguesSet.add(doc.data().league);
           });
 
-          // Check scheduled matchups whose start time has arrived or is arriving soon (next 15 minutes)
+          // Check scheduled matchups whose start time has arrived or is arriving soon (next 30 minutes)
+          // Look up to 24 hours back so games that should have started get synced and transitioned to in-progress
           const activeScheduledSnap = await adminDb.collection('matchups')
               .where('status', '==', 'STATUS_SCHEDULED')
               .get();
@@ -93,8 +94,8 @@ export function startAutoSyncJob() {
           activeScheduledSnap.docs.forEach(doc => {
               const m = doc.data();
               if (m.abandoned) return;
-              const startTime = typeof m.startTime === 'number' ? m.startTime : (m.startTime ? new Date(m.startTime).getTime() : 0);
-              if (startTime > 0 && startTime <= nowMs + 15 * 60 * 1000 && startTime >= nowMs - 12 * 60 * 60 * 1000) {
+              const startTime = getMatchupStartTime(m.startTime);
+              if (startTime > 0 && startTime <= nowMs + 30 * 60 * 1000 && startTime >= nowMs - 24 * 60 * 60 * 1000) {
                   hasLiveGames = true;
                   if (m.league) activeLeaguesSet.add(m.league);
               }
@@ -107,8 +108,8 @@ export function startAutoSyncJob() {
 
           activePickemSnap.docs.forEach(doc => {
               const pm = doc.data();
-              const startTime = typeof pm.startTime === 'number' ? pm.startTime : (pm.startTime ? new Date(pm.startTime).getTime() : 0);
-              if (pm.status === 'STATUS_IN_PROGRESS' || pm.status === 'STATUS_DELAYED' || (startTime > 0 && startTime <= nowMs + 15 * 60 * 1000 && startTime >= nowMs - 12 * 60 * 60 * 1000)) {
+              const startTime = getMatchupStartTime(pm.startTime);
+              if (pm.status === 'STATUS_IN_PROGRESS' || pm.status === 'STATUS_DELAYED' || (startTime > 0 && startTime <= nowMs + 30 * 60 * 1000 && startTime >= nowMs - 24 * 60 * 60 * 1000)) {
                   hasLiveGames = true;
                   if (pm.league) activeLeaguesSet.add(pm.league);
               }
@@ -200,8 +201,8 @@ export function startAutoSyncJob() {
       console.error("[AutoSync] Error during background sync job:", e);
       logServerError('AutoSync Background Job', e);
     } finally {
-      // Adaptive interval: 3 mins during live games, 10 mins during off-peak hours
-      const nextDelayMs = hasLiveGames ? 3 * 60 * 1000 : 10 * 60 * 1000;
+      // Adaptive interval: 60s during live games, 4 mins during off-peak hours
+      const nextDelayMs = hasLiveGames ? 60 * 1000 : 4 * 60 * 1000;
       syncTimeout = setTimeout(runSync, nextDelayMs);
     }
   };

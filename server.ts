@@ -172,9 +172,11 @@ async function startServer() {
 
   
   app.use('/api', apiRouter);
+  app.use('/cron', apiRouter);
+  app.use('/sync-schedules', apiRouter);
 
-  // Catch-all 404 handler specifically for /api routes to prevent Vite fallback
-  app.use('/api', (req, res) => {
+  // Catch-all 404 handler specifically for /api and /cron routes to prevent Vite fallback
+  app.use(['/api', '/cron'], (req, res) => {
     res.status(404).json({ success: false, error: 'Not Found' });
   });
 

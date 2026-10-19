@@ -17,6 +17,7 @@ import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
 import { syncTennisOdds, syncSoccerOdds } from './services/oddsProcessor.js';
 import { getSharpApiTennisComparison } from './services/sharpApiFallback.js';
+import { getActiveLeagues, ALL_SYSTEM_LEAGUES } from './services/leagueService.js';
 import {
   fetchEquibaseScraperData,
   syncEquibaseRacesToMatchups,
@@ -306,29 +307,57 @@ apiRouter.post("/referral/increment", validateAuth, async (req, res) => {
 
 const validateAdminOrApiKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
-    const providedApiKey = req.headers['x-api-key'];
-    if (providedApiKey && providedApiKey === process.env.SCRIPTLESS_API_KEY) {
-       return next();
+    // 1. Google Cloud Scheduler / AppEngine cron system headers
+    if (req.headers['x-cloudscheduler'] === 'true' || req.headers['x-appengine-cron'] === 'true') {
+      return next();
+    }
+
+    const queryApiKey = (req.query?.apiKey || req.query?.key) as string | undefined;
+    const headerApiKey = (req.headers['x-api-key'] || req.headers['api-key']) as string | undefined;
+    const validApiKeys = [
+      process.env.SCRIPTLESS_API_KEY,
+      process.env.ADMIN_API_KEY,
+      process.env.CRON_SECRET,
+      process.env.API_KEY
+    ].filter(Boolean) as string[];
+
+    if ((headerApiKey && validApiKeys.includes(headerApiKey)) || (queryApiKey && validApiKeys.includes(queryApiKey))) {
+      return next();
     }
 
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'Unauthorized: Missing or invalid API key/token' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split('Bearer ')[1].trim();
+
+      if (validApiKeys.includes(token)) {
+        return next();
+      }
+
+      // Check if it's a Google Cloud OIDC token from Cloud Scheduler
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+          if (payload.iss === 'https://accounts.google.com' || payload.iss === 'accounts.google.com' || payload.email_verified === true) {
+            return next();
+          }
+        }
+      } catch (e) {}
+
+      if (adminAuth && adminDb) {
+        try {
+          const decodedToken = await adminAuth.verifyIdToken(token);
+          const uid = decodedToken.uid;
+          const userDoc = await adminDb.collection('users').doc(uid).get();
+          if (userDoc.exists && userDoc.data()?.role === 'ADMIN') {
+            (req as any).uid = uid;
+            return next();
+          }
+        } catch (e) {}
+      }
     }
 
-    const idToken = authHeader.split('Bearer ')[1];
-    if (!adminAuth || !adminDb) return res.status(500).json({ success: false, error: "admin tools not initialized" });
-
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
-
-    const userDoc = await adminDb.collection('users').doc(uid).get();
-    if (!userDoc.exists || userDoc.data()?.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, error: 'Forbidden: Admin access required' });
-    }
-
-    (req as any).uid = uid;
-    next();
+    return res.status(401).json({ success: false, error: 'Unauthorized: Admin access or valid API key required' });
   } catch (e: any) {
     console.error('validateAdminOrApiKey Error:', e);
     res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -2518,9 +2547,11 @@ apiRouter.post("/admin/process-notifications", validateAdmin, async (req, res) =
   }
 });
 
-apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, res) => {
+apiRouter.all("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, res) => {
   try {
-    const { scoreboardOnly } = req.body || {};
+    const scoreboardOnly = req.body?.scoreboardOnly !== undefined 
+      ? req.body.scoreboardOnly 
+      : (req.query?.scoreboardOnly !== undefined ? req.query.scoreboardOnly === 'true' || req.query.scoreboardOnly === '1' : false);
     const isScoreboardOnly = !!scoreboardOnly;
 
     const leagues = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "PROP"];
@@ -2572,12 +2603,14 @@ apiRouter.post("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, r
   }
 });
 
-apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) => {
+const handleSyncSchedules = async (req: express.Request, res: express.Response) => {
   try {
-    let { league, scoreboardOnly } = req.body;
-    // Default to false if not provided
+    let league = req.body?.league || req.query?.league;
+    const scoreboardOnly = req.body?.scoreboardOnly !== undefined 
+      ? req.body.scoreboardOnly 
+      : (req.query?.scoreboardOnly !== undefined ? req.query.scoreboardOnly === 'true' || req.query.scoreboardOnly === '1' : false);
     const isScoreboardOnly = !!scoreboardOnly;
-    let result = {};
+    let result: any = {};
 
     // Handle potential aliases from external crons
     if (league === 'MEX' || league === 'Liga MX') {
@@ -2593,35 +2626,36 @@ apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) 
     if (!league || league === 'All' || league === 'ALL') {
       // If no specific league is provided, sync all active leagues
       if (!adminDb) throw new Error('adminDb not initialized');
-      const activeLeaguesSnap = await adminDb.collection('leagueSettings').where('active', '==', true).get();
-      const activeLeagues = activeLeaguesSnap.docs.map(doc => doc.id);
-      
+      const { activeLeagues } = await getActiveLeagues();
+
       let totalUpdated = 0;
       let totalCreated = 0;
-      const errors = [];
-      
+      const errors: string[] = [];
+
       for (const activeLeague of activeLeagues) {
         if (activeLeague === 'PROP') {
-           await updateAllProps();
+          try {
+            await updateAllProps();
+          } catch (e: any) {
+            errors.push(`PROP: ${e.message || e}`);
+          }
         } else {
-           try {
-             const res = await syncLeagueSchedules(activeLeague, isScoreboardOnly);
-             totalUpdated += res.matchupsUpdated || 0;
-             totalCreated += res.scoreMatchupsCreated || 0;
-           } catch (e) {
-             errors.push(`${activeLeague}: ${e.message}`);
-           }
+          try {
+            const res = await syncLeagueSchedules(activeLeague as any, isScoreboardOnly);
+            totalUpdated += res.matchupsUpdated || 0;
+            totalCreated += res.scoreMatchupsCreated || 0;
+          } catch (e: any) {
+            errors.push(`${activeLeague}: ${e.message || e}`);
+          }
         }
       }
-      
 
-      // Tennis odds are now synced on a 6-hour internal cron in oddsProcessor.ts
-      
-      result = { 
-        success: true, 
-        message: 'Synced all active leagues', 
-        matchupsUpdated: totalUpdated, 
+      result = {
+        success: true,
+        message: 'Synced all active leagues',
+        matchupsUpdated: totalUpdated,
         scoreMatchupsCreated: totalCreated,
+        leaguesSynced: activeLeagues,
         errors: errors.length > 0 ? errors : undefined
       };
     } else if (league === 'PROP') {
@@ -2645,9 +2679,16 @@ apiRouter.post("/admin/sync-schedules", validateAdminOrApiKey, async (req, res) 
     invalidateMatchupCaches();
     res.json({ success: true, result });
   } catch (e: any) {
-    console.error(e);
+    console.error('Error in handleSyncSchedules:', e);
     res.status(500).json({ success: false, error: e.message });
   }
+};
+
+apiRouter.all(["/admin/sync-schedules", "/cron/sync-schedules", "/sync-schedules", "/"], validateAdminOrApiKey, handleSyncSchedules);
+apiRouter.all(["/cron/frequent", "/frequent", "/cron/live", "/live"], validateAdminOrApiKey, (req, res) => {
+  if (!req.body) req.body = {};
+  req.body.scoreboardOnly = true;
+  return handleSyncSchedules(req, res);
 });
 
 apiRouter.post("/shop/buy", async (req, res) => {

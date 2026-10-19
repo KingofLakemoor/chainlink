@@ -232,6 +232,52 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(card.runners[0].mlOddsNumber).toBe(2);
     });
 
+    it('parses Horseshoe Indianapolis Race 1 card from Apify/Equibase payload', () => {
+      const horseshoeIndInput = [
+        {
+          trackName: 'Horseshoe Indianapolis',
+          trackCode: 'IND',
+          raceNumber: 1,
+          raceDate: '2026-10-19',
+          postTime: '2:10 PM ET',
+          distance: 'Six Furlongs',
+          purse: '$18,500',
+          runners: [
+            { programNumber: '1', horseName: 'Mountain Mike (IN)', jockey: 'A Burgos', trainer: 'C Ramirez', morningLineOdds: '3/1' },
+            { programNumber: '2', horseName: 'Lil Chance (IN)', jockey: 'M Pedroza, Jr.', trainer: 'M L Elliott', morningLineOdds: '2/1' },
+            { programNumber: '3', horseName: 'Taneycomo (IN)', jockey: 'J Riquelme', trainer: 'J Paye', morningLineOdds: '25/1' },
+            { programNumber: '4', horseName: 'Reachin Out (IN)', jockey: 'V Lara', trainer: 'D Green', morningLineOdds: '20/1' },
+            { programNumber: '5', horseName: 'Ooh My Bob (IN)', jockey: 'M Meeks', trainer: 'D Douglass', morningLineOdds: '5/1' },
+            { programNumber: 'SCR', horseName: "Leo's Beetle Bomb (IN)", scratched: true, morningLineOdds: '12/1' },
+            { programNumber: '7', horseName: 'Eyes On Andy (IN)', jockey: 'A Serpa', trainer: 'J F Hill, Jr.', morningLineOdds: '5/2' }
+          ]
+        }
+      ];
+
+      const cards = parseEquibaseItems(horseshoeIndInput);
+      expect(cards.length).toBe(1);
+
+      const card = cards[0];
+      expect(card.raceId).toBe('IND_20261019_R1');
+      expect(card.trackName).toBe('Horseshoe Indianapolis');
+      expect(card.trackCode).toBe('IND');
+      expect(card.raceNumber).toBe(1);
+      expect(card.runners.length).toBe(7);
+
+      const scratchedRunner = card.runners.find(r => r.horseName.includes('Leo'));
+      expect(scratchedRunner?.status).toBe('SCRATCHED');
+
+      const activeRunners = card.runners.filter(r => r.status !== 'SCRATCHED');
+      expect(activeRunners.length).toBe(6);
+
+      const matchups = generateBalancedHorseRacingMatchups(card);
+      expect(matchups.length).toBe(2);
+
+      const hvf = matchups.find(m => m.metadata.matchupType === 'HORSE_VS_FIELD');
+      expect(hvf).toBeDefined();
+      expect(hvf.title).toBe('Horseshoe Indianapolis R1: Lil Chance (IN) vs The Field');
+    });
+
     it('parses snake_case, venue, and alternative field keys from raw scraper JSON', () => {
       const snakeCaseInput = [
         {

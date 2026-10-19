@@ -23,7 +23,7 @@ export default function AdminOddsPage() {
   const [apifyStatusLoading, setApifyStatusLoading] = useState(false);
   const [apifyStatus, setApifyStatus] = useState<any | null>(null);
   const [apifyDate, setApifyDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [apifyTracks, setApifyTracks] = useState<string>('SAR, BEL, AQU, DMR, GP');
+  const [apifyTracks, setApifyTracks] = useState<string>('FE, FL, IND, MNR, MVR, PID, PRX, WRD, SAR, BEL, AQU, DMR, GP');
   const [apifyDatasetId, setApifyDatasetId] = useState<string>('');
   const [apifyRawJson, setApifyRawJson] = useState<string>('');
   const [apifyRunning, setApifyRunning] = useState(false);
@@ -668,12 +668,12 @@ export default function AdminOddsPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-300">Track Codes (comma-separated)</label>
+            <label className="text-xs font-medium text-zinc-300">Track Codes (leave empty for all active tracks)</label>
             <Input
               type="text"
               value={apifyTracks}
               onChange={(e) => setApifyTracks(e.target.value)}
-              placeholder="e.g. SAR, BEL, AQU, DMR, GP"
+              placeholder="e.g. FE, FL, IND, MNR, MVR, PID, PRX, WRD (leave empty for all tracks)"
               className="bg-zinc-900 border-zinc-800 text-white text-xs h-9"
             />
           </div>

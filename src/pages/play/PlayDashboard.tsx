@@ -202,7 +202,7 @@ export default function PlayDashboard() {
     return { totalUpcomingPicks: total, matchupPickCounts: counts };
   }, [globalUpcomingPicks, allFetchedMatchups]);
 
-  const matchups = React.useMemo(() => {
+  const { baseBoardMatchups, availableSports } = React.useMemo(() => {
     let now = Date.now();
     
     // Auto-detect if database timestamps are shifted in the future (e.g. sandbox timezone in 2026 vs real browser in 2024)
@@ -217,7 +217,7 @@ export default function PlayDashboard() {
 
     const next24Hours = now + 24 * 60 * 60 * 1000;
 
-    const filtered = allFetchedMatchups.filter((m: any) => {
+    const base = allFetchedMatchups.filter((m: any) => {
       const hasPicksOnMatchup = Boolean(
         userPicks[m.gameId] || userPicks[m.id] ||
         (matchupPickCounts[m.gameId] && matchupPickCounts[m.gameId].total > 0) ||
@@ -247,6 +247,26 @@ export default function PlayDashboard() {
       
       if (filterType === 'chain' && !m.featured) return false;
 
+      return true;
+    });
+
+    const sports = new Set<string>();
+    base.forEach((m: any) => {
+      if (['NFL', 'CFB'].includes(m.league)) sports.add('FOOTBALL');
+      if (['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) sports.add('SOCCER');
+      if (['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(m.league)) sports.add('BASKETBALL');
+      if (['NHL'].includes(m.league)) sports.add('HOCKEY');
+      if (['MLB', 'CBASE', 'LLWS'].includes(m.league)) sports.add('BASEBALL');
+      if (['ATP', 'WTA'].includes(m.league)) sports.add('TENNIS');
+      if (['PGA', 'PUTTING'].includes(m.league)) sports.add('GOLF');
+      if (['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league)) sports.add('HORSE_RACING');
+    });
+
+    return { baseBoardMatchups: base, availableSports: sports };
+  }, [allFetchedMatchups, filterType, userPicks, matchupPickCounts]);
+
+  const matchups = React.useMemo(() => {
+    const filtered = baseBoardMatchups.filter((m: any) => {
       if (selectedSport === 'FOOTBALL' && !['NFL', 'CFB'].includes(m.league)) return false;
       if (selectedSport === 'SOCCER' && !['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) return false;
       if (selectedSport === 'BASKETBALL' && !['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(m.league)) return false;
@@ -267,7 +287,13 @@ export default function PlayDashboard() {
 
     filtered.sort((a: any, b: any) => getMatchupStartTime(a.startTime) - getMatchupStartTime(b.startTime));
     return filtered;
-  }, [allFetchedMatchups, selectedSport, filterType]);
+  }, [baseBoardMatchups, selectedSport]);
+
+  useEffect(() => {
+    if (selectedSport !== null && !availableSports.has(selectedSport)) {
+      setSelectedSport(null);
+    }
+  }, [selectedSport, availableSports]);
 
 
   const handleForfeitPick = async (matchup: any) => {
@@ -655,14 +681,30 @@ export default function PlayDashboard() {
 
         <div className="flex items-center gap-1 bg-zinc-900/80 rounded-xl p-1 border border-zinc-800">
           <Button variant="ghost" onClick={() => setSelectedSport(null)} className={cn("rounded-lg px-4 h-9 font-medium", selectedSport === null ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}>All</Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('FOOTBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'FOOTBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsFootball style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('SOCCER')} className={cn("rounded-lg px-3 h-9", selectedSport === 'SOCCER' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsSoccer style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('BASKETBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'BASKETBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsBasketball style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('HOCKEY')} className={cn("rounded-lg px-3 h-9", selectedSport === 'HOCKEY' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsHockey style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('BASEBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'BASEBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsBaseball style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('TENNIS')} className={cn("rounded-lg px-3 h-9", selectedSport === 'TENNIS' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsTennis style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('GOLF')} className={cn("rounded-lg px-3 h-9", selectedSport === 'GOLF' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")}><MdOutlineSportsGolf style={{width: "20px", height: "20px"}} /></Button>
-          <Button variant="ghost" onClick={() => setSelectedSport('HORSE_RACING')} className={cn("rounded-lg px-3 h-9", selectedSport === 'HORSE_RACING' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Horse Racing"><GiHorseHead style={{width: "20px", height: "20px"}} /></Button>
+          {availableSports.has('FOOTBALL') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('FOOTBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'FOOTBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Football"><MdOutlineSportsFootball style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('SOCCER') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('SOCCER')} className={cn("rounded-lg px-3 h-9", selectedSport === 'SOCCER' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Soccer"><MdOutlineSportsSoccer style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('BASKETBALL') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('BASKETBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'BASKETBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Basketball"><MdOutlineSportsBasketball style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('HOCKEY') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('HOCKEY')} className={cn("rounded-lg px-3 h-9", selectedSport === 'HOCKEY' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Hockey"><MdOutlineSportsHockey style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('BASEBALL') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('BASEBALL')} className={cn("rounded-lg px-3 h-9", selectedSport === 'BASEBALL' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Baseball"><MdOutlineSportsBaseball style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('TENNIS') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('TENNIS')} className={cn("rounded-lg px-3 h-9", selectedSport === 'TENNIS' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Tennis"><MdOutlineSportsTennis style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('GOLF') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('GOLF')} className={cn("rounded-lg px-3 h-9", selectedSport === 'GOLF' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Golf"><MdOutlineSportsGolf style={{width: "20px", height: "20px"}} /></Button>
+          )}
+          {availableSports.has('HORSE_RACING') && (
+            <Button variant="ghost" onClick={() => setSelectedSport('HORSE_RACING')} className={cn("rounded-lg px-3 h-9", selectedSport === 'HORSE_RACING' ? "bg-zinc-950 text-zinc-100" : "text-zinc-400 hover:text-zinc-200")} title="Horse Racing"><GiHorseHead style={{width: "20px", height: "20px"}} /></Button>
+          )}
         </div>
       </div>
 

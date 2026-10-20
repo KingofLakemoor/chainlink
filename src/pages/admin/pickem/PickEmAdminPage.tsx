@@ -278,7 +278,7 @@ export default function PickEmAdminPage() {
         finalLogoUrl = await getDownloadURL(storageRef);
       }
 
-      await addDoc(collection(db, 'pickemCampaigns'), {
+      const campaignDoc: any = {
         name: createData.name.trim(),
         league: createData.leagues[0],
         leagues: createData.leagues,
@@ -303,12 +303,19 @@ export default function PickEmAdminPage() {
         currentWeek: createData.hasWeekZero ? 0 : 1,
         isPrivate: createData.isPrivate,
         isFridayOnly: createData.isFridayOnly,
-        dayFilter: createData.isFridayOnly ? 'FRIDAY' : undefined,
         joinCode: createData.isPrivate ? createData.joinCode : '',
         entryFee: createData.entryFee,
-        trackFilter: createData.trackFilter.trim() || undefined,
         createdAt: Date.now()
-      });
+      };
+
+      if (createData.isFridayOnly) {
+        campaignDoc.dayFilter = 'FRIDAY';
+      }
+      if (createData.trackFilter.trim()) {
+        campaignDoc.trackFilter = createData.trackFilter.trim();
+      }
+
+      await addDoc(collection(db, 'pickemCampaigns'), campaignDoc);
 
       setIsCreateOpen(false);
       navigate('/admin/pickem');

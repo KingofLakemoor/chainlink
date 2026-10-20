@@ -198,6 +198,85 @@ describe('NBA Friday Pick Em Tests', () => {
     });
   });
 
+  describe('Campaign Document Clean Payload Tests', () => {
+    it('creates campaign doc without undefined properties for Friday NBA campaigns', () => {
+      const createData = {
+        name: "NBA Friday Night Pick 'Em",
+        leagues: ['NBA'],
+        defaultMatchType: 'STANDARD',
+        format: 'STANDARD',
+        pickLimit: 5,
+        totalWeeks: 18,
+        hasWeekZero: false,
+        useTiebreaker: false,
+        entryFee: 0,
+        isOpen: true,
+        isPrivate: false,
+        isFridayOnly: true,
+        joinCode: '',
+        trackFilter: '',
+        themePrimaryColor: '#22c55e',
+        themeTitle: "NBA Friday",
+        themeSubtitle: '',
+        themeLogoUrl: '',
+        gamesBeginDateStr: '2025-10-24T00:00',
+        endDateStr: '2026-04-30T00:00'
+      };
+
+      const campaignDoc: any = {
+        name: createData.name.trim(),
+        league: createData.leagues[0],
+        leagues: createData.leagues,
+        pickLimit: createData.pickLimit,
+        totalWeeks: createData.totalWeeks,
+        hasWeekZero: createData.hasWeekZero,
+        useTiebreaker: createData.useTiebreaker,
+        format: createData.format,
+        type: 'STANDARD',
+        defaultMatchType: createData.defaultMatchType,
+        scoringType: 'WIN_LOSS',
+        isOpen: createData.isOpen,
+        gamesBeginDate: new Date(createData.gamesBeginDateStr).getTime(),
+        startDate: new Date(createData.gamesBeginDateStr).getTime(),
+        endDate: new Date(createData.endDateStr).getTime(),
+        theme: {
+          primaryColor: createData.themePrimaryColor,
+          title: createData.themeTitle,
+          subtitle: createData.themeSubtitle,
+          logoUrl: createData.themeLogoUrl,
+        },
+        currentWeek: createData.hasWeekZero ? 0 : 1,
+        isPrivate: createData.isPrivate,
+        isFridayOnly: createData.isFridayOnly,
+        joinCode: createData.isPrivate ? createData.joinCode : '',
+        entryFee: createData.entryFee,
+        createdAt: Date.now()
+      };
+
+      if (createData.isFridayOnly) {
+        campaignDoc.dayFilter = 'FRIDAY';
+      }
+      if (createData.trackFilter.trim()) {
+        campaignDoc.trackFilter = createData.trackFilter.trim();
+      }
+
+      // Check that no top-level or nested key has value `undefined`
+      const checkForUndefined = (obj: any) => {
+        for (const key in obj) {
+          expect(obj[key]).not.toBeUndefined();
+          if (typeof obj[key] === 'object' && obj[key] !== null) {
+            checkForUndefined(obj[key]);
+          }
+        }
+      };
+
+      checkForUndefined(campaignDoc);
+      expect(campaignDoc.dayFilter).toBe('FRIDAY');
+      expect(campaignDoc.trackFilter).toBeUndefined(); // Should not exist on object rather than having value `undefined`
+      expect('trackFilter' in campaignDoc).toBe(false);
+    });
+  });
+
   describe('Pick Limit Logic (5 Picks Max)', () => {
     it('blocks 6th pick when 5 picks are already submitted', () => {
       const pickLimit = 5;

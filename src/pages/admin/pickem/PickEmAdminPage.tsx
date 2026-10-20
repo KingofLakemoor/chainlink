@@ -452,39 +452,51 @@ export default function PickEmAdminPage() {
       let batchCount = 0;
 
       for (const lg of leaguesToSync) {
-        const ws = detailCampaign.weekSettings?.[selectedWeek] || {};
-        let effectiveBeginDate = ws.gamesBeginDate || detailCampaign.gamesBeginDate;
-        let effectiveEndDate = ws.endDate || detailCampaign.endDate;
+        const isFridayOnly = detailCampaign.isFridayOnly || detailCampaign.dayFilter === 'FRIDAY' || (detailCampaign.name && detailCampaign.name.toLowerCase().includes('friday'));
 
-        if (effectiveBeginDate && !effectiveEndDate) {
-          effectiveEndDate = effectiveBeginDate + (14 * 86400000);
-        } else if (!effectiveBeginDate && effectiveEndDate) {
-          effectiveBeginDate = effectiveEndDate - (14 * 86400000);
+        const ws = detailCampaign.weekSettings?.[selectedWeek] || {};
+        let effectiveBeginDate = ws.gamesBeginDate;
+        let effectiveEndDate = ws.endDate;
+
+        if (!effectiveBeginDate) {
+          if (detailCampaign.gamesBeginDate || detailCampaign.startDate) {
+            const baseWeek = detailCampaign.hasWeekZero ? 0 : 1;
+            const weekIndex = Math.max(0, selectedWeek - baseWeek);
+            effectiveBeginDate = (detailCampaign.gamesBeginDate || detailCampaign.startDate) + (weekIndex * 7 * 86400000);
+          } else {
+            effectiveBeginDate = Date.now();
+          }
+        }
+
+        if (!effectiveEndDate) {
+          effectiveEndDate = effectiveBeginDate + (7 * 86400000);
         }
 
         let specificDates: string[] | undefined = undefined;
         if (effectiveBeginDate && effectiveEndDate) {
-          specificDates = [];
+          const dateSet = new Set<string>();
           let curr = new Date(effectiveBeginDate);
           const end = new Date(effectiveEndDate);
           let days = 0;
-          while (curr <= end && days <= 35) {
+          while (curr <= end && days <= 14) {
             const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
             const [month, day, year] = str.split("/");
-            specificDates.push(`${year}${month}${day}`);
+            const nyDay = new Date(curr.toLocaleString("en-US", { timeZone: "America/New_York" })).getDay();
+            if (!isFridayOnly || nyDay === 5) {
+              dateSet.add(`${year}${month}${day}`);
+            }
             curr = new Date(curr.getTime() + 86400000);
             days++;
           }
+          specificDates = Array.from(dateSet);
         }
 
         const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
         if (!res.data || res.data.length === 0) continue;
 
-        const isFridayOnly = detailCampaign.isFridayOnly || detailCampaign.dayFilter === 'FRIDAY' || (detailCampaign.name && detailCampaign.name.toLowerCase().includes('friday'));
-
         for (const m of res.data) {
           if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
-          if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+          if (effectiveEndDate && m.startTime >= effectiveEndDate) continue;
 
           if (isFridayOnly) {
             const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));

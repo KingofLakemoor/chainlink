@@ -6,18 +6,20 @@ let reminderInterval: NodeJS.Timeout | null = null;
 export function getReminderDayInfo(nowDate = new Date()) {
   const nyDateStr = nowDate.toLocaleString('en-US', { timeZone: 'America/New_York' });
   const nyDate = new Date(nyDateStr);
-  const dayOfWeek = nyDate.getDay(); // 0 = Sunday, 1 = Mon, ..., 4 = Thursday, 6 = Saturday
+  const dayOfWeek = nyDate.getDay(); // 0 = Sunday, 1 = Mon, ..., 4 = Thursday, 5 = Friday, 6 = Saturday
 
   const isThursday = dayOfWeek === 4;
+  const isFriday = dayOfWeek === 5;
   const isSaturday = dayOfWeek === 6;
   const isSunday = dayOfWeek === 0;
 
   let dayLabel = '';
   if (isThursday) dayLabel = 'thu';
+  else if (isFriday) dayLabel = 'fri';
   else if (isSaturday) dayLabel = 'sat';
   else if (isSunday) dayLabel = 'sun';
 
-  return { dayOfWeek, isThursday, isSaturday, isSunday, dayLabel };
+  return { dayOfWeek, isThursday, isFriday, isSaturday, isSunday, dayLabel };
 }
 
 export function hasGamesOnDay(matchupDocs: any[], targetDay: number, leagueFilter?: string): boolean {
@@ -66,6 +68,9 @@ export async function processPickemCampaignReminders(now: number, dayInfo: Retur
     if (dayInfo.isThursday && hasGamesOnDay(matchupDocs, 4)) {
       isScheduledDayTrigger = true;
       dayTag = 'thu';
+    } else if (dayInfo.isFriday && (hasGamesOnDay(matchupDocs, 5, 'NBA') || hasGamesOnDay(matchupDocs, 5))) {
+      isScheduledDayTrigger = true;
+      dayTag = 'fri';
     } else if (dayInfo.isSaturday && (hasGamesOnDay(matchupDocs, 6, 'CFB') || hasGamesOnDay(matchupDocs, 6))) {
       isScheduledDayTrigger = true;
       dayTag = 'sat';
@@ -121,7 +126,7 @@ export async function processPickemCampaignReminders(now: number, dayInfo: Retur
         const dedupeId = `${prefix}${pId}`;
         const notifRef = adminDb.collection('notifications').doc();
 
-        const dayName = dayTag === 'thu' ? 'Thursday' : (dayTag === 'sat' ? 'Saturday' : (dayTag === 'sun' ? 'Sunday' : 'Upcoming'));
+        const dayName = dayTag === 'thu' ? 'Thursday' : (dayTag === 'fri' ? 'Friday' : (dayTag === 'sat' ? 'Saturday' : (dayTag === 'sun' ? 'Sunday' : 'Upcoming')));
 
         notifBatch.set(notifRef, {
           userId: pId,

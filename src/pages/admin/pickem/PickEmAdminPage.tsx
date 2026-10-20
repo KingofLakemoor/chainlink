@@ -470,9 +470,18 @@ export default function PickEmAdminPage() {
         const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
         if (!res.data || res.data.length === 0) continue;
 
+        const isFridayOnly = detailCampaign.isFridayOnly || detailCampaign.dayFilter === 'FRIDAY' || (detailCampaign.name && detailCampaign.name.toLowerCase().includes('friday'));
+
         for (const m of res.data) {
           if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
           if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+
+          if (isFridayOnly) {
+            const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+            if (gameNyDate.getDay() !== 5) {
+              continue;
+            }
+          }
 
           const pickemMatchupId = `${editingCampaignId}_${selectedWeek}_${m.gameId}`;
           const docRef = doc(db, 'pickemMatchups', pickemMatchupId);

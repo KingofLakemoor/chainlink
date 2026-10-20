@@ -322,6 +322,8 @@ export default function PickEmCampaignDetail() {
           continue;
         }
 
+        const isFridayOnly = campaign?.isFridayOnly || campaign?.dayFilter === 'FRIDAY' || (campaign?.name && campaign?.name.toLowerCase().includes('friday'));
+
         for (const m of gamesList) {
           console.log('Game', m.title, new Date(m.startTime).toLocaleString(), 'vs bounds:', effectiveBeginDate ? new Date(effectiveBeginDate).toLocaleString() : null, effectiveEndDate ? new Date(effectiveEndDate).toLocaleString() : null);
           if (effectiveBeginDate && m.startTime < effectiveBeginDate) {
@@ -329,6 +331,13 @@ export default function PickEmCampaignDetail() {
           }
           if (effectiveEndDate && m.startTime > effectiveEndDate) {
             continue;
+          }
+
+          if (isFridayOnly) {
+            const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+            if (gameNyDate.getDay() !== 5) {
+              continue;
+            }
           }
 
           const pickemMatchupId = `${id}_${selectedWeek}_${m.gameId}`;

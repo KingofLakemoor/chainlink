@@ -1363,32 +1363,45 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
     ? campaign.leagues
     : (campaign.league ? [campaign.league] : ['NBA']);
 
-  const ws = campaign.weekSettings?.[weekNumber] || {};
-  let effectiveBeginDate = ws.gamesBeginDate || campaign.gamesBeginDate;
-  let effectiveEndDate = ws.endDate || campaign.endDate;
+  const isFridayOnly = campaign.isFridayOnly || campaign.dayFilter === 'FRIDAY' || (campaign.name && campaign.name.toLowerCase().includes('friday'));
 
-  if (effectiveBeginDate && !effectiveEndDate) {
-    effectiveEndDate = effectiveBeginDate + (14 * 86400000);
-  } else if (!effectiveBeginDate && effectiveEndDate) {
-    effectiveBeginDate = effectiveEndDate - (14 * 86400000);
+  const ws = campaign.weekSettings?.[weekNumber] || {};
+  let effectiveBeginDate = ws.gamesBeginDate;
+  let effectiveEndDate = ws.endDate;
+
+  if (!effectiveBeginDate) {
+    if (campaign.gamesBeginDate || campaign.startDate) {
+      const baseWeek = campaign.hasWeekZero ? 0 : 1;
+      const weekNum = typeof weekNumber === 'number' ? weekNumber : (parseInt(String(weekNumber), 10) || 1);
+      const weekIndex = Math.max(0, weekNum - baseWeek);
+      effectiveBeginDate = (campaign.gamesBeginDate || campaign.startDate) + (weekIndex * 7 * 86400000);
+    } else {
+      effectiveBeginDate = Date.now();
+    }
+  }
+
+  if (!effectiveEndDate) {
+    effectiveEndDate = effectiveBeginDate + (7 * 86400000);
   }
 
   let specificDates: string[] | undefined = undefined;
   if (effectiveBeginDate && effectiveEndDate) {
-    specificDates = [];
+    const dateSet = new Set<string>();
     let curr = new Date(effectiveBeginDate);
     const end = new Date(effectiveEndDate);
     let days = 0;
-    while (curr <= end && days <= 35) {
+    while (curr <= end && days <= 14) {
       const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
       const [month, day, year] = str.split("/");
-      specificDates.push(`${year}${month}${day}`);
+      const nyDay = new Date(curr.toLocaleString("en-US", { timeZone: "America/New_York" })).getDay();
+      if (!isFridayOnly || nyDay === 5) {
+        dateSet.add(`${year}${month}${day}`);
+      }
       curr = new Date(curr.getTime() + 86400000);
       days++;
     }
+    specificDates = Array.from(dateSet);
   }
-
-  const isFridayOnly = campaign.isFridayOnly || campaign.dayFilter === 'FRIDAY' || (campaign.name && campaign.name.toLowerCase().includes('friday'));
 
   let syncedCount = 0;
   let batch = adminDb.batch();
@@ -1400,7 +1413,7 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
 
     for (const m of res.data) {
       if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
-      if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+      if (effectiveEndDate && m.startTime >= effectiveEndDate) continue;
 
       if (isFridayOnly) {
         const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));

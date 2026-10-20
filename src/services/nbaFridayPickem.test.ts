@@ -46,6 +46,49 @@ describe('NBA Friday Pick Em Tests', () => {
     });
   });
 
+  describe('Friday specificDates bounds generation', () => {
+    it('generates specificDates containing only Friday YYYYMMDD date strings within week date range', () => {
+      // Friday Oct 24, 2025 at 00:00:00 UTC
+      const campaignGamesBeginDate = new Date('2025-10-24T00:00:00Z').getTime();
+      const selectedWeek = 1;
+      const isFridayOnly = true;
+
+      const baseWeek = 1;
+      const weekIndex = Math.max(0, selectedWeek - baseWeek);
+      const effectiveBeginDate = campaignGamesBeginDate + (weekIndex * 7 * 86400000);
+      const effectiveEndDate = effectiveBeginDate + (7 * 86400000);
+
+      const dateSet = new Set<string>();
+      let curr = new Date(effectiveBeginDate);
+      const end = new Date(effectiveEndDate);
+      let days = 0;
+      while (curr <= end && days <= 14) {
+        const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+        const [month, day, year] = str.split("/");
+        const nyDay = new Date(curr.toLocaleString("en-US", { timeZone: "America/New_York" })).getDay();
+        if (!isFridayOnly || nyDay === 5) {
+          dateSet.add(`${year}${month}${day}`);
+        }
+        curr = new Date(curr.getTime() + 86400000);
+        days++;
+      }
+      const specificDates = Array.from(dateSet);
+
+      // Verify specificDates contains only Friday date strings
+      expect(specificDates).toEqual(['20251024']);
+
+      // Ensure every generated YYYYMMDD string corresponds to a Friday in NY time
+      specificDates.forEach(dateStr => {
+        const y = parseInt(dateStr.slice(0, 4), 10);
+        const m = parseInt(dateStr.slice(4, 6), 10) - 1;
+        const d = parseInt(dateStr.slice(6, 8), 10);
+        const dateObj = new Date(Date.UTC(y, m, d, 12, 0, 0));
+        const nyDay = new Date(dateObj.toLocaleString("en-US", { timeZone: "America/New_York" })).getDay();
+        expect(nyDay).toBe(5);
+      });
+    });
+  });
+
   describe('Friday Schedule Filtering Logic', () => {
     it('correctly identifies Friday games in US Eastern Time', () => {
       // Create mock games for a week (Thursday, Friday, Saturday)

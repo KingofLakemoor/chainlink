@@ -759,6 +759,35 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
       }
     }
 
+    // Check campaign pick limit
+    const targetWeek = week || 1;
+    const docId = `${campaignId}_${targetWeek}_${matchupId}_${uid}`;
+    const pickRef = adminDb.collection('pickemPicks').doc(docId);
+    const existingSnap = await pickRef.get();
+    const existingData = existingSnap.exists ? existingSnap.data() : {};
+
+    if (pick?.teamId && !existingData?.pick?.teamId) {
+      const campDoc = await adminDb.collection('pickemCampaigns').doc(campaignId).get();
+      if (campDoc.exists) {
+        const campaign = campDoc.data()!;
+        const pickLimit = campaign.pickLimit || 0;
+        if (pickLimit > 0 && campaign.name !== 'YES Day Walk for Autism 2026') {
+          const userPicksSnap = await adminDb.collection('pickemPicks')
+            .where('campaignId', '==', campaignId)
+            .where('participantId', '==', uid)
+            .where('week', '==', targetWeek)
+            .get();
+          const currentPicksCount = userPicksSnap.docs.filter(d => d.data().pick?.teamId && d.id !== docId).length;
+          if (currentPicksCount >= pickLimit) {
+            return res.status(400).json({
+              success: false,
+              error: `You have reached the maximum of ${pickLimit} picks for this week.`
+            });
+          }
+        }
+      }
+    }
+
     // Auto-heal participant record if missing
     const pairId = `${campaignId}_${uid}`;
     const partRef = adminDb.collection('pickemParticipants').doc(pairId);
@@ -770,12 +799,6 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
         joinedAt: Date.now()
       }, { merge: true });
     }
-
-    // Save or update pick document
-    const docId = `${campaignId}_${week || ''}_${matchupId}_${uid}`;
-    const pickRef = adminDb.collection('pickemPicks').doc(docId);
-    const existingSnap = await pickRef.get();
-    const existingData = existingSnap.exists ? existingSnap.data() : {};
 
     const payload: any = {
       campaignId,
@@ -1266,6 +1289,186 @@ apiRouter.post("/admin/pickem/backfill-participants", validateAdmin, async (req,
     res.json({ success: true, backfilledCount });
   } catch (e: any) {
     console.error('Pickem backfill participants error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+export async function seedNbaFridayCampaign() {
+  if (!adminDb) return { success: false, error: 'adminDb not initialized' };
+
+  const campaignId = 'nba_friday_pickem';
+  const docRef = adminDb.collection('pickemCampaigns').doc(campaignId);
+  const snap = await docRef.get();
+
+  const campaignData = {
+    name: "NBA Friday Night Pick 'Em",
+    league: 'NBA',
+    leagues: ['NBA'],
+    pickLimit: 5,
+    totalWeeks: 25,
+    hasWeekZero: false,
+    useTiebreaker: false,
+    format: 'STANDARD',
+    type: 'STANDARD',
+    defaultMatchType: 'STANDARD',
+    scoringType: 'WIN_LOSS',
+    isOpen: true,
+    isArchived: false,
+    archived: false,
+    isPrivate: false,
+    isFridayOnly: true,
+    dayFilter: 'FRIDAY',
+    entryFee: 0,
+    currentWeek: 1,
+    gamesBeginDate: Date.now(),
+    startDate: Date.now(),
+    endDate: Date.now() + 1000 * 60 * 60 * 24 * 30 * 8,
+    theme: {
+      primaryColor: '#f97316',
+      title: "NBA Friday Night Pick 'Em",
+      subtitle: "Pick 5 NBA matchups from the Friday night slate every week and compete on the leaderboard!",
+      logoUrl: 'https://a.espncdn.com/i/leaguelogos/nba/500/nba.png'
+    },
+    createdAt: snap.exists ? (snap.data()?.createdAt || Date.now()) : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  await docRef.set(campaignData, { merge: true });
+  return { success: true, campaignId, campaign: campaignData };
+}
+
+apiRouter.post("/admin/pickem/seed-nba-friday", validateAdmin, async (req, res) => {
+  try {
+    const result = await seedNbaFridayCampaign();
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+    res.json(result);
+  } catch (e: any) {
+    console.error("Error seeding NBA Friday campaign:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: number) {
+  if (!adminDb) return { success: false, error: 'adminDb not initialized' };
+
+  const campaignDoc = await adminDb.collection('pickemCampaigns').doc(campaignId).get();
+  if (!campaignDoc.exists) {
+    return { success: false, error: 'Campaign not found' };
+  }
+
+  const campaign = campaignDoc.data()!;
+  const leaguesToSync = campaign.leagues && campaign.leagues.length > 0
+    ? campaign.leagues
+    : (campaign.league ? [campaign.league] : ['NBA']);
+
+  const ws = campaign.weekSettings?.[weekNumber] || {};
+  let effectiveBeginDate = ws.gamesBeginDate || campaign.gamesBeginDate;
+  let effectiveEndDate = ws.endDate || campaign.endDate;
+
+  if (effectiveBeginDate && !effectiveEndDate) {
+    effectiveEndDate = effectiveBeginDate + (14 * 86400000);
+  } else if (!effectiveBeginDate && effectiveEndDate) {
+    effectiveBeginDate = effectiveEndDate - (14 * 86400000);
+  }
+
+  let specificDates: string[] | undefined = undefined;
+  if (effectiveBeginDate && effectiveEndDate) {
+    specificDates = [];
+    let curr = new Date(effectiveBeginDate);
+    const end = new Date(effectiveEndDate);
+    let days = 0;
+    while (curr <= end && days <= 35) {
+      const str = curr.toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+      const [month, day, year] = str.split("/");
+      specificDates.push(`${year}${month}${day}`);
+      curr = new Date(curr.getTime() + 86400000);
+      days++;
+    }
+  }
+
+  const isFridayOnly = campaign.isFridayOnly || campaign.dayFilter === 'FRIDAY' || (campaign.name && campaign.name.toLowerCase().includes('friday'));
+
+  let syncedCount = 0;
+  let batch = adminDb.batch();
+  let batchCount = 0;
+
+  for (const lg of leaguesToSync) {
+    const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
+    if (!res.data || res.data.length === 0) continue;
+
+    for (const m of res.data) {
+      if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
+      if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+
+      if (isFridayOnly) {
+        const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+        if (gameNyDate.getDay() !== 5) {
+          continue;
+        }
+      }
+
+      const pickemMatchupId = `${campaignId}_${weekNumber}_${m.gameId}`;
+      const docRef = adminDb.collection('pickemMatchups').doc(pickemMatchupId);
+
+      const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
+      const finalType = isYesDay
+        ? "STANDARD"
+        : (campaign.defaultMatchType === "BOTH" ? ((m.metadata?.spread !== undefined && m.metadata?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"));
+
+      const finalTitle = isYesDay
+        ? m.title.replace(/ - ATS$/, '')
+        : (finalType === "SPREAD"
+            ? (m.title.endsWith(' - ATS') ? m.title : `${m.title} - ATS`)
+            : m.title.replace(/ - ATS$/, ''));
+
+      batch.set(docRef, {
+        campaignId,
+        week: weekNumber,
+        gameId: String(m.gameId),
+        title: finalTitle,
+        startTime: m.startTime,
+        status: m.status,
+        statusDesc: m.statusDesc,
+        homeTeam: m.homeTeam,
+        awayTeam: m.awayTeam,
+        type: finalType,
+        metadata: m.metadata || null,
+        createdAt: Date.now()
+      }, { merge: true });
+
+      syncedCount++;
+      batchCount++;
+
+      if (batchCount >= 450) {
+        await batch.commit();
+        batch = adminDb.batch();
+        batchCount = 0;
+      }
+    }
+  }
+
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+
+  return { success: true, syncedCount };
+}
+
+apiRouter.post("/admin/pickem/sync-week", validateAdmin, async (req, res) => {
+  try {
+    const { campaignId, week } = req.body;
+    if (!campaignId) {
+      return res.status(400).json({ success: false, error: "Missing campaignId" });
+    }
+    const result = await syncCampaignWeekMatchups(campaignId, Number(week) || 1);
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+    res.json(result);
+  } catch (e: any) {
+    console.error("Error syncing campaign week:", e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

@@ -37,6 +37,7 @@ export default function PickEmAdminPage() {
     totalWeeks: 18,
     hasWeekZero: false,
     useTiebreaker: false,
+    isFridayOnly: false,
     entryFee: 0,
     isOpen: true,
     isPrivate: false,
@@ -285,6 +286,8 @@ export default function PickEmAdminPage() {
         totalWeeks: createData.totalWeeks,
         hasWeekZero: createData.hasWeekZero,
         useTiebreaker: createData.useTiebreaker,
+        isFridayOnly: createData.isFridayOnly,
+        dayFilter: createData.isFridayOnly ? 'FRIDAY' : null,
         format: createData.format,
         type: 'STANDARD',
         defaultMatchType: createData.defaultMatchType,
@@ -470,9 +473,18 @@ export default function PickEmAdminPage() {
         const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
         if (!res.data || res.data.length === 0) continue;
 
+        const isFridayOnly = detailCampaign.isFridayOnly || detailCampaign.dayFilter === 'FRIDAY' || (detailCampaign.name && detailCampaign.name.toLowerCase().includes('friday'));
+
         for (const m of res.data) {
           if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
           if (effectiveEndDate && m.startTime > effectiveEndDate) continue;
+
+          if (isFridayOnly) {
+            const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+            if (gameNyDate.getDay() !== 5) {
+              continue;
+            }
+          }
 
           const pickemMatchupId = `${editingCampaignId}_${selectedWeek}_${m.gameId}`;
           const docRef = doc(db, 'pickemMatchups', pickemMatchupId);
@@ -968,6 +980,19 @@ export default function PickEmAdminPage() {
               </div>
 
               <div className="pt-4 border-t border-zinc-800 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createData.isFridayOnly}
+                    onChange={e => setCreateForm({ ...createData, isFridayOnly: e.target.checked })}
+                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500"
+                  />
+                  <div>
+                    <span className="text-sm font-semibold text-zinc-200">Friday Only Games</span>
+                    <p className="text-[11px] text-zinc-400">Filters imported ESPN schedules strictly to Friday matchups (US Eastern time).</p>
+                  </div>
+                </label>
+
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"

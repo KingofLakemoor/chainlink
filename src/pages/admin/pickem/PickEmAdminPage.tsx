@@ -40,6 +40,7 @@ export default function PickEmAdminPage() {
     entryFee: 0,
     isOpen: true,
     isPrivate: false,
+    isFridayOnly: false,
     joinCode: '',
     trackFilter: '',
     themePrimaryColor: '#22c55e',
@@ -301,6 +302,8 @@ export default function PickEmAdminPage() {
         },
         currentWeek: createData.hasWeekZero ? 0 : 1,
         isPrivate: createData.isPrivate,
+        isFridayOnly: createData.isFridayOnly,
+        dayFilter: createData.isFridayOnly ? 'FRIDAY' : undefined,
         joinCode: createData.isPrivate ? createData.joinCode : '',
         entryFee: createData.entryFee,
         trackFilter: createData.trackFilter.trim() || undefined,
@@ -985,6 +988,16 @@ export default function PickEmAdminPage() {
                     className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500"
                   />
                   <span className="text-sm font-semibold text-zinc-200">Open & Joinable to Users</span>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createData.isFridayOnly}
+                    onChange={e => setCreateForm({ ...createData, isFridayOnly: e.target.checked })}
+                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500"
+                  />
+                  <span className="text-sm font-semibold text-zinc-200">Friday Only Games (Filter Schedule to Fridays)</span>
                 </label>
 
                 <label className="flex items-center gap-3 cursor-pointer">

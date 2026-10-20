@@ -1,7 +1,51 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getReminderDayInfo, processPickemCampaignReminders } from './pickemReminders';
 
+let mockSavedCampaignData: any = null;
+const mockDocRef = {
+  get: vi.fn().mockResolvedValue({ exists: false }),
+  set: vi.fn().mockImplementation((data) => {
+    mockSavedCampaignData = data;
+    return Promise.resolve();
+  })
+};
+
+vi.mock('../lib/firebase-admin.js', () => ({
+  adminAuth: { verifyIdToken: vi.fn() },
+  adminDb: {
+    collection: vi.fn((name: string) => {
+      if (name === 'pickemCampaigns') {
+        return {
+          doc: vi.fn((id: string) => {
+            if (id === 'nba_friday_pickem') return mockDocRef;
+            return {};
+          })
+        };
+      }
+      return {};
+    })
+  }
+}));
+
 describe('NBA Friday Pick Em Tests', () => {
+  describe('NBA Friday Campaign Seeding', () => {
+    it('seeds NBA Friday campaign with pickLimit 5, isFridayOnly true, and dayFilter FRIDAY', async () => {
+      const { seedNbaFridayCampaign } = await import('../apiRouter');
+      const result = await seedNbaFridayCampaign();
+
+      expect(result.success).toBe(true);
+      expect(result.campaignId).toBe('nba_friday_pickem');
+      expect(result.campaign.pickLimit).toBe(5);
+      expect(result.campaign.isFridayOnly).toBe(true);
+      expect(result.campaign.dayFilter).toBe('FRIDAY');
+      expect(result.campaign.league).toBe('NBA');
+      expect(mockSavedCampaignData).not.toBeNull();
+      expect(mockSavedCampaignData.pickLimit).toBe(5);
+      expect(mockSavedCampaignData.isFridayOnly).toBe(true);
+      expect(mockSavedCampaignData.dayFilter).toBe('FRIDAY');
+    });
+  });
+
   describe('Friday Schedule Filtering Logic', () => {
     it('correctly identifies Friday games in US Eastern Time', () => {
       // Create mock games for a week (Thursday, Friday, Saturday)

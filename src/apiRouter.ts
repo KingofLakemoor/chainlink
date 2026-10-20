@@ -760,7 +760,7 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
     }
 
     // Check campaign pick limit
-    const targetWeek = week || 1;
+    const targetWeek = Number(week) || 1;
     const docId = `${campaignId}_${targetWeek}_${matchupId}_${uid}`;
     const pickRef = adminDb.collection('pickemPicks').doc(docId);
     const existingSnap = await pickRef.get();
@@ -805,7 +805,7 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
       participantId: uid,
       userId: uid,
       matchupId,
-      week: week || 1,
+      week: targetWeek,
       status: existingData?.status || 'PENDING',
       pointsEarned: existingData?.pointsEarned || 0,
       submittedAt: Date.now(),

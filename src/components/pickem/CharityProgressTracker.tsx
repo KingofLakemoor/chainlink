@@ -22,7 +22,7 @@ export function CharityProgressTracker() {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
 
   return (
-    <div className="bg-black/60 border border-purple-500/30 rounded-xl p-5 relative overflow-hidden">
+    <div className="bg-black/60 border border-purple-400/40 rounded-xl p-5 relative overflow-hidden">
       <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
         <TrendingUp className="w-5 h-5 text-yellow-400" />
         Live Fundraising Progress
@@ -33,7 +33,7 @@ export function CharityProgressTracker() {
         <div>
           <div className="flex justify-between text-sm font-medium mb-2">
             <span className="text-zinc-300">Club 602 Prize Pot</span>
-            <span className="text-emerald-400 font-bold">{progress ? formatCurrency(progress.pot) : '---'}</span>
+            <span className="text-emerald-400 font-bold [text-shadow:_0_1px_2px_rgba(0,0,0,0.9)]">{progress ? formatCurrency(progress.pot) : '---'}</span>
           </div>
           <div className="h-3 w-full bg-zinc-800 rounded-full overflow-hidden">
             <div 
@@ -48,7 +48,7 @@ export function CharityProgressTracker() {
         <div>
           <div className="flex justify-between text-sm font-medium mb-2">
             <span className="text-zinc-300">Ashley's Direct Donations Goal</span>
-            <span className="text-yellow-400 font-bold">{progress ? formatCurrency(progress.raised) : '---'} / {progress ? formatCurrency(progress.goal) : '---'}</span>
+            <span className="text-yellow-400 font-bold [text-shadow:_0_1px_2px_rgba(0,0,0,0.9)]">{progress ? formatCurrency(progress.raised) : '---'} / {progress ? formatCurrency(progress.goal) : '---'}</span>
           </div>
           <div className="h-3 w-full bg-zinc-800 rounded-full overflow-hidden">
             <div 

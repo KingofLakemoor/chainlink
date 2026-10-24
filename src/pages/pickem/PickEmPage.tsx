@@ -201,7 +201,7 @@ export default function PickEmPage() {
                theme: {
                  title: "Charity Pick Em",
                  subtitle: "Make your picks to support a great cause!",
-                 primaryColor: "#3b82f6", // Blue
+                 primaryColor: "#a855f7", // Bright Purple Accent
                  logoUrl: "https://api.dicebear.com/7.x/shapes/svg?seed=charity-pickem"
                }
              });
@@ -1092,7 +1092,13 @@ export default function PickEmPage() {
   if (loading) return <div className="p-8 text-center text-zinc-500">Loading Pick'em...</div>;
 
   const theme = selectedCampaign?.theme || {};
-  const primaryColor = theme.primaryColor || "#22c55e";
+  const isYesDayCampaign = selectedCampaign?.isCharity ||
+    selectedCampaign?.name === 'YES Day Walk for Autism 2026' ||
+    selectedCampaign?.id === 'charity' ||
+    selectedCampaign?.id === 'yes_day_2026';
+  const primaryColor = isYesDayCampaign
+    ? (theme.primaryColor && theme.primaryColor !== "#3b82f6" && theme.primaryColor !== "#22c55e" ? theme.primaryColor : "#a855f7")
+    : (theme.primaryColor || "#22c55e");
   const title = theme.title || "Pick'em";
   const subtitle = theme.subtitle || "Make weekly picks and compete on the leaderboard.";
 
@@ -1113,7 +1119,7 @@ export default function PickEmPage() {
           {theme.logoUrl ? (
             <FirebaseImage src={theme.logoUrl} alt={title} className="w-10 h-10 object-contain" loading="lazy" />
           ) : (
-            <Layers className="w-8 h-8" style={{ color: primaryColor }} />
+            <Layers className="w-8 h-8" style={{ color: primaryColor, filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8))' }} />
           )}
           {title}
         </h1>
@@ -1266,7 +1272,7 @@ export default function PickEmPage() {
                         : "Picks are saved automatically as you make them. Make sure you don't miss any games!"}
                   </p>
                </div>
-               <div className="text-2xl font-black" style={{ color: primaryColor }}>
+               <div className="text-2xl font-black" style={{ color: primaryColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)' }}>
                  {Object.values(userPicks).filter((p: any) => p.pick?.teamId).length} <span className="text-lg text-zinc-500">/ {selectedCampaign.pickLimit > 0 ? Math.min(selectedCampaign.pickLimit, matchups.length) : matchups.length}</span>
                </div>
             </div>
@@ -1313,7 +1319,7 @@ export default function PickEmPage() {
                       <span>{new Date(m.startTime).toLocaleString()}</span>
                       <div className="flex items-center gap-2">
                         {isSpread && (
-                          <span className="px-2 py-1 text-[10px] uppercase tracking-wider rounded-md font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                          <span className="px-2 py-1 text-[10px] uppercase tracking-wider rounded-md font-bold bg-purple-500/20 text-purple-300 border border-purple-400/40 [text-shadow:_0_1px_2px_rgba(0,0,0,0.9)]">
                             ATS
                           </span>
                         )}
@@ -1627,7 +1633,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                 <div className="flex items-center gap-3">
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center font-black text-base shadow-sm"
-                    style={{ backgroundColor: `${primaryColor}25`, color: primaryColor, border: `1px solid ${primaryColor}50` }}
+                    style={{ backgroundColor: `${primaryColor}25`, color: primaryColor, border: `1px solid ${primaryColor}50`, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9)' }}
                   >
                     #{myRank}
                   </div>
@@ -1651,7 +1657,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                   </div>
                   <div className="text-center px-1 sm:px-2">
                     <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Points</span>
-                    <span className="text-sm sm:text-base font-bold" style={{ color: primaryColor }}>{myPoints}</span>
+                    <span className="text-sm sm:text-base font-bold" style={{ color: primaryColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9)' }}>{myPoints}</span>
                   </div>
                   <div className="text-center px-1 sm:px-2">
                     <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Record</span>
@@ -1738,7 +1744,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="font-bold text-lg" style={{ color: primaryColor }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
+                              <span className="font-bold text-lg" style={{ color: primaryColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)' }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
                             </td>
                             <td className="px-6 py-4 text-center text-zinc-400 font-mono">
                               {wins}-{losses}-{pushes}

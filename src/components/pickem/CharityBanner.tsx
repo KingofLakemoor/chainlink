@@ -6,8 +6,8 @@ export function CharityBanner() {
 
 
   return (
-    <div className="bg-gradient-to-br from-purple-900/40 via-[#121212] to-yellow-900/20 border border-purple-500/30 rounded-xl p-6 md:p-8 shadow-lg relative overflow-hidden mb-12">
-      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none mix-blend-overlay" style={{ background: 'radial-gradient(circle at top left, rgba(147,51,234,0.3) 0%, transparent 70%)' }}></div>
+    <div className="bg-gradient-to-br from-purple-950/70 via-[#121212] to-yellow-950/30 border border-purple-400/40 rounded-xl p-6 md:p-8 shadow-lg relative overflow-hidden mb-12">
+      <div className="absolute top-0 left-0 w-full h-full opacity-25 pointer-events-none mix-blend-overlay" style={{ background: 'radial-gradient(circle at top left, rgba(168,85,247,0.35) 0%, transparent 70%)' }}></div>
       
       <div className="relative z-10">
         <div className="flex flex-col lg:flex-row gap-8 mb-8">
@@ -29,23 +29,23 @@ export function CharityBanner() {
             {/* PROGRESS BARS */}
             <CharityProgressTracker />
 
-            <div className="bg-black/40 border border-purple-500/20 rounded-xl p-5 md:p-6">
+            <div className="bg-black/40 border border-purple-400/30 rounded-xl p-5 md:p-6">
               <h4 className="text-lg font-bold text-white border-b border-white/10 pb-2 mb-4">Entry & Match Details</h4>
               <ul className="space-y-4">
                 <li className="flex items-start gap-3">
-                  <Heart className="w-5 h-5 text-pink-400 shrink-0 mt-0.5" />
+                  <Heart className="w-5 h-5 text-pink-400 shrink-0 mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
                   <p className="text-zinc-300 text-sm leading-relaxed"><strong className="text-white">Entry Requirement:</strong> A minimum donation of $25 enters you into the challenge.</p>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <Calendar className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
                   <p className="text-zinc-300 text-sm leading-relaxed"><strong className="text-white">Early Bird Boost:</strong> Get your entry in by August 30th, and Club 602 will add $15 to the prize pot!</p>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Trophy className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <Trophy className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
                   <p className="text-zinc-300 text-sm leading-relaxed"><strong className="text-white">Kickoff Boost:</strong> Enter between August 31st and kickoff on Sept 9th, and they will add $10 to the pot!</p>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Gift className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                  <Gift className="w-5 h-5 text-purple-300 shrink-0 mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
                   <p className="text-zinc-300 text-sm leading-relaxed"><strong className="text-white">Bonus:</strong> The Pick 'Em champion will take home a 602 West Neon Tee, plus an exclusive Yes Day 2026 cosmetics pack on ChainLink and ScriptLess.</p>
                 </li>
               </ul>
@@ -86,14 +86,14 @@ export function CharityBanner() {
           </div>
         </div>
 
-        <div className="border-t border-purple-500/30 pt-6">
+        <div className="border-t border-purple-400/30 pt-6">
           <p className="text-white font-medium text-center mb-6 text-lg italic max-w-2xl mx-auto">
             Lock in your picks, support a vital cause, and let’s build the biggest pot yet!
           </p>
 
           <div className="flex justify-center">
-            <a href="http://act.autismcenter.org/goto/ashweaver" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center rounded-lg text-lg font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 bg-purple-600 text-white hover:bg-purple-500 h-14 px-10 gap-3 shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)]">
-              Donate to Ashley's YES Day Page <ExternalLink className="w-5 h-5" />
+            <a href="http://act.autismcenter.org/goto/ashweaver" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center rounded-lg text-lg font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 bg-purple-500 text-white hover:bg-purple-400 h-14 px-10 gap-3 shadow-[0_0_20px_rgba(168,85,247,0.5)] hover:shadow-[0_0_30px_rgba(192,132,252,0.7)] [text-shadow:_0_1px_2px_rgba(0,0,0,0.9),_0_0_1px_rgba(0,0,0,1)]">
+              Donate to Ashley's YES Day Page <ExternalLink className="w-5 h-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
             </a>
           </div>
         </div>

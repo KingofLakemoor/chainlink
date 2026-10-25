@@ -590,21 +590,43 @@ export async function updateGridironLeaderboard(contestId: string) {
   const raceStartWeek = raceSettings?.startWeek || 1;
   const raceTargetWins = raceSettings?.targetWins || 25;
 
-  // Calculate raceWins if race is active
+  // Calculate raceWins and winning week if race is active
   const userRaceWinsMap = new Map<string, number>();
+  const userRaceWinnerWeekMap = new Map<string, number>();
+
   if (isRaceActive) {
+    const userEntriesMap = new Map<string, GridironEntry[]>();
     for (const entry of allContestEntries) {
       if ((entry.weekNumber || 1) >= raceStartWeek) {
         const uid = entry.userId;
         if (!uid) continue;
-        let count = userRaceWinsMap.get(uid) || 0;
+        if (!userEntriesMap.has(uid)) {
+          userEntriesMap.set(uid, []);
+        }
+        userEntriesMap.get(uid)!.push(entry);
+      }
+    }
+
+    for (const [uid, entries] of userEntriesMap.entries()) {
+      entries.sort((a, b) => (a.weekNumber || 1) - (b.weekNumber || 1));
+      let cumWins = 0;
+      let targetWeekReached: number | null = null;
+      for (const entry of entries) {
+        let entryWins = 0;
         for (const p of entry.picks || []) {
           const stLower = p.status?.toLowerCase();
           if (stLower === "won" || stLower === "win") {
-            count++;
+            entryWins++;
           }
         }
-        userRaceWinsMap.set(uid, count);
+        cumWins += entryWins;
+        if (cumWins >= raceTargetWins && targetWeekReached === null) {
+          targetWeekReached = entry.weekNumber || 1;
+        }
+      }
+      userRaceWinsMap.set(uid, cumWins);
+      if (targetWeekReached !== null) {
+        userRaceWinnerWeekMap.set(uid, targetWeekReached);
       }
     }
   }
@@ -625,12 +647,28 @@ export async function updateGridironLeaderboard(contestId: string) {
           newlyFoundWinner = {
             uid: rec.userId,
             displayName: rec.displayName,
-            week: contestData.weekNumber || 1
+            week: userRaceWinnerWeekMap.get(rec.userId) || contestData.weekNumber || 1
           };
         }
       }
     } else if ('raceWins' in rec) {
       delete rec.raceWins;
+    }
+  }
+
+  // Update existing recorded winner's winnerWeek if missing or inaccurate
+  if (isRaceActive && raceSettings?.winnerUserId) {
+    const calculatedWinnerWeek = userRaceWinnerWeekMap.get(raceSettings.winnerUserId);
+    if (calculatedWinnerWeek && raceSettings.winnerWeek !== calculatedWinnerWeek) {
+      try {
+        const contestRef = adminDb.collection("gridiron_3x3_contests").doc(contestId);
+        await contestRef.update({
+          "raceTo25.winnerWeek": calculatedWinnerWeek
+        });
+        raceSettings.winnerWeek = calculatedWinnerWeek;
+      } catch (e) {
+        console.warn("[GridironLeaderboard] Error updating existing winnerWeek:", e);
+      }
     }
   }
 

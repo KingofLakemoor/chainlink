@@ -989,6 +989,48 @@ describe('Gridiron Service Tests', () => {
       const contestData = mockStore.gridiron_3x3_contests['contest_race'];
       expect(contestData.raceTo25.winnerUserId).toBe('r1');
       expect(contestData.raceTo25.winnerDisplayName).toBe('Racer One');
+      expect(contestData.raceTo25.winnerWeek).toBe(2);
+    });
+
+    it('accurately attributes winnerWeek to Week 7 when 25 target wins are reached in Week 7 across multiple weeks', async () => {
+      mockStore.gridiron_3x3_contests['contest_race_w7'] = {
+        contestId: 'contest_race_w7',
+        name: 'Race to 25 Week 7 Test',
+        participants: ['r7'],
+        weekNumber: 7,
+        raceTo25: {
+          active: true,
+          startWeek: 1,
+          targetWins: 25
+        }
+      };
+
+      // Create entries across weeks 1 to 7 (4 wins per week for weeks 1-6 = 24 wins, then 4 wins in week 7 = 28 wins total)
+      for (let w = 1; w <= 7; w++) {
+        mockStore.gridiron_3x3_entries[`contest_race_w7_r7_w${w}`] = {
+          entryId: `contest_race_w7_r7_w${w}`,
+          contestId: 'contest_race_w7',
+          userId: 'r7',
+          displayName: 'Rbmoore',
+          season: 2026,
+          weekNumber: w,
+          picks: Array.from({ length: 4 }).map((_, idx) => ({
+            gameId: `g_w${w}_${idx}`,
+            league: 'NFL',
+            pickType: 'spread',
+            selection: 'home_spread',
+            value: -3.5,
+            kickoffTime: Date.now() - 3600000,
+            status: 'won'
+          }))
+        };
+      }
+
+      await updateGridironLeaderboard('contest_race_w7');
+      const contestData = mockStore.gridiron_3x3_contests['contest_race_w7'];
+      expect(contestData.raceTo25.winnerUserId).toBe('r7');
+      expect(contestData.raceTo25.winnerDisplayName).toBe('Rbmoore');
+      expect(contestData.raceTo25.winnerWeek).toBe(7);
     });
 
     it('correctly calculates wins behind leader between leader and chasing player', () => {

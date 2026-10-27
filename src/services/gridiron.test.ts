@@ -1043,6 +1043,106 @@ describe('Gridiron Service Tests', () => {
       // Ensure it is not targetWins - leader.raceWins (which would be 22)
       expect(winsBehind).not.toBe(targetWins - leader.raceWins);
     });
+
+    it('creates a new race from a specified startWeek, archives completed race in pastRaces, and preserves season standings', async () => {
+      mockStore.gridiron_3x3_contests['contest_multi_race'] = {
+        contestId: 'contest_multi_race',
+        name: 'Multi Race Contest',
+        participants: ['p1'],
+        weekNumber: 3,
+        raceTo25: {
+          active: true,
+          startWeek: 1,
+          targetWins: 2,
+          winnerUserId: 'p1',
+          winnerDisplayName: 'Player One',
+          winnerWeek: 2
+        }
+      };
+
+      mockStore.gridiron_3x3_entries['contest_multi_race_p1_w1'] = {
+        entryId: 'contest_multi_race_p1_w1',
+        contestId: 'contest_multi_race',
+        userId: 'p1',
+        displayName: 'Player One',
+        season: 2026,
+        weekNumber: 1,
+        picks: [
+          { gameId: 'g1', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 172800000, status: 'won' }
+        ]
+      };
+
+      mockStore.gridiron_3x3_entries['contest_multi_race_p1_w2'] = {
+        entryId: 'contest_multi_race_p1_w2',
+        contestId: 'contest_multi_race',
+        userId: 'p1',
+        displayName: 'Player One',
+        season: 2026,
+        weekNumber: 2,
+        picks: [
+          { gameId: 'g2', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 86400000, status: 'won' }
+        ]
+      };
+
+      mockStore.gridiron_3x3_entries['contest_multi_race_p1_w3'] = {
+        entryId: 'contest_multi_race_p1_w3',
+        contestId: 'contest_multi_race',
+        userId: 'p1',
+        displayName: 'Player One',
+        season: 2026,
+        weekNumber: 3,
+        picks: [
+          { gameId: 'g3', league: 'NFL', pickType: 'spread', selection: 'home_spread', value: -3.5, kickoffTime: Date.now() - 3600000, status: 'won' }
+        ]
+      };
+
+      const existingContest = mockStore.gridiron_3x3_contests['contest_multi_race'];
+      const existingRace = existingContest.raceTo25;
+
+      const newRaceStartWeek = 3;
+      const resetWinner = true;
+
+      let pastRaces = existingRace.pastRaces || [];
+      if (resetWinner && existingRace.winnerUserId) {
+        pastRaces = [
+          ...pastRaces,
+          {
+            startWeek: existingRace.startWeek || 1,
+            targetWins: existingRace.targetWins || 2,
+            winnerUserId: existingRace.winnerUserId,
+            winnerDisplayName: existingRace.winnerDisplayName || 'Player',
+            winnerWeek: existingRace.winnerWeek || 2,
+            completedAt: Date.now()
+          }
+        ];
+      }
+
+      mockStore.gridiron_3x3_contests['contest_multi_race'].raceTo25 = {
+        active: true,
+        startWeek: newRaceStartWeek,
+        targetWins: 25,
+        winnerUserId: null,
+        winnerDisplayName: null,
+        winnerWeek: null,
+        pastRaces
+      };
+
+      const leaderboard = await updateGridironLeaderboard('contest_multi_race');
+      const updatedContest = mockStore.gridiron_3x3_contests['contest_multi_race'];
+
+      expect(updatedContest.raceTo25.pastRaces.length).toBe(1);
+      expect(updatedContest.raceTo25.pastRaces[0].winnerUserId).toBe('p1');
+      expect(updatedContest.raceTo25.pastRaces[0].winnerWeek).toBe(2);
+
+      expect(updatedContest.raceTo25.winnerUserId).toBeNull();
+      expect(updatedContest.raceTo25.startWeek).toBe(3);
+
+      const playerRecord = leaderboard!.find(r => r.userId === 'p1')!;
+      expect(playerRecord.raceWins).toBe(1);
+
+      expect(playerRecord.totalWins).toBe(3);
+      expect(playerRecord.points).toBe(3.0);
+    });
   });
 
   describe('Admin Gridiron 3x3 View Access Tests', () => {

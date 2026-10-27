@@ -4314,14 +4314,32 @@ apiRouter.post("/admin/gridiron-3x3/update-contest", validateAdmin, async (req, 
     if (typeof weekNumber === 'number') updateData.weekNumber = weekNumber;
 
     if (raceTo25 && typeof raceTo25 === 'object') {
-      const resetWinner = raceTo25.resetWinner || raceTo25.startWeek !== existingData?.raceTo25?.startWeek;
+      const existingRace = existingData?.raceTo25;
+      const resetWinner = !!raceTo25.resetWinner || (raceTo25.startWeek !== undefined && raceTo25.startWeek !== existingRace?.startWeek);
+
+      let pastRaces = existingRace?.pastRaces || [];
+      if (resetWinner && existingRace?.winnerUserId) {
+        pastRaces = [
+          ...pastRaces,
+          {
+            startWeek: existingRace.startWeek || 1,
+            targetWins: existingRace.targetWins || 25,
+            winnerUserId: existingRace.winnerUserId,
+            winnerDisplayName: existingRace.winnerDisplayName || 'Player',
+            winnerWeek: existingRace.winnerWeek || existingData?.weekNumber || 1,
+            completedAt: Date.now()
+          }
+        ];
+      }
+
       updateData.raceTo25 = {
         active: !!raceTo25.active,
-        startWeek: typeof raceTo25.startWeek === 'number' ? raceTo25.startWeek : (existingData?.raceTo25?.startWeek || existingData?.weekNumber || 1),
-        targetWins: typeof raceTo25.targetWins === 'number' ? raceTo25.targetWins : (existingData?.raceTo25?.targetWins || 25),
-        winnerUserId: resetWinner ? null : (existingData?.raceTo25?.winnerUserId || null),
-        winnerDisplayName: resetWinner ? null : (existingData?.raceTo25?.winnerDisplayName || null),
-        winnerWeek: resetWinner ? null : (existingData?.raceTo25?.winnerWeek || null)
+        startWeek: typeof raceTo25.startWeek === 'number' ? raceTo25.startWeek : (existingRace?.startWeek || existingData?.weekNumber || 1),
+        targetWins: typeof raceTo25.targetWins === 'number' ? raceTo25.targetWins : (existingRace?.targetWins || 25),
+        winnerUserId: resetWinner ? null : (existingRace?.winnerUserId || null),
+        winnerDisplayName: resetWinner ? null : (existingRace?.winnerDisplayName || null),
+        winnerWeek: resetWinner ? null : (existingRace?.winnerWeek || null),
+        pastRaces
       };
     }
 

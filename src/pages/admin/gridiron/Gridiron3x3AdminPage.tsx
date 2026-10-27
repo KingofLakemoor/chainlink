@@ -676,6 +676,27 @@ export default function Gridiron3x3AdminPage() {
 
                 {editRaceActive && (
                   <div className="bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 space-y-3">
+                    {editingContest?.raceTo25?.winnerUserId && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-semibold text-amber-300">
+                          <span>🏆 Winner: <strong>{editingContest.raceTo25.winnerDisplayName}</strong></span>
+                          <span>Claimed Week {editingContest.raceTo25.winnerWeek}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditRaceActive(true);
+                            setEditRaceStartWeek((editingContest.raceTo25?.winnerWeek || weekNumber || 1) + 1);
+                            setEditRaceStartTargetWins(25);
+                            setEditResetRaceWinner(true);
+                          }}
+                          className="w-full text-center px-2 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition-colors"
+                        >
+                          Start Next Race to 25 (Start Week {(editingContest.raceTo25?.winnerWeek || weekNumber || 1) + 1})
+                        </button>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-medium text-zinc-400 mb-1">Start Tracking From Week</label>
@@ -711,9 +732,23 @@ export default function Gridiron3x3AdminPage() {
                         className="w-3.5 h-3.5 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-amber-500"
                       />
                       <label htmlFor="editResetWinnerCheck" className="text-[11px] text-zinc-300 font-semibold cursor-pointer">
-                        Start New Race (Reset previous winner & count fresh wins)
+                        Start New Race (Archive previous winner & count fresh wins)
                       </label>
                     </div>
+
+                    {editingContest?.raceTo25?.pastRaces && editingContest.raceTo25.pastRaces.length > 0 && (
+                      <div className="pt-2 border-t border-zinc-800 space-y-1">
+                        <span className="text-[10px] font-bold uppercase text-zinc-400 block">Past Completed Races ({editingContest.raceTo25.pastRaces.length})</span>
+                        <div className="space-y-1 max-h-28 overflow-y-auto">
+                          {editingContest.raceTo25.pastRaces.map((pr, idx) => (
+                            <div key={idx} className="bg-zinc-800/60 border border-zinc-700/60 rounded px-2 py-1 text-[11px] flex justify-between items-center text-zinc-300">
+                              <span>🏆 <strong>{pr.winnerDisplayName}</strong> (Weeks {pr.startWeek}–{pr.winnerWeek})</span>
+                              <span className="font-mono text-amber-400">{pr.targetWins} W</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

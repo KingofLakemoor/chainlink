@@ -50,6 +50,53 @@ export default function Gridiron3x3Page() {
   const [loadingLines, setLoadingLines] = useState(false);
   const [linesMessage, setLinesMessage] = useState<string | null>(null);
 
+  // New race modal state (Admin)
+  const [isStartingNewRaceModal, setIsStartingNewRaceModal] = useState(false);
+  const [newRaceStartWeek, setNewRaceStartWeek] = useState(1);
+  const [newRaceTargetWins, setNewRaceTargetWins] = useState(25);
+  const [isSubmittingNewRace, setIsSubmittingNewRace] = useState(false);
+
+  const handleStartNextRace = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedContest || !user) return;
+    setIsSubmittingNewRace(true);
+    try {
+      const res = await fetch('/api/admin/gridiron-3x3/update-contest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`
+        },
+        body: JSON.stringify({
+          contestId: selectedContest.contestId,
+          raceTo25: {
+            active: true,
+            startWeek: newRaceStartWeek,
+            targetWins: newRaceTargetWins,
+            resetWinner: true
+          }
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(`New Race to ${newRaceTargetWins} created starting from Week ${newRaceStartWeek}!`, 'success');
+        setIsStartingNewRaceModal(false);
+        await fetchContests();
+        if (data.contest) {
+          setSelectedContest(data.contest);
+        }
+        await fetchLeaderboard();
+      } else {
+        showToast(data.error || 'Failed to start new race', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsSubmittingNewRace(false);
+    }
+  };
+
   // Compute dynamic required pick counts based on available CFB games on the snapshot board
   // Ahead of pulling in actual games (games.length === 0), default to a 3/3 split (3 NFL / 3 CFB)
   const availableCfbCount = games.filter(g => g.league === "CFB").length;
@@ -1055,6 +1102,7 @@ export default function Gridiron3x3Page() {
 
             const winnerName = race.winnerDisplayName || (raceLeader && (raceLeader.raceWins || 0) >= targetWins ? raceLeader.displayName : null);
             const isFinished = !!winnerName;
+            const isAdmin = profile?.role === 'ADMIN';
 
             return (
               <div className="bg-gradient-to-r from-amber-950/40 via-[#18181b] to-orange-950/30 border border-amber-500/30 rounded-2xl p-5 md:p-6 shadow-xl relative overflow-hidden space-y-4">
@@ -1075,19 +1123,35 @@ export default function Gridiron3x3Page() {
                     </div>
                   </div>
 
-                  <span className={cn(
-                    "text-xs font-bold font-mono px-3 py-1 rounded-full border shadow-sm",
-                    isFinished
-                      ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  )}>
-                    {isFinished ? "🏆 RACE FINISHED" : "🔥 RACE IN PROGRESS"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setNewRaceStartWeek((race.winnerWeek || weekNumber || 1) + 1);
+                          setNewRaceTargetWins(25);
+                          setIsStartingNewRaceModal(true);
+                        }}
+                        className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs gap-1.5 shadow-md"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Start Next Race
+                      </Button>
+                    )}
+
+                    <span className={cn(
+                      "text-xs font-bold font-mono px-3 py-1 rounded-full border shadow-sm",
+                      isFinished
+                        ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                        : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    )}>
+                      {isFinished ? "🏆 RACE FINISHED" : "🔥 RACE IN PROGRESS"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Winner Crown Banner if finished */}
                 {isFinished ? (
-                  <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-4 flex items-center justify-between gap-4">
+                  <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <Trophy className="w-8 h-8 text-amber-400 shrink-0 animate-bounce" />
                       <div>
@@ -1095,11 +1159,26 @@ export default function Gridiron3x3Page() {
                         <span className="text-base font-black text-zinc-100">{winnerName}</span>
                       </div>
                     </div>
-                    <div className="text-right font-mono">
-                      <span className="text-xs text-amber-300 font-bold block">{targetWins} Wins Reached!</span>
-                      <span className="text-[10px] text-zinc-400">
-                        {race.winnerWeek ? `Claimed in Week ${race.winnerWeek}` : 'Target Achieved'}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end font-mono">
+                      <div className="text-left md:text-right">
+                        <span className="text-xs text-amber-300 font-bold block">{targetWins} Wins Reached!</span>
+                        <span className="text-[10px] text-zinc-400">
+                          {race.winnerWeek ? `Claimed in Week ${race.winnerWeek}` : 'Target Achieved'}
+                        </span>
+                      </div>
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setNewRaceStartWeek((race.winnerWeek || weekNumber || 1) + 1);
+                            setNewRaceTargetWins(25);
+                            setIsStartingNewRaceModal(true);
+                          }}
+                          className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs gap-1"
+                        >
+                          Start Next Race (Wk {(race.winnerWeek || weekNumber || 1) + 1})
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ) : raceLeader ? (
@@ -1134,6 +1213,26 @@ export default function Gridiron3x3Page() {
                     })()}
                   </div>
                 ) : null}
+
+                {/* Past Champions List */}
+                {race.pastRaces && race.pastRaces.length > 0 && (
+                  <div className="pt-2 border-t border-amber-500/20 text-xs space-y-2">
+                    <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                      <Trophy className="w-3.5 h-3.5" /> Past Race Champions ({race.pastRaces.length})
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {race.pastRaces.map((pr, idx) => (
+                        <div key={idx} className="bg-zinc-900/90 border border-amber-500/20 rounded-lg p-2.5 flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-zinc-100 block text-xs">{pr.winnerDisplayName}</span>
+                            <span className="text-[10px] text-zinc-400">Weeks {pr.startWeek}–{pr.winnerWeek}</span>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-amber-400">{pr.targetWins} W</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -1353,6 +1452,54 @@ export default function Gridiron3x3Page() {
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setIsJoining(false)}>Cancel</Button>
                 <Button type="submit">Join Group</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Start Next Race Modal (Admin) */}
+      {isStartingNewRaceModal && profile?.role === 'ADMIN' && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-amber-500/40 rounded-2xl p-6 max-w-md w-full space-y-4">
+            <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2 font-display">
+              <Trophy className="w-5 h-5 text-amber-400" /> Start Next Race to 25
+            </h3>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Create a new race for this campaign. Season total standings will remain completely intact, and previous winners will be saved to race history.
+            </p>
+            <form onSubmit={handleStartNextRace} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Start Tracking From Week</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={newRaceStartWeek}
+                  onChange={(e) => setNewRaceStartWeek(parseInt(e.target.value, 10) || 1)}
+                  className="w-full bg-zinc-900 border border-[#3f3f46] rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Target Wins Goal</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={newRaceTargetWins}
+                  onChange={(e) => setNewRaceTargetWins(parseInt(e.target.value, 10) || 25)}
+                  className="w-full bg-zinc-900 border border-[#3f3f46] rounded-lg px-3 py-2 text-sm text-zinc-100 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setIsStartingNewRaceModal(false)}>Cancel</Button>
+                <Button type="submit" disabled={isSubmittingNewRace} className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold">
+                  {isSubmittingNewRace ? 'Creating...' : 'Start New Race'}
+                </Button>
               </div>
             </form>
           </div>

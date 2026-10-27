@@ -33,13 +33,23 @@ export interface GridironPick {
   status: "pending" | "won" | "lost" | "push";
 }
 
+export interface GridironRaceTo25History {
+  startWeek: number;
+  targetWins: number;
+  winnerUserId: string;
+  winnerDisplayName: string;
+  winnerWeek: number;
+  completedAt?: number;
+}
+
 export interface GridironRaceTo25Settings {
   active: boolean;
   startWeek: number;
   targetWins: number; // default 25
-  winnerUserId?: string;
-  winnerDisplayName?: string;
-  winnerWeek?: number;
+  winnerUserId?: string | null;
+  winnerDisplayName?: string | null;
+  winnerWeek?: number | null;
+  pastRaces?: GridironRaceTo25History[];
 }
 
 export interface GridironContest {

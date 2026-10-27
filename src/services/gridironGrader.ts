@@ -680,7 +680,8 @@ export async function updateGridironLeaderboard(contestId: string) {
           ...raceSettings,
           winnerUserId: newlyFoundWinner.uid,
           winnerDisplayName: newlyFoundWinner.displayName,
-          winnerWeek: newlyFoundWinner.week
+          winnerWeek: newlyFoundWinner.week,
+          pastRaces: raceSettings.pastRaces || []
         }
       });
     } catch (e) {

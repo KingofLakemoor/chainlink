@@ -86,8 +86,8 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     };
 
     if (scoreboardOnly) {
-      // Scoreboard-only requests focus on live/active scores: yesterday, today, and tomorrow
-      for (let i = -1; i <= 1; i++) {
+      // Scoreboard-only requests focus on live/active scores: yesterday, today, tomorrow, and day after tomorrow
+      for (let i = -1; i <= 2; i++) {
         dates.push(formatESTDate(new Date(today.getTime() + i * 24 * 60 * 60 * 1000)));
       }
     } else {
@@ -178,8 +178,8 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
   const estDate = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
   const year = new Date(estDate).getFullYear();
   switch (league) {
-    case "NFL": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/nfl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
-    case "NBA": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/nba/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "NFL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`);
+    case "NBA": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${date}`);
     case "NBASL": return dates.flatMap(date => [
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-las-vegas/scoreboard?dates=${date}`,
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-sacramento/scoreboard?dates=${date}`,
@@ -188,7 +188,7 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-orlando/scoreboard?dates=${date}`,
       `https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer-golden-state/scoreboard?dates=${date}`
     ]);
-    case "NHL": return specificDates && specificDates.length > 0 ? specificDates.map(date => `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`) : [`https://cdn.espn.com/core/nhl/schedule?dates=${year}&xhr=1&render=false&device=desktop&userab=18`];
+    case "NHL": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=${date}`);
     case "MLB": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${date}`);
     case "LLWS": return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/baseball/llb/scoreboard?dates=${date}`);
     case "MLS": return [
@@ -664,7 +664,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   active = false;
                 }
                 
-                if (league === "NFL" || league === "CFB") {
+                if (league === "NFL" || league === "CFB" || league === "NBA") {
                   const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
                   const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
                   if (isNaN(mlHNum) || isNaN(mlANum)) {
@@ -673,7 +673,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 }
 
                 let matchupType = "SCORE";
-                if (!active && (league === "NFL" || league === "CFB")) {
+                if (!active && (league === "NFL" || league === "CFB" || league === "NBA")) {
                   if (spread !== null) {
                     const spreadNum = parseFloat(spread);
                     if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
@@ -907,7 +907,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                   active = false;
                 }
                 
-                if (league === "NFL" || league === "CFB") {
+                if (league === "NFL" || league === "CFB" || league === "NBA") {
                   const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
                   const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
                   if (isNaN(mlHNum) || isNaN(mlANum)) {
@@ -916,7 +916,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                 }
 
                 let matchupType = "SCORE";
-                if (!active && (league === "NFL" || league === "CFB")) {
+                if (!active && (league === "NFL" || league === "CFB" || league === "NBA")) {
                   if (spread !== null) {
                     const spreadNum = parseFloat(spread);
                     if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {

@@ -331,7 +331,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
           teamImage = m.homeTeam?.image || '';
           teamName = m.homeTeam?.name || m.homeTeam?.shortName || teamId;
         } else {
-          teamImage = m.awayTeam?.image || m.homeTeam?.image || '';
+          teamImage = '';
           teamName = teamId;
         }
       }

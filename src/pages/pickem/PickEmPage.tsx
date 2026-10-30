@@ -1821,22 +1821,17 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
 
                             if (matchup) {
                                 if (matchup.type === 'OVER_UNDER') {
-                                    imageUrl = imageUrl || (teamId === 'OVER' ? '/images/over.png' : '/images/under.png');
-                                    altText = altText || teamId;
+                                    imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
+                                    altText = teamId;
                                 } else {
                                     const isAway = isTeamMatch(teamId, matchup.awayTeam);
                                     const isHome = isTeamMatch(teamId, matchup.homeTeam);
-                                    if (!imageUrl) {
-                                      if (isAway && matchup.awayTeam?.image) imageUrl = matchup.awayTeam.image;
-                                      else if (isHome && matchup.homeTeam?.image) imageUrl = matchup.homeTeam.image;
-                                      else imageUrl = matchup.awayTeam?.image || matchup.homeTeam?.image || '';
-                                    }
-                                    if (!altText || altText === teamId) {
-                                      if (isAway && (matchup.awayTeam?.name || matchup.awayTeam?.shortName)) {
-                                        altText = matchup.awayTeam.name || matchup.awayTeam.shortName;
-                                      } else if (isHome && (matchup.homeTeam?.name || matchup.homeTeam?.shortName)) {
-                                        altText = matchup.homeTeam.name || matchup.homeTeam.shortName;
-                                      }
+                                    if (isAway) {
+                                      imageUrl = matchup.awayTeam?.image || imageUrl;
+                                      altText = matchup.awayTeam?.name || matchup.awayTeam?.shortName || altText;
+                                    } else if (isHome) {
+                                      imageUrl = matchup.homeTeam?.image || imageUrl;
+                                      altText = matchup.homeTeam?.name || matchup.homeTeam?.shortName || altText;
                                     }
                                 }
                             }

@@ -1,18 +1,20 @@
 export const isTeamMatch = (pickName: string, team: any): boolean => {
     if (!pickName || !team) return false;
-    const normPick = pickName.trim().toLowerCase();
-    const normName = (team.name || '').trim().toLowerCase();
-    const normId = (team.id || '').trim().toLowerCase();
-    const normShort = (team.shortName || '').trim().toLowerCase();
-    const normAbbr = (team.abbreviation || '').trim().toLowerCase();
+    const normPick = (pickName !== null && pickName !== undefined) ? String(pickName).trim().toLowerCase() : '';
+    if (!normPick) return false;
 
-    if (normName && (normPick === normName || normPick.endsWith(normName) || normName.endsWith(normPick))) {
+    const normName = (team.name !== null && team.name !== undefined) ? String(team.name).trim().toLowerCase() : '';
+    const normId = (team.id !== null && team.id !== undefined) ? String(team.id).trim().toLowerCase() : '';
+    const normShort = (team.shortName !== null && team.shortName !== undefined) ? String(team.shortName).trim().toLowerCase() : '';
+    const normAbbr = (team.abbreviation !== null && team.abbreviation !== undefined) ? String(team.abbreviation).trim().toLowerCase() : '';
+
+    if (normName && (normPick === normName || normPick.endsWith(normName) || normName.endsWith(normPick) || (normPick.length >= 3 && normName.includes(normPick)) || (normName.length >= 3 && normPick.includes(normName)))) {
         return true;
     }
     if (normId && (normPick === normId || normPick.endsWith(normId) || normId.endsWith(normPick))) {
         return true;
     }
-    if (normShort && (normPick === normShort || normPick.endsWith(normShort) || normShort.endsWith(normPick))) {
+    if (normShort && (normPick === normShort || normPick.endsWith(normShort) || normShort.endsWith(normPick) || (normPick.length >= 3 && normShort.includes(normPick)) || (normShort.length >= 3 && normPick.includes(normShort)))) {
         return true;
     }
     if (normAbbr && (normPick === normAbbr || normPick.endsWith(normAbbr) || normAbbr.endsWith(normPick))) {

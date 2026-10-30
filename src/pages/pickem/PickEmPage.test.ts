@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup, getCampaignIds } from './PickEmPage';
+import { isTeamMatch } from '../../lib/teamUtils';
 
 describe('PickEmPage Yes Day prize breakdown tests', () => {
   it('resolves campaign ID aliases correctly for YES Day and charity campaigns', () => {
@@ -1150,5 +1151,61 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(checkTargetIds.has('charity_2_401547888')).toBe(true);
     expect(checkTargetIds.has('YES Day Walk for Autism 2026_2_401547888')).toBe(true);
     expect(checkTargetIds.has('401547888')).toBe(true);
+  });
+
+  it('correctly matches team names and resolves team images for home team picks (Packers vs Panthers)', () => {
+    const homeTeam = {
+      id: 12, // numeric id
+      name: 'Green Bay Packers',
+      shortName: 'Packers',
+      abbreviation: 'GB',
+      image: 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png'
+    };
+
+    const awayTeam = {
+      id: 29, // numeric id
+      name: 'Carolina Panthers',
+      shortName: 'Panthers',
+      abbreviation: 'CAR',
+      image: 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png'
+    };
+
+    const matchup = {
+      id: 'm_packers_panthers',
+      homeTeam,
+      awayTeam
+    };
+
+    // Test isTeamMatch with various representations of Packers
+    expect(isTeamMatch('12', homeTeam)).toBe(true);
+    expect(isTeamMatch('GB', homeTeam)).toBe(true);
+    expect(isTeamMatch('Packers', homeTeam)).toBe(true);
+    expect(isTeamMatch('Green Bay Packers', homeTeam)).toBe(true);
+    expect(isTeamMatch('packers', homeTeam)).toBe(true);
+
+    // Test that Packers does not match Panthers
+    expect(isTeamMatch('Packers', awayTeam)).toBe(false);
+    expect(isTeamMatch('GB', awayTeam)).toBe(false);
+
+    // Test image resolution logic for user pick of Packers
+    const userPickTeamId = 'GB';
+    const isAway = isTeamMatch(userPickTeamId, matchup.awayTeam);
+    const isHome = isTeamMatch(userPickTeamId, matchup.homeTeam);
+
+    let imageUrl = '';
+    let altText = '';
+
+    if (isAway) {
+      imageUrl = matchup.awayTeam?.image || '';
+      altText = matchup.awayTeam?.name || matchup.awayTeam?.shortName || userPickTeamId;
+    } else if (isHome) {
+      imageUrl = matchup.homeTeam?.image || '';
+      altText = matchup.homeTeam?.name || matchup.homeTeam?.shortName || userPickTeamId;
+    }
+
+    expect(isHome).toBe(true);
+    expect(isAway).toBe(false);
+    expect(imageUrl).toBe('https://a.espncdn.com/i/teamlogos/nfl/500/gb.png');
+    expect(altText).toBe('Green Bay Packers');
   });
 });

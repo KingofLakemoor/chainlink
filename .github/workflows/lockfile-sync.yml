@@ -28,7 +28,7 @@ jobs:
 
       - name: Verify and Synchronize Lockfile
         run: |
-          node scripts/ensure-lockfile-sync.cjs
+          node scripts/ensure-lockfile-sync.cjs --force-sync
 
       - name: Check for Lockfile Changes
         id: git_status

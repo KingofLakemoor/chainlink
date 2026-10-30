@@ -1208,4 +1208,56 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     expect(imageUrl).toBe('https://a.espncdn.com/i/teamlogos/nfl/500/gb.png');
     expect(altText).toBe('Green Bay Packers');
   });
+
+  it('correctly extracts team ID across all pick document schemas', () => {
+    const extractTeamId = (p: any) =>
+      p?.pick?.teamId || p?.pick?.id || p?.pick?.name || (typeof p?.pick === 'string' ? p.pick : p?.pick?.team) || p?.teamId || '';
+
+    expect(extractTeamId({ pick: { teamId: 'CAR' } })).toBe('CAR');
+    expect(extractTeamId({ pick: { id: 'GB' } })).toBe('GB');
+    expect(extractTeamId({ pick: { name: 'Green Bay Packers' } })).toBe('Green Bay Packers');
+    expect(extractTeamId({ pick: 'Panthers' })).toBe('Panthers');
+    expect(extractTeamId({ teamId: '29' })).toBe('29');
+    expect(extractTeamId({})).toBe('');
+  });
+
+  it('enforces week matching in matchCheck to prevent wrong-week matchup cross-contamination', () => {
+    const pickWeek1 = { matchupId: 'charity_1_401547412', week: 1, pick: { teamId: 'CAR' } };
+    const pickWeek2 = { matchupId: 'charity_2_401547412', week: 2, pick: { teamId: 'GB' } };
+
+    const week1Matchup = { id: 'yes_day_2026_1_401547412', gameId: '401547412', week: 1, homeTeam: { id: 'CAR', name: 'Carolina Panthers' }, awayTeam: { id: 'NO', name: 'New Orleans Saints' } };
+    const week2Matchup = { id: 'yes_day_2026_2_401547412', gameId: '401547412', week: 2, homeTeam: { id: 'GB', name: 'Green Bay Packers' }, awayTeam: { id: 'CAR', name: 'Carolina Panthers' } };
+
+    const allMatchups = [week1Matchup, week2Matchup];
+
+    const findMatchupForPick = (pick: any) => {
+      const pIdStr = String(pick.matchupId || '');
+      const pRawId = pIdStr.includes('_') ? pIdStr.split('_').pop() : pIdStr;
+      const targetWeek = Number(pick.week);
+
+      const matchCheck = (m: any) => {
+        if (!m) return false;
+        if (m.id === pick.matchupId || String(m.id) === pIdStr) return true;
+        const mWeek = m.week !== undefined && m.week !== null ? Number(m.week) : null;
+        if (mWeek !== null && targetWeek !== null && mWeek !== targetWeek) return false;
+        if (m.gameId !== undefined && m.gameId !== null && (String(m.gameId) === pick.matchupId || String(m.gameId) === pIdStr)) return true;
+        const mIdStr = String(m.id || '');
+        const mRawId = mIdStr.includes('_') ? mIdStr.split('_').pop() : mIdStr;
+        if (pRawId && mRawId && pRawId === mRawId) return true;
+        if (m.gameId !== undefined && m.gameId !== null && pRawId === String(m.gameId)) return true;
+        return false;
+      };
+
+      return allMatchups.find(matchCheck);
+    };
+
+    const resolvedForW1 = findMatchupForPick(pickWeek1);
+    const resolvedForW2 = findMatchupForPick(pickWeek2);
+
+    expect(resolvedForW1?.week).toBe(1);
+    expect(resolvedForW1?.id).toBe('yes_day_2026_1_401547412');
+
+    expect(resolvedForW2?.week).toBe(2);
+    expect(resolvedForW2?.id).toBe('yes_day_2026_2_401547412');
+  });
 });

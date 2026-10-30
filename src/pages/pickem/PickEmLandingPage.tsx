@@ -567,9 +567,11 @@ export default function PickEmLandingPage() {
                       <div className="p-6 bg-[#18181A] flex-1 flex flex-col justify-center">
                         <div className="flex flex-wrap gap-2 mb-2">
                            {Array.from({ length: allowedPicks }).map((_, i) => {
-                             const validPicks = (details.picks || []).filter(p => p.pick?.teamId);
+                             const getPickTeamId = (p: any) => p?.pick?.teamId || p?.pick?.id || p?.pick?.name || (typeof p?.pick === 'string' ? p.pick : null) || p?.teamId || '';
+                             const validPicks = (details.picks || []).filter(p => !!getPickTeamId(p));
                              const pick = validPicks[i];
-                             if (!pick || !pick.pick?.teamId) {
+                             const teamId = getPickTeamId(pick);
+                             if (!pick || !teamId) {
                                return (
                                  <div key={`empty-${i}`} className="w-10 h-10 rounded-full border-2 border-zinc-800 bg-[#121212] flex-shrink-0" />
                                );
@@ -577,16 +579,17 @@ export default function PickEmLandingPage() {
                              
                              const pIdStr = String(pick.matchupId || '');
                              const pRawId = pIdStr.includes('_') ? pIdStr.split('_').pop() : pIdStr;
+                             const targetWeek = pick.week !== undefined && pick.week !== null ? Number(pick.week) : Number(c.currentWeek ?? 1);
                              const m = details.matchups.find(matchup => {
                                if (matchup.id === pick.matchupId || String(matchup.id) === pIdStr) return true;
-                               if (matchup.gameId !== undefined && (matchup.gameId === pick.matchupId || String(matchup.gameId) === pIdStr)) return true;
+                               const mWeek = matchup.week !== undefined && matchup.week !== null ? Number(matchup.week) : null;
+                               if (mWeek !== null && targetWeek !== null && mWeek !== targetWeek) return false;
+                               if (matchup.gameId !== undefined && matchup.gameId !== null && (String(matchup.gameId) === pick.matchupId || String(matchup.gameId) === pIdStr)) return true;
                                const mIdStr = String(matchup.id || '');
                                const mRawId = mIdStr.includes('_') ? mIdStr.split('_').pop() : mIdStr;
                                if (pRawId && mRawId && pRawId === mRawId) return true;
                                return false;
                              });
-
-                             const teamId = pick.pick.teamId;
                              let imageUrl = pick.teamImage || '';
                              let altText = pick.teamName || teamId;
 

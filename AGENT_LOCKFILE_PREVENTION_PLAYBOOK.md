@@ -138,7 +138,13 @@ function synchronizeLockfile() {
 }
 
 function main() {
-  if (isFastCheckInSync()) return; // Ultra-fast bypass (<5ms)
+  // If running inside CI / Cloud Build / GitHub Actions, dependencies were already validated by npm ci.
+  if (process.env.CI || process.env.CONTINUOUS_INTEGRATION || process.env.BUILD_ID) {
+    return;
+  }
+
+  // Authoritative check: npm ci --dry-run validates lockfile integrity exactly as Cloud Build does (<1.8s).
+  // Avoid superficial JSON-only comparisons which miss supportedArchitectures, engines, and optional dependencies!
   if (!verifyWithNpmCiDryRun()) {
     synchronizeLockfile();
   }

@@ -92,12 +92,14 @@ function synchronizeLockfile() {
 }
 
 function main() {
-  const fastSync = isFastCheckInSync();
-  if (fastSync) {
+  // If running inside CI / Cloud Build / GitHub Actions, dependencies were already validated by npm ci.
+  if (process.env.CI || process.env.CONTINUOUS_INTEGRATION || process.env.BUILD_ID) {
     return;
   }
 
-  // Double check with npm ci --dry-run before invoking full npm install
+  // Authoritative check: npm ci --dry-run validates lockfile integrity exactly as Cloud Build does.
+  // This catches supportedArchitectures, engines, optionalDependencies, and transitive discrepancies
+  // that superficial JSON checks miss.
   const dryRunOk = verifyWithNpmCiDryRun();
   if (!dryRunOk) {
     synchronizeLockfile();

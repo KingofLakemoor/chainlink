@@ -206,12 +206,24 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     snap.docs.forEach((d: any) => {
       const data = d.data();
       const mObj = { id: d.id, ...data };
+      const weekNum = data.week !== undefined && data.week !== null ? Number(data.week) : 1;
+      const gameId = data.gameId ? String(data.gameId) : '';
+      const rawId = d.id.includes('_') ? String(d.id.split('_').pop()) : String(d.id);
+
       matchupsMap.set(d.id, mObj);
-      if (data.gameId) matchupsMap.set(String(data.gameId), mObj);
-      if (d.id.includes('_')) {
-        const rawId = d.id.split('_').pop();
-        if (rawId) matchupsMap.set(rawId, mObj);
-      }
+      if (gameId) matchupsMap.set(gameId, mObj);
+
+      matchupsMap.set(`w${weekNum}_${d.id}`, mObj);
+      if (gameId) matchupsMap.set(`w${weekNum}_${gameId}`, mObj);
+      if (rawId) matchupsMap.set(`w${weekNum}_${rawId}`, mObj);
+
+      aliases.forEach(cid => {
+        if (gameId) matchupsMap.set(`${cid}_${weekNum}_${gameId}`, mObj);
+        if (rawId) matchupsMap.set(`${cid}_${weekNum}_${rawId}`, mObj);
+        if (gameId) matchupsMap.set(`${cid}_${gameId}`, mObj);
+        if (rawId) matchupsMap.set(`${cid}_${rawId}`, mObj);
+        matchupsMap.set(`${cid}_${d.id}`, mObj);
+      });
     });
   });
 
@@ -284,10 +296,22 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     const uid = p.participantId || p.userId;
     if (!uid || !stats[uid]) return;
 
+    const rawId = p.matchupId && typeof p.matchupId === 'string' && p.matchupId.includes('_')
+      ? p.matchupId.split('_').pop()
+      : p.matchupId;
+
     let m = matchupsMap.get(p.matchupId);
-    if (!m && p.matchupId && typeof p.matchupId === 'string') {
-      const rawId = p.matchupId.split('_').pop();
-      if (rawId) m = matchupsMap.get(rawId);
+    const pWeek = p.week !== undefined && p.week !== null ? Number(p.week) : null;
+
+    if (!m && pWeek !== null) {
+      if (p.matchupId) m = matchupsMap.get(`w${pWeek}_${p.matchupId}`);
+      if (!m && rawId) m = matchupsMap.get(`w${pWeek}_${rawId}`);
+    }
+    if (!m && p.gameId) {
+      m = matchupsMap.get(String(p.gameId));
+    }
+    if (!m && rawId) {
+      m = matchupsMap.get(rawId);
     }
 
     const week = p.week !== undefined && p.week !== null
@@ -314,7 +338,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 
     let teamImage = '';
     let teamName = '';
-    const teamId = p.pick?.teamId || (typeof p.pick === 'string' ? p.pick : p.pick?.team) || p.teamId || '';
+    const teamId = p.pick?.teamId || p.pick?.id || p.pick?.name || (typeof p.pick === 'string' ? p.pick : p.pick?.team) || p.teamId || '';
     const isLocked = m ? isMatchupLocked(m) : false;
 
     if (m) {

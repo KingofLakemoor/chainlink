@@ -1780,20 +1780,23 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
                           {participant.picks && participant.picks.filter((p: any) => Number(p.week) === Number(selectedWeek)).map((pick: any) => {
-                            const teamId = pick.teamId || pick.pick?.teamId || (typeof pick.pick === 'string' ? pick.pick : null);
+                            const teamId = pick?.pick?.teamId || pick?.pick?.id || pick?.pick?.name || (typeof pick?.pick === 'string' ? pick.pick : null) || pick?.teamId || '';
                             if (!teamId) return null;
 
                             const pIdStr = String(pick.matchupId || '');
                             const pRawId = pIdStr.includes('_') ? pIdStr.split('_').pop() : pIdStr;
+                            const targetWeek = pick.week !== undefined && pick.week !== null ? Number(pick.week) : Number(selectedWeek);
 
                             const matchCheck = (m: any) => {
                               if (!m) return false;
                               if (m.id === pick.matchupId || String(m.id) === pIdStr) return true;
-                              if (m.gameId !== undefined && (m.gameId === pick.matchupId || String(m.gameId) === pIdStr)) return true;
+                              const mWeek = m.week !== undefined && m.week !== null ? Number(m.week) : null;
+                              if (mWeek !== null && targetWeek !== null && mWeek !== targetWeek) return false;
+                              if (m.gameId !== undefined && m.gameId !== null && (String(m.gameId) === pick.matchupId || String(m.gameId) === pIdStr)) return true;
                               const mIdStr = String(m.id || '');
                               const mRawId = mIdStr.includes('_') ? mIdStr.split('_').pop() : mIdStr;
                               if (pRawId && mRawId && pRawId === mRawId) return true;
-                              if (m.gameId !== undefined && pRawId === String(m.gameId)) return true;
+                              if (m.gameId !== undefined && m.gameId !== null && pRawId === String(m.gameId)) return true;
                               return false;
                             };
 

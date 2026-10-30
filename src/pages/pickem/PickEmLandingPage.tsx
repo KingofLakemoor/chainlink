@@ -592,16 +592,17 @@ export default function PickEmLandingPage() {
 
                              if (m) {
                                if (m.type === 'OVER_UNDER') {
-                                 imageUrl = imageUrl || (teamId === 'OVER' ? '/images/over.png' : '/images/under.png');
-                                 altText = altText || teamId;
+                                 imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
+                                 altText = teamId;
                                } else {
                                  const isAway = isTeamMatch(teamId, m.awayTeam);
                                  const isHome = isTeamMatch(teamId, m.homeTeam);
-                                 if (!imageUrl) {
-                                   imageUrl = isAway ? m.awayTeam?.image : (isHome ? m.homeTeam?.image : m.awayTeam?.image || m.homeTeam?.image || '');
-                                 }
-                                 if (!altText || altText === teamId) {
-                                   altText = isAway ? (m.awayTeam?.name || m.awayTeam?.shortName) : (isHome ? (m.homeTeam?.name || m.homeTeam?.shortName) : teamId);
+                                 if (isAway) {
+                                   imageUrl = m.awayTeam?.image || imageUrl;
+                                   altText = m.awayTeam?.name || m.awayTeam?.shortName || altText;
+                                 } else if (isHome) {
+                                   imageUrl = m.homeTeam?.image || imageUrl;
+                                   altText = m.homeTeam?.name || m.homeTeam?.shortName || altText;
                                  }
                                }
                              }

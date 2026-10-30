@@ -1827,14 +1827,33 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                                     imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
                                     altText = teamId;
                                 } else {
-                                    const isAway = isTeamMatch(teamId, matchup.awayTeam);
-                                    const isHome = isTeamMatch(teamId, matchup.homeTeam);
-                                    if (isAway) {
-                                      imageUrl = matchup.awayTeam?.image || imageUrl;
-                                      altText = matchup.awayTeam?.name || matchup.awayTeam?.shortName || altText;
-                                    } else if (isHome) {
+                                    const homeId = matchup.homeTeam?.id !== undefined && matchup.homeTeam?.id !== null ? String(matchup.homeTeam.id) : '';
+                                    const awayId = matchup.awayTeam?.id !== undefined && matchup.awayTeam?.id !== null ? String(matchup.awayTeam.id) : '';
+                                    const isExactHomeId = homeId && String(teamId) === homeId;
+                                    const isExactAwayId = awayId && String(teamId) === awayId;
+
+                                    if (isExactHomeId && !isExactAwayId) {
                                       imageUrl = matchup.homeTeam?.image || imageUrl;
                                       altText = matchup.homeTeam?.name || matchup.homeTeam?.shortName || altText;
+                                    } else if (isExactAwayId && !isExactHomeId) {
+                                      imageUrl = matchup.awayTeam?.image || imageUrl;
+                                      altText = matchup.awayTeam?.name || matchup.awayTeam?.shortName || altText;
+                                    } else {
+                                      const isHome = isTeamMatch(teamId, matchup.homeTeam);
+                                      const isAway = isTeamMatch(teamId, matchup.awayTeam);
+                                      if (isHome && !isAway) {
+                                        imageUrl = matchup.homeTeam?.image || imageUrl;
+                                        altText = matchup.homeTeam?.name || matchup.homeTeam?.shortName || altText;
+                                      } else if (isAway && !isHome) {
+                                        imageUrl = matchup.awayTeam?.image || imageUrl;
+                                        altText = matchup.awayTeam?.name || matchup.awayTeam?.shortName || altText;
+                                      } else if (isHome) {
+                                        imageUrl = matchup.homeTeam?.image || imageUrl;
+                                        altText = matchup.homeTeam?.name || matchup.homeTeam?.shortName || altText;
+                                      } else if (isAway) {
+                                        imageUrl = matchup.awayTeam?.image || imageUrl;
+                                        altText = matchup.awayTeam?.name || matchup.awayTeam?.shortName || altText;
+                                      }
                                     }
                                 }
                             }

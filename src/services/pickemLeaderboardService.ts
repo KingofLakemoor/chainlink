@@ -346,17 +346,36 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
         teamImage = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
         teamName = teamId;
       } else {
-        const isAway = isTeamMatch(teamId, m.awayTeam);
-        const isHome = isTeamMatch(teamId, m.homeTeam);
-        if (isAway) {
-          teamImage = m.awayTeam?.image || '';
-          teamName = m.awayTeam?.name || m.awayTeam?.shortName || teamId;
-        } else if (isHome) {
+        const homeId = m.homeTeam?.id !== undefined && m.homeTeam?.id !== null ? String(m.homeTeam.id) : '';
+        const awayId = m.awayTeam?.id !== undefined && m.awayTeam?.id !== null ? String(m.awayTeam.id) : '';
+        const isExactHomeId = homeId && String(teamId) === homeId;
+        const isExactAwayId = awayId && String(teamId) === awayId;
+
+        if (isExactHomeId && !isExactAwayId) {
           teamImage = m.homeTeam?.image || '';
           teamName = m.homeTeam?.name || m.homeTeam?.shortName || teamId;
+        } else if (isExactAwayId && !isExactHomeId) {
+          teamImage = m.awayTeam?.image || '';
+          teamName = m.awayTeam?.name || m.awayTeam?.shortName || teamId;
         } else {
-          teamImage = '';
-          teamName = teamId;
+          const isHome = isTeamMatch(teamId, m.homeTeam);
+          const isAway = isTeamMatch(teamId, m.awayTeam);
+          if (isHome && !isAway) {
+            teamImage = m.homeTeam?.image || '';
+            teamName = m.homeTeam?.name || m.homeTeam?.shortName || teamId;
+          } else if (isAway && !isHome) {
+            teamImage = m.awayTeam?.image || '';
+            teamName = m.awayTeam?.name || m.awayTeam?.shortName || teamId;
+          } else if (isHome) {
+            teamImage = m.homeTeam?.image || '';
+            teamName = m.homeTeam?.name || m.homeTeam?.shortName || teamId;
+          } else if (isAway) {
+            teamImage = m.awayTeam?.image || '';
+            teamName = m.awayTeam?.name || m.awayTeam?.shortName || teamId;
+          } else {
+            teamImage = '';
+            teamName = teamId;
+          }
         }
       }
     }

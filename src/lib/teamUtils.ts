@@ -1,3 +1,5 @@
+const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const isTeamMatch = (pickName: string, team: any): boolean => {
     if (!pickName || !team) return false;
     const normPick = (pickName !== null && pickName !== undefined) ? String(pickName).trim().toLowerCase() : '';
@@ -8,18 +10,44 @@ export const isTeamMatch = (pickName: string, team: any): boolean => {
     const normShort = (team.shortName !== null && team.shortName !== undefined) ? String(team.shortName).trim().toLowerCase() : '';
     const normAbbr = (team.abbreviation !== null && team.abbreviation !== undefined) ? String(team.abbreviation).trim().toLowerCase() : '';
 
-    if (normName && (normPick === normName || normPick.endsWith(normName) || normName.endsWith(normPick) || (normPick.length >= 3 && normName.includes(normPick)) || (normName.length >= 3 && normPick.includes(normName)))) {
-        return true;
+    // 1. Exact or delimited ID match
+    if (normId) {
+        if (normPick === normId) return true;
+        const isPickNumeric = /^\d+$/.test(normPick);
+        const isIdNumeric = /^\d+$/.test(normId);
+        // Numeric IDs must strictly equal each other (preventing e.g. '9' matching '29' via endsWith)
+        if (!isPickNumeric || !isIdNumeric) {
+            if (normPick.endsWith('_' + normId) || normPick.endsWith('-' + normId) || normPick.endsWith('/' + normId)) return true;
+            if (normId.endsWith('_' + normPick) || normId.endsWith('-' + normPick) || normId.endsWith('/' + normPick)) return true;
+        }
     }
-    if (normId && (normPick === normId || normPick.endsWith(normId) || normId.endsWith(normPick))) {
-        return true;
+
+    // 2. Abbreviation match
+    if (normAbbr) {
+        if (normPick === normAbbr) return true;
+        if (normPick.endsWith('(' + normAbbr + ')') || normPick.endsWith('_' + normAbbr) || normPick.endsWith('-' + normAbbr)) return true;
+        const abbrRegex = new RegExp('(?:^|[\\s_\\-(/])' + escapeRegex(normAbbr) + '(?:$|[\\s_\\-)/])', 'i');
+        if (abbrRegex.test(normPick)) return true;
     }
-    if (normShort && (normPick === normShort || normPick.endsWith(normShort) || normShort.endsWith(normPick) || (normPick.length >= 3 && normShort.includes(normPick)) || (normShort.length >= 3 && normPick.includes(normShort)))) {
-        return true;
+
+    // 3. Short name / Mascot match
+    if (normShort) {
+        if (normPick === normShort) return true;
+        const shortRegex = new RegExp('(?:^|[\\s_\\-])' + escapeRegex(normShort) + '(?:$|[\\s_\\-])', 'i');
+        if (shortRegex.test(normPick)) return true;
+        const pickRegex = new RegExp('(?:^|[\\s_\\-])' + escapeRegex(normPick) + '(?:$|[\\s_\\-])', 'i');
+        if (pickRegex.test(normShort)) return true;
     }
-    if (normAbbr && (normPick === normAbbr || normPick.endsWith(normAbbr) || normAbbr.endsWith(normPick))) {
-        return true;
+
+    // 4. Full name match
+    if (normName) {
+        if (normPick === normName) return true;
+        const nameRegex = new RegExp('(?:^|[\\s_\\-])' + escapeRegex(normPick) + '(?:$|[\\s_\\-])', 'i');
+        if (nameRegex.test(normName)) return true;
+        const pickNameRegex = new RegExp('(?:^|[\\s_\\-])' + escapeRegex(normName) + '(?:$|[\\s_\\-])', 'i');
+        if (pickNameRegex.test(normPick)) return true;
     }
+
     return false;
 };
 

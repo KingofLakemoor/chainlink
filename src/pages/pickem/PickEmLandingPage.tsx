@@ -598,14 +598,33 @@ export default function PickEmLandingPage() {
                                  imageUrl = teamId === 'OVER' ? '/images/over.png' : '/images/under.png';
                                  altText = teamId;
                                } else {
-                                 const isAway = isTeamMatch(teamId, m.awayTeam);
-                                 const isHome = isTeamMatch(teamId, m.homeTeam);
-                                 if (isAway) {
-                                   imageUrl = m.awayTeam?.image || imageUrl;
-                                   altText = m.awayTeam?.name || m.awayTeam?.shortName || altText;
-                                 } else if (isHome) {
+                                 const homeId = m.homeTeam?.id !== undefined && m.homeTeam?.id !== null ? String(m.homeTeam.id) : '';
+                                 const awayId = m.awayTeam?.id !== undefined && m.awayTeam?.id !== null ? String(m.awayTeam.id) : '';
+                                 const isExactHomeId = homeId && String(teamId) === homeId;
+                                 const isExactAwayId = awayId && String(teamId) === awayId;
+
+                                 if (isExactHomeId && !isExactAwayId) {
                                    imageUrl = m.homeTeam?.image || imageUrl;
                                    altText = m.homeTeam?.name || m.homeTeam?.shortName || altText;
+                                 } else if (isExactAwayId && !isExactHomeId) {
+                                   imageUrl = m.awayTeam?.image || imageUrl;
+                                   altText = m.awayTeam?.name || m.awayTeam?.shortName || altText;
+                                 } else {
+                                   const isHome = isTeamMatch(teamId, m.homeTeam);
+                                   const isAway = isTeamMatch(teamId, m.awayTeam);
+                                   if (isHome && !isAway) {
+                                     imageUrl = m.homeTeam?.image || imageUrl;
+                                     altText = m.homeTeam?.name || m.homeTeam?.shortName || altText;
+                                   } else if (isAway && !isHome) {
+                                     imageUrl = m.awayTeam?.image || imageUrl;
+                                     altText = m.awayTeam?.name || m.awayTeam?.shortName || altText;
+                                   } else if (isHome) {
+                                     imageUrl = m.homeTeam?.image || imageUrl;
+                                     altText = m.homeTeam?.name || m.homeTeam?.shortName || altText;
+                                   } else if (isAway) {
+                                     imageUrl = m.awayTeam?.image || imageUrl;
+                                     altText = m.awayTeam?.name || m.awayTeam?.shortName || altText;
+                                   }
                                  }
                                }
                              }

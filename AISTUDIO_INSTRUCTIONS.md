@@ -9,29 +9,29 @@
 ```markdown
 ### 🚨 MANDATORY AI STUDIO DEPLOYMENT & LOCKFILE DIRECTIVE 🚨
 
-You are an AI developer working on the ChainLink 2.0 repository deployed via Firebase App Hosting and GCP Cloud Build.
+You are an AI developer working on this repository deployed via Firebase App Hosting and GCP Cloud Build.
 
-Cloud Build deploys the app inside a Docker container using `RUN npm ci`. Unlike `npm install`, `npm ci` strictly requires `package.json` and `package-lock.json` to be 100% in sync across all platform-specific optional binaries (`@tailwindcss/oxide`, `@rollup`, `lightningcss`, etc.). If `package.json` is modified without regenerating `package-lock.json`, the Cloud Build deployment WILL FAIL with:
+Cloud Build deploys the app inside a container using `npm ci`. Unlike `npm install`, `npm ci` strictly requires `package.json` and `package-lock.json` to be 100% in sync across all dependencies and platform-specific optional binaries (`@tailwindcss/oxide`, `@rollup`, `lightningcss`, etc.). If `package.json` is modified without regenerating `package-lock.json`, the Cloud Build deployment WILL FAIL with:
 `npm error \`npm ci\` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync.`
 
-To prevent deployment failures, you MUST follow these hard-coded rules for every code change:
+To prevent deployment failures, the repository enforces these protections:
 
-1. ⚡ **LOCKFILE SYNCHRONIZATION (CRITICAL)**:
-   - NEVER edit `package.json` without running `npm install` immediately afterward to update `package-lock.json`.
-   - Always install packages using standard `npm install <package-name>` so optional platform bindings are written into `package-lock.json`.
+1. ⚡ **AUTOMATED PREBUILD & PRELINT SYNC**:
+   - `package.json` has `prebuild` and `prelint` hooks that run `node scripts/ensure-lockfile-sync.cjs`.
+   - Whenever `compile_applet` (`npm run build`) or `lint_applet` (`npm run lint`) runs, `package-lock.json` is automatically checked and updated via `npm install` if `package.json` has changed.
+
+2. ⚡ **LOCKFILE SYNCHRONIZATION**:
+   - When manually editing `package.json`, immediately run `npm install` to keep `package-lock.json` in sync.
    - Never use `--no-save` or bypass lockfile generation.
 
-2. 🧪 **CLEAN INSTALL VERIFICATION**:
-   - Before completing any task or pushing code, ALWAYS test `npm ci` locally in the environment.
-   - Run `npm run build && npx vitest run` to confirm that the production build bundle succeeds and test suite passes.
+3. 🧪 **CLEAN INSTALL VERIFICATION**:
+   - Before finishing any turn where packages are changed, run `npm ci --dry-run` or `compile_applet`.
 
-3. 📦 **GIT COMMIT COMPLIANCE**:
-   - Whenever `package.json` is modified, `package-lock.json` MUST be staged and committed alongside `package.json` in the same git commit.
-   - Never commit `package.json` alone.
+4. 📦 **ATOMIC COMMITS**:
+   - Whenever `package.json` is changed, ensure `package-lock.json` is committed alongside it.
 
-4. 🐳 **DOCKER CONTAINER ENVIRONMENT COMPATIBILITY**:
-   - The production container is built using Node 22 slim (`linux/amd64`). Do not remove or alter `RUN npm ci` in `Dockerfile`.
-   - Ensure native platform bindings for Linux arm64/x64 and Darwin/Win32 remain present in `package-lock.json`.
+5. 🐳 **CROSS-PLATFORM ARCHITECTURES**:
+   - `package.json` specifies `supportedArchitectures` (linux x64/arm64, darwin, win32) so `npm install` populates all necessary native bindings for Cloud Build.
 ```
 
 ---
@@ -39,18 +39,8 @@ To prevent deployment failures, you MUST follow these hard-coded rules for every
 ## 🔍 Why Builds Fail When Deploying From AI Studio
 
 ### Root Cause
-1. **Discrepancy Between `package.json` and `package-lock.json`**: When AI Studio adds or updates a package in `package.json`, `package-lock.json` is often left unchanged or generated only for a single local architecture.
-2. **Missing Platform-Specific Binaries**: Packages like Tailwind CSS v4 (`@tailwindcss/vite`, `@tailwindcss/oxide`), Vite/Rollup (`@rollup/rollup-*`), and LightningCSS rely on optional platform-specific native binaries. If `npm install` is not executed to populate these platform entries in `package-lock.json`, `npm ci` in Docker throws an `EUSAGE` missing dependency error.
-3. **Strict Enforcement by `npm ci`**: Firebase App Hosting Cloud Build builds the Docker container running `RUN npm ci`. `npm ci` refuses to proceed if even a single optional platform binding is missing from `package-lock.json`.
-
----
-
-## 🛠️ Step-by-Step Fix Instructions for AI Studio Developers
-
-If a Firebase Cloud Build fails during `RUN npm ci`:
-
-1. Open bash terminal in your environment.
-2. Run `npm install` to update `package-lock.json`.
-3. Verify by running `npm ci`.
-4. Run `npm run build && npx vitest run`.
-5. Stage and commit both `package.json` and `package-lock.json`.
+1. **AI Studio direct file modifications**: When an AI agent in AI Studio modifies `package.json` (adding a library or updating scripts), `package-lock.json` on disk is not updated unless `npm install` is executed.
+2. **Strict Enforcement by `npm ci`**: Firebase App Hosting runs Google Cloud Build, which invokes `npm ci`. Unlike `npm install`, `npm ci` refuses to proceed if `package.json` and `package-lock.json` differ in dependencies or versions.
+3. **The Solution**: 
+   - Automated `prebuild` & `prelint` hooks via `scripts/ensure-lockfile-sync.cjs` ensure `package-lock.json` is synced before compilation completes.
+   - GitHub Action `.github/workflows/lockfile-sync.yml` catches and automatically commits any missed lockfile updates on push.

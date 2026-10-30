@@ -1,0 +1,49 @@
+name: Validate and Synchronize Lockfile
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: write
+
+jobs:
+  check-lockfile:
+    name: Check & Auto-Sync package-lock.json
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify and Synchronize Lockfile
+        run: |
+          node scripts/ensure-lockfile-sync.cjs
+
+      - name: Check for Lockfile Changes
+        id: git_status
+        run: |
+          if git diff --name-only | grep -E '^package-lock\.json$'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-commit Synchronized Lockfile (On Push)
+        if: steps.git_status.outputs.changed == 'true' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Synchronize package-lock.json with package.json to fix Google Cloud Build / Firebase App Hosting rollout failure during npm ci [skip ci]"
+          git push

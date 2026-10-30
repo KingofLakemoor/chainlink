@@ -92,8 +92,17 @@ function synchronizeLockfile() {
 }
 
 function main() {
-  // If running inside CI / Cloud Build / GitHub Actions, dependencies were already validated by npm ci.
-  if (process.env.CI || process.env.CONTINUOUS_INTEGRATION || process.env.BUILD_ID) {
+  const isForceSync = process.argv.includes('--force-sync') || process.argv.includes('--force');
+
+  // Skip running `npm install` if inside a Cloud Build container where `npm ci` has already run
+  // and network/write access might be restricted during buildpack compilation steps.
+  const isCloudBuild = Boolean(
+    process.env.BUILD_ID ||
+    process.env.CLOUDBUILD_BUILD_ID ||
+    process.env.K_SERVICE
+  );
+
+  if (!isForceSync && (isCloudBuild || process.env.CI || process.env.CONTINUOUS_INTEGRATION)) {
     return;
   }
 

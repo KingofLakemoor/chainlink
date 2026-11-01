@@ -94,15 +94,14 @@ function synchronizeLockfile() {
 function main() {
   const isForceSync = process.argv.includes('--force-sync') || process.argv.includes('--force');
 
-  // Skip running `npm install` if inside a Cloud Build container where `npm ci` has already run
-  // and network/write access might be restricted during buildpack compilation steps.
+  // Skip running `npm install` if inside a true Cloud Build container where `npm ci` has already run
+  // Note: Do NOT check K_SERVICE, as AI Studio development environments run on Cloud Run and have K_SERVICE set!
   const isCloudBuild = Boolean(
     process.env.BUILD_ID ||
-    process.env.CLOUDBUILD_BUILD_ID ||
-    process.env.K_SERVICE
+    process.env.CLOUDBUILD_BUILD_ID
   );
 
-  if (!isForceSync && (isCloudBuild || process.env.CI || process.env.CONTINUOUS_INTEGRATION)) {
+  if (!isForceSync && (isCloudBuild || (process.env.CI && !process.env.K_SERVICE))) {
     return;
   }
 

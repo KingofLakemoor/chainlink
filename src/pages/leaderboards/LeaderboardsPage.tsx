@@ -4,7 +4,7 @@ import { db, auth } from '../../lib/firebase';
 import { collection, getDocs, query, where, documentId } from 'firebase/firestore';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
-import { Trophy, Download, Medal, Flame, CheckCircle2, Percent, Users } from 'lucide-react';
+import { Trophy, Download, Medal, Flame, CheckCircle2, Percent, Users, Lock, Shield, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 
@@ -39,6 +39,27 @@ export default function LeaderboardsPage() {
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [animateCosmetics, setAnimateCosmetics] = useState(false);
+  const [archivedMonths, setArchivedMonths] = useState<Array<{ monthKey: string; monthLabel: string; completedAt: number }>>([]);
+  const [snapshotWinners, setSnapshotWinners] = useState<any | null>(null);
+  const [snapshotGlobals, setSnapshotGlobals] = useState<{ totalWins: number; totalLosses: number; globalWinRate: string } | null>(null);
+
+  // Fetch list of available archived months on mount
+  useEffect(() => {
+    const fetchArchivedMonths = async () => {
+      try {
+        const res = await fetch('/api/monthly-results');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.months) {
+            setArchivedMonths(data.months);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch archived months list:', err);
+      }
+    };
+    fetchArchivedMonths();
+  }, []);
 
   // Cache user picks and matchups in ref so switching tabs doesn't re-query pending picks
   const cachedPickMapRef = React.useRef<{ userPicksMap: Map<string, any[]>; matchupsMap: Map<string, any> } | null>(null);
@@ -46,6 +67,50 @@ export default function LeaderboardsPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      const isArchivedMonth = selectedMonth !== 'current' && selectedMonth !== 'all-time';
+
+      let targetMonthKey = selectedMonth;
+      if (selectedMonth === 'previous') {
+        const date = new Date();
+        date.setMonth(date.getMonth() - 1);
+        targetMonthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      // Check if we are viewing a cemented monthly snapshot
+      if (isArchivedMonth) {
+        try {
+          const snapRes = await fetch(`/api/monthly-results/${targetMonthKey}`);
+          if (snapRes.ok) {
+            const snapData = await snapRes.json();
+            if (snapData.success && snapData.result) {
+              const resObj = snapData.result;
+              setSnapshotWinners(resObj.winners || null);
+              setSnapshotGlobals({
+                totalWins: resObj.totalWins || 0,
+                totalLosses: resObj.totalLosses || 0,
+                globalWinRate: String(resObj.globalWinRate || '0.0'),
+              });
+
+              const shopItems = await getShopItemsCached();
+              setInventoryItems(shopItems);
+
+              const rankings = (resObj.rankings || []).map((p: any) => ({
+                ...p,
+                nextPickText: 'FINAL'
+              }));
+              setLeaderboardData(rankings);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn(`Could not load snapshot for ${targetMonthKey}, falling back:`, e);
+        }
+      } else {
+        setSnapshotWinners(null);
+        setSnapshotGlobals(null);
+      }
+
       try {
         if (import.meta.env.DEV && (!db?.app?.options?.apiKey || db?.app?.options?.apiKey === 'MY_FIREBASE_API_KEY')) {
            // Mock Data
@@ -62,7 +127,7 @@ export default function LeaderboardsPage() {
                const losses = player.stats?.losses || 0;
                const total = wins + losses;
                const winRate = total > 0 ? (wins / total) * 100 : 0;
-               return { ...player, winRate, totalDecisions: total, nextPickText: 'NO PICK' };
+               return { ...player, winRate, totalDecisions: total, nextPickText: isArchivedMonth ? 'FINAL' : 'NO PICK' };
            });
 
            if (selectedMonth === 'current') {
@@ -183,14 +248,10 @@ export default function LeaderboardsPage() {
             if (selectedMonth === 'all-time') {
                 statsToUse = userData.allTimeStats || statsToUse;
                 bestChainToUse = chainData.allTimeBest || bestChainToUse;
-            } else if (selectedMonth === 'previous') {
-                const date = new Date();
-                date.setMonth(date.getMonth() - 1);
-                const prevMonthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-                if (userData.historicalStats && userData.historicalStats[prevMonthKey]) {
-                    const hStats = userData.historicalStats[prevMonthKey];
-                    statsToUse = { wins: hStats.wins, losses: hStats.losses, pushes: hStats.pushes };
+            } else if (isArchivedMonth) {
+                if (userData.historicalStats && userData.historicalStats[targetMonthKey]) {
+                    const hStats = userData.historicalStats[targetMonthKey];
+                    statsToUse = { wins: hStats.wins || 0, losses: hStats.losses || 0, pushes: hStats.pushes || 0 };
                     bestChainToUse = hStats.longestWinChain || 0;
                     currentChainToUse = hStats.endOfMonthChain || 0;
                 } else {
@@ -205,28 +266,30 @@ export default function LeaderboardsPage() {
             const total = wins + losses;
             const winRate = total > 0 ? (wins / total) * 100 : 0;
 
-            let nextPickText = 'NO PICK';
-            const userPicks = userPicksMap.get(userData.id);
-            if (userPicks && userPicks.length > 0) {
-                let hasScheduled = false;
-                let activePickToShow = null;
+            let nextPickText = isArchivedMonth ? 'FINAL' : 'NO PICK';
+            if (!isArchivedMonth) {
+              const userPicks = userPicksMap.get(userData.id);
+              if (userPicks && userPicks.length > 0) {
+                  let hasScheduled = false;
+                  let activePickToShow = null;
 
-                for (const pick of userPicks) {
-                    const matchup = matchupsMap.get(pick.matchupId);
-                    if (matchup) {
-                        if (matchup.status === 'STATUS_SCHEDULED') {
-                            hasScheduled = true;
-                        } else {
-                            activePickToShow = pick;
-                        }
-                    }
-                }
+                  for (const pick of userPicks) {
+                      const matchup = matchupsMap.get(pick.matchupId);
+                      if (matchup) {
+                          if (matchup.status === 'STATUS_SCHEDULED') {
+                              hasScheduled = true;
+                          } else {
+                              activePickToShow = pick;
+                          }
+                      }
+                  }
 
-                if (activePickToShow) {
-                    nextPickText = activePickToShow.pick?.name || activePickToShow.pick?.id || 'NO PICK';
-                } else if (hasScheduled) {
-                    nextPickText = 'PICK IN';
-                }
+                  if (activePickToShow) {
+                      nextPickText = activePickToShow.pick?.name || activePickToShow.pick?.id || 'NO PICK';
+                  } else if (hasScheduled) {
+                      nextPickText = 'PICK IN';
+                  }
+              }
             }
 
             return {
@@ -248,9 +311,19 @@ export default function LeaderboardsPage() {
                 const hasActivePick = player.nextPickText !== 'NO PICK';
                 return hasStats || hasActivePick;
             });
+        } else if (isArchivedMonth) {
+            finalData = mergedData.filter(player => {
+                const hasStats = (player.stats?.wins || 0) > 0 || (player.stats?.losses || 0) > 0 || (player.stats?.pushes || 0) > 0;
+                return hasStats || (player.currentChain !== 0);
+            });
         }
 
-        // Default sort by Current Chain, Longest Chain, Most Wins, Win Percentage
+        // Default sort with tiebreaker cementation:
+        // 1. Current Chain descending
+        // 2. Best Chain descending (Longest Chain)
+        // 3. Most Wins descending
+        // 4. Win Percentage descending
+        // 5. Total Decisions descending
         finalData.sort((a, b) => {
             const aCurrentChain = a.currentChain || 0;
             const bCurrentChain = b.currentChain || 0;
@@ -261,7 +334,10 @@ export default function LeaderboardsPage() {
             const aWins = a.stats?.wins || 0;
             const bWins = b.stats?.wins || 0;
             if (bWins !== aWins) return bWins - aWins;
-            return (b.winRate || 0) - (a.winRate || 0);
+            const aRate = a.winRate || 0;
+            const bRate = b.winRate || 0;
+            if (bRate !== aRate) return bRate - aRate;
+            return (b.totalDecisions || 0) - (a.totalDecisions || 0);
         });
 
         setLeaderboardData(finalData);
@@ -302,21 +378,47 @@ export default function LeaderboardsPage() {
   }, [loading, leaderboardData]);
 
   // Calculate top performers
-  const topCurrentChain = leaderboardData.length > 0 ? [...leaderboardData].sort((a, b) => b.currentChain - a.currentChain)[0] : null;
-  const topWins = leaderboardData.length > 0 ? [...leaderboardData].sort((a, b) => (b.stats?.wins || 0) - (a.stats?.wins || 0))[0] : null;
-  const topBestChain = leaderboardData.length > 0 ? [...leaderboardData].sort((a, b) => b.bestChain - a.bestChain)[0] : null;
+  const isArchivedMonth = selectedMonth !== 'all-time' && selectedMonth !== 'current';
+
+  const topCurrentChain = isArchivedMonth && snapshotWinners?.topCurrentChain
+    ? snapshotWinners.topCurrentChain
+    : leaderboardData.length > 0
+    ? [...leaderboardData].sort((a, b) => b.currentChain - a.currentChain)[0]
+    : null;
+
+  const topWins = isArchivedMonth && snapshotWinners?.topWins
+    ? snapshotWinners.topWins
+    : leaderboardData.length > 0
+    ? [...leaderboardData].sort((a, b) => (b.stats?.wins || 0) - (a.stats?.wins || 0))[0]
+    : null;
+
+  const topBestChain = isArchivedMonth && snapshotWinners?.topBestChain
+    ? snapshotWinners.topBestChain
+    : leaderboardData.length > 0
+    ? [...leaderboardData].sort((a, b) => b.bestChain - a.bestChain)[0]
+    : null;
 
   // Win rate requires min 10 decisions
   const eligibleForWinRate = leaderboardData.filter(p => p.totalDecisions >= 10);
-  const topWinRate = eligibleForWinRate.length > 0 ? [...eligibleForWinRate].sort((a, b) => {
+  const computedTopWinRate = eligibleForWinRate.length > 0 ? [...eligibleForWinRate].sort((a, b) => {
     if (b.winRate !== a.winRate) return b.winRate - a.winRate;
     return (b.stats?.wins || 0) - (a.stats?.wins || 0);
   })[0] : null;
 
-  const globalWins = leaderboardData.reduce((acc, player) => acc + (player.stats?.wins || 0), 0);
-  const globalLosses = leaderboardData.reduce((acc, player) => acc + (player.stats?.losses || 0), 0);
+  const topWinRate = isArchivedMonth && snapshotWinners?.topWinRate
+    ? snapshotWinners.topWinRate
+    : computedTopWinRate;
+
+  const globalWins = isArchivedMonth && snapshotGlobals
+    ? snapshotGlobals.totalWins
+    : leaderboardData.reduce((acc, player) => acc + (player.stats?.wins || 0), 0);
+  const globalLosses = isArchivedMonth && snapshotGlobals
+    ? snapshotGlobals.totalLosses
+    : leaderboardData.reduce((acc, player) => acc + (player.stats?.losses || 0), 0);
   const globalTotalDecisions = globalWins + globalLosses;
-  const globalWinRate = globalTotalDecisions > 0 ? ((globalWins / globalTotalDecisions) * 100).toFixed(1) : '0.0';
+  const globalWinRate = isArchivedMonth && snapshotGlobals
+    ? Number(snapshotGlobals.globalWinRate || 0).toFixed(1)
+    : globalTotalDecisions > 0 ? ((globalWins / globalTotalDecisions) * 100).toFixed(1) : '0.0';
 
   const handleExportCSV = () => {
     if (leaderboardData.length === 0) return;
@@ -362,7 +464,8 @@ export default function LeaderboardsPage() {
     valueColorClass: string,
     Icon: any,
     iconColorClass: string,
-    emptyHelpText?: string
+    emptyHelpText?: string,
+    subBadge?: string
   ) => {
     if (!player) {
       return (
@@ -452,7 +555,10 @@ export default function LeaderboardsPage() {
          <div className="relative z-10 bg-[#111111]/90 border-t border-zinc-800 p-3 px-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
                <Icon className={`w-4 h-4 ${iconColorClass.replace('bg-', 'text-').replace('/10', '')}`} />
-               <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">{title}</p>
+               <div>
+                 <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">{title}</p>
+                 {subBadge && <p className="text-[9px] text-amber-400 font-medium truncate max-w-[120px]">{subBadge}</p>}
+               </div>
             </div>
             <p className={`text-lg font-black ${valueColorClass}`}>
                {valueLabel}
@@ -475,13 +581,21 @@ export default function LeaderboardsPage() {
 
         <div className="flex items-center gap-3">
           <select
-            className="bg-zinc-900 border border-zinc-800 text-zinc-200 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block p-2.5 outline-none"
+            className="bg-zinc-900 border border-zinc-800 text-zinc-200 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block p-2.5 outline-none font-medium"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           >
             <option value="all-time">All-Time Leaders</option>
             <option value="current">Current Month</option>
-            <option value="previous">Previous Month</option>
+            {archivedMonths.length > 0 ? (
+              archivedMonths.map(m => (
+                <option key={m.monthKey} value={m.monthKey}>
+                  {m.monthLabel} (Final Snapshot)
+                </option>
+              ))
+            ) : (
+              <option value="previous">Previous Month</option>
+            )}
           </select>
 
           <Button onClick={handleExportCSV} variant="secondary" className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100" disabled={leaderboardData.length === 0}>
@@ -499,16 +613,20 @@ export default function LeaderboardsPage() {
           (topCurrentChain?.currentChain || 0) < 0 ? `L${Math.abs(topCurrentChain?.currentChain || 0)}` : `W${topCurrentChain?.currentChain || 0}`,
           (topCurrentChain?.currentChain || 0) < 0 ? "text-red-500" : "text-orange-500",
           Flame,
-          "bg-orange-500/10 text-orange-500"
+          "bg-orange-500/10 text-orange-500",
+          undefined,
+          topCurrentChain?.tiebreakerNote
         )}
 
         {renderTopPerformerCard(
           "Most Wins",
           topWins,
-          (topWins?.stats?.wins || 0).toString(),
+          (topWins?.stats?.wins || topWins?.wins || 0).toString(),
           "text-green-500",
           CheckCircle2,
-          "bg-green-500/10 text-green-500"
+          "bg-green-500/10 text-green-500",
+          undefined,
+          topWins?.tiebreakerNote
         )}
 
         {renderTopPerformerCard(
@@ -517,27 +635,38 @@ export default function LeaderboardsPage() {
           `W${topBestChain?.bestChain || 0}`,
           "text-yellow-500",
           Medal,
-          "bg-yellow-500/10 text-yellow-500"
+          "bg-yellow-500/10 text-yellow-500",
+          undefined,
+          topBestChain?.tiebreakerNote
         )}
 
         {renderTopPerformerCard(
           "Best Win %",
           topWinRate,
-          `${isNaN(topWinRate?.winRate) ? 0 : topWinRate?.winRate?.toFixed(1)}%`,
+          `${isNaN(topWinRate?.winRate) ? 0 : Number(topWinRate?.winRate || 0).toFixed(1)}%`,
           "text-cyan-500",
           Percent,
           "bg-cyan-500/10 text-cyan-500",
-          "Minimum 10 Picks"
+          "Minimum 10 Picks",
+          topWinRate?.tiebreakerNote
         )}
       </div>
 
       {/* Main Table */}
       <div className="bg-[#121212] border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <h2 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-            <Users className="w-5 h-5 text-zinc-400" />
-            Global Standings
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+              <Users className="w-5 h-5 text-zinc-400" />
+              Global Standings
+            </h2>
+            {isArchivedMonth && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                <Lock className="w-3.5 h-3.5" />
+                Cemented Snapshot
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-4 text-sm font-medium">
             <div className="flex items-center gap-1.5">
                <span className="text-zinc-400">Total Wins:</span>
@@ -651,10 +780,12 @@ export default function LeaderboardsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className={cn(
                         "font-bold text-xs px-2 py-1 rounded bg-zinc-900/50 border border-zinc-800",
+                        player.nextPickText === 'FINAL' ? "text-amber-400 border-amber-500/30 bg-amber-500/10 inline-flex items-center gap-1" :
                         player.nextPickText === 'NO PICK' ? "text-zinc-500" :
                         player.nextPickText === 'PICK IN' ? "text-green-500 border-green-500/20 bg-green-500/10" :
                         "text-orange-400 border-orange-500/20 bg-orange-500/10"
                       )}>
+                        {player.nextPickText === 'FINAL' && <Lock className="w-3 h-3" />}
                         {player.nextPickText || 'NO PICK'}
                       </span>
                     </td>

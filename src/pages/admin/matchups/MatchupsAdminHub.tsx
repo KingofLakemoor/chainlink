@@ -4,7 +4,7 @@ import { db, auth } from '../../../lib/firebase';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import {
-  CheckCircle2, Flag, UserPlus, Search, RefreshCw, Plus, Edit, Trash2, X, Layers, Clock, Flame
+  CheckCircle2, Flag, UserPlus, Search, RefreshCw, Plus, Edit, Trash2, X, Layers, Clock, Flame, Shield, ShieldCheck, Lock
 } from 'lucide-react';
 import { useAuth } from '../../../lib/auth-context';
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
@@ -34,6 +34,7 @@ export default function MatchupsAdminHub() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
   const [featuredFilter, setFeaturedFilter] = useState('All');
+  const [overrideFilter, setOverrideFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Metrics State
@@ -41,7 +42,8 @@ export default function MatchupsAdminHub() {
     activeCount: 0,
     scheduledCount: 0,
     pendingPicksCount: 0,
-    activeLeaguesCount: 0
+    activeLeaguesCount: 0,
+    overrideCount: 0
   });
 
   // Selected Edit Matchup State for Drawer
@@ -113,12 +115,14 @@ export default function MatchupsAdminHub() {
       const active = docsData.filter(m => m.active).length;
       const scheduled = docsData.filter(m => m.status === 'STATUS_SCHEDULED').length;
       const activeLeagues = new Set(docsData.map(m => m.league).filter(Boolean)).size;
+      const overrideCount = docsData.filter(m => m.adminOverride).length;
 
       setMetrics({
         activeCount: active,
         scheduledCount: scheduled,
         pendingPicksCount: totalPendingPicks,
-        activeLeaguesCount: activeLeagues
+        activeLeaguesCount: activeLeagues,
+        overrideCount
       });
     } catch (e) {
       console.error("Error fetching matchups in Hub:", e);
@@ -285,15 +289,38 @@ export default function MatchupsAdminHub() {
     fetchMatchupsData();
   };
 
+  const handleToggleAdminOverride = async (id: string, currentOverride: boolean) => {
+    try {
+      const newOverride = !currentOverride;
+      const targetMatchup = matchups.find(m => m.id === id);
+      const updatePayload: any = {
+        adminOverride: newOverride,
+        updatedAt: Date.now()
+      };
+      if (newOverride) {
+        updatePayload.hasCustomTitle = true;
+        if (targetMatchup?.active) {
+          updatePayload.manuallyActivated = true;
+        }
+      }
+      await updateDoc(doc(db, 'matchups', id), updatePayload);
+      setMatchups(prev => prev.map(m => m.id === id ? { ...m, ...updatePayload } : m));
+    } catch (e) {
+      console.error("Error toggling admin override", e);
+      alert("Failed to toggle admin override");
+    }
+  };
+
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
       const newActive = !currentActive;
       await updateDoc(doc(db, 'matchups', id), {
         active: newActive,
         manuallyActivated: newActive,
+        adminOverride: true,
         updatedAt: Date.now()
       });
-      setMatchups(prev => prev.map(m => m.id === id ? { ...m, active: newActive, manuallyActivated: newActive } : m));
+      setMatchups(prev => prev.map(m => m.id === id ? { ...m, active: newActive, manuallyActivated: newActive, adminOverride: true } : m));
     } catch (e) {
       console.error("Error toggling active status", e);
       alert("Failed to toggle active status");
@@ -357,6 +384,11 @@ export default function MatchupsAdminHub() {
       }
       current[keys[keys.length - 1]] = value;
 
+      // Maintain admin override whenever core fields (Title, Type, Spread, Active) are modified
+      if (['title', 'type', 'metadata.spread', 'active'].includes(field)) {
+        newData.adminOverride = true;
+      }
+
       if (field === 'type' && value === 'SPREAD') {
         const awayName = newData.awayTeam?.name || 'Away';
         const homeName = newData.homeTeam?.name || 'Home';
@@ -404,9 +436,19 @@ export default function MatchupsAdminHub() {
       if (updateData.homeTeam) updateData.homeTeam.score = Number(updateData.homeTeam.score || 0);
       if (updateData.awayTeam) updateData.awayTeam.score = Number(updateData.awayTeam.score || 0);
 
+      // Persist admin override protection
+      updateData.adminOverride = Boolean(editMatchupData.adminOverride);
+      if (updateData.adminOverride) {
+        updateData.hasCustomTitle = true;
+        if (updateData.active) {
+          updateData.manuallyActivated = true;
+        }
+      }
+
       updateData.manuallyActivated = Boolean(updateData.active);
       updateData.updatedAt = Date.now();
       await updateDoc(doc(db, 'matchups', selectedMatchupId), updateData);
+      setMatchups(prev => prev.map(m => m.id === selectedMatchupId ? { ...m, ...updateData, id: selectedMatchupId } : m));
       alert('Matchup updated successfully!');
       handleCloseDrawer();
     } catch (e) {
@@ -480,6 +522,10 @@ export default function MatchupsAdminHub() {
       const isFeatured = featuredFilter === 'FEATURED';
       if (!!row.featured !== isFeatured) return false;
     }
+    if (overrideFilter !== 'All') {
+      const isOverride = overrideFilter === 'OVERRIDE';
+      if (!!row.adminOverride !== isOverride) return false;
+    }
     if (searchQuery) {
       const queryStr = searchQuery.toLowerCase();
       const matchesTitle = row.title?.toLowerCase().includes(queryStr);
@@ -492,7 +538,7 @@ export default function MatchupsAdminHub() {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Summary Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-[#121212] border border-zinc-800 rounded-xl p-5 shadow-lg">
           <div className="flex justify-between items-start">
             <div>
@@ -501,6 +547,18 @@ export default function MatchupsAdminHub() {
             </div>
             <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-400">
               <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl p-5 shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Admin Overrides</span>
+              <span className="text-2xl font-bold font-display text-amber-400 mt-1 block">{metrics.overrideCount}</span>
+            </div>
+            <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-400">
+              <Shield className="w-5 h-5" />
             </div>
           </div>
         </div>
@@ -668,6 +726,15 @@ export default function MatchupsAdminHub() {
                 <option value="FEATURED">Featured Only</option>
                 <option value="NOT_FEATURED">Not Featured</option>
               </select>
+              <select
+                value={overrideFilter}
+                onChange={(e) => setOverrideFilter(e.target.value)}
+                className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-700 text-zinc-300"
+              >
+                <option value="All">All Sync Modes</option>
+                <option value="OVERRIDE">Admin Override Only</option>
+                <option value="AUTO">Auto Sync Only</option>
+              </select>
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-500" />
                 <input
@@ -697,6 +764,7 @@ export default function MatchupsAdminHub() {
                     <th className="px-4 py-3 font-medium">ML</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Active</th>
+                    <th className="px-4 py-3 font-medium">Override</th>
                     <th className="px-4 py-3 font-medium">Featured</th>
                     <th className="px-4 py-3 font-medium">Link4</th>
                     <th className="px-4 py-3 font-medium">Start Time</th>
@@ -722,6 +790,20 @@ export default function MatchupsAdminHub() {
                           title={row.active ? "Mark Inactive" : "Mark Active"}
                         >
                           {row.active ? 'ACTIVE' : 'INACTIVE'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleToggleAdminOverride(row.id, !!row.adminOverride)}
+                          className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider transition-colors flex items-center gap-1.5 ${
+                            row.adminOverride
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                              : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                          }`}
+                          title={row.adminOverride ? "Admin Override Active (Title, Type, Spread, Active protected). Click to disable." : "Auto Sync. Click to lock Admin Override."}
+                        >
+                          <Shield className={`w-3 h-3 ${row.adminOverride ? 'text-amber-400 fill-amber-400/20' : 'text-zinc-500'}`} />
+                          {row.adminOverride ? 'OVERRIDE' : 'AUTO'}
                         </button>
                       </td>
                       <td className="px-4 py-3">
@@ -877,10 +959,58 @@ export default function MatchupsAdminHub() {
               <div className="p-12 text-center text-zinc-500 text-sm">Loading matchup details...</div>
             ) : (
               <div className="space-y-6 flex-1">
+                {/* Admin Override Protection Card */}
+                <div className={`p-4 rounded-xl border transition-all ${
+                  editMatchupData.adminOverride
+                    ? 'border-amber-500/40 bg-amber-500/10 shadow-lg shadow-amber-500/5'
+                    : 'border-zinc-800 bg-[#161618]'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-xl ${editMatchupData.adminOverride ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                        <Shield className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-white">Maintain Admin Override Data</span>
+                          {editMatchupData.adminOverride ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" /> Locked
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700/50">
+                              Auto Sync
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 mt-1">
+                          When enabled, automated ESPN and Odds API background syncs will <strong>never overwrite</strong> your custom <strong>Title</strong>, <strong>Type</strong>, <strong>Spread</strong>, or <strong>Active</strong> flag settings.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer ml-4 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={editMatchupData.adminOverride || false}
+                        onChange={(e) => handleEditChange('adminOverride', e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+                </div>
+
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Title</label>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Title</span>
+                      {editMatchupData.adminOverride && (
+                        <span className="text-[10px] text-amber-400 font-normal normal-case bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                          <Shield className="w-2.5 h-2.5" /> protected
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       value={editMatchupData.title || ''}
@@ -969,7 +1099,14 @@ export default function MatchupsAdminHub() {
                 {/* Matchup Type & Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-zinc-800/80 pt-4">
                   <div>
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Type</label>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Type</span>
+                      {editMatchupData.adminOverride && (
+                        <span className="text-[10px] text-amber-400 font-normal normal-case bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                          <Shield className="w-2.5 h-2.5" /> protected
+                        </span>
+                      )}
+                    </label>
                     <select
                       value={editMatchupData.type || 'SCORE'}
                       onChange={(e) => handleEditChange('type', e.target.value)}
@@ -1000,7 +1137,14 @@ export default function MatchupsAdminHub() {
 
                   {editMatchupData.type === 'SPREAD' && (
                     <div className="md:col-span-2">
-                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Spread</label>
+                      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                        <span>Spread</span>
+                        {editMatchupData.adminOverride && (
+                          <span className="text-[10px] text-amber-400 font-normal normal-case bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                            <Shield className="w-2.5 h-2.5" /> protected
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="number"
                         step="0.5"
@@ -1116,7 +1260,14 @@ export default function MatchupsAdminHub() {
                 <div className="flex flex-wrap items-center gap-6 border-t border-zinc-800/80 pt-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={editMatchupData.active || false} onChange={(e) => handleEditChange('active', e.target.checked)} className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-green-500 focus:ring-green-500/20" />
-                    <span className="text-sm font-medium text-zinc-300">Active</span>
+                    <span className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                      Active
+                      {editMatchupData.adminOverride && (
+                        <span className="text-[10px] text-amber-400 font-normal normal-case bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                          <Shield className="w-2.5 h-2.5" /> protected
+                        </span>
+                      )}
+                    </span>
                   </label>
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 cursor-pointer">

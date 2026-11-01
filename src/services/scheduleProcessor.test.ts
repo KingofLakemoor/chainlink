@@ -373,3 +373,76 @@ describe('isBeforeThursdaySpreadLock helper', () => {
     expect(isBeforeThursdaySpreadLock(gameTime, afterLock)).toBe(false);
   });
 });
+
+describe('scheduleProcessor - adminOverride Preservation Tests', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockExistingDoc = null;
+  });
+
+  it('preserves Title, Type, Spread, and Active when adminOverride: true during syncLeagueSchedules', async () => {
+    const scrapedMatchup = {
+      gameId: 'nfl_override_1',
+      league: 'NFL',
+      title: 'Scraped Packers @ Panthers',
+      type: 'SPREAD',
+      active: false,
+      status: 'STATUS_IN_PROGRESS',
+      statusDesc: 'Q3 10:00',
+      startTime: Date.now() - 3600000,
+      homeTeam: { id: 'car', name: 'Panthers', score: 14 },
+      awayTeam: { id: 'gb', name: 'Packers', score: 21 },
+      metadata: {
+        spread: 3.5,
+      },
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'nfl_override_1',
+      ref: 'matchupRef_nfl_override_1',
+      data: () => ({
+        gameId: 'nfl_override_1',
+        league: 'NFL',
+        title: 'Custom Admin Game Title',
+        type: 'CUSTOM',
+        active: true,
+        adminOverride: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        updatedAt: Date.now() - 100000,
+        startTime: Date.now() - 3600000,
+        homeTeam: { id: 'car', name: 'Panthers', score: 0 },
+        awayTeam: { id: 'gb', name: 'Packers', score: 0 },
+        metadata: {
+          spread: -6.5,
+        },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('NFL' as any, false);
+    expect(res.success).toBe(true);
+
+    const updateCalls = mockBatch.update.mock.calls;
+    expect(updateCalls.length).toBeGreaterThan(0);
+
+    const updatePayload = updateCalls.find(c => c[0] === 'matchupRef_nfl_override_1')?.[1];
+    expect(updatePayload).toBeDefined();
+
+    // Verify Title, Type, Spread, and Active are preserved from existing data
+    expect(updatePayload.title).toBe('Custom Admin Game Title');
+    expect(updatePayload.type).toBe('CUSTOM');
+    expect(updatePayload.active).toBe(true);
+    expect(updatePayload['metadata.spread']).toBe(-6.5);
+    expect(updatePayload.adminOverride).toBe(true);
+
+    // Verify game score and status were still updated from the live scraper
+    expect(updatePayload.status).toBe('STATUS_IN_PROGRESS');
+    expect(updatePayload.statusDesc).toBe('Q3 10:00');
+  });
+});
+

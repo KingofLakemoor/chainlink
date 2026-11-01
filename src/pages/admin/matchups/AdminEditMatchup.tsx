@@ -3,7 +3,7 @@ import { collection, getDocs, doc, setDoc, query, where, updateDoc, documentId }
 import { db, auth } from "../../../lib/firebase";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
-import { Edit } from "lucide-react";
+import { Edit, Shield, Lock } from "lucide-react";
 import { FirebaseImage } from "../../../components/ui/FirebaseImage";
 
 export function AdminEditMatchup() {
@@ -98,6 +98,11 @@ export function AdminEditMatchup() {
         }
         current[keys[keys.length - 1]] = value;
 
+        // Auto-maintain admin override if an admin touches Title, Type, Spread, or Active
+        if (field === 'title' || field === 'type' || field === 'metadata.spread' || field === 'active') {
+            newData.adminOverride = true;
+        }
+
         if (field === 'type' && value === 'SPREAD') {
             const awayName = newData.awayTeam?.name || 'Away';
             const homeName = newData.homeTeam?.name || 'Home';
@@ -146,6 +151,7 @@ export function AdminEditMatchup() {
         if (updateData.awayTeam) updateData.awayTeam.score = Number(updateData.awayTeam.score || 0);
 
         updateData.manuallyActivated = Boolean(updateData.active);
+        updateData.adminOverride = Boolean(matchup.adminOverride);
         updateData.updatedAt = Date.now();
         await updateDoc(doc(db, 'matchups', id), updateData);
         alert('Matchup updated successfully!');
@@ -228,10 +234,54 @@ export function AdminEditMatchup() {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Admin Override Protection Banner */}
+        <div className={`p-4 rounded-xl border transition-all ${
+          matchup.adminOverride 
+            ? 'bg-amber-500/10 border-amber-500/40 text-amber-200' 
+            : 'bg-zinc-900/60 border-zinc-800 text-zinc-400'
+        }`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-lg mt-0.5 ${matchup.adminOverride ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-sm text-white">Maintain Admin Override Data</h4>
+                  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                    matchup.adminOverride ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-zinc-800 text-zinc-400'
+                  }`}>
+                    {matchup.adminOverride ? 'Protected' : 'Auto Sync'}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                  When enabled, automated schedule scrapers (ESPN, etc.) and odds engines will never overwrite this game's <strong className="text-zinc-200">Title, Type, Spread</strong>, or <strong className="text-zinc-200">Active status</strong>.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+              <input
+                type="checkbox"
+                checked={Boolean(matchup.adminOverride)}
+                onChange={(e) => handleChange('adminOverride', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+            </label>
+          </div>
+        </div>
+
         {/* Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Matchup Title</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Matchup Title</label>
+                  {matchup.adminOverride && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      <Shield className="w-2.5 h-2.5" /> protected
+                    </span>
+                  )}
+                </div>
                 <input
                     type="text"
                     value={matchup.title || ''}
@@ -318,7 +368,14 @@ export function AdminEditMatchup() {
         {/* Details */}
         <div className="grid grid-cols-1 gap-6 border-t border-zinc-800/50 pt-6">
             <div className="space-y-2">
-                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Type</label>
+                <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Type</label>
+                    {matchup.adminOverride && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                            <Shield className="w-2.5 h-2.5" /> protected
+                        </span>
+                    )}
+                </div>
                 <select value={matchup.type || 'SCORE'} onChange={(e) => handleChange('type', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700">
                     <option value="SCORE">SCORE</option>
                     <option value="STATS">STATS</option>
@@ -349,7 +406,14 @@ export function AdminEditMatchup() {
             )}
             {matchup.type === 'SPREAD' && (
                 <div className="space-y-2">
-                    <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Spread</label>
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Spread</label>
+                        {matchup.adminOverride && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                <Shield className="w-2.5 h-2.5" /> protected
+                            </span>
+                        )}
+                    </div>
                     <input type="number" step="0.5" value={matchup.metadata?.spread ?? ''} onChange={(e) => handleChange('metadata.spread', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700" />
                 </div>
             )}
@@ -404,6 +468,11 @@ export function AdminEditMatchup() {
             <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={matchup.active || false} onChange={(e) => handleChange('active', e.target.checked)} className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-green-500 focus:ring-green-500/20" />
                 <span className="text-sm font-medium text-zinc-300">Active</span>
+                {matchup.adminOverride && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                        <Shield className="w-2.5 h-2.5" /> protected
+                    </span>
+                )}
             </label>
             <div className="flex items-center gap-3">
                 <label className="flex items-center gap-3 cursor-pointer">

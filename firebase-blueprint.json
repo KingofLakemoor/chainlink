@@ -50,7 +50,8 @@
         "homeTeam": { "type": "object" },
         "awayTeam": { "type": "object" },
         "cost": { "type": "number" },
-        "metadata": { "type": "object" }
+        "metadata": { "type": "object" },
+        "adminOverride": { "type": "boolean" }
       },
       "required": ["startTime", "active", "featured", "title", "league", "type", "status", "gameId", "homeTeam", "awayTeam", "cost", "createdAt"]
     },
@@ -493,9 +494,31 @@
         "createdAt": { "type": "number" }
       },
       "required": ["userId", "referredBy", "coins", "createdAt"]
+    },
+    "MonthlyResult": {
+      "title": "MonthlyResult",
+      "description": "Permanent cemented snapshot of monthly standings and winners.",
+      "type": "object",
+      "properties": {
+        "monthKey": { "type": "string" },
+        "monthLabel": { "type": "string" },
+        "completedAt": { "type": "number" },
+        "totalParticipants": { "type": "number" },
+        "totalWins": { "type": "number" },
+        "totalLosses": { "type": "number" },
+        "totalPushes": { "type": "number" },
+        "globalWinRate": { "type": "number" },
+        "winners": { "type": "object" },
+        "rankings": { "type": "array" }
+      },
+      "required": ["monthKey", "monthLabel", "completedAt", "winners", "rankings"]
     }
   },
   "firestore": {
+    "/monthlyResults/{monthKey}": {
+      "schema": { "$ref": "#/entities/MonthlyResult" },
+      "description": "Cemented monthly results snapshots"
+    },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "User profiles"

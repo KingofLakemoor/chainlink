@@ -88,6 +88,11 @@ export async function processDependentProps(adminDb: any, gameId: string | numbe
                 }
             }
 
+            const propData = propDoc.data();
+            if (propData.adminOverride) {
+                continue;
+            }
+
             if (hasValidPicks) {
                 batch.update(propDoc.ref, { status: 'STATUS_IN_PROGRESS', statusDesc: 'In Progress', updatedAt: Date.now() });
             } else {
@@ -515,8 +520,8 @@ export async function syncLeagueSchedules(
                   status: newStatus,
 
                   statusDesc: newStatus === 'STATUS_FINAL' ? 'Final' : newStatus === 'STATUS_IN_PROGRESS' ? currentThruDesc : 'Upcoming',
-                  active: isProtected ? true : newActive,
-                  abandoned: isProtected ? false : newAbandoned,
+                  active: data.adminOverride ? data.active : (isProtected ? true : newActive),
+                  abandoned: data.adminOverride ? data.abandoned : (isProtected ? false : newAbandoned),
                   homeTeam: {
                       ...data.homeTeam,
                       ...scrapedMatchup.homeTeam,
@@ -563,7 +568,7 @@ export async function syncLeagueSchedules(
                     .limit(1)
                     .get();
 
-                  if (pendingPicksSnap.empty && pendingPickemPicksSnap.empty) {
+                  if (!data.adminOverride && pendingPicksSnap.empty && pendingPickemPicksSnap.empty) {
                     updateData.abandoned = true;
                     updateData.active = false;
                     flattenedUpdate.abandoned = true;
@@ -616,11 +621,13 @@ export async function syncLeagueSchedules(
           //   }
           // }
 
-          let newTitle = existingData.hasCustomTitle ? existingData.title : scrapedMatchup.title;
+          const isAdminOverride = Boolean(existingData.adminOverride);
+
+          let newTitle = (isAdminOverride || existingData.hasCustomTitle) ? existingData.title : scrapedMatchup.title;
           let newlyCustomizedTitle = false;
           // If we are auto-converting this game to SPREAD and it wasn't SPREAD before, 
           // mimic the manual behavior of appending ' - ATS'
-          if (existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD') {
+          if (!isAdminOverride && existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD') {
               const awayName = scrapedMatchup.awayTeam?.name || 'Away';
               const homeName = scrapedMatchup.homeTeam?.name || 'Home';
               newTitle = `${awayName} @ ${homeName} - ATS`;
@@ -697,7 +704,10 @@ export async function syncLeagueSchedules(
           let finalActive = existingData.active;
           const hasPicks = deactivationPicksCache.get(gameId) || (existingDoc ? deactivationPicksCache.get(existingDoc.id) : false) || false;
 
-          if (!scoreboardOnly) {
+          if (isAdminOverride) {
+            // Respect admin override: Maintain the admin's active state
+            finalActive = existingData.active;
+          } else if (!scoreboardOnly) {
             let scraperActive = scrapedMatchup.active;
             const thirdPartyLeagues = ['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX'];
             const hasValidMlOdds = existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null &&
@@ -733,10 +743,12 @@ export async function syncLeagueSchedules(
             }
           }
 
-          if (hasPicks && newStatus !== 'STATUS_FINAL' && newStatus !== 'STATUS_POSTPONED') {
-            finalActive = true;
-          } else if (newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
-            finalActive = false;
+          if (!isAdminOverride) {
+            if (hasPicks && newStatus !== 'STATUS_FINAL' && newStatus !== 'STATUS_POSTPONED') {
+              finalActive = true;
+            } else if (newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
+              finalActive = false;
+            }
           }
 
           // FORCE skip update if abandoned
@@ -755,7 +767,7 @@ export async function syncLeagueSchedules(
               existingData.startTime !== scrapedMatchup.startTime ||
               existingData.homeTeam?.score !== homeScore ||
               existingData.awayTeam?.score !== awayScore ||
-              existingData.title !== newTitle ||
+              (!isAdminOverride && existingData.title !== newTitle) ||
               existingData.league !== scrapedMatchup.league ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name) ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName) ||
@@ -765,25 +777,26 @@ export async function syncLeagueSchedules(
               (existingData.type !== 'STATS' && existingData.awayTeam?.shortName !== scrapedMatchup.awayTeam?.shortName) ||
               (existingData.type !== 'STATS' && existingData.awayTeam?.image !== resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image)) ||
               (existingData.type !== 'STATS' && existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id) ||
-              existingData.active !== finalActive ||
+              (!isAdminOverride && existingData.active !== finalActive) ||
               Boolean(existingData.abandoned) !== ((existingData.abandoned === true && !isProtected) ? true : false) ||
               (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
               (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
               (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway) ||
               (scrapedMatchup.metadata?.homeLinescores !== undefined && JSON.stringify(existingData.metadata?.homeLinescores) !== JSON.stringify(scrapedMatchup.metadata?.homeLinescores)) ||
               (scrapedMatchup.metadata?.awayLinescores !== undefined && JSON.stringify(existingData.metadata?.awayLinescores) !== JSON.stringify(scrapedMatchup.metadata?.awayLinescores)) ||
-              (existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread) ||
-              (existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
+              (!isAdminOverride && existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread) ||
+              (!isAdminOverride && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
 
           if (needsUpdate || existingDoc.id !== gameId) {
             const updateData: any = {
               ...existingData,
               abandoned: (existingData.abandoned === true && !isProtected) ? true : false,
-              title: newTitle,
-              hasCustomTitle: newlyCustomizedTitle ? true : existingData.hasCustomTitle,
+              title: isAdminOverride ? existingData.title : newTitle,
+              hasCustomTitle: isAdminOverride ? true : (newlyCustomizedTitle ? true : existingData.hasCustomTitle),
+              adminOverride: isAdminOverride ? true : (existingData.adminOverride || false),
               league: scrapedMatchup.league,
-              type: (existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type,
-              active: (existingData.abandoned === true && !isProtected) ? false : finalActive,
+              type: isAdminOverride ? existingData.type : ((existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type),
+              active: isAdminOverride ? existingData.active : ((existingData.abandoned === true && !isProtected) ? false : finalActive),
               status: newStatus,
               statusDesc: newStatusDesc,
               startTime: scrapedMatchup.startTime,
@@ -808,8 +821,8 @@ export async function syncLeagueSchedules(
                   overUnder: (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null) ? scrapedMatchup.metadata?.overUnder : (existingData.metadata?.overUnder || null),
                   mlHome: (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null) ? scrapedMatchup.metadata?.mlHome : (existingData.metadata?.mlHome || null),
                   mlAway: (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null) ? scrapedMatchup.metadata?.mlAway : (existingData.metadata?.mlAway || null),
-                  spread: existingData.type === 'SPREAD' ? ((!isProtected && spreadUpdatePicksCache.get(existingData.gameId) === false) ? scrapedMatchup.metadata?.spread : existingData.metadata?.spread) : ((scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null) ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null)),
-                  previousSpread: existingData.metadata?.spread,
+                  spread: isAdminOverride ? (existingData.metadata?.spread !== undefined ? existingData.metadata.spread : null) : (existingData.type === 'SPREAD' ? ((!isProtected && spreadUpdatePicksCache.get(existingData.gameId) === false) ? scrapedMatchup.metadata?.spread : existingData.metadata?.spread) : ((scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null) ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null))),
+                  previousSpread: isAdminOverride ? (existingData.metadata?.previousSpread !== undefined ? existingData.metadata.previousSpread : null) : existingData.metadata?.spread,
                   homeLinescores: scrapedMatchup.metadata?.homeLinescores !== undefined ? scrapedMatchup.metadata?.homeLinescores : (existingData.metadata?.homeLinescores || null),
                   awayLinescores: scrapedMatchup.metadata?.awayLinescores !== undefined ? scrapedMatchup.metadata?.awayLinescores : (existingData.metadata?.awayLinescores || null),
                   network: scrapedMatchup.metadata?.network !== undefined ? scrapedMatchup.metadata?.network : (existingData.metadata?.network || "N/A")
@@ -852,6 +865,14 @@ export async function syncLeagueSchedules(
               'metadata.network': updateData.metadata.network,
               updatedAt: updateData.updatedAt
             };
+
+            if (isAdminOverride) {
+              flattenedUpdate.adminOverride = true;
+              flattenedUpdate.hasCustomTitle = true;
+              if (updateData.active) {
+                flattenedUpdate.manuallyActivated = true;
+              }
+            }
 
             if (updateData.metadata.homeLinescores !== undefined) {
                 flattenedUpdate['metadata.homeLinescores'] = updateData.metadata.homeLinescores;
@@ -951,7 +972,7 @@ export async function syncLeagueSchedules(
                 }
               }
 
-              if (!hasValidPicks && !bracketMatchIds.has(gameId) && !pickemMatchupIds.has(gameId)) {
+              if (!isAdminOverride && !hasValidPicks && !bracketMatchIds.has(gameId) && !pickemMatchupIds.has(gameId)) {
                 updateData.abandoned = true;
                 updateData.active = false;
                 flattenedUpdate.abandoned = true;
@@ -1040,7 +1061,7 @@ export async function syncLeagueSchedules(
         for (const [gameId, doc] of existingMap.entries()) {
             const data = doc.data();
             const nonScrapedLeagues = ['PGA', 'PUTTING', 'SCRIPTLESS', 'DARTS', 'FLIPCUP', 'CBASE', 'CRICKET', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'];
-            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !data.manuallyActivated && !scrapedGameIds.has(gameId) && !nonScrapedLeagues.includes(data.league)) {
+            if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !data.manuallyActivated && !data.adminOverride && !scrapedGameIds.has(gameId) && !nonScrapedLeagues.includes(data.league)) {
                 gamesToCheck.push({ gameId, doc, data });
             }
         }

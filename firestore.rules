@@ -316,6 +316,7 @@ service cloud.firestore {
     match /linkTransactions/{txId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /notifications/{notificationId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /systemSettings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+    match /monthlyResults/{monthKey} { allow read: if true; allow write: if isAdmin(); }
 
     // Gridiron 3x3
     match /gridiron_3x3_lines/{linesId} {

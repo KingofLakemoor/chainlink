@@ -71,6 +71,7 @@ export default function CreateMatchupPage() {
         status: formData.status,
         gameId: formData.gameId || `custom-${Date.now()}`,
         hasCustomTitle: true,
+        adminOverride: true,
         homeTeam: {
           id: formData.homeTeamId || 'home',
           name: formData.homeTeamName,

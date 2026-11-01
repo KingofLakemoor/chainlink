@@ -3,7 +3,7 @@ import { collection, getDocs, deleteDoc, doc, updateDoc, writeBatch, query, wher
 import { db } from '../../../lib/firebase';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
-import { Trash2, Search, Edit, RefreshCw } from 'lucide-react';
+import { Trash2, Search, Edit, RefreshCw, Shield } from 'lucide-react';
 import { scrapeLeagueSchedules } from '../../../services/espnScraper';
 import { useAuth } from '../../../lib/auth-context';
 
@@ -15,6 +15,7 @@ export function AdminMatchups() {
   const [leagueFilter, setLeagueFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
+  const [overrideFilter, setOverrideFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   
 
@@ -95,15 +96,38 @@ export function AdminMatchups() {
     fetchData();
   };
 
+  const handleToggleAdminOverride = async (id: string, currentOverride: boolean) => {
+    try {
+      const newOverride = !currentOverride;
+      const targetMatchup = data.find(m => m.id === id);
+      const updatePayload: any = {
+        adminOverride: newOverride,
+        updatedAt: Date.now()
+      };
+      if (newOverride) {
+        updatePayload.hasCustomTitle = true;
+        if (targetMatchup?.active) {
+          updatePayload.manuallyActivated = true;
+        }
+      }
+      await updateDoc(doc(db, 'matchups', id), updatePayload);
+      setData(prev => prev.map(m => m.id === id ? { ...m, ...updatePayload } : m));
+    } catch (e) {
+      console.error("Error toggling admin override", e);
+      alert("Failed to toggle admin override");
+    }
+  };
+
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
       const newActive = !currentActive;
       await updateDoc(doc(db, 'matchups', id), {
         active: newActive,
         manuallyActivated: newActive,
+        adminOverride: true,
         updatedAt: Date.now()
       });
-      setData(prev => prev.map(m => m.id === id ? { ...m, active: newActive, manuallyActivated: newActive } : m));
+      setData(prev => prev.map(m => m.id === id ? { ...m, active: newActive, manuallyActivated: newActive, adminOverride: true } : m));
     } catch (e) {
       console.error("Error toggling active status", e);
       alert("Failed to toggle active status");
@@ -134,6 +158,10 @@ export function AdminMatchups() {
     if (activeFilter !== 'All') {
       const isActive = activeFilter === 'ACTIVE';
       if (row.active !== isActive) return false;
+    }
+    if (overrideFilter !== 'All') {
+      const isOverride = overrideFilter === 'OVERRIDE';
+      if (!!row.adminOverride !== isOverride) return false;
     }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -171,6 +199,11 @@ export function AdminMatchups() {
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
           </select>
+          <select value={overrideFilter} onChange={(e) => setOverrideFilter(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-zinc-700 text-zinc-300">
+            <option value="All">All Sync Modes</option>
+            <option value="OVERRIDE">Admin Override Only</option>
+            <option value="AUTO">Auto Sync Only</option>
+          </select>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-zinc-500" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search Matchups..." className="bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:border-zinc-700 w-64" />
@@ -191,6 +224,7 @@ export function AdminMatchups() {
                 <th className="px-4 py-3 font-medium">ML</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Active</th>
+                <th className="px-4 py-3 font-medium">Override</th>
                 <th className="px-4 py-3 font-medium">Link4</th>
                 <th className="px-4 py-3 font-medium">Start Time</th>
                 <th className="px-4 py-3 font-medium">Picks</th>
@@ -215,6 +249,20 @@ export function AdminMatchups() {
                       title={row.active ? "Mark Inactive" : "Mark Active"}
                     >
                       {row.active ? 'ACTIVE' : 'INACTIVE'}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleToggleAdminOverride(row.id, !!row.adminOverride)}
+                      className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider transition-colors flex items-center gap-1.5 ${
+                        row.adminOverride
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                      }`}
+                      title={row.adminOverride ? "Admin Override Active (Title, Type, Spread, Active protected). Click to disable." : "Auto Sync. Click to lock Admin Override."}
+                    >
+                      <Shield className={`w-3 h-3 ${row.adminOverride ? 'text-amber-400 fill-amber-400/20' : 'text-zinc-500'}`} />
+                      {row.adminOverride ? 'OVERRIDE' : 'AUTO'}
                     </button>
                   </td>
                   <td className="px-4 py-3">

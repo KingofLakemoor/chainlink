@@ -1,4 +1,4 @@
-import { executeRollover } from './services/monthlyRollover.js';
+import { executeRollover, getOrBuildMonthlySnapshot } from './services/monthlyRollover.js';
 import { processPendingNotifications } from './services/notificationProcessor.js';
 import { gradeBrackets, setBracketWinner } from './services/bracketGrader.js';
 import { fetchAndStoreTuesdayGridironLines, getCurrentFootballWeek, getGridironLinesLockTime } from './services/gridironIngestion.js';
@@ -3518,35 +3518,103 @@ apiRouter.post("/admin/apify/horse-racing/sync-dataset", validateAdminOrApiKey, 
   }
 });
 
+apiRouter.get("/monthly-results", async (req, res) => {
+  try {
+    const monthlyResultsSnap = await adminDb!.collection('monthlyResults').get();
+    const monthsMap = new Map<string, { monthKey: string; monthLabel: string; completedAt: number; totalParticipants?: number }>();
+
+    monthlyResultsSnap.docs.forEach(doc => {
+      const data = doc.data();
+      monthsMap.set(doc.id, {
+        monthKey: data.monthKey || doc.id,
+        monthLabel: data.monthLabel || doc.id,
+        completedAt: data.completedAt || 0,
+        totalParticipants: data.totalParticipants || data.rankings?.length || 0,
+      });
+    });
+
+    // Also scan users' historicalStats to discover any past months not yet snapshotted
+    const usersSnap = await adminDb!.collection('users').get();
+    usersSnap.docs.forEach(doc => {
+      const uData = doc.data();
+      if (uData.historicalStats) {
+        Object.keys(uData.historicalStats).forEach(monthKey => {
+          if (!monthsMap.has(monthKey)) {
+            const hStats = uData.historicalStats[monthKey];
+            monthsMap.set(monthKey, {
+              monthKey,
+              monthLabel: hStats.monthLabel || monthKey,
+              completedAt: hStats.completedAt || 0,
+            });
+          }
+        });
+      }
+    });
+
+    const months = Array.from(monthsMap.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+    res.json({ success: true, months });
+  } catch (error: any) {
+    console.error("Error fetching monthly results list:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+apiRouter.get("/monthly-results/:monthKey", async (req, res) => {
+  try {
+    const { monthKey } = req.params;
+    if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) {
+      return res.status(400).json({ success: false, error: 'Invalid monthKey format. Expected YYYY-MM.' });
+    }
+
+    const snapshot = await getOrBuildMonthlySnapshot(adminDb!, monthKey);
+    if (!snapshot) {
+      return res.status(404).json({ success: false, error: `No monthly results found for ${monthKey}` });
+    }
+
+    res.json({ success: true, result: snapshot });
+  } catch (error: any) {
+    console.error(`Error fetching monthly results for ${req.params.monthKey}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 apiRouter.post("/admin/monthly-rollover", validateAdmin, async (req, res) => {
   try {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 1);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const { monthKey: customMonthKey, force } = req.body || {};
+    let monthKey = customMonthKey;
+    if (!monthKey) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - 1);
+      monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
 
     const rolloverLockRef = adminDb!.collection('systemSettings').doc('monthlyRollover');
     
     let alreadyRun = false;
-    await adminDb!.runTransaction(async (t) => {
-      const doc = await t.get(rolloverLockRef);
-      if (doc.exists) {
-        const data = doc.data();
-        if (data && data.lastRolloverMonth === monthKey) {
-          alreadyRun = true;
-          return;
+    if (!force) {
+      await adminDb!.runTransaction(async (t) => {
+        const doc = await t.get(rolloverLockRef);
+        if (doc.exists) {
+          const data = doc.data();
+          if (data && data.lastRolloverMonth === monthKey) {
+            alreadyRun = true;
+            return;
+          }
         }
-      }
-      
-      // Lock it
-      t.set(rolloverLockRef, { lastRolloverMonth: monthKey, timestamp: Date.now() }, { merge: true });
-    });
+        
+        // Lock it
+        t.set(rolloverLockRef, { lastRolloverMonth: monthKey, timestamp: Date.now() }, { merge: true });
+      });
 
-    if (alreadyRun) {
-      return res.json({ success: true, message: `Monthly rollover for ${monthKey} was already completed automatically.` });
+      if (alreadyRun) {
+        return res.json({ success: true, message: `Monthly rollover for ${monthKey} was already completed automatically.` });
+      }
+    } else {
+      await rolloverLockRef.set({ lastRolloverMonth: monthKey, timestamp: Date.now() }, { merge: true });
     }
 
-    await executeRollover(adminDb!, monthKey);
-    res.json({ success: true, message: 'Monthly rollover completed successfully.' });
+    const snapshot = await executeRollover(adminDb!, monthKey);
+    res.json({ success: true, message: `Monthly rollover for ${monthKey} completed successfully.`, result: snapshot });
   } catch (error: any) {
     console.error("Monthly rollover error:", error);
     res.status(500).json({ success: false, error: error.message });

@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# .githooks/pre-commit
+# Ensures package-lock.json is synchronized with package.json on every commit.
+
+if [ -f scripts/ensure-lockfile-sync.cjs ]; then
+  node scripts/ensure-lockfile-sync.cjs --force-sync
+  if [ -f package-lock.json ]; then
+    git add package-lock.json
+  fi
+fi

@@ -11,7 +11,7 @@
     "node": "22"
   },
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks || true",
+    "prepare": "git config core.hooksPath .githooks && chmod +x .githooks/* || true",
     "prebuild": "node scripts/ensure-lockfile-sync.cjs",
     "prelint": "node scripts/ensure-lockfile-sync.cjs",
     "lockfile:sync": "node scripts/ensure-lockfile-sync.cjs",

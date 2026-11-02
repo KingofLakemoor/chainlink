@@ -664,7 +664,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   active = false;
                 }
                 
-                if (league === "NFL" || league === "CFB" || league === "NBA") {
+                if (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB") {
                   const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
                   const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
                   if (isNaN(mlHNum) || isNaN(mlANum)) {
@@ -673,7 +673,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                 }
 
                 let matchupType = "SCORE";
-                if (!active && (league === "NFL" || league === "CFB" || league === "NBA")) {
+                if (!active && (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB")) {
                   if (spread !== null) {
                     const spreadNum = parseFloat(spread);
                     if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
@@ -768,7 +768,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
              startTime: gameTime,
              active,
              featured: false,
-             title: `${away.team.name} @ ${home.team.name}`,
+             title: matchupType === 'SPREAD' ? `${away.team?.name || awayName} @ ${home.team?.name || homeName} - ATS` : `${away.team?.name || awayName} @ ${home.team?.name || homeName}`,
              league,
              type: matchupType,
              status: finalStatus,
@@ -840,6 +840,8 @@ export function getScoreboardUrl(league: string): string | null {
         ARG: "https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard",
         BRA: "https://site.api.espn.com/apis/site/v2/sports/soccer/bra.1/scoreboard",
         CFB: "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300",
+        MBB: "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=50&limit=500",
+        WBB: "https://site.api.espn.com/apis/site/v2/sports/basketball/womens-college-basketball/scoreboard?groups=50&limit=500",
         CBASE: "https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard",
         WNBA: "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard",
         CRICKET: "https://site.api.espn.com/apis/site/v2/sports/cricket/21266/scoreboard",
@@ -907,7 +909,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                   active = false;
                 }
                 
-                if (league === "NFL" || league === "CFB" || league === "NBA") {
+                if (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB") {
                   const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
                   const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
                   if (isNaN(mlHNum) || isNaN(mlANum)) {
@@ -916,7 +918,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                 }
 
                 let matchupType = "SCORE";
-                if (!active && (league === "NFL" || league === "CFB" || league === "NBA")) {
+                if (!active && (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB")) {
                   if (spread !== null) {
                     const spreadNum = parseFloat(spread);
                     if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
@@ -1012,7 +1014,7 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
              startTime: gameTime,
              active,
              featured: false,
-             title: `${away.team.name} @ ${home.team.name}`,
+             title: matchupType === 'SPREAD' ? `${away.team?.name || awayName} @ ${home.team?.name || homeName} - ATS` : `${away.team?.name || awayName} @ ${home.team?.name || homeName}`,
              league,
              type: matchupType,
              status: finalStatus,

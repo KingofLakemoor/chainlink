@@ -244,6 +244,22 @@ export default function PlayDashboard() {
       if (m.type === 'MONEYLINE' && thirdPartyLeagues.includes(m.league) && !m.manuallyActivated && (m.metadata?.mlHome === undefined || m.metadata?.mlHome === null || m.metadata?.mlAway === undefined || m.metadata?.mlAway === null)) {
           return false;
       }
+
+      // Filter out MBB and WBB games that do not meet our odds criteria (must have valid spread <= 9.5 or valid ML odds)
+      if (['MBB', 'WBB'].includes(m.league) && !m.manuallyActivated && !hasPicksOnMatchup && !m.adminOverride) {
+        if (m.active === false || m.abandoned) return false;
+        const hasSpread = m.metadata?.spread !== undefined && m.metadata?.spread !== null && m.metadata?.spread !== '';
+        const spreadNum = hasSpread ? parseFloat(m.metadata.spread) : NaN;
+        const validSpread = !isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5;
+
+        const mlH = m.metadata?.mlHome !== undefined && m.metadata?.mlHome !== null ? parseInt(m.metadata.mlHome, 10) : NaN;
+        const mlA = m.metadata?.mlAway !== undefined && m.metadata?.mlAway !== null ? parseInt(m.metadata.mlAway, 10) : NaN;
+        const hasValidMl = !isNaN(mlH) && !isNaN(mlA);
+
+        if (!validSpread && !hasValidMl) {
+          return false;
+        }
+      }
       
       if (filterType === 'chain' && !m.featured) return false;
 

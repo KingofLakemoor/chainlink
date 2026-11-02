@@ -707,9 +707,10 @@ export async function syncLeagueSchedules(
           if (isAdminOverride) {
             // Respect admin override: Maintain the admin's active state
             finalActive = existingData.active;
-          } else if (!scoreboardOnly) {
+          } else {
             let scraperActive = scrapedMatchup.active;
             const thirdPartyLeagues = ['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX'];
+            const oddsEnforcedLeagues = ['NFL', 'CFB', 'NBA', 'MBB', 'WBB'];
             const hasValidMlOdds = existingData.metadata?.mlHome !== undefined && existingData.metadata?.mlHome !== null &&
                                    existingData.metadata?.mlAway !== undefined && existingData.metadata?.mlAway !== null;
 
@@ -732,14 +733,20 @@ export async function syncLeagueSchedules(
               } else {
                 finalActive = false;
               }
-            } else if (existingData.active && !scraperActive) {
-              if (hasValidMlOdds) {
+            } else if (oddsEnforcedLeagues.includes(scrapedMatchup.league)) {
+              // Strictly enforce odds criteria for Basketball (NBA, MBB, WBB) and Football (NFL, CFB):
+              // Follow scraperActive directly (which verifies valid ML within threshold or spread <= 9.5).
+              finalActive = scraperActive;
+            } else if (!scoreboardOnly) {
+              if (existingData.active && !scraperActive) {
+                if (hasValidMlOdds) {
+                  finalActive = true;
+                } else {
+                  finalActive = false;
+                }
+              } else if (!existingData.active && scraperActive) {
                 finalActive = true;
-              } else {
-                finalActive = false;
               }
-            } else if (!existingData.active && scraperActive) {
-              finalActive = true;
             }
           }
 
@@ -1016,6 +1023,11 @@ export async function syncLeagueSchedules(
           if (scrapedMatchup.status === 'STATUS_IN_PROGRESS' ||
               scrapedMatchup.status === 'STATUS_FINAL' ||
               scrapedMatchup.status === 'STATUS_POSTPONED') {
+            active = false;
+            abandoned = true;
+          }
+
+          if ((scrapedMatchup.league === 'MBB' || scrapedMatchup.league === 'WBB') && !scrapedMatchup.active) {
             active = false;
             abandoned = true;
           }

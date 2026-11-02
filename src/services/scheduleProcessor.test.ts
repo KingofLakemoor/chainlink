@@ -12,6 +12,7 @@ const makeChainableQuery = (docs: any[] = []) => {
     where: () => q,
     limit: () => q,
     orderBy: () => q,
+    doc: (id?: string) => ({ id: id || 'mock_doc_id', ref: `ref_${id || 'mock_doc_id'}` }),
     get: async () => ({
       empty: docs.length === 0,
       docs,
@@ -443,6 +444,132 @@ describe('scheduleProcessor - adminOverride Preservation Tests', () => {
     // Verify game score and status were still updated from the live scraper
     expect(updatePayload.status).toBe('STATUS_IN_PROGRESS');
     expect(updatePayload.statusDesc).toBe('Q3 10:00');
+  });
+
+  it('deactivates existing MBB matchup when scrapedMatchup does not meet odds criteria', async () => {
+    const scrapedMatchup = {
+      gameId: 'mbb_unlisted_odds',
+      league: 'MBB',
+      title: 'Kentucky @ Kansas',
+      type: 'SCORE',
+      active: false, // Scraper evaluated no qualifying odds
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: Date.now() + 3600000,
+      homeTeam: { id: 'ku', name: 'Kansas Jayhawks', score: 0 },
+      awayTeam: { id: 'uk', name: 'Kentucky Wildcats', score: 0 },
+      metadata: {},
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'mbb_unlisted_odds',
+      ref: 'matchupRef_mbb_1',
+      data: () => ({
+        gameId: 'mbb_unlisted_odds',
+        league: 'MBB',
+        title: 'Kentucky @ Kansas',
+        type: 'SCORE',
+        active: true, // Previously active
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        startTime: Date.now() + 3600000,
+        homeTeam: { id: 'ku', name: 'Kansas Jayhawks', score: 0 },
+        awayTeam: { id: 'uk', name: 'Kentucky Wildcats', score: 0 },
+        metadata: {},
+      }),
+    };
+
+    const res = await syncLeagueSchedules('MBB' as any, false);
+    expect(res.success).toBe(true);
+
+    const updateCalls = mockBatch.update.mock.calls;
+    const updatePayload = updateCalls.find(c => c[0] === 'matchupRef_mbb_1')?.[1];
+    expect(updatePayload).toBeDefined();
+    expect(updatePayload.active).toBe(false);
+  });
+
+  it('creates new MBB matchup as inactive and abandoned when scrapedMatchup fails odds criteria', async () => {
+    const scrapedMatchup = {
+      gameId: 'mbb_new_no_odds',
+      league: 'MBB',
+      title: 'Maine @ Duke',
+      type: 'SCORE',
+      active: false,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: Date.now() + 3600000,
+      homeTeam: { id: 'duke', name: 'Duke Blue Devils', score: 0 },
+      awayTeam: { id: 'maine', name: 'Maine Black Bears', score: 0 },
+      metadata: {},
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = null; // New game
+
+    const res = await syncLeagueSchedules('MBB' as any, false);
+    expect(res.success).toBe(true);
+
+    const setCalls = mockBatch.set.mock.calls;
+    expect(setCalls.length).toBeGreaterThan(0);
+    const newGamePayload = setCalls[0][1];
+    expect(newGamePayload.active).toBe(false);
+    expect(newGamePayload.abandoned).toBe(true);
+  });
+
+  it('deactivates existing WBB matchup when scrapedMatchup does not meet odds criteria', async () => {
+    const scrapedMatchup = {
+      gameId: 'wbb_unlisted_odds',
+      league: 'WBB',
+      title: 'South Carolina @ LSU',
+      type: 'SCORE',
+      active: false,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: Date.now() + 3600000,
+      homeTeam: { id: 'lsu', name: 'LSU Tigers', score: 0 },
+      awayTeam: { id: 'sc', name: 'South Carolina Gamecocks', score: 0 },
+      metadata: {},
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'wbb_unlisted_odds',
+      ref: 'matchupRef_wbb_1',
+      data: () => ({
+        gameId: 'wbb_unlisted_odds',
+        league: 'WBB',
+        title: 'South Carolina @ LSU',
+        type: 'SCORE',
+        active: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        startTime: Date.now() + 3600000,
+        homeTeam: { id: 'lsu', name: 'LSU Tigers', score: 0 },
+        awayTeam: { id: 'sc', name: 'South Carolina Gamecocks', score: 0 },
+        metadata: {},
+      }),
+    };
+
+    const res = await syncLeagueSchedules('WBB' as any, false);
+    expect(res.success).toBe(true);
+
+    const updateCalls = mockBatch.update.mock.calls;
+    const updatePayload = updateCalls.find(c => c[0] === 'matchupRef_wbb_1')?.[1];
+    expect(updatePayload).toBeDefined();
+    expect(updatePayload.active).toBe(false);
   });
 });
 

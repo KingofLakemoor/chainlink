@@ -197,5 +197,287 @@ describe('espnScraper - NBA/NHL Endpoint and NBA ATS Conversion Tests', () => {
       expect(game.type).toBe('SPREAD');
       expect(game.metadata.spread).toBe('-4.5');
     });
+
+    it('deactivates MBB game when odds are completely missing (not added to active board)', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'mbb_game_no_odds',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'mbb_game_no_odds',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'Duke Blue Devils', displayName: 'Duke Blue Devils', shortDisplayName: 'DUKE' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Maine Black Bears', displayName: 'Maine Black Bears', shortDisplayName: 'MAINE' }, score: '0' }
+                ],
+                odds: []
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('MBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(false);
+      expect(game.type).toBe('SCORE');
+    });
+
+    it('activates MBB game when moneyline is within threshold', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'mbb_game_valid_ml',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'mbb_game_valid_ml',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'Kansas Jayhawks', displayName: 'Kansas Jayhawks', shortDisplayName: 'KU' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Kentucky Wildcats', displayName: 'Kentucky Wildcats', shortDisplayName: 'UK' }, score: '0' }
+                ],
+                odds: [
+                  {
+                    moneyline: {
+                      home: { close: { odds: '-145' } },
+                      away: { close: { odds: '+125' } }
+                    },
+                    spread: '-2.5'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('MBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(true);
+      expect(game.type).toBe('SCORE');
+    });
+
+    it('converts MBB game to SPREAD (ATS) when moneyline exceeds threshold but spread <= 9.5', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'mbb_game_spread_fallback',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'mbb_game_spread_fallback',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'Gonzaga Bulldogs', displayName: 'Gonzaga Bulldogs', shortDisplayName: 'GONZ' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Santa Clara Broncos', displayName: 'Santa Clara Broncos', shortDisplayName: 'SCU' }, score: '0' }
+                ],
+                odds: [
+                  {
+                    moneyline: {
+                      home: { close: { odds: '-450' } },
+                      away: { close: { odds: '+340' } }
+                    },
+                    spread: '-7.5'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('MBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(true);
+      expect(game.type).toBe('SPREAD');
+      expect(game.metadata.spread).toBe('-7.5');
+      expect(game.title).toContain('ATS');
+    });
+
+    it('deactivates MBB game when moneyline exceeds threshold and spread > 9.5', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'mbb_game_blowout',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'mbb_game_blowout',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'Purdue Boilermakers', displayName: 'Purdue Boilermakers', shortDisplayName: 'PUR' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Chicago State Cougars', displayName: 'Chicago State Cougars', shortDisplayName: 'CSU' }, score: '0' }
+                ],
+                odds: [
+                  {
+                    moneyline: {
+                      home: { close: { odds: '-2500' } },
+                      away: { close: { odds: '+1400' } }
+                    },
+                    spread: '-24.5'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('MBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(false);
+      expect(game.type).toBe('SCORE');
+    });
+
+    it('deactivates WBB game when odds are completely missing (not added to active board)', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'wbb_game_no_odds',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'wbb_game_no_odds',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'South Carolina Gamecocks', displayName: 'South Carolina Gamecocks', shortDisplayName: 'SC' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Coppin State Eagles', displayName: 'Coppin State Eagles', shortDisplayName: 'COPP' }, score: '0' }
+                ],
+                odds: []
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('WBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(false);
+      expect(game.type).toBe('SCORE');
+    });
+
+    it('converts WBB game to SPREAD (ATS) when moneyline exceeds threshold but spread <= 9.5', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'wbb_game_spread_fallback',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'wbb_game_spread_fallback',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'UConn Huskies', displayName: 'UConn Huskies', shortDisplayName: 'CONN' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Notre Dame Fighting Irish', displayName: 'Notre Dame Fighting Irish', shortDisplayName: 'ND' }, score: '0' }
+                ],
+                odds: [
+                  {
+                    moneyline: {
+                      home: { close: { odds: '-380' } },
+                      away: { close: { odds: '+290' } }
+                    },
+                    spread: '-6.5'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('WBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(true);
+      expect(game.type).toBe('SPREAD');
+      expect(game.metadata.spread).toBe('-6.5');
+      expect(game.title).toContain('ATS');
+    });
+
+    it('activates WBB game when moneyline is within threshold', async () => {
+      const mockScoreboardData = {
+        events: [
+          {
+            id: 'wbb_game_ml_pass',
+            date: '2026-11-15T23:00:00Z',
+            competitions: [
+              {
+                id: 'wbb_game_ml_pass',
+                date: '2026-11-15T23:00:00Z',
+                status: { type: { name: 'STATUS_SCHEDULED', shortDetail: '7:00 PM EST' } },
+                competitors: [
+                  { homeAway: 'home', team: { name: 'LSU Tigers', displayName: 'LSU Tigers', shortDisplayName: 'LSU' }, score: '0' },
+                  { homeAway: 'away', team: { name: 'Texas Longhorns', displayName: 'Texas Longhorns', shortDisplayName: 'TEX' }, score: '0' }
+                ],
+                odds: [
+                  {
+                    moneyline: {
+                      home: { close: { odds: '-135' } },
+                      away: { close: { odds: '+115' } }
+                    },
+                    spread: '-2.0'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockScoreboardData
+      } as Response);
+
+      const res = await scrapeLeagueSchedules('WBB', true, { maxMoneylineOdds: 300 }, ['20261115']);
+      expect(res.data).toHaveLength(1);
+      const game = res.data[0];
+      expect(game.active).toBe(true);
+      expect(game.type).toBe('SCORE');
+    });
   });
 });

@@ -49,6 +49,7 @@ function getEspnPath(sport: string): string {
     case 'ncaaf': case 'cfb': return 'football/college-football';
     case 'nba': return 'basketball/nba';
     case 'ncaab': case 'mbb': return 'basketball/mens-college-basketball';
+    case 'ncaaw': case 'wbb': return 'basketball/womens-college-basketball';
     case 'wnba': return 'basketball/wnba';
     case 'mlb': return 'baseball/mlb';
     case 'nhl': return 'hockey/nhl';

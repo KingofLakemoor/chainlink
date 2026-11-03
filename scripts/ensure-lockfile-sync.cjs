@@ -112,6 +112,20 @@ function main() {
   if (!dryRunOk) {
     synchronizeLockfile();
   }
+
+  // Ensure git hook permissions are preserved across all environments
+  const hookPath = path.join(rootDir, '.githooks', 'pre-commit');
+  if (fs.existsSync(hookPath)) {
+    try {
+      const stats = fs.statSync(hookPath);
+      // Ensure user, group, and others have execute bit set (0o755)
+      if ((stats.mode & 0o111) !== 0o111) {
+        fs.chmodSync(hookPath, 0o755);
+      }
+    } catch {
+      // Ignore permission errors if file system does not support chmod (e.g. Windows)
+    }
+  }
 }
 
 main();

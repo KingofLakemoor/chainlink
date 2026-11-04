@@ -146,7 +146,8 @@ export default function Gridiron3x3Page() {
       const res = await fetch('/api/gridiron-3x3/contests', {
         headers: { Authorization: `Bearer ${await user?.getIdToken()}` }
       });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
         const fetchedContests = data.contests || [];
         setContests(fetchedContests);

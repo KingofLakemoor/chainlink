@@ -8,7 +8,8 @@ export function CharityProgressTracker() {
     const fetchProgress = async () => {
       try {
         const res = await fetch('/api/charity/progress');
-        if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (res.ok && contentType && contentType.includes('application/json')) {
           const data = await res.json();
           setProgress(data);
         }

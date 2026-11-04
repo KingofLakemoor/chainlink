@@ -15,9 +15,21 @@ export default defineConfig(({mode}) => {
       '__APP_BUILD_TIME__': JSON.stringify(new Date().toISOString()),
     },
     resolve: {
+      dedupe: ['react', 'react-dom', 'react-router-dom', 'react-router'],
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'react-router-dom',
+        'react-router',
+      ],
     },
     server: {
       allowedHosts: true,
@@ -30,7 +42,7 @@ export default defineConfig(({mode}) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router-dom/')) {
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router/') || id.includes('node_modules/react-router-dom/')) {
               return 'react-vendor';
             }
             if (id.includes('node_modules/firebase/')) {

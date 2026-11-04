@@ -48,7 +48,8 @@ export default function LeaderboardsPage() {
     const fetchArchivedMonths = async () => {
       try {
         const res = await fetch('/api/monthly-results');
-        if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (res.ok && contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (data.success && data.months) {
             setArchivedMonths(data.months);

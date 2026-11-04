@@ -28,6 +28,7 @@ export default function PickEmLandingPage() {
   const [directJoinError, setDirectJoinError] = useState('');
   
   const [campaignDetails, setCampaignDetails] = useState<Record<string, { matchups: any[], picks: any[] }>>({});
+  const [selectedPublicCamp, setSelectedPublicCamp] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -333,8 +334,6 @@ export default function PickEmLandingPage() {
       alert(err.message || 'Failed to join campaign.');
     }
   };
-
-  const [selectedPublicCamp, setSelectedPublicCamp] = useState<any>(null);
 
   const myCampaigns = campaigns.filter(c => joinedCampaignIds.has(c.id));
   const publicCampaigns = campaigns.filter(c => {

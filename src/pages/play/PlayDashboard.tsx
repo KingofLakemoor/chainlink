@@ -34,7 +34,8 @@ export default function PlayDashboard() {
     const fetchBanner = async () => {
       try {
         const res = await fetch('/api/system-settings/play-banner');
-        if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (res.ok && contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (data.success && data.banner) {
             const banner = data.banner as PlayBannerConfig;
@@ -86,7 +87,8 @@ export default function PlayDashboard() {
     const fetchMatchups = async () => {
       try {
         const res = await fetch('/api/matchups/active');
-        if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (res.ok && contentType && contentType.includes('application/json')) {
           const data = await res.json();
           if (data.success && data.matchups) {
             setAllFetchedMatchups(data.matchups);

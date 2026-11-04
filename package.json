@@ -3,12 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "supportedArchitectures": {
-    "os": ["current", "linux", "darwin", "win32"],
-    "cpu": ["current", "x64", "arm64"]
-  },
   "engines": {
-    "node": "22"
+    "node": ">=22"
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks && chmod +x .githooks/* || true",

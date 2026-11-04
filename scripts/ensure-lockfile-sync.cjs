@@ -69,6 +69,27 @@ function isFastCheckInSync() {
   }
 }
 
+function checkMissingOptionalDeps() {
+  if (!fs.existsSync(lockPath)) return false;
+  try {
+    const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    const packages = lock.packages || {};
+    for (const [pkgPathKey, pkgData] of Object.entries(packages)) {
+      if (pkgData && pkgData.optionalDependencies) {
+        for (const optDep of Object.keys(pkgData.optionalDependencies)) {
+          const expectedPath = `node_modules/${optDep}`;
+          if (!packages[expectedPath]) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function verifyWithNpmCiDryRun() {
   try {
     execSync('npm ci --dry-run', { cwd: rootDir, stdio: 'pipe' });
@@ -79,12 +100,17 @@ function verifyWithNpmCiDryRun() {
 }
 
 function synchronizeLockfile() {
-  console.log('\n[LockfileSync] ⚠️  Discrepancy detected between package.json and package-lock.json!');
-  console.log('[LockfileSync] 🔄 Running `npm install` to regenerate package-lock.json...');
+  console.log('\n[LockfileSync] ⚠️  Discrepancy detected between package.json and package-lock.json (or missing optional cross-platform native binaries)!');
+  console.log('[LockfileSync] 🔄 Running lockfile synchronization for npm 11 and cross-platform native binaries...');
 
   try {
+    try {
+      execSync('npx -y npm@11.19.1 install --package-lock-only', { cwd: rootDir, stdio: 'inherit' });
+    } catch {
+      execSync('npm install --package-lock-only', { cwd: rootDir, stdio: 'inherit' });
+    }
     execSync('npm install', { cwd: rootDir, stdio: 'inherit' });
-    console.log('[LockfileSync] ✅ package-lock.json is now synchronized with package.json.\n');
+    console.log('[LockfileSync] ✅ package-lock.json is now synchronized and contains all cross-platform native optional dependencies.\n');
   } catch (error) {
     console.error('[LockfileSync] ❌ Failed to synchronize package-lock.json:', error.message);
     process.exit(1);
@@ -105,11 +131,15 @@ function main() {
     return;
   }
 
-  // Authoritative check: npm ci --dry-run validates lockfile integrity exactly as Cloud Build does.
-  // This catches supportedArchitectures, engines, optionalDependencies, and transitive discrepancies
-  // that superficial JSON checks miss.
-  const dryRunOk = verifyWithNpmCiDryRun();
-  if (!dryRunOk) {
+  // Authoritative check:
+  // 1. Fast direct dependency check
+  // 2. Comprehensive check that ALL optional dependencies declared by any package exist in lockfile packages (cross-platform native binaries for Cloud Build)
+  // 3. npm ci --dry-run verification
+  const fastInSync = isFastCheckInSync();
+  const optionalDepsOk = checkMissingOptionalDeps();
+  const dryRunOk = fastInSync && optionalDepsOk && verifyWithNpmCiDryRun();
+
+  if (isForceSync || !dryRunOk) {
     synchronizeLockfile();
   }
 

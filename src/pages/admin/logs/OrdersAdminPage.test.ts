@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { extractShippingAddress, extractOrderItemDetails } from './AuditLogsHub';
 
 describe('Admin Merch Orders Logic', () => {
   beforeEach(() => {
@@ -41,5 +42,38 @@ describe('Admin Merch Orders Logic', () => {
     expect(formatted).toContain('Jane Doe');
     expect(formatted).toContain('123 Main St Apt 4B');
     expect(formatted).toContain('Phoenix, AZ 85001');
+  });
+
+  it('extracts full shipping address and order details including size and color', () => {
+    const order = {
+      id: 'order_1',
+      itemName: 'ChainLink Hoodie',
+      size: 'L',
+      color: 'Charcoal',
+      quantity: 1,
+      shippingInfo: {
+        fullName: 'Jane Doe',
+        streetAddress: '123 Main St',
+        addressLine2: 'Apt 4B',
+        city: 'Phoenix',
+        state: 'AZ',
+        zip: '85001',
+        country: 'USA'
+      }
+    };
+
+    const shipping = extractShippingAddress(order);
+    const item = extractOrderItemDetails(order);
+
+    expect(shipping.recipientName).toBe('Jane Doe');
+    expect(shipping.addressLine1).toBe('123 Main St');
+    expect(shipping.addressLine2).toBe('Apt 4B');
+    expect(shipping.city).toBe('Phoenix');
+    expect(shipping.state).toBe('AZ');
+    expect(shipping.zip).toBe('85001');
+    expect(shipping.country).toBe('USA');
+    expect(item.size).toBe('L');
+    expect(item.color).toBe('Charcoal');
+    expect(item.quantity).toBe(1);
   });
 });

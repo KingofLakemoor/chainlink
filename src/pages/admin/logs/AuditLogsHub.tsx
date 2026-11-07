@@ -8,8 +8,95 @@ import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import {
   FileText, ShoppingCart, AlertTriangle, ArrowUpDown, Download,
-  CheckCircle, Clock, Search, Calendar, Filter, Truck, ExternalLink, RefreshCw
+  CheckCircle, Clock, Search, Calendar, Filter, Truck, ExternalLink, RefreshCw,
+  Copy, Check, MapPin, Eye, X, Tag
 } from 'lucide-react';
+
+export interface ShippingAddressDetails {
+  recipientName: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  fullAddress: string;
+  oneLineAddress: string;
+}
+
+export interface OrderItemDetails {
+  itemName: string;
+  size: string | null;
+  color: string | null;
+  quantity: number;
+  cost: number | null;
+}
+
+export function extractShippingAddress(order: any): ShippingAddressDetails {
+  const info = order?.shippingInfo || order?.shippingAddress || order?.shipping || {};
+  const recipientName =
+    info.fullName ||
+    info.name ||
+    order?.recipientName ||
+    order?.customer_name ||
+    order?.name ||
+    order?.userEmail ||
+    '';
+  const addressLine1 =
+    info.streetAddress ||
+    info.addressLine1 ||
+    info.line1 ||
+    info.address ||
+    order?.streetAddress ||
+    order?.addressLine1 ||
+    '';
+  const addressLine2 =
+    info.addressLine2 ||
+    info.line2 ||
+    info.apt ||
+    info.suite ||
+    order?.addressLine2 ||
+    '';
+  const city = info.city || order?.city || '';
+  const state = info.state || order?.state || '';
+  const zip = info.zip || info.postalCode || info.postal_code || order?.zip || '';
+  const country = info.country || order?.country || (addressLine1 ? 'USA' : '');
+
+  const streetPart = addressLine2 ? `${addressLine1}, ${addressLine2}` : addressLine1;
+  const cityStateZip = [city, state].filter(Boolean).join(', ') + (zip ? ` ${zip}` : '');
+  const addressLines = [recipientName, streetPart, cityStateZip, country].filter(Boolean);
+  const fullAddress = addressLines.join('\n');
+  const oneLineAddress = addressLines.join(', ');
+
+  return {
+    recipientName,
+    addressLine1,
+    addressLine2,
+    city,
+    state,
+    zip,
+    country,
+    fullAddress,
+    oneLineAddress
+  };
+}
+
+export function extractOrderItemDetails(order: any): OrderItemDetails {
+  const info = order?.shippingInfo || order?.shippingAddress || {};
+  const itemName = order?.itemName || order?.itemTitle || order?.title || order?.name || 'Merch Item';
+  const size = order?.size || info?.size || order?.itemDetails?.size || order?.metadata?.size || null;
+  const color = order?.color || info?.color || order?.itemDetails?.color || order?.metadata?.color || null;
+  const quantity = Number(order?.quantity || info?.quantity || 1) || 1;
+  const cost = order?.itemCost ?? order?.cost ?? order?.price ?? null;
+
+  return {
+    itemName,
+    size,
+    color,
+    quantity,
+    cost
+  };
+}
 
 export function getTimestampMs(val: any): number {
   if (!val) return 0;
@@ -251,6 +338,23 @@ export default function AuditLogsHub() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | 'PENDING' | 'SHIPPED'>('ALL');
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [selectedOrderForModal, setSelectedOrderForModal] = useState<any | null>(null);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+
+  const handleCopyAddress = (orderId: string, addressText: string) => {
+    if (!addressText) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(addressText);
+      }
+    } catch (e) {
+      console.warn('Failed to copy to clipboard', e);
+    }
+    setCopiedOrderId(orderId);
+    setTimeout(() => {
+      setCopiedOrderId(null);
+    }, 2000);
+  };
 
   const fetchOrders = async () => {
     setOrdersLoading(true);
@@ -343,8 +447,27 @@ export default function AuditLogsHub() {
         const userId = (o.userId || '').toLowerCase();
         const item = (o.itemName || '').toLowerCase();
         const tracking = (o.trackingNumber || '').toLowerCase();
-        const name = (o.shippingInfo?.name || '').toLowerCase();
-        if (!email.includes(term) && !userId.includes(term) && !item.includes(term) && !tracking.includes(term) && !name.includes(term)) {
+        const orderId = (o.id || '').toLowerCase();
+
+        const shipping = extractShippingAddress(o);
+        const itemDetails = extractOrderItemDetails(o);
+
+        const recipient = (shipping.recipientName || '').toLowerCase();
+        const fullAddr = (shipping.oneLineAddress || '').toLowerCase();
+        const size = (itemDetails.size || '').toLowerCase();
+        const color = (itemDetails.color || '').toLowerCase();
+
+        if (
+          !email.includes(term) &&
+          !userId.includes(term) &&
+          !item.includes(term) &&
+          !tracking.includes(term) &&
+          !orderId.includes(term) &&
+          !recipient.includes(term) &&
+          !fullAddr.includes(term) &&
+          !size.includes(term) &&
+          !color.includes(term)
+        ) {
           return false;
         }
       }
@@ -464,18 +587,31 @@ export default function AuditLogsHub() {
       }));
       exportToCSV(`link_transactions_${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
     } else if (activeTab === 'orders') {
-      const exportRows = filteredOrders.map(o => ({
-        OrderID: o.id,
-        Date: formatDateStr(o.createdAt),
-        Email: o.userEmail || '',
-        UserID: o.userId || '',
-        Item: o.itemName || '',
-        Status: o.status || 'PENDING',
-        TrackingNumber: o.trackingNumber || '',
-        RecipientName: o.shippingInfo?.name || '',
-        Address: `${o.shippingInfo?.addressLine1 || ''} ${o.shippingInfo?.addressLine2 || ''}`.trim(),
-        CityStateZip: `${o.shippingInfo?.city || ''}, ${o.shippingInfo?.state || ''} ${o.shippingInfo?.zip || ''}`.trim()
-      }));
+      const exportRows = filteredOrders.map(o => {
+        const shipping = extractShippingAddress(o);
+        const item = extractOrderItemDetails(o);
+        return {
+          OrderID: o.id,
+          Date: formatDateStr(o.createdAt),
+          Email: o.userEmail || '',
+          UserID: o.userId || '',
+          ItemName: item.itemName,
+          Size: item.size || 'N/A',
+          Color: item.color || 'N/A',
+          Quantity: item.quantity,
+          LinksCost: item.cost !== null ? item.cost : 'N/A',
+          Status: o.status || 'PENDING',
+          TrackingNumber: o.trackingNumber || '',
+          RecipientName: shipping.recipientName || '',
+          AddressLine1: shipping.addressLine1 || '',
+          AddressLine2: shipping.addressLine2 || '',
+          City: shipping.city || '',
+          State: shipping.state || '',
+          Zip: shipping.zip || '',
+          Country: shipping.country || '',
+          FullAddress: shipping.oneLineAddress || ''
+        };
+      });
       exportToCSV(`merch_orders_${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
     } else if (activeTab === 'errors') {
       const exportRows = filteredErrors.map(err => ({
@@ -821,42 +957,106 @@ export default function AuditLogsHub() {
                 <thead className="text-xs text-zinc-400 uppercase bg-zinc-900/60 border-b border-zinc-800">
                   <tr>
                     <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Item Name</th>
-                    <th className="px-4 py-3">Shipping Info</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">Item & Details</th>
+                    <th className="px-4 py-3 min-w-[260px]">Full Shipping Address</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Tracking Number</th>
-                    <th className="px-4 py-3">Actions</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredOrders.map((order) => {
                     const isShipped = order.status === 'SHIPPED';
                     const isSaving = savingOrderId === order.id;
+                    const shipping = extractShippingAddress(order);
+                    const itemDetails = extractOrderItemDetails(order);
+                    const hasAddress = Boolean(shipping.recipientName || shipping.addressLine1 || shipping.city);
+                    const isCopied = copiedOrderId === order.id;
 
                     return (
                       <tr key={order.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap text-xs text-zinc-400 font-mono">
-                          {formatDateStr(order.createdAt)}
+                          <div>{formatDateStr(order.createdAt)}</div>
+                          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">ID: {order.id.slice(0, 8)}...</div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-medium text-zinc-200">{order.userEmail}</div>
+                          <div className="font-medium text-zinc-200">{order.userEmail || 'Anonymous'}</div>
                           <div className="font-mono text-[10px] text-zinc-500">{order.userId}</div>
                         </td>
-                        <td className="px-4 py-3 text-emerald-400 font-semibold text-xs">
-                          {order.itemName}
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-emerald-400 text-sm">
+                            {itemDetails.itemName}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            {itemDetails.size && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 text-[11px] font-medium text-zinc-200">
+                                <span className="text-zinc-400 text-[10px]">Size:</span>
+                                <span className="font-bold text-amber-300">{itemDetails.size}</span>
+                              </span>
+                            )}
+                            {itemDetails.color && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700/80 text-[11px] font-medium text-zinc-200">
+                                <span className="text-zinc-400 text-[10px]">Color:</span>
+                                <span className="font-bold text-cyan-300">{itemDetails.color}</span>
+                              </span>
+                            )}
+                            {itemDetails.quantity > 1 && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-800 text-[11px] font-semibold text-zinc-300">
+                                Qty: {itemDetails.quantity}
+                              </span>
+                            )}
+                            {itemDetails.cost !== null && (
+                              <span className="text-[11px] text-zinc-400 font-mono">
+                                {itemDetails.cost} Links
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-zinc-300">
-                          {order.shippingInfo ? (
-                            <div className="whitespace-pre-wrap text-xs leading-relaxed">
-                              <span className="font-semibold text-zinc-200">{order.shippingInfo.name}</span>
-                              <br />
-                              {order.shippingInfo.addressLine1} {order.shippingInfo.addressLine2}
-                              <br />
-                              {order.shippingInfo.city}, {order.shippingInfo.state} {order.shippingInfo.zip}
+                          {hasAddress ? (
+                            <div className="space-y-1 text-xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-zinc-100 flex items-center gap-1.5">
+                                  <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  {shipping.recipientName || 'Recipient'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyAddress(order.id, shipping.fullAddress)}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 border border-zinc-700 transition-colors"
+                                  title="Copy full shipping address to clipboard"
+                                >
+                                  {isCopied ? (
+                                    <>
+                                      <Check className="w-3 h-3 text-emerald-400" />
+                                      <span className="text-emerald-400 font-medium">Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3 text-zinc-400" />
+                                      <span>Copy</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              <div className="text-zinc-300 pl-5 leading-snug">
+                                <div>
+                                  {shipping.addressLine1}
+                                  {shipping.addressLine2 ? `, ${shipping.addressLine2}` : ''}
+                                </div>
+                                <div className="text-zinc-400">
+                                  {[shipping.city, shipping.state].filter(Boolean).join(', ')} {shipping.zip}
+                                  {shipping.country && (
+                                    <span className="ml-1.5 text-[10px] font-semibold uppercase px-1 py-0.2 rounded bg-zinc-800 text-zinc-400">
+                                      {shipping.country}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           ) : (
-                            <span className="text-zinc-500 italic text-xs">No info</span>
+                            <span className="text-zinc-500 italic text-xs">No shipping info provided</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -876,8 +1076,17 @@ export default function AuditLogsHub() {
                             />
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSelectedOrderForModal(order)}
+                              className="text-zinc-400 hover:text-white hover:bg-zinc-800 text-xs h-7 px-2"
+                              title="View full order details"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" /> Details
+                            </Button>
                             {!isShipped ? (
                               <Button
                                 size="sm"
@@ -895,7 +1104,7 @@ export default function AuditLogsHub() {
                                 onClick={() => handleUpdateOrderStatus(order.id, 'SHIPPED')}
                                 className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs h-7 px-2.5"
                               >
-                                {isSaving ? 'Saving...' : 'Update Tracking'}
+                                {isSaving ? 'Saving...' : 'Update'}
                               </Button>
                             )}
                           </div>
@@ -909,6 +1118,196 @@ export default function AuditLogsHub() {
               {filteredOrders.length === 0 && !ordersLoading && (
                 <div className="text-center py-12 text-zinc-500 text-sm">No orders found matching criteria.</div>
               )}
+            </div>
+          )}
+
+          {/* Order Details Modal */}
+          {selectedOrderForModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-[#18181A] border border-zinc-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-5 border-b border-zinc-800/80 bg-zinc-900/60">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                      <ShoppingCart className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-zinc-100">Merch Order Details</h3>
+                      <div className="text-xs text-zinc-400 font-mono">
+                        ID: {selectedOrderForModal.id}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderForModal(null)}
+                    className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+                  {(() => {
+                    const item = extractOrderItemDetails(selectedOrderForModal);
+                    const shipping = extractShippingAddress(selectedOrderForModal);
+                    const isShipped = selectedOrderForModal.status === 'SHIPPED';
+                    const isCopied = copiedOrderId === selectedOrderForModal.id;
+
+                    return (
+                      <>
+                        {/* Item Details Card */}
+                        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4">
+                          <div className="text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-2">
+                            Purchased Merch Item
+                          </div>
+                          <div className="text-lg font-bold text-emerald-400">
+                            {item.itemName}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                            <div className="bg-zinc-800/60 p-2.5 rounded-lg border border-zinc-700/50">
+                              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">Size</span>
+                              <span className="text-sm font-bold text-amber-300">{item.size || 'N/A'}</span>
+                            </div>
+                            <div className="bg-zinc-800/60 p-2.5 rounded-lg border border-zinc-700/50">
+                              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">Color</span>
+                              <span className="text-sm font-bold text-cyan-300">{item.color || 'Default'}</span>
+                            </div>
+                            <div className="bg-zinc-800/60 p-2.5 rounded-lg border border-zinc-700/50">
+                              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">Quantity</span>
+                              <span className="text-sm font-bold text-zinc-200">{item.quantity}</span>
+                            </div>
+                            <div className="bg-zinc-800/60 p-2.5 rounded-lg border border-zinc-700/50">
+                              <span className="text-[10px] uppercase font-semibold text-zinc-400 block">Cost</span>
+                              <span className="text-sm font-bold text-amber-400 font-mono">
+                                {item.cost !== null ? `${item.cost} Links` : 'Standard'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Full Shipping Address Card */}
+                        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="text-xs font-semibold uppercase text-zinc-400 tracking-wider flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                              Full Shipping Address
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyAddress(selectedOrderForModal.id, shipping.fullAddress)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 border border-zinc-700 transition-colors"
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400 font-medium">Copied to Clipboard!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                                  <span>Copy Full Label</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-lg p-3.5 text-sm space-y-1">
+                            <div className="font-bold text-zinc-100 text-base">
+                              {shipping.recipientName || 'No recipient name recorded'}
+                            </div>
+                            <div className="text-zinc-300">
+                              {shipping.addressLine1}
+                              {shipping.addressLine2 ? `, ${shipping.addressLine2}` : ''}
+                            </div>
+                            <div className="text-zinc-300">
+                              {[shipping.city, shipping.state].filter(Boolean).join(', ')} {shipping.zip}
+                            </div>
+                            {shipping.country && (
+                              <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider pt-1">
+                                {shipping.country}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Customer & Fulfillment Card */}
+                        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 space-y-2">
+                          <div className="text-xs font-semibold uppercase text-zinc-400 tracking-wider">
+                            Customer & Fulfillment
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                            <div>
+                              <span className="text-zinc-500 block">Customer Email</span>
+                              <span className="text-zinc-200 font-medium">{selectedOrderForModal.userEmail || 'N/A'}</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500 block">User ID</span>
+                              <span className="text-zinc-300 font-mono">{selectedOrderForModal.userId || 'N/A'}</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500 block">Order Date</span>
+                              <span className="text-zinc-300 font-mono">{formatDateStr(selectedOrderForModal.createdAt)}</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500 block">Fulfillment Status</span>
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mt-0.5 ${isShipped ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                                {selectedOrderForModal.status || 'PENDING'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-zinc-800/80">
+                            <label className="text-xs text-zinc-400 font-medium block mb-1.5">
+                              Tracking Number:
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                placeholder="Enter carrier tracking number..."
+                                value={trackingInputs[selectedOrderForModal.id] ?? ''}
+                                onChange={(e) => setTrackingInputs(prev => ({ ...prev, [selectedOrderForModal.id]: e.target.value }))}
+                                className="flex-1 px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-zinc-200 outline-none focus:border-emerald-500 font-mono"
+                              />
+                              <Button
+                                size="sm"
+                                disabled={savingOrderId === selectedOrderForModal.id}
+                                onClick={async () => {
+                                  await handleUpdateOrderStatus(
+                                    selectedOrderForModal.id,
+                                    'SHIPPED'
+                                  );
+                                  setSelectedOrderForModal((prev: any) => ({
+                                    ...prev,
+                                    status: 'SHIPPED',
+                                    trackingNumber: trackingInputs[selectedOrderForModal.id] || ''
+                                  }));
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3"
+                              >
+                                {savingOrderId === selectedOrderForModal.id ? 'Saving...' : 'Update & Save'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/60 flex items-center justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedOrderForModal(null)}
+                    className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

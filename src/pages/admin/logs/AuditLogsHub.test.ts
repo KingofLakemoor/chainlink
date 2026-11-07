@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getTimestampMs, formatDateStr } from './AuditLogsHub';
+import { getTimestampMs, formatDateStr, extractShippingAddress, extractOrderItemDetails } from './AuditLogsHub';
 
 describe('Audit & System Logs Hub Logic', () => {
   it('correctly converts various timestamp representations to milliseconds', () => {
@@ -125,5 +125,148 @@ describe('Audit & System Logs Hub Logic', () => {
 
     expect(formattedVals[0]).toBe('tx_100');
     expect(formattedVals[3]).toBe('"Purchased 150 Links Pack, Special Offer"');
+  });
+
+  it('accurately extracts full shipping address information across legacy and new formats', () => {
+    // New format (from ShopPage merch purchase)
+    const newOrder = {
+      id: 'ord_new_1',
+      shippingInfo: {
+        fullName: 'Alex Johnson',
+        streetAddress: '742 Evergreen Terrace',
+        addressLine2: 'Suite 200',
+        city: 'Springfield',
+        state: 'OR',
+        zip: '97477',
+        country: 'USA'
+      }
+    };
+
+    const extractedNew = extractShippingAddress(newOrder);
+    expect(extractedNew.recipientName).toBe('Alex Johnson');
+    expect(extractedNew.addressLine1).toBe('742 Evergreen Terrace');
+    expect(extractedNew.addressLine2).toBe('Suite 200');
+    expect(extractedNew.city).toBe('Springfield');
+    expect(extractedNew.state).toBe('OR');
+    expect(extractedNew.zip).toBe('97477');
+    expect(extractedNew.country).toBe('USA');
+    expect(extractedNew.fullAddress).toContain('Alex Johnson');
+    expect(extractedNew.fullAddress).toContain('742 Evergreen Terrace, Suite 200');
+    expect(extractedNew.fullAddress).toContain('Springfield, OR 97477');
+    expect(extractedNew.fullAddress).toContain('USA');
+
+    // Legacy format
+    const legacyOrder = {
+      id: 'ord_legacy_1',
+      shippingInfo: {
+        name: 'Sarah Connor',
+        addressLine1: '100 Cyberdyne Way',
+        city: 'Los Angeles',
+        state: 'CA',
+        zip: '90001'
+      }
+    };
+
+    const extractedLegacy = extractShippingAddress(legacyOrder);
+    expect(extractedLegacy.recipientName).toBe('Sarah Connor');
+    expect(extractedLegacy.addressLine1).toBe('100 Cyberdyne Way');
+    expect(extractedLegacy.city).toBe('Los Angeles');
+    expect(extractedLegacy.state).toBe('CA');
+    expect(extractedLegacy.zip).toBe('90001');
+    expect(extractedLegacy.country).toBe('USA');
+  });
+
+  it('accurately extracts item details including size, color, quantity, and cost', () => {
+    const orderWithVariants = {
+      id: 'ord_variants_1',
+      itemName: 'ChainLink Championship Hoodie',
+      size: 'XL',
+      color: 'Navy Blue',
+      quantity: 2,
+      itemCost: 500
+    };
+
+    const details = extractOrderItemDetails(orderWithVariants);
+    expect(details.itemName).toBe('ChainLink Championship Hoodie');
+    expect(details.size).toBe('XL');
+    expect(details.color).toBe('Navy Blue');
+    expect(details.quantity).toBe(2);
+    expect(details.cost).toBe(500);
+
+    // Nested inside shippingInfo
+    const orderNestedVariants = {
+      id: 'ord_nested_1',
+      itemName: 'ChainLink Tee',
+      shippingInfo: {
+        size: 'M',
+        color: 'Heather Gray',
+        quantity: 1
+      }
+    };
+
+    const nestedDetails = extractOrderItemDetails(orderNestedVariants);
+    expect(nestedDetails.size).toBe('M');
+    expect(nestedDetails.color).toBe('Heather Gray');
+    expect(nestedDetails.quantity).toBe(1);
+  });
+
+  it('formats merch order rows with complete shipping address and variants for CSV export', () => {
+    const order = {
+      id: 'ord_csv_1',
+      createdAt: 1710000000000,
+      userEmail: 'user@example.com',
+      userId: 'usr_abc123',
+      itemName: 'ChainLink Cap',
+      size: 'One Size',
+      color: 'Emerald',
+      quantity: 1,
+      itemCost: 150,
+      status: 'SHIPPED',
+      trackingNumber: '9400111899562537630000',
+      shippingInfo: {
+        fullName: 'Jordan Smith',
+        streetAddress: '456 Oak Avenue',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        country: 'USA'
+      }
+    };
+
+    const shipping = extractShippingAddress(order);
+    const item = extractOrderItemDetails(order);
+
+    const exportRow = {
+      OrderID: order.id,
+      Date: formatDateStr(order.createdAt),
+      Email: order.userEmail || '',
+      UserID: order.userId || '',
+      ItemName: item.itemName,
+      Size: item.size || 'N/A',
+      Color: item.color || 'N/A',
+      Quantity: item.quantity,
+      LinksCost: item.cost !== null ? item.cost : 'N/A',
+      Status: order.status || 'PENDING',
+      TrackingNumber: order.trackingNumber || '',
+      RecipientName: shipping.recipientName || '',
+      AddressLine1: shipping.addressLine1 || '',
+      AddressLine2: shipping.addressLine2 || '',
+      City: shipping.city || '',
+      State: shipping.state || '',
+      Zip: shipping.zip || '',
+      Country: shipping.country || '',
+      FullAddress: shipping.oneLineAddress || ''
+    };
+
+    expect(exportRow.RecipientName).toBe('Jordan Smith');
+    expect(exportRow.AddressLine1).toBe('456 Oak Avenue');
+    expect(exportRow.City).toBe('Austin');
+    expect(exportRow.State).toBe('TX');
+    expect(exportRow.Zip).toBe('78701');
+    expect(exportRow.Country).toBe('USA');
+    expect(exportRow.Size).toBe('One Size');
+    expect(exportRow.Color).toBe('Emerald');
+    expect(exportRow.Quantity).toBe(1);
+    expect(exportRow.LinksCost).toBe(150);
   });
 });

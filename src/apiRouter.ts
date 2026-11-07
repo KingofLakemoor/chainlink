@@ -3047,12 +3047,29 @@ apiRouter.post("/shop/buy-merch", async (req, res) => {
       });
 
       const ordersRef = adminDb.collection('orders').doc();
+      const orderSize = shippingInfo?.size || req.body?.size || '';
+      const orderColor = shippingInfo?.color || req.body?.color || '';
       transaction.set(ordersRef, {
         userId: uid,
         userEmail: profile.email || decodedToken.email || '',
         itemId: itemId,
         itemName: item.name,
-        shippingInfo: shippingInfo,
+        itemCost: cost,
+        size: orderSize,
+        color: orderColor,
+        quantity: req.body?.quantity || 1,
+        shippingInfo: {
+          fullName: shippingInfo?.fullName || shippingInfo?.name || '',
+          streetAddress: shippingInfo?.streetAddress || shippingInfo?.addressLine1 || '',
+          addressLine2: shippingInfo?.addressLine2 || '',
+          city: shippingInfo?.city || '',
+          state: shippingInfo?.state || '',
+          zip: shippingInfo?.zip || shippingInfo?.postalCode || '',
+          country: shippingInfo?.country || 'USA',
+          size: orderSize,
+          color: orderColor,
+          ...shippingInfo
+        },
         status: 'PENDING',
         createdAt: Date.now(),
         updatedAt: Date.now()

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup, getCampaignIds } from './PickEmPage';
+import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup, getCampaignIds, getPointsStyle } from './PickEmPage';
 import { isTeamMatch } from '../../lib/teamUtils';
 
 describe('PickEmPage Yes Day prize breakdown tests', () => {
@@ -1285,5 +1285,18 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
 
     expect(resolvedForW2?.week).toBe(2);
     expect(resolvedForW2?.id).toBe('yes_day_2026_2_401547412');
+  });
+
+  it('renders clean white on total points for YES Day pick em', () => {
+    // YES Day campaign uses clean white for total points
+    const yesDayStyle = getPointsStyle(true, '#a855f7');
+    expect(yesDayStyle.color).toBe('#ffffff');
+    expect(yesDayStyle.textShadow).toBeUndefined();
+    expect(yesDayStyle.WebkitTextStroke).toBeUndefined();
+
+    // Standard non-YES Day campaign preserves standard theme color
+    const greenStyle = getPointsStyle(false, '#22c55e');
+    expect(greenStyle.color).toBe('#22c55e');
+    expect(greenStyle.textShadow).toBe('0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)');
   });
 });

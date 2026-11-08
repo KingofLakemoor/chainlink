@@ -74,6 +74,19 @@ export const getWeekTiebreakerMatchup = (campaign: any, weekMatchups: any[]): an
   return sorted[sorted.length - 1] || null;
 };
 
+export const getPointsStyle = (isYesDay: boolean, color: string): React.CSSProperties => {
+  if (isYesDay) {
+    return {
+      color: '#ffffff',
+    };
+  }
+
+  return {
+    color,
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)',
+  };
+};
+
 export default function PickEmPage() {
   const getPickStyle = (pick: any, isLocked: boolean) => {
     if (!pick) return null;
@@ -1100,6 +1113,7 @@ export default function PickEmPage() {
   const primaryColor = isYesDayCampaign
     ? (theme.primaryColor && theme.primaryColor !== "#3b82f6" && theme.primaryColor !== "#22c55e" ? theme.primaryColor : "#a855f7")
     : (theme.primaryColor || "#22c55e");
+  const pointsStyle = getPointsStyle(isYesDayCampaign, primaryColor);
   const title = theme.title || "Pick'em";
   const subtitle = theme.subtitle || "Make weekly picks and compete on the leaderboard.";
 
@@ -1658,7 +1672,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                   </div>
                   <div className="text-center px-1 sm:px-2">
                     <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Points</span>
-                    <span className="text-sm sm:text-base font-bold" style={{ color: primaryColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9)' }}>{myPoints}</span>
+                    <span className="text-sm sm:text-base font-bold inline-block" style={pointsStyle}>{myPoints}</span>
                   </div>
                   <div className="text-center px-1 sm:px-2">
                     <span className="text-[10px] sm:text-xs text-zinc-500 font-medium block uppercase tracking-wider">Record</span>
@@ -1745,7 +1759,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <span className="font-bold text-lg" style={{ color: primaryColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)' }}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
+                              <span className="font-bold text-lg inline-block" style={pointsStyle}>{isNaN(participant.points) ? 0 : String(participant.points)}</span>
                             </td>
                             <td className="px-6 py-4 text-center text-zinc-400 font-mono">
                               {wins}-{losses}-{pushes}

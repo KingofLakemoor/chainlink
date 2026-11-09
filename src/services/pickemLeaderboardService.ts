@@ -128,7 +128,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
   const campName = campaignData?.theme?.title || campaignData?.name || 'Pick\'em Contest';
   const currentWeek = campaignData?.currentWeek ?? 1;
 
-  // Pre-grade all completed matchups across all campaign aliases before calculating standings
+  // Pre-grade completed matchups across all campaign aliases before calculating standings
   try {
     const allMatchupSnaps = await Promise.all(
       aliases.map(cid =>
@@ -150,8 +150,15 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
       });
     });
 
-    for (const matchup of completedMatchupsMap.values()) {
-      await gradeSinglePickemMatchup(matchup);
+    // Optimize: prioritize current week or unfinalized matchups in concurrent batches
+    const matchupsToGrade = Array.from(completedMatchupsMap.values()).filter(m => {
+      const mWeek = Number(m.week || 1);
+      return mWeek >= (currentWeek - 1) || !m.isGraded;
+    });
+
+    for (let i = 0; i < matchupsToGrade.length; i += 6) {
+      const chunk = matchupsToGrade.slice(i, i + 6);
+      await Promise.all(chunk.map(m => gradeSinglePickemMatchup(m).catch(e => console.warn('[LeaderboardService] Error pre-grading matchup:', m.id, e))));
     }
   } catch (gradeErr) {
     console.warn('[LeaderboardService] Error pre-grading completed matchups:', gradeErr);
@@ -380,21 +387,23 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
       }
     }
 
-    const pickInfo = {
+    const pickInfo: any = {
       id: p.id,
       matchupId: p.matchupId,
       teamId,
       teamName,
-      teamImage,
       matchupType: m?.type || 'STANDARD',
       isRevealed: isLocked,
-      pick: p.pick || { teamId },
       week,
       status: p.status || 'PENDING',
-      pointsEarned,
-      confidence: p.confidence || null,
-      tiebreakerTotal: p.tiebreakerTotal || null
+      pointsEarned
     };
+    if (teamImage) pickInfo.teamImage = teamImage;
+    if (p.confidence !== undefined && p.confidence !== null) pickInfo.confidence = p.confidence;
+    if (p.tiebreakerTotal !== undefined && p.tiebreakerTotal !== null) pickInfo.tiebreakerTotal = p.tiebreakerTotal;
+    if (p.pick && typeof p.pick === 'object' && p.pick.teamId && p.pick.teamId !== teamId) {
+      pickInfo.pick = p.pick;
+    }
 
     stats[uid].weekly[week].picks.push(pickInfo);
 
@@ -423,10 +432,9 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     .map((s, idx) => {
       const totalDecided = s.wins + s.losses;
       const winPct = totalDecided > 0 ? ((s.wins / totalDecided) * 100).toFixed(1) + '%' : '0.0%';
-      const allUserPicks: any[] = [];
-      Object.values(s.weekly).forEach((w: any) => {
-        if (Array.isArray(w.picks)) allUserPicks.push(...w.picks);
-      });
+      // In season standings, attach currentWeek picks to participant.picks
+      // (Full weekly breakdown for each week is indexed in weeklyRecord[w] without massive duplicate payload)
+      const currentWeekPicks = s.weekly[currentWeek]?.picks || [];
       return {
         id: s.uid,
         uid: s.uid,
@@ -441,7 +449,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
         pushes: s.pushes,
         totalPicks: s.totalPicks,
         winPct,
-        picks: allUserPicks
+        picks: currentWeekPicks
       };
     });
 
@@ -512,7 +520,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
   };
 
   // Strip undefined values before persisting to Firestore
-  const cleanDoc = JSON.parse(JSON.stringify(leaderboardDoc));
+  let cleanDoc = JSON.parse(JSON.stringify(leaderboardDoc));
 
   // Write static document to Firestore pickemLeaderboards collection for canonical ID and clean slug aliases
   try {
@@ -525,11 +533,45 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
       }
     });
 
+    const allWeekKeys = Object.keys(weeklyRecord).map(Number);
+
+    // Write individual weekly documents for every week: pickemLeaderboards/${targetId}_w${w}
+    // Each weekly doc is ~30 KB and completely immune to the 1MB limit
+    for (const targetId of validSlugs) {
+      await Promise.all(
+        allWeekKeys.map(wNum =>
+          adminDb.collection('pickemLeaderboards').doc(`${targetId}_w${wNum}`).set({
+            campaignId: targetId,
+            week: wNum,
+            updatedAt: Date.now(),
+            participants: weeklyRecord[wNum] || []
+          }).catch(e => console.warn(`[LeaderboardService] Error writing week ${wNum} doc for ${targetId}:`, e))
+        )
+      );
+    }
+
+    // Safety guard: Ensure cleanDoc strictly stays under 800,000 bytes (Firestore hard limit is 1,048,576 bytes)
+    let docSize = Buffer.byteLength(JSON.stringify(cleanDoc));
+    if (docSize > 800000) {
+      console.warn(`[LeaderboardService] Leaderboard doc size ${docSize} bytes exceeds 800KB. Trimming older weeks from root document (weeks are safely persisted in ${canonicalId}_w* subdocs).`);
+      const trimmedWeeks: Record<number, LeaderboardParticipant[]> = {};
+      const keepMinWeek = Math.max(1, currentWeek - 4);
+      allWeekKeys.forEach(w => {
+        if (w >= keepMinWeek) {
+          trimmedWeeks[w] = weeklyRecord[w];
+        }
+      });
+      cleanDoc.weeks = trimmedWeeks;
+      docSize = Buffer.byteLength(JSON.stringify(cleanDoc));
+      console.log(`[LeaderboardService] Trimmed root doc size to ${docSize} bytes.`);
+    }
+
     await Promise.all(
       Array.from(validSlugs).map(targetId =>
         adminDb.collection('pickemLeaderboards').doc(targetId).set(cleanDoc)
       )
     );
+    console.log(`[LeaderboardService] Successfully persisted static leaderboard for ${canonicalId} (${docSize} bytes)`);
   } catch (e) {
     console.error('[LeaderboardService] Failed to persist static leaderboard to Firestore:', e);
   }

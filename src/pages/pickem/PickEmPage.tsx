@@ -509,8 +509,22 @@ export default function PickEmPage() {
             const staticSnap = await getDoc(doc(db, 'pickemLeaderboards', cid));
             if (staticSnap.exists()) {
               const data = staticSnap.data();
+
+              // Resolve weekly items for the selected week from root weeks map or separate week doc
+              let weekItems: any[] = data.weeks?.[selectedWeek] || data.weeks?.[String(selectedWeek)] || [];
+              if (!weekItems || weekItems.length === 0) {
+                try {
+                  const weekSnap = await getDoc(doc(db, 'pickemLeaderboards', `${cid}_w${selectedWeek}`));
+                  if (weekSnap.exists()) {
+                    weekItems = weekSnap.data().participants || [];
+                  }
+                } catch (wErr) {
+                  // ignore week subdoc lookup error
+                }
+              }
+
               const items: any[] = leaderboardView === 'week'
-                ? (data.weeks?.[selectedWeek] || data.weeks?.[String(selectedWeek)] || [])
+                ? weekItems
                 : (data.season || []);
 
               // Ensure static doc has data and includes user's own picks if logged in
@@ -518,12 +532,26 @@ export default function PickEmPage() {
               const hasPicksInWeek = leaderboardView !== 'week' || items.some((p: any) => Array.isArray(p.picks) && p.picks.length > 0);
 
               if (items && items.length > 0 && userInItems && hasPicksInWeek) {
-                const formatted = items.map((p: any) => ({
-                  ...p,
-                  id: p.id || p.uid,
-                  uid: p.uid || p.id,
-                  avatar: p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid || p.id || 'guest'}`
-                }));
+                // Map week picks for selectedWeek so each participant in season view has their selectedWeek picks
+                const weekPicksMap = new Map<string, any[]>();
+                weekItems.forEach((wp: any) => {
+                  weekPicksMap.set(wp.uid || wp.id, wp.picks || []);
+                });
+
+                const formatted = items.map((p: any) => {
+                  const pUid = p.uid || p.id;
+                  const picksForSelectedWeek = weekPicksMap.get(pUid)
+                    || (Array.isArray(p.picks) ? p.picks.filter((pick: any) => Number(pick.week) === Number(selectedWeek)) : [])
+                    || p.picks || [];
+
+                  return {
+                    ...p,
+                    id: pUid,
+                    uid: pUid,
+                    avatar: p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${pUid || 'guest'}`,
+                    picks: picksForSelectedWeek
+                  };
+                });
                 setLeaderboardData(formatted);
                 staticDocFound = true;
                 break;
@@ -1794,7 +1822,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             )}
                             <td className="px-6 py-4">
                         <div className="flex gap-2 items-center flex-wrap">
-                          {participant.picks && participant.picks.filter((p: any) => Number(p.week) === Number(selectedWeek)).map((pick: any) => {
+                          {participant.picks && participant.picks.filter((p: any) => p.week === undefined || p.week === null || Number(p.week) === Number(selectedWeek)).map((pick: any) => {
                             const teamId = pick?.pick?.teamId || pick?.pick?.id || pick?.pick?.name || (typeof pick?.pick === 'string' ? pick.pick : null) || pick?.teamId || '';
                             if (!teamId) return null;
 

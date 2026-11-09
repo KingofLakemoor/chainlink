@@ -828,6 +828,11 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
 
     await pickRef.set(payload, { merge: true });
 
+    // Background sync of static leaderboard so newly submitted picks are immediately represented
+    generateAndSavePickemLeaderboard(campaignId).catch(err => {
+      console.warn('[apiRouter] Background leaderboard sync error after pick submission:', err);
+    });
+
     res.json({ success: true, pickId: docId, pick: payload });
   } catch (e: any) {
     console.error("Submit pickem pick error:", e.message, e);
@@ -881,6 +886,11 @@ apiRouter.post("/pickem/clear-pick", validateAuth, async (req, res) => {
         await batch.commit();
       }
     }
+
+    // Background sync of static leaderboard so cleared picks are immediately updated
+    generateAndSavePickemLeaderboard(campaignId).catch(err => {
+      console.warn('[apiRouter] Background leaderboard sync error after pick clear:', err);
+    });
 
     res.json({ success: true });
   } catch (e: any) {

@@ -484,8 +484,8 @@ export default function LeaderboardsPage() {
     }
 
     const bannerItem = inventoryItems.find(i => i.id === player.equippedCosmetics?.PROFILE_BANNER);
-    const bannerImage = bannerItem?.image;
-    let BannerComponent = ProfileBannerMap[bannerImage || ''];
+    const bannerImage = bannerItem?.image || player.equippedCosmetics?.PROFILE_BANNER;
+    let BannerComponent = ProfileBannerMap[bannerImage || ''] || ProfileBannerMap[player.equippedCosmetics?.PROFILE_BANNER || ''];
     if (bannerItem?.id === 'banner_responsible_gambler' && player.equippedCosmetics?.BANNER_VARIANT) {
       BannerComponent = ProfileBannerMap[player.equippedCosmetics.BANNER_VARIANT] || BannerComponent;
     }

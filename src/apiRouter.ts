@@ -2956,7 +2956,7 @@ apiRouter.post("/shop/buy", async (req, res) => {
         item = itemDoc.data()!;
       }
 
-      if (item.active === false) throw new Error("Item is no longer available");
+      if (item.active === false || item.forSale === false) throw new Error("Item is no longer available");
 
       const profile = userDoc.data()!;
       const cost = item.cost ?? 0;
@@ -3024,7 +3024,7 @@ apiRouter.post("/shop/buy-merch", async (req, res) => {
       if (!itemDoc.exists) throw new Error("Item not found");
 
       const item = itemDoc.data()!;
-      if (!item.active) throw new Error("Item is no longer available");
+      if (!item.active || item.forSale === false) throw new Error("Item is no longer available");
       if (item.type !== 'MERCH') throw new Error("Item is not a merch item");
 
       const profile = userDoc.data()!;
@@ -3123,18 +3123,27 @@ apiRouter.post("/user/equip" , async (req, res) => {
       if (!userDoc.exists) throw new Error("User not found");
 
       const profile = userDoc.data()!;
-      const inventory = profile.inventory || [];
+      const ownedItems = new Set([
+        ...(profile.inventory || []),
+        ...(profile.purchasedItems || []),
+        ...(profile.titles || [])
+      ]);
 
       // If itemId is null, it means unequip
-      if (itemId !== null && !inventory.includes(itemId)) {
+      if (itemId !== null && !ownedItems.has(itemId)) {
         throw new Error("You do not own this item!");
       }
 
-      const equippedCosmetics = profile.equippedCosmetics || {};
+      const equippedCosmetics = { ...(profile.equippedCosmetics || {}) };
+      if (itemId === null) {
+        delete equippedCosmetics[type];
+      } else {
+        equippedCosmetics[type] = itemId;
+      }
 
       const updateData: any = {
         updatedAt: Date.now(),
-        equippedCosmetics: { ...equippedCosmetics, [type]: itemId }
+        equippedCosmetics
       };
 
       transaction.update(userRef, updateData);

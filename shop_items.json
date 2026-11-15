@@ -1778,11 +1778,25 @@
     "cost": 250,
     "type": "PROFILE_BANNER",
     "active": true,
-    "forSale": true,
+    "forSale": false,
     "image": "PinktoberBanner",
-    "featured": true,
+    "featured": false,
     "preview": "PinktoberBanner",
     "order": 12,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_task_force_camo",
+    "name": "Task Force Camo",
+    "description": "November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "TaskForceCamoBanner",
+    "featured": true,
+    "preview": "TaskForceCamoBanner",
+    "order": 13,
     "collectionId": ""
   }
 ]

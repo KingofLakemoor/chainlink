@@ -47,6 +47,8 @@ const AVAILABLE_COSMETICS = [
   { id: 'banner_emerald', name: 'Emerald Storm Banner', category: 'banner', key: 'EmeraldStormBanner' },
   { id: 'banner_opulento', name: 'Opulento Vault Banner', category: 'banner', key: 'OpulentoVaultBanner' },
   { id: 'banner_xenon', name: 'Xenon Terminal Banner', category: 'banner', key: 'XenonTerminalBanner' },
+  { id: 'banner_pinktober', name: 'Pinktober', category: 'banner', key: 'PinktoberBanner' },
+  { id: 'banner_task_force_camo', name: 'Task Force Camo', category: 'banner', key: 'TaskForceCamoBanner' },
 
   // Avatar Rings
   { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { ShoppingCart, Coins, Crown, Zap } from 'lucide-react';
 import { db } from '../../lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
 
@@ -48,7 +48,7 @@ export default function ShopPage() {
           { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' },
           { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' },
           { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' },
-          { id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'PinktoberBanner' },
+          { id: 'banner_task_force_camo', name: 'Task Force Camo', description: 'November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'TaskForceCamoBanner' },
           { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
           { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
         ];
@@ -91,8 +91,15 @@ export default function ShopPage() {
           if (!fetchedItems.some(i => i.id === 'banner_golden_spiral')) {
             fetchedItems.push({ id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' });
           }
-          if (!fetchedItems.some(i => i.id === 'banner_pinktober')) {
-            fetchedItems.push({ id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'PinktoberBanner' });
+          if (!fetchedItems.some(i => i.id === 'banner_task_force_camo')) {
+            try {
+              const camoSnap = await getDoc(doc(db, 'shopItems', 'banner_task_force_camo'));
+              if (!camoSnap.exists()) {
+                fetchedItems.push({ id: 'banner_task_force_camo', name: 'Task Force Camo', description: 'November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'TaskForceCamoBanner' });
+              }
+            } catch {
+              fetchedItems.push({ id: 'banner_task_force_camo', name: 'Task Force Camo', description: 'November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'TaskForceCamoBanner' });
+            }
           }
         }
         setItems(fetchedItems);
@@ -111,7 +118,7 @@ export default function ShopPage() {
             { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' },
             { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' },
             { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' },
-            { id: 'banner_pinktober', name: 'Pinktober', description: 'Breast Cancer Awareness month banner featuring dynamic pink ribbon waves, glowing magenta embers, and interlocking chain link accents.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'PinktoberBanner' },
+            { id: 'banner_task_force_camo', name: 'Task Force Camo', description: 'November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'TaskForceCamoBanner' },
             { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
             { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);

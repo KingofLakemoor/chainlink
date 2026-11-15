@@ -124,16 +124,31 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     if (!user || !profile) return;
     setEquipLoading(type);
     try {
-      const updatedCosmetics = { ...(profile.equippedCosmetics || {}) };
-      if (itemId === null) {
-        delete updatedCosmetics[type];
+      if (auth.currentUser && user.uid !== 'mock-user-123') {
+        const token = await auth.currentUser.getIdToken();
+        const res = await fetch('/api/user/equip', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ itemId, type })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to equip item.');
+        }
       } else {
-        updatedCosmetics[type] = itemId;
+        const updatedCosmetics = { ...(profile.equippedCosmetics || {}) };
+        if (itemId === null) {
+          delete updatedCosmetics[type];
+        } else {
+          updatedCosmetics[type] = itemId;
+        }
+        await updateDoc(doc(db, 'users', user.uid), { equippedCosmetics: updatedCosmetics });
       }
-      await updateDoc(doc(db, 'users', user.uid), { equippedCosmetics: updatedCosmetics });
     } catch (err) {
       console.error("Failed to equip item", err);
-      alert("Failed to equip item.");
     } finally {
       setEquipLoading(null);
     }

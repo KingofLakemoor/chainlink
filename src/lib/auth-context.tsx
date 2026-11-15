@@ -88,8 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           links: 1000,
           role: e.detail?.role || 'ADMIN', // Support dynamic role selection in dev mock login
           status: 'ACTIVE',
-          inventory: ['banner_pinktober', 'ring_bull_bear', 'title_beta_tester', 'banner_emerald_storm', 'ring_gold'],
-          equippedCosmetics: { PROFILE_BANNER: 'banner_pinktober', AVATAR_RING: 'ring_bull_bear', TITLE: 'title_beta_tester' },
+          inventory: ['banner_task_force_camo', 'banner_pinktober', 'ring_bull_bear', 'title_beta_tester', 'banner_emerald_storm', 'ring_gold'],
+          equippedCosmetics: { PROFILE_BANNER: 'banner_task_force_camo', AVATAR_RING: 'ring_bull_bear', TITLE: 'title_beta_tester' },
           stats: { wins: 12, losses: 3, pushes: 1 },
           referralsCount: 42,
         };

@@ -126,6 +126,13 @@ import { gradeBrackets } from './bracketGrader.js';
 let cachedScraperConfig: { config: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> }, timestamp: number } | null = null;
 const SCRAPER_CONFIG_TTL_MS = 60 * 60 * 1000;
 
+let cachedPickemCampaigns: { map: Map<string, any>; timestamp: number } | null = null;
+const PICKEM_CAMPAIGNS_TTL_MS = 5 * 60 * 1000;
+
+export function invalidatePickemCampaignsCache() {
+  cachedPickemCampaigns = null;
+}
+
 export async function syncLeagueSchedules(
   league: League,
   scoreboardOnly: boolean = false,
@@ -244,8 +251,24 @@ export async function syncLeagueSchedules(
 
       let fifaBracketUpdates: Record<string, { oldHome: string, newHome: string, oldAway: string, newAway: string }> = {};
 
-      // OPTIMIZATION: Pre-fetch deactivation picks concurrently for all existing scraped games
-      const deactivationGameIds = response.data.filter((m: any) => !m.isRawPGAData && !scoreboardOnly).map((m: any) => m.gameId).filter(Boolean);
+      // OPTIMIZATION: Only pre-fetch deactivation picks for games that are currently active in Firestore
+      // but whose scraped state or status might trigger deactivation, rather than every scraped game
+      const deactivationGameIds = response.data
+        .filter((m: any) => {
+          if (m.isRawPGAData || scoreboardOnly) return false;
+          const existingDoc = existingMap.get(m.gameId);
+          if (!existingDoc) return false;
+          const existingData = existingDoc.data();
+          // If already inactive or abandoned, no need to check picks for deactivation
+          if (!existingData.active || existingData.abandoned) return false;
+          // Only check if scrapedMatchup is inactive or status is changing towards final/canceled
+          if (!m.active || m.status === 'STATUS_FINAL' || m.status === 'STATUS_POSTPONED') {
+            return true;
+          }
+          return false;
+        })
+        .map((m: any) => m.gameId)
+        .filter(Boolean);
 
       const deactivationPicksCache = new Map<string, boolean>();
       if (deactivationGameIds.length > 0) {
@@ -1012,7 +1035,9 @@ export async function syncLeagueSchedules(
                 (newStatus === 'STATUS_POSTPONED' && existingData.status !== 'STATUS_POSTPONED'))) {
               matchupsToGrade.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
             }
-            matchupsToSyncToPickem.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
+            if (needsUpdate || existingDoc.id !== gameId || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
+              matchupsToSyncToPickem.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
+            }
           }
         } else {
           const newDocRef = adminDb.collection("matchups").doc(gameId);
@@ -1057,7 +1082,9 @@ export async function syncLeagueSchedules(
           if (scrapedMatchup.status === 'STATUS_FINAL') {
               matchupsToGrade.push({ ...newMatchupData, id: gameId, gameId: gameId });
           }
-          matchupsToSyncToPickem.push({ ...newMatchupData, id: gameId, gameId: gameId });
+          if (scrapedMatchup.status === 'STATUS_FINAL' || pickemMatchupIds.has(gameId)) {
+            matchupsToSyncToPickem.push({ ...newMatchupData, id: gameId, gameId: gameId });
+          }
         }
 
         if (opCount >= 500) {
@@ -1189,7 +1216,9 @@ export async function syncLeagueSchedules(
           }
       }
 
-      await processActivePlayerProps(adminDb, matchupsToGrade, matchupsToSyncToPickem);
+      if (league === 'PROP' || league === 'SCRIPTLESS') {
+        await processActivePlayerProps(adminDb, matchupsToGrade, matchupsToSyncToPickem);
+      }
 
       if (matchupsToGrade.length > 0) {
         await gradeMatchups(matchupsToGrade);
@@ -1202,14 +1231,23 @@ export async function syncLeagueSchedules(
         const uniqueGameIds = Array.from(new Set(matchupsToSyncToPickem.map(m => m.gameId))).filter(Boolean);
         const matchupMap = new Map(matchupsToSyncToPickem.map(m => [m.gameId, m]));
 
-        const campaignMap = new Map<string, any>();
-        try {
-          const campSnaps = await adminDb.collection('pickemCampaigns').get();
-          campSnaps.docs.forEach((cDoc: any) => {
-            campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
-          });
-        } catch (campErr) {
-          console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+        let campaignMap = new Map<string, any>();
+        const nowMs = Date.now();
+        if (cachedPickemCampaigns && (nowMs - cachedPickemCampaigns.timestamp) < PICKEM_CAMPAIGNS_TTL_MS) {
+          campaignMap = cachedPickemCampaigns.map;
+        } else {
+          try {
+            const campSnaps = await adminDb.collection('pickemCampaigns').get();
+            campSnaps.docs.forEach((cDoc: any) => {
+              campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
+            });
+            cachedPickemCampaigns = { map: campaignMap, timestamp: nowMs };
+          } catch (campErr) {
+            console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+            if (cachedPickemCampaigns) {
+              campaignMap = cachedPickemCampaigns.map;
+            }
+          }
         }
 
         let pickemBatch = adminDb.batch();
@@ -1230,16 +1268,31 @@ export async function syncLeagueSchedules(
 
               const camp = pData.campaignId ? campaignMap.get(pData.campaignId) : null;
               const campName = pData.campaignName || camp?.name || '';
+              const docIdStr = String(doc.id || '').toLowerCase();
+              const pDataCampIdStr = String(pData.campaignId || '').toLowerCase();
+              const pDataMetadataCampIdStr = String(pData.metadata?.campaignId || '').toLowerCase();
+              const campNameStr = typeof campName === 'string' ? campName.toLowerCase() : '';
 
               // Sync standard matchup score and status into the pickem matchup
               const isYesDay = !!(
                 pData.isCharity ||
+                pData.metadata?.isCharity ||
                 camp?.isCharity ||
                 pData.campaignId === 'yes_day_2026' ||
                 pData.campaignId === 'charity' ||
                 pData.campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
+                pDataCampIdStr === 'yes_day_2026' ||
+                pDataCampIdStr === 'charity' ||
+                pDataCampIdStr === 'auqhdht3vkwfkpgsavzf' ||
+                pDataMetadataCampIdStr === 'yes_day_2026' ||
+                pDataMetadataCampIdStr === 'charity' ||
+                pDataMetadataCampIdStr === 'auqhdht3vkwfkpgsavzf' ||
                 campName === 'YES Day Walk for Autism 2026' ||
-                (typeof campName === 'string' && campName.toLowerCase().includes('yes day'))
+                campNameStr.includes('yes day') ||
+                campNameStr.includes('walk for autism') ||
+                docIdStr.startsWith('yes_day') ||
+                docIdStr.startsWith('charity') ||
+                docIdStr.includes('auqhdht3vkwfkpgsavzf')
               );
               const isManualOverride = !isYesDay && (pData.manualTypeOverride === true || pData.isManualOverride === true);
               const campaignForcesStandard = camp?.defaultMatchType === 'STANDARD';

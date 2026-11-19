@@ -48,12 +48,27 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   const weekNum = matchup.week || matchup.weekNumber || 1;
   const gameId = matchup.gameId || (matchup.id ? String(matchup.id).split('_').pop() : '');
 
+  const matchupIdStr = String(matchup.id || '').toLowerCase();
+  const campaignIdStr = String(matchup.campaignId || '').toLowerCase();
+  const campaignNameStr = typeof matchup.campaignName === 'string' ? matchup.campaignName.toLowerCase() : '';
+  const metadataCampaignIdStr = String(matchup.metadata?.campaignId || '').toLowerCase();
+
   let isYesDay = matchup.isCharity ||
+                 matchup.metadata?.isCharity ||
                  matchup.campaignName === 'YES Day Walk for Autism 2026' ||
                  matchup.campaignId === 'yes_day_2026' ||
                  matchup.campaignId === 'charity' ||
                  matchup.campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
-                 (typeof matchup.campaignName === 'string' && matchup.campaignName.toLowerCase().includes('yes day'));
+                 campaignIdStr === 'yes_day_2026' ||
+                 campaignIdStr === 'charity' ||
+                 campaignIdStr === 'auqhdht3vkwfkpgsavzf' ||
+                 metadataCampaignIdStr === 'yes_day_2026' ||
+                 metadataCampaignIdStr === 'charity' ||
+                 metadataCampaignIdStr === 'auqhdht3vkwfkpgsavzf' ||
+                 campaignNameStr.includes('yes day') ||
+                 matchupIdStr.startsWith('yes_day') ||
+                 matchupIdStr.startsWith('charity') ||
+                 matchupIdStr.includes('auqhdht3vkwfkpgsavzf');
 
   let campaignData: any = null;
   if (matchup.campaignId) {
@@ -61,10 +76,12 @@ export async function gradeSinglePickemMatchup(matchup: any) {
       const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
       if (campDoc.exists) {
         campaignData = campDoc.data();
+        const fetchedName = typeof campaignData?.name === 'string' ? campaignData.name.toLowerCase() : '';
         if (
           campaignData?.name === 'YES Day Walk for Autism 2026' ||
           campaignData?.isCharity ||
-          (typeof campaignData?.name === 'string' && campaignData.name.toLowerCase().includes('yes day'))
+          fetchedName.includes('yes day') ||
+          fetchedName.includes('walk for autism')
         ) {
           isYesDay = true;
         }
@@ -122,7 +139,8 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   }
 
   let adjustedHomeScore = homeScore;
-  if (isMoneyline) {
+  if (isYesDay || isMoneyline) {
+    // YES Day campaigns and standard matchups strictly grade as moneyline straight-up winners
     adjustedHomeScore = homeScore;
   } else if (matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
     adjustedHomeScore += Number(matchup.metadata.spread);

@@ -179,6 +179,11 @@ export default function LeaderboardsPage() {
         if (cachedPickMapRef.current) {
             userPicksMap = cachedPickMapRef.current.userPicksMap;
             matchupsMap = cachedPickMapRef.current.matchupsMap;
+        } else if (isArchivedMonth) {
+            // Archived months always display 'FINAL' and have no active pending picks
+            userPicksMap = new Map<string, any[]>();
+            matchupsMap = new Map();
+            cachedPickMapRef.current = { userPicksMap, matchupsMap };
         } else {
             const topUserIds = usersList.map((u: any) => u.id);
             const pendingPicks: any[] = [];

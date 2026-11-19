@@ -4,7 +4,7 @@ import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, onSnapshot, getDocs, doc, setDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
-import { getSponsorsCached } from '../../lib/firestore-cache';
+import { getSponsorsCached, getGlobalPendingPicksCached } from '../../lib/firestore-cache';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, X, ExternalLink, ArrowRight } from 'lucide-react';
@@ -135,10 +135,8 @@ export default function PlayDashboard() {
           handleFirestoreError(error, OperationType.LIST, `picks/user/${user.uid}`);
         });
 
-        // Fetch a bounded sample for global hot rating to avoid fetching the entire database
-        const globalQ = query(collection(db, 'picks'), where('status', '==', 'PENDING'), limit(200));
-        getDocs(globalQ).then(globalPickSnap => {
-          const allUpcomingPicks = globalPickSnap.docs.map(d => d.data());
+        // Fetch a bounded sample for global hot rating with client session caching to avoid reading 200 docs on every view
+        getGlobalPendingPicksCached().then(allUpcomingPicks => {
           setGlobalUpcomingPicks(allUpcomingPicks);
         }).catch(error => {
           handleFirestoreError(error, OperationType.LIST, 'picks/pending');

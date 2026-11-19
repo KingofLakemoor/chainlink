@@ -126,6 +126,9 @@ import { gradeBrackets } from './bracketGrader.js';
 let cachedScraperConfig: { config: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> }, timestamp: number } | null = null;
 const SCRAPER_CONFIG_TTL_MS = 60 * 60 * 1000;
 
+let cachedPickemCampaigns: { map: Map<string, any>; timestamp: number } | null = null;
+const PICKEM_CAMPAIGNS_TTL_MS = 5 * 60 * 1000;
+
 export async function syncLeagueSchedules(
   league: League,
   scoreboardOnly: boolean = false,
@@ -1222,14 +1225,23 @@ export async function syncLeagueSchedules(
         const uniqueGameIds = Array.from(new Set(matchupsToSyncToPickem.map(m => m.gameId))).filter(Boolean);
         const matchupMap = new Map(matchupsToSyncToPickem.map(m => [m.gameId, m]));
 
-        const campaignMap = new Map<string, any>();
-        try {
-          const campSnaps = await adminDb.collection('pickemCampaigns').get();
-          campSnaps.docs.forEach((cDoc: any) => {
-            campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
-          });
-        } catch (campErr) {
-          console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+        let campaignMap = new Map<string, any>();
+        const nowMs = Date.now();
+        if (cachedPickemCampaigns && (nowMs - cachedPickemCampaigns.timestamp) < PICKEM_CAMPAIGNS_TTL_MS) {
+          campaignMap = cachedPickemCampaigns.map;
+        } else {
+          try {
+            const campSnaps = await adminDb.collection('pickemCampaigns').get();
+            campSnaps.docs.forEach((cDoc: any) => {
+              campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
+            });
+            cachedPickemCampaigns = { map: campaignMap, timestamp: nowMs };
+          } catch (campErr) {
+            console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+            if (cachedPickemCampaigns) {
+              campaignMap = cachedPickemCampaigns.map;
+            }
+          }
         }
 
         let pickemBatch = adminDb.batch();

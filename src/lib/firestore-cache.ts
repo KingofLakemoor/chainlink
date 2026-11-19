@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import shopItemsData from '../../shop_items.json';
 
@@ -141,3 +141,21 @@ export async function getAnnouncementsCached(ttlMs: number = DEFAULT_TTL_MS): Pr
     return [];
   }
 }
+
+export async function getGlobalPendingPicksCached(ttlMs: number = 5 * 60 * 1000): Promise<any[]> {
+  const cacheKey = 'global_pending_picks_sample';
+  const cached = getCached<any[]>(cacheKey, ttlMs);
+  if (cached) return cached;
+
+  try {
+    const globalQ = query(collection(db, 'picks'), where('status', '==', 'PENDING'), limit(200));
+    const globalPickSnap = await getDocs(globalQ);
+    const allUpcomingPicks = globalPickSnap.docs.map(d => d.data());
+    setCached(cacheKey, allUpcomingPicks);
+    return allUpcomingPicks;
+  } catch (err) {
+    console.warn('Error fetching cached global pending picks sample:', err);
+    return [];
+  }
+}
+

@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, orderBy, limit, doc, setDoc } from '
 import { db, auth } from '../../lib/firebase';
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
+import { getSponsorsCached } from '../../lib/firestore-cache';
 import { useAuth } from '../../lib/auth-context';
 import { isTeamMatch } from '../../lib/teamUtils';
 import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
@@ -69,11 +70,8 @@ export default function Link4Page() {
   const [fallbackMatchups, setFallbackMatchups] = useState<any[]>([]);
 
   useEffect(() => {
-    // Significantly reduce reads by only fetching non-final matches
-    // Removed global matchups listener
-
-    getDocs(collection(db, 'sponsors')).then((snap) => {
-        setSponsors(snap.docs.map(doc => ({id: doc.id, ...doc.data()})));
+    getSponsorsCached().then((activeSponsors) => {
+      setSponsors(activeSponsors);
     }).catch((error) => {
       console.warn("Sponsors list is currently unavailable:", error);
       setSponsors([]);

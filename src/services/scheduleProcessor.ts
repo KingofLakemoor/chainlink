@@ -244,8 +244,24 @@ export async function syncLeagueSchedules(
 
       let fifaBracketUpdates: Record<string, { oldHome: string, newHome: string, oldAway: string, newAway: string }> = {};
 
-      // OPTIMIZATION: Pre-fetch deactivation picks concurrently for all existing scraped games
-      const deactivationGameIds = response.data.filter((m: any) => !m.isRawPGAData && !scoreboardOnly).map((m: any) => m.gameId).filter(Boolean);
+      // OPTIMIZATION: Only pre-fetch deactivation picks for games that are currently active in Firestore
+      // but whose scraped state or status might trigger deactivation, rather than every scraped game
+      const deactivationGameIds = response.data
+        .filter((m: any) => {
+          if (m.isRawPGAData || scoreboardOnly) return false;
+          const existingDoc = existingMap.get(m.gameId);
+          if (!existingDoc) return false;
+          const existingData = existingDoc.data();
+          // If already inactive or abandoned, no need to check picks for deactivation
+          if (!existingData.active || existingData.abandoned) return false;
+          // Only check if scrapedMatchup is inactive or status is changing towards final/canceled
+          if (!m.active || m.status === 'STATUS_FINAL' || m.status === 'STATUS_POSTPONED') {
+            return true;
+          }
+          return false;
+        })
+        .map((m: any) => m.gameId)
+        .filter(Boolean);
 
       const deactivationPicksCache = new Map<string, boolean>();
       if (deactivationGameIds.length > 0) {
@@ -1012,7 +1028,9 @@ export async function syncLeagueSchedules(
                 (newStatus === 'STATUS_POSTPONED' && existingData.status !== 'STATUS_POSTPONED'))) {
               matchupsToGrade.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
             }
-            matchupsToSyncToPickem.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
+            if (needsUpdate || existingDoc.id !== gameId || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
+              matchupsToSyncToPickem.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
+            }
           }
         } else {
           const newDocRef = adminDb.collection("matchups").doc(gameId);
@@ -1189,7 +1207,9 @@ export async function syncLeagueSchedules(
           }
       }
 
-      await processActivePlayerProps(adminDb, matchupsToGrade, matchupsToSyncToPickem);
+      if (league === 'PROP' || league === 'SCRIPTLESS') {
+        await processActivePlayerProps(adminDb, matchupsToGrade, matchupsToSyncToPickem);
+      }
 
       if (matchupsToGrade.length > 0) {
         await gradeMatchups(matchupsToGrade);

@@ -43,15 +43,15 @@ let playBannerCache: { data: any; time: number } | null = null;
 const PLAY_BANNER_CACHE_TTL = 30 * 1000;
 
 let activeMatchupsCache: { data: any[]; time: number } | null = null;
-const ACTIVE_MATCHUPS_CACHE_TTL = 30 * 1000;
+const ACTIVE_MATCHUPS_CACHE_TTL = 60 * 1000;
 let activeMatchupsInFlight: Promise<any[]> | null = null;
 
 const link4MatchupsCache = new Map<string, { data: any[]; time: number }>();
-const LINK4_MATCHUPS_CACHE_TTL = 30 * 1000;
+const LINK4_MATCHUPS_CACHE_TTL = 60 * 1000;
 const link4MatchupsInFlight = new Map<string, Promise<any[]>>();
 
 const matchupsByIdCache = new Map<string, { data: any; time: number }>();
-const MATCHUPS_BY_ID_CACHE_TTL = 30 * 1000;
+const MATCHUPS_BY_ID_CACHE_TTL = 60 * 1000;
 const MAX_CACHE_ENTRIES = 500;
 
 export function invalidateMatchupCaches() {
@@ -377,9 +377,22 @@ const validateAdmin = async (req: express.Request, res: express.Response, next: 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
+    // Check custom claims first (fastest, 0 DB read)
+    if (decodedToken.role === 'ADMIN' || decodedToken.admin === true) {
+      (req as any).uid = uid;
+      return next();
+    }
+
     const userDoc = await adminDb.collection('users').doc(uid).get();
     if (!userDoc.exists || userDoc.data()?.role !== 'ADMIN') {
       return res.status(403).json({ success: false, error: 'Forbidden: Admin access required' });
+    }
+
+    // Set custom user claims so subsequent requests avoid Firestore document lookups
+    try {
+      await adminAuth.setCustomUserClaims(uid, { role: 'ADMIN', admin: true });
+    } catch (claimErr) {
+      console.warn("Failed to setCustomUserClaims during validateAdmin:", claimErr);
     }
 
     (req as any).uid = uid;
@@ -1087,6 +1100,17 @@ apiRouter.post("/admin/users/update-role", validateAdmin, async (req, res) => {
       role: role,
       updatedAt: Date.now()
     });
+
+    if (adminAuth) {
+      try {
+        await adminAuth.setCustomUserClaims(targetUserId, {
+          role: role,
+          admin: role === 'ADMIN'
+        });
+      } catch (claimErr) {
+        console.warn("Failed to update custom claims for user:", targetUserId, claimErr);
+      }
+    }
 
     res.json({ success: true, role });
   } catch (e: any) {

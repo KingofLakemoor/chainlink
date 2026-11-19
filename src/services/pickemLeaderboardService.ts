@@ -64,6 +64,7 @@ export async function getCampaignAliases(campaignId: string): Promise<{ canonica
   const isYesDayInput =
     campaignId === 'charity' ||
     campaignId === 'yes_day_2026' ||
+    campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
     campaignId.toLowerCase().includes('yes day') ||
     campaignData?.name === 'YES Day Walk for Autism 2026' ||
     campaignData?.isCharity;
@@ -77,6 +78,7 @@ export async function getCampaignAliases(campaignId: string): Promise<{ canonica
         data.isCharity ||
         d.id === 'charity' ||
         d.id === 'yes_day_2026' ||
+        d.id === 'aUqhDhT3vKWfkPgSAVzf' ||
         (typeof data.name === 'string' && data.name.toLowerCase().includes('yes day'));
 
       if (isYesDayInput && isYes) {
@@ -87,6 +89,7 @@ export async function getCampaignAliases(campaignId: string): Promise<{ canonica
         aliases.add(d.id);
         aliases.add('yes_day_2026');
         aliases.add('charity');
+        aliases.add('aUqhDhT3vKWfkPgSAVzf');
         aliases.add('YES Day Walk for Autism 2026');
         if (data.name) aliases.add(data.name);
         if (data.joinCode) aliases.add(data.joinCode.trim());
@@ -127,6 +130,13 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
   const { canonicalId, aliases, campaignData } = await getCampaignAliases(campaignId);
   const campName = campaignData?.theme?.title || campaignData?.name || 'Pick\'em Contest';
   const currentWeek = campaignData?.currentWeek ?? 1;
+  const isYesDayCampaign = !!(
+    campaignData?.isCharity ||
+    canonicalId === 'charity' ||
+    canonicalId === 'yes_day_2026' ||
+    canonicalId === 'aUqhDhT3vKWfkPgSAVzf' ||
+    (typeof campaignData?.name === 'string' && campaignData.name.toLowerCase().includes('yes day'))
+  );
 
   // Pre-grade completed matchups across all campaign aliases before calculating standings
   try {
@@ -392,7 +402,7 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
       matchupId: p.matchupId,
       teamId,
       teamName,
-      matchupType: m?.type || 'STANDARD',
+      matchupType: isYesDayCampaign ? 'STANDARD' : (m?.type || 'STANDARD'),
       isRevealed: isLocked,
       week,
       status: p.status || 'PENDING',

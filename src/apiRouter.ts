@@ -1435,7 +1435,7 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
       const pickemMatchupId = `${campaignId}_${weekNumber}_${m.gameId}`;
       const docRef = adminDb.collection('pickemMatchups').doc(pickemMatchupId);
 
-      const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
+      const isYesDay = !!(campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaignId === 'charity' || campaignId === 'yes_day_2026' || campaignId === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
       const finalType = isYesDay
         ? "STANDARD"
         : (campaign.defaultMatchType === "BOTH" ? ((m.metadata?.spread !== undefined && m.metadata?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"));

@@ -44,6 +44,7 @@ import { GoldenSpiralBanner } from '../components/banners/GoldenSpiralBanner';
 import { ResponsibleGamblerBaseBanner, ResponsibleGamblerReadableBanner, ResponsibleGamblerDarkHumorBanner } from "../components/ui/profile-banners/responsible-gambler";
 import { PinktoberBanner } from '../components/ui/profile-banners/pinktober';
 import { TaskForceCamoBanner } from '../components/ui/profile-banners/task-force-camo';
+import { ViceCityBanner } from '../components/ui/profile-banners/vice-city';
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerAvatarRing": ResponsibleGamblerAvatarRing,
@@ -95,5 +96,8 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'SeismicStrikeBanner': SeismicStrikeBanner,
   'GoldenSpiralBanner': GoldenSpiralBanner,
   'PinktoberBanner': PinktoberBanner,
-  'TaskForceCamoBanner': TaskForceCamoBanner
+  'TaskForceCamoBanner': TaskForceCamoBanner,
+  'ViceCityBanner': ViceCityBanner,
+  'ViceNeonBanner': ViceCityBanner,
+  'banner_vice_city': ViceCityBanner
 };

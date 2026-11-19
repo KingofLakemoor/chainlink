@@ -52,14 +52,20 @@ export async function gradeSinglePickemMatchup(matchup: any) {
                  matchup.campaignName === 'YES Day Walk for Autism 2026' ||
                  matchup.campaignId === 'yes_day_2026' ||
                  matchup.campaignId === 'charity' ||
+                 matchup.campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
                  (typeof matchup.campaignName === 'string' && matchup.campaignName.toLowerCase().includes('yes day'));
 
-  if (!isYesDay && matchup.campaignId) {
+  let campaignData: any = null;
+  if (matchup.campaignId) {
     try {
       const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
       if (campDoc.exists) {
-        const cData = campDoc.data();
-        if (cData?.name === 'YES Day Walk for Autism 2026' || cData?.isCharity || (typeof cData?.name === 'string' && cData.name.toLowerCase().includes('yes day'))) {
+        campaignData = campDoc.data();
+        if (
+          campaignData?.name === 'YES Day Walk for Autism 2026' ||
+          campaignData?.isCharity ||
+          (typeof campaignData?.name === 'string' && campaignData.name.toLowerCase().includes('yes day'))
+        ) {
           isYesDay = true;
         }
       }
@@ -107,18 +113,12 @@ export async function gradeSinglePickemMatchup(matchup: any) {
 
   if (isYesDay) {
     isMoneyline = true;
-  } else if (matchup.campaignId) {
-    try {
-      const campDoc = await adminDb.collection('pickemCampaigns').doc(matchup.campaignId).get();
-      if (campDoc.exists) {
-        const cData = campDoc.data();
-        if (cData?.name === 'YES Day Walk for Autism 2026' || cData?.defaultMatchType === 'STANDARD') {
-          isMoneyline = true;
-        }
-      }
-    } catch (e) {
-      console.warn(`[PickemGrader] Could not fetch campaign ${matchup.campaignId}:`, e);
-    }
+  } else if (
+    campaignData?.name === 'YES Day Walk for Autism 2026' ||
+    campaignData?.isCharity ||
+    (campaignData?.defaultMatchType === 'STANDARD' && !matchup.manualTypeOverride && !matchup.isManualOverride)
+  ) {
+    isMoneyline = true;
   }
 
   let adjustedHomeScore = homeScore;
@@ -190,8 +190,18 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     if (matchup.id) {
       const updateData: any = {
         winnerId: isTie ? 'PUSH' : winnerId,
-        status: matchup.status || 'STATUS_FINAL'
+        status: matchup.status || 'STATUS_FINAL',
+        isGraded: true
       };
+      if (isYesDay) {
+        if (matchup.type !== 'STANDARD') {
+          updateData.type = 'STANDARD';
+          updateData.manualTypeOverride = false;
+        }
+        if (typeof matchup.title === 'string' && matchup.title.endsWith(' - ATS')) {
+          updateData.title = matchup.title.replace(/ - ATS$/, '');
+        }
+      }
       if (matchup.manualWinnerId !== undefined) {
         updateData.manualWinnerId = matchup.manualWinnerId;
       }
@@ -328,11 +338,17 @@ export async function payoutPickemCampaign(campaignId: string) {
     const campaignData = campaignDoc.data();
     const entryFee = campaignData.entryFee || 0;
 
-    const isYesDay = campaignData.isCharity || campaignData.name === 'YES Day Walk for Autism 2026' || campaignId === 'charity' || campaignId === 'yes_day_2026';
+    const isYesDay = campaignData.isCharity ||
+      campaignData.name === 'YES Day Walk for Autism 2026' ||
+      campaignId === 'charity' ||
+      campaignId === 'yes_day_2026' ||
+      campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
+      (typeof campaignData.name === 'string' && campaignData.name.toLowerCase().includes('yes day'));
     const targetCampaignIds = new Set<string>([campaignId]);
     if (isYesDay) {
       targetCampaignIds.add('yes_day_2026');
       targetCampaignIds.add('charity');
+      targetCampaignIds.add('aUqhDhT3vKWfkPgSAVzf');
       targetCampaignIds.add('YES Day Walk for Autism 2026');
       if (campaignData.name) targetCampaignIds.add(campaignData.name);
     }

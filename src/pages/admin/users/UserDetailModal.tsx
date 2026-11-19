@@ -49,6 +49,7 @@ const AVAILABLE_COSMETICS = [
   { id: 'banner_xenon', name: 'Xenon Terminal Banner', category: 'banner', key: 'XenonTerminalBanner' },
   { id: 'banner_pinktober', name: 'Pinktober', category: 'banner', key: 'PinktoberBanner' },
   { id: 'banner_task_force_camo', name: 'Task Force Camo', category: 'banner', key: 'TaskForceCamoBanner' },
+  { id: 'banner_vice_city', name: 'Vice Neon', category: 'banner', key: 'ViceCityBanner' },
 
   // Avatar Rings
   { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },

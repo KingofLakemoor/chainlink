@@ -355,7 +355,7 @@ export default function PickEmCampaignDetail() {
 
           const existingMatchup = matchups.find(ex => ex.id === pickemMatchupId);
           let metadataToSave = m.metadata ? { ...m.metadata } : null;
-          const isYesDay = campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026';
+          const isYesDay = !!(campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaign.id === 'charity' || campaign.id === 'yes_day_2026' || campaign.id === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
           let finalType = isYesDay
             ? "STANDARD"
             : (campaign.defaultMatchType === "BOTH" ? ((metadataToSave?.spread !== undefined && metadataToSave?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"));
@@ -463,7 +463,7 @@ export default function PickEmCampaignDetail() {
   };
 
   const handleTypeChange = async (matchupId: string, newType: string, manualOverride: boolean = true) => {
-    const isYesDay = campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026';
+    const isYesDay = !!(campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026' || campaign?.id === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign?.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
     if (isYesDay) {
       alert("YES Day Walk for Autism 2026 is strictly Moneyline (STANDARD) picks.");
       return;
@@ -487,7 +487,7 @@ export default function PickEmCampaignDetail() {
   };
 
   const handleSetAutoType = async (matchupId: string) => {
-    const isYesDay = campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026';
+    const isYesDay = !!(campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026' || campaign?.id === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign?.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
     if (isYesDay) {
       return;
     }
@@ -517,7 +517,7 @@ export default function PickEmCampaignDetail() {
   };
 
   const handleSetAllToSpread = async () => {
-    const isYesDay = campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026';
+    const isYesDay = !!(campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026' || campaign?.id === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign?.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
     if (isYesDay) {
       alert("YES Day Walk for Autism 2026 is strictly Moneyline (STANDARD) picks.");
       return;
@@ -1115,7 +1115,7 @@ export default function PickEmCampaignDetail() {
                       })()}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {(campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026') ? (
+                      {(campaign?.isCharity || campaign?.name === 'YES Day Walk for Autism 2026' || campaign?.id === 'charity' || campaign?.id === 'yes_day_2026' || campaign?.id === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign?.name === 'string' && campaign.name.toLowerCase().includes('yes day'))) ? (
                         <span className="px-2 py-1 text-xs rounded-md font-bold bg-zinc-800 text-zinc-500 border border-zinc-700">
                           STD
                         </span>

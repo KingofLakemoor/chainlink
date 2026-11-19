@@ -1202,6 +1202,16 @@ export async function syncLeagueSchedules(
         const uniqueGameIds = Array.from(new Set(matchupsToSyncToPickem.map(m => m.gameId))).filter(Boolean);
         const matchupMap = new Map(matchupsToSyncToPickem.map(m => [m.gameId, m]));
 
+        const campaignMap = new Map<string, any>();
+        try {
+          const campSnaps = await adminDb.collection('pickemCampaigns').get();
+          campSnaps.docs.forEach((cDoc: any) => {
+            campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
+          });
+        } catch (campErr) {
+          console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+        }
+
         let pickemBatch = adminDb.batch();
         let pickemOpCount = 0;
 
@@ -1218,13 +1228,21 @@ export async function syncLeagueSchedules(
               const matchup = matchupMap.get(pData.gameId) || matchupMap.get(String(pData.gameId)) || matchupMap.get(Number(pData.gameId));
               if (!matchup) continue;
 
+              const camp = pData.campaignId ? campaignMap.get(pData.campaignId) : null;
+              const campName = pData.campaignName || camp?.name || '';
+
               // Sync standard matchup score and status into the pickem matchup
-              const isYesDay = pData.isCharity ||
-                               pData.campaignId === 'yes_day_2026' ||
-                               pData.campaignId === 'charity' ||
-                               pData.campaignName === 'YES Day Walk for Autism 2026' ||
-                               (typeof pData.campaignName === 'string' && pData.campaignName.toLowerCase().includes('yes day'));
+              const isYesDay = !!(
+                pData.isCharity ||
+                camp?.isCharity ||
+                pData.campaignId === 'yes_day_2026' ||
+                pData.campaignId === 'charity' ||
+                pData.campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
+                campName === 'YES Day Walk for Autism 2026' ||
+                (typeof campName === 'string' && campName.toLowerCase().includes('yes day'))
+              );
               const isManualOverride = !isYesDay && (pData.manualTypeOverride === true || pData.isManualOverride === true);
+              const campaignForcesStandard = camp?.defaultMatchType === 'STANDARD';
 
               const updateData: any = {
                 status: matchup.status,
@@ -1247,6 +1265,10 @@ export async function syncLeagueSchedules(
               if (isYesDay) {
                 if (pData.type !== 'STANDARD') {
                   updateData.type = 'STANDARD';
+                  needsUpdate = true;
+                }
+                if (pData.manualTypeOverride) {
+                  updateData.manualTypeOverride = false;
                   needsUpdate = true;
                 }
                 const expectedTitle = baseTitle.replace(/ - ATS$/, '');
@@ -1277,7 +1299,7 @@ export async function syncLeagueSchedules(
                   }
                 }
               } else {
-                if (pData.type === 'STANDARD' && matchup.type === 'SPREAD') {
+                if (pData.type === 'STANDARD' && matchup.type === 'SPREAD' && !campaignForcesStandard) {
                   updateData.type = 'SPREAD';
                   updateData['metadata.spread'] = matchup.metadata?.spread || null;
                   updateData.title = baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`;
@@ -1297,8 +1319,9 @@ export async function syncLeagueSchedules(
                     needsUpdate = true;
                   }
                 } else {
-                  if (pData.title !== baseTitle) {
-                    updateData.title = baseTitle;
+                  const expectedTitle = baseTitle.replace(/ - ATS$/, '');
+                  if (pData.title !== expectedTitle) {
+                    updateData.title = expectedTitle;
                     needsUpdate = true;
                   }
                 }
@@ -1316,9 +1339,19 @@ export async function syncLeagueSchedules(
               }
 
               if (updateData.status === 'STATUS_FINAL' || updateData.status === 'STATUS_POSTPONED') {
-                if (needsUpdate) {
+                const effectiveType = updateData.type || pData.type || 'STANDARD';
+                const effectiveTitle = updateData.title || pData.title || '';
+                const needsGrading =
+                  needsUpdate ||
+                  !pData.winnerId ||
+                  !pData.isGraded ||
+                  (isYesDay && pData.type !== 'STANDARD');
+
+                if (needsGrading) {
                   pickemMatchupsToGrade.push({
                     ...pData,
+                    type: effectiveType,
+                    title: effectiveTitle,
                     status: matchup.status,
                     statusDesc: matchup.statusDesc,
                     homeTeam: { ...(pData.homeTeam || {}), score: matchup.homeTeam?.score ?? 0 },
@@ -1326,12 +1359,12 @@ export async function syncLeagueSchedules(
                     id: doc.id
                   });
                 } else {
-                  // If status/score didn't change but game is final, check for pending picks to retry
+                  // If status/score didn't change and matchup already graded, check for pending picks to retry
                   const checkTargetIds = new Set<string>();
                   if (doc.id) checkTargetIds.add(String(doc.id));
                   if (pData.gameId) checkTargetIds.add(String(pData.gameId));
                   if (isYesDay) {
-                    const aliases = Array.from(new Set(['yes_day_2026', 'charity', 'YES Day Walk for Autism 2026', pData.campaignId, pData.campaignName])).filter(Boolean);
+                    const aliases = Array.from(new Set(['yes_day_2026', 'charity', 'aUqhDhT3vKWfkPgSAVzf', 'YES Day Walk for Autism 2026', pData.campaignId, pData.campaignName])).filter(Boolean);
                     aliases.forEach(cid => {
                       if (pData.gameId) checkTargetIds.add(`${cid}_${pData.week || 1}_${pData.gameId}`);
                       if (doc.id) checkTargetIds.add(`${cid}_${doc.id}`);
@@ -1349,6 +1382,8 @@ export async function syncLeagueSchedules(
                     if (!pendingPicksSnap.empty) {
                       pickemMatchupsToGrade.push({
                         ...pData,
+                        type: effectiveType,
+                        title: effectiveTitle,
                         status: matchup.status,
                         statusDesc: matchup.statusDesc,
                         homeTeam: { ...(pData.homeTeam || {}), score: matchup.homeTeam?.score ?? 0 },

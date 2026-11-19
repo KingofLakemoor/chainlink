@@ -1134,10 +1134,12 @@ export default function PickEmPage() {
   if (loading) return <div className="p-8 text-center text-zinc-500">Loading Pick'em...</div>;
 
   const theme = selectedCampaign?.theme || {};
-  const isYesDayCampaign = selectedCampaign?.isCharity ||
+  const isYesDayCampaign = !!(selectedCampaign?.isCharity ||
     selectedCampaign?.name === 'YES Day Walk for Autism 2026' ||
     selectedCampaign?.id === 'charity' ||
-    selectedCampaign?.id === 'yes_day_2026';
+    selectedCampaign?.id === 'yes_day_2026' ||
+    selectedCampaign?.id === 'aUqhDhT3vKWfkPgSAVzf' ||
+    (typeof selectedCampaign?.name === 'string' && selectedCampaign.name.toLowerCase().includes('yes day')));
   const primaryColor = isYesDayCampaign
     ? (theme.primaryColor && theme.primaryColor !== "#3b82f6" && theme.primaryColor !== "#22c55e" ? theme.primaryColor : "#a855f7")
     : (theme.primaryColor || "#22c55e");
@@ -1168,7 +1170,7 @@ export default function PickEmPage() {
         </h1>
         <p className="text-zinc-400 text-lg mb-4">{subtitle}</p>
         
-        {selectedCampaign?.name !== 'YES Day Walk for Autism 2026' && (selectedCampaign?.defaultMatchType !== 'STANDARD' || matchups.some(m => m.type === 'SPREAD')) && (
+        {!isYesDayCampaign && (selectedCampaign?.defaultMatchType !== 'STANDARD' || matchups.some(m => m.type === 'SPREAD')) && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex gap-3 text-amber-200 text-sm max-w-3xl mt-6">
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
@@ -1342,7 +1344,7 @@ export default function PickEmPage() {
                   pick?.confidence
                 );
 
-                const isYesDay = selectedCampaign?.name === 'YES Day Walk for Autism 2026';
+                const isYesDay = isYesDayCampaign;
                 const isSpread = !isYesDay && m.type === 'SPREAD' && m.metadata?.spread !== undefined;
                 const spread = m.metadata?.spread || 0;
 
@@ -1548,14 +1550,12 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
           <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden">
           {/* Prize Pool Summary Banner */}
           {(() => {
-            const isYesDayCampaign = selectedCampaign?.isCharity ||
-              selectedCampaign?.id === 'charity' ||
-              selectedCampaign?.name === 'YES Day Walk for Autism 2026';
+            const isYesDayPrizePool = isYesDayCampaign;
 
             const entryFee = selectedCampaign?.entryFee || 0;
             const totalEntries = leaderboardData.length;
 
-            if (isYesDayCampaign) {
+            if (isYesDayPrizePool) {
               const potAmount = charityProgress ? charityProgress.pot : 0;
               const formattedPot = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(potAmount);
 

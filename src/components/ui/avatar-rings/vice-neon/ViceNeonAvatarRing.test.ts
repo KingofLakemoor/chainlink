@@ -20,7 +20,7 @@ describe('ViceNeonAvatarRing & Cosmetics Integration', () => {
       id: 'ring_vice_neon',
       name: 'Vice Neon Ring',
       description: 'Pulsing retro twilight avatar ring radiating electric magenta, cyan neon arcs, and golden sunset bloom.',
-      cost: 500,
+      cost: 800,
       type: 'AVATAR_RING',
       active: true,
       forSale: true,
@@ -31,7 +31,7 @@ describe('ViceNeonAvatarRing & Cosmetics Integration', () => {
 
     expect(ringItem.id).toBe('ring_vice_neon');
     expect(ringItem.name).toBe('Vice Neon Ring');
-    expect(ringItem.cost).toBe(500);
+    expect(ringItem.cost).toBe(800);
     expect(ringItem.type).toBe('AVATAR_RING');
     expect(AvatarRingMap[ringItem.image]).toBeDefined();
     expect(AvatarRingMap[ringItem.id]).toBeDefined();

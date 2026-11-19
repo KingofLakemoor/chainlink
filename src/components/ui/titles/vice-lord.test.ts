@@ -19,7 +19,7 @@ describe('ViceLordTitle & Cosmetics Integration', () => {
       id: 'title_vice_lord',
       name: 'Vice Lord',
       description: 'Sun-drenched retro title bathed in electric flamingo pink, chrome sunset gold, and twilight cyan.',
-      cost: 250,
+      cost: 800,
       type: 'TITLE',
       active: true,
       forSale: true,
@@ -30,7 +30,7 @@ describe('ViceLordTitle & Cosmetics Integration', () => {
 
     expect(titleItem.id).toBe('title_vice_lord');
     expect(titleItem.name).toBe('Vice Lord');
-    expect(titleItem.cost).toBe(250);
+    expect(titleItem.cost).toBe(800);
     expect(titleItem.type).toBe('TITLE');
     expect(TitleMap[titleItem.image]).toBeDefined();
     expect(TitleMap[titleItem.id]).toBeDefined();

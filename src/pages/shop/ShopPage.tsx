@@ -48,8 +48,12 @@ export default function ShopPage() {
           { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' },
           { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' },
           { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' },
+          { id: 'banner_midway_charge', name: 'The Midway Charge', description: 'Chicago-inspired banner featuring deep midnight navy waters, roaring burnt-orange seismic claw energy, frosty Lake Michigan wind drifts, and a forged steel bear-claw emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'MidwayChargeBanner' },
+          { id: 'banner_crescent_crown', name: 'The Crescent Crown', description: 'New Orleans-inspired banner featuring deep obsidian black velvet, radiant French Quarter old-gold luminescence, drifting brass jazz embers, and a forged golden fleur-de-lis emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrescentCrownBanner' },
           { id: 'banner_task_force_camo', name: 'Task Force Camo', description: 'November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'TaskForceCamoBanner' },
           { id: 'banner_vice_city', name: 'Vice Neon', description: 'Sun-drenched retro coastal banner inspired by neon-lit ocean drives, featuring swaying palm silhouettes, glowing segmented synth-sun, chrome water reflections, and vibrant magenta-to-cyan dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'ViceCityBanner' },
+          { id: 'ring_vice_neon', name: 'Vice Neon Ring', description: 'Pulsing retro twilight avatar ring radiating electric magenta, cyan neon arcs, and golden sunset bloom.', cost: 500, type: 'AVATAR_RING', active: true, forSale: true, featured: true, image: 'ViceNeonAvatarRing', preview: 'ViceNeonAvatarRing' },
+          { id: 'title_vice_lord', name: 'Vice Lord', description: 'Sun-drenched retro title bathed in electric flamingo pink, chrome sunset gold, and twilight cyan.', cost: 250, type: 'TITLE', active: true, forSale: true, featured: true, image: 'ViceLordTitle', preview: 'ViceLordTitle' },
           { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
           { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
         ];
@@ -112,6 +116,46 @@ export default function ShopPage() {
               fetchedItems.push({ id: 'banner_vice_city', name: 'Vice Neon', description: 'Sun-drenched retro coastal banner inspired by neon-lit ocean drives, featuring swaying palm silhouettes, glowing segmented synth-sun, chrome water reflections, and vibrant magenta-to-cyan dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'ViceCityBanner' });
             }
           }
+          if (!fetchedItems.some(i => i.id === 'ring_vice_neon')) {
+            try {
+              const ringSnap = await getDoc(doc(db, 'shopItems', 'ring_vice_neon'));
+              if (!ringSnap.exists()) {
+                fetchedItems.push({ id: 'ring_vice_neon', name: 'Vice Neon Ring', description: 'Pulsing retro twilight avatar ring radiating electric magenta, cyan neon arcs, and golden sunset bloom.', cost: 500, type: 'AVATAR_RING', active: true, forSale: true, featured: true, image: 'ViceNeonAvatarRing', preview: 'ViceNeonAvatarRing' });
+              }
+            } catch {
+              fetchedItems.push({ id: 'ring_vice_neon', name: 'Vice Neon Ring', description: 'Pulsing retro twilight avatar ring radiating electric magenta, cyan neon arcs, and golden sunset bloom.', cost: 500, type: 'AVATAR_RING', active: true, forSale: true, featured: true, image: 'ViceNeonAvatarRing', preview: 'ViceNeonAvatarRing' });
+            }
+          }
+          if (!fetchedItems.some(i => i.id === 'title_vice_lord')) {
+            try {
+              const titleSnap = await getDoc(doc(db, 'shopItems', 'title_vice_lord'));
+              if (!titleSnap.exists()) {
+                fetchedItems.push({ id: 'title_vice_lord', name: 'Vice Lord', description: 'Sun-drenched retro title bathed in electric flamingo pink, chrome sunset gold, and twilight cyan.', cost: 250, type: 'TITLE', active: true, forSale: true, featured: true, image: 'ViceLordTitle', preview: 'ViceLordTitle' });
+              }
+            } catch {
+              fetchedItems.push({ id: 'title_vice_lord', name: 'Vice Lord', description: 'Sun-drenched retro title bathed in electric flamingo pink, chrome sunset gold, and twilight cyan.', cost: 250, type: 'TITLE', active: true, forSale: true, featured: true, image: 'ViceLordTitle', preview: 'ViceLordTitle' });
+            }
+          }
+          if (!fetchedItems.some(i => i.id === 'banner_midway_charge')) {
+            try {
+              const midwaySnap = await getDoc(doc(db, 'shopItems', 'banner_midway_charge'));
+              if (!midwaySnap.exists()) {
+                fetchedItems.push({ id: 'banner_midway_charge', name: 'The Midway Charge', description: 'Chicago-inspired banner featuring deep midnight navy waters, roaring burnt-orange seismic claw energy, frosty Lake Michigan wind drifts, and a forged steel bear-claw emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'MidwayChargeBanner' });
+              }
+            } catch {
+              fetchedItems.push({ id: 'banner_midway_charge', name: 'The Midway Charge', description: 'Chicago-inspired banner featuring deep midnight navy waters, roaring burnt-orange seismic claw energy, frosty Lake Michigan wind drifts, and a forged steel bear-claw emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'MidwayChargeBanner' });
+            }
+          }
+          if (!fetchedItems.some(i => i.id === 'banner_crescent_crown')) {
+            try {
+              const crescentSnap = await getDoc(doc(db, 'shopItems', 'banner_crescent_crown'));
+              if (!crescentSnap.exists()) {
+                fetchedItems.push({ id: 'banner_crescent_crown', name: 'The Crescent Crown', description: 'New Orleans-inspired banner featuring deep obsidian black velvet, radiant French Quarter old-gold luminescence, drifting brass jazz embers, and a forged golden fleur-de-lis emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrescentCrownBanner' });
+              }
+            } catch {
+              fetchedItems.push({ id: 'banner_crescent_crown', name: 'The Crescent Crown', description: 'New Orleans-inspired banner featuring deep obsidian black velvet, radiant French Quarter old-gold luminescence, drifting brass jazz embers, and a forged golden fleur-de-lis emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrescentCrownBanner' });
+            }
+          }
         }
         setItems(fetchedItems);
       } catch (e) {
@@ -129,8 +173,12 @@ export default function ShopPage() {
             { id: 'banner_crimson_kingdom', name: 'The Crimson Kingdom', description: 'A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrimsonKingdomBanner' },
             { id: 'banner_seismic_strike', name: 'The Seismic Strike', description: 'San Francisco inspired banner with glowing international orange fault line pulses through deep ocean fog.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'SeismicStrikeBanner' },
             { id: 'banner_golden_spiral', name: 'The Golden Spiral', description: 'Los Angeles inspired banner featuring a radiant sunset golden spiral pulsing against deep purple pacific dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'GoldenSpiralBanner' },
+            { id: 'banner_midway_charge', name: 'The Midway Charge', description: 'Chicago-inspired banner featuring deep midnight navy waters, roaring burnt-orange seismic claw energy, frosty Lake Michigan wind drifts, and a forged steel bear-claw emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'MidwayChargeBanner' },
+            { id: 'banner_crescent_crown', name: 'The Crescent Crown', description: 'New Orleans-inspired banner featuring deep obsidian black velvet, radiant French Quarter old-gold luminescence, drifting brass jazz embers, and a forged golden fleur-de-lis emblem.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, image: 'CrescentCrownBanner' },
             { id: 'banner_task_force_camo', name: 'Task Force Camo', description: 'November tactical banner inspired by classic action heroes, featuring dynamic woodland camo, brushed-steel star dog-tag emblem, patriotic stripe, and radar sweep.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'TaskForceCamoBanner' },
             { id: 'banner_vice_city', name: 'Vice Neon', description: 'Sun-drenched retro coastal banner inspired by neon-lit ocean drives, featuring swaying palm silhouettes, glowing segmented synth-sun, chrome water reflections, and vibrant magenta-to-cyan dusk.', cost: 250, type: 'PROFILE_BANNER', active: true, forSale: true, featured: true, image: 'ViceCityBanner' },
+            { id: 'ring_vice_neon', name: 'Vice Neon Ring', description: 'Pulsing retro twilight avatar ring radiating electric magenta, cyan neon arcs, and golden sunset bloom.', cost: 500, type: 'AVATAR_RING', active: true, forSale: true, featured: true, image: 'ViceNeonAvatarRing', preview: 'ViceNeonAvatarRing' },
+            { id: 'title_vice_lord', name: 'Vice Lord', description: 'Sun-drenched retro title bathed in electric flamingo pink, chrome sunset gold, and twilight cyan.', cost: 250, type: 'TITLE', active: true, forSale: true, featured: true, image: 'ViceLordTitle', preview: 'ViceLordTitle' },
             { id: 'merch_level_one_tee', name: 'ChainLink Level One Tee', description: 'The official ChainLink Level One Tee.', cost: 1000, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/tee banner.png' },
             { id: 'merch_trucker_hat', name: 'ChainLink Trucker Hat', description: 'The official ChainLink Trucker Hat.', cost: 850, type: 'MERCH', active: true, forSale: true, image: 'gs://chainlink-2-72590.firebasestorage.app/trucker banner.png' },
           ]);

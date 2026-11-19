@@ -14,6 +14,7 @@ import { BullBearAvatarRing } from '../components/ui/avatar-rings/bull-bear';
 import { EdgeLedgerAvatarRing } from '../components/ui/avatar-rings/edge-ledger';
 import { BadBeatAvatarRing } from '../components/ui/avatar-rings/bad-beat';
 import { ResponsibleGamblerAvatarRing } from '../components/ui/avatar-rings/responsible-gambler/ResponsibleGamblerAvatarRing';
+import { ViceNeonAvatarRing } from '../components/ui/avatar-rings/vice-neon';
 
 import { InfernoBanner } from '../components/ui/profile-banners/inferno';
 import { AbyssalSwellBanner } from '../components/ui/profile-banners/abyssal-swell/AbyssalSwellBanner';
@@ -45,6 +46,8 @@ import { ResponsibleGamblerBaseBanner, ResponsibleGamblerReadableBanner, Respons
 import { PinktoberBanner } from '../components/ui/profile-banners/pinktober';
 import { TaskForceCamoBanner } from '../components/ui/profile-banners/task-force-camo';
 import { ViceCityBanner } from '../components/ui/profile-banners/vice-city';
+import { MidwayChargeBanner } from '../components/banners/MidwayChargeBanner';
+import { CrescentCrownBanner } from '../components/banners/CrescentCrownBanner';
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerAvatarRing": ResponsibleGamblerAvatarRing,
@@ -62,7 +65,11 @@ export const AvatarRingMap: Record<string, React.FC<any>> = {
   'SignalFloorAvatarRing': SignalFloorAvatarRing,
   'BullBearAvatarRing': BullBearAvatarRing,
   'EdgeLedgerAvatarRing': EdgeLedgerAvatarRing,
-  'BadBeatAvatarRing': BadBeatAvatarRing
+  'BadBeatAvatarRing': BadBeatAvatarRing,
+  'ViceNeonAvatarRing': ViceNeonAvatarRing,
+  'ViceCityAvatarRing': ViceNeonAvatarRing,
+  'ring_vice_neon': ViceNeonAvatarRing,
+  'ring_vice_city': ViceNeonAvatarRing
 };
 
 export const ProfileBannerMap: Record<string, React.FC<any>> = {
@@ -99,5 +106,13 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'TaskForceCamoBanner': TaskForceCamoBanner,
   'ViceCityBanner': ViceCityBanner,
   'ViceNeonBanner': ViceCityBanner,
-  'banner_vice_city': ViceCityBanner
+  'banner_vice_city': ViceCityBanner,
+  'MidwayChargeBanner': MidwayChargeBanner,
+  'MidwayCharge': MidwayChargeBanner,
+  'banner_midway_charge': MidwayChargeBanner,
+  'banner_chicago_bears': MidwayChargeBanner,
+  'CrescentCrownBanner': CrescentCrownBanner,
+  'CrescentCrown': CrescentCrownBanner,
+  'banner_crescent_crown': CrescentCrownBanner,
+  'banner_new_orleans_saints': CrescentCrownBanner
 };

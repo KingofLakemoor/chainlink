@@ -9,6 +9,7 @@ import { SignalFloorTitle } from './signal-floor';
 import { EdgeLedgerTitle } from './edge-ledger';
 import { BadBeatTitle } from './bad-beat';
 import { BetaTesterTitle } from './beta-tester';
+import { ViceLordTitle } from './vice-lord';
 
 export const TitleMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerTitle": ResponsibleGamblerTitle,
@@ -21,4 +22,7 @@ export const TitleMap: Record<string, React.FC<any>> = {
   'SignalFloorTitle': SignalFloorTitle,
   'EdgeLedgerTitle': EdgeLedgerTitle,
   'BadBeatTitle': BadBeatTitle,
+  'ViceLordTitle': ViceLordTitle,
+  'ViceLord': ViceLordTitle,
+  'title_vice_lord': ViceLordTitle,
 };

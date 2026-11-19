@@ -3,6 +3,7 @@ import { auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
 import { ProfileBannerMap, AvatarRingMap } from '../../../lib/cosmetics';
+import { TitleMap } from '../../../components/ui/titles';
 import {
   X, Shield, UserCheck, Link2, Crown, Sparkles, RefreshCw,
   Plus, Trash2, Check, Coins, User, Shirt, Award, Eye
@@ -50,18 +51,22 @@ const AVAILABLE_COSMETICS = [
   { id: 'banner_pinktober', name: 'Pinktober', category: 'banner', key: 'PinktoberBanner' },
   { id: 'banner_task_force_camo', name: 'Task Force Camo', category: 'banner', key: 'TaskForceCamoBanner' },
   { id: 'banner_vice_city', name: 'Vice Neon', category: 'banner', key: 'ViceCityBanner' },
+  { id: 'banner_midway_charge', name: 'The Midway Charge', category: 'banner', key: 'MidwayChargeBanner' },
+  { id: 'banner_crescent_crown', name: 'The Crescent Crown', category: 'banner', key: 'CrescentCrownBanner' },
 
   // Avatar Rings
   { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },
   { id: 'ring_hexagons', name: 'Hexagons Ring', category: 'ring', key: 'Hexagons' },
   { id: 'ring_ocean', name: 'Ocean Ring', category: 'ring', key: 'Ocean' },
   { id: 'ring_opulento', name: 'Opulento Ring', category: 'ring', key: 'OpulentoAvatarRing' },
+  { id: 'ring_vice_neon', name: 'Vice Neon Ring', category: 'ring', key: 'ViceNeonAvatarRing' },
 
   // Titles
   { id: 'title_whale', name: 'High Roller', category: 'title', titleText: 'HIGH ROLLER' },
   { id: 'title_legend', name: 'Gridiron Legend', category: 'title', titleText: 'GRIDIRON LEGEND' },
   { id: 'title_champ', name: 'Weekly Champion', category: 'title', titleText: 'WEEKLY CHAMP' },
   { id: 'title_vip', name: 'ChainLink VIP', category: 'title', titleText: 'CHAINLINK VIP' },
+  { id: 'title_vice_lord', name: 'Vice Lord', category: 'title', titleText: 'VICE LORD', key: 'ViceLordTitle' },
 ];
 
 export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDetailModalProps) {
@@ -650,9 +655,15 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
                         )}
 
                         {item.category === 'title' && (
-                          <span className="px-3 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black tracking-widest font-display">
-                            {item.titleText || item.name}
-                          </span>
+                          (item.key && TitleMap[item.key]) || TitleMap[item.id] ? (
+                            <div className="transform scale-90">
+                              {React.createElement((item.key && TitleMap[item.key]) || TitleMap[item.id], { isStatic: true })}
+                            </div>
+                          ) : (
+                            <span className="px-3 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black tracking-widest font-display">
+                              {item.titleText || item.name}
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

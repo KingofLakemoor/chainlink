@@ -218,6 +218,38 @@
   .animate-psa-fade {
     animation: psa-fade 3.5s ease-in-out forwards;
   }
+
+  @keyframes vice-ring-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .animate-vice-ring-rotate {
+    animation: vice-ring-rotate 18s linear infinite;
+  }
+
+  @keyframes vice-ring-rotate-reverse {
+    0% { transform: rotate(360deg); }
+    100% { transform: rotate(0deg); }
+  }
+  .animate-vice-ring-rotate-reverse {
+    animation: vice-ring-rotate-reverse 24s linear infinite;
+  }
+
+  @keyframes vice-ring-pulse {
+    0%, 100% { opacity: 0.65; transform: scale(1); }
+    50% { opacity: 0.95; transform: scale(1.05); }
+  }
+  .animate-vice-ring-pulse {
+    animation: vice-ring-pulse 4.5s ease-in-out infinite;
+  }
+
+  @keyframes vice-title-glow {
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 42, 133, 0.7)); }
+    50% { filter: drop-shadow(0 0 16px rgba(255, 42, 133, 1)) drop-shadow(0 0 22px rgba(0, 240, 255, 0.6)); }
+  }
+  .animate-vice-title-glow {
+    animation: vice-title-glow 3.8s ease-in-out infinite;
+  }
 }
 
 @theme inline {

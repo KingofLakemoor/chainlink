@@ -129,6 +129,10 @@ const SCRAPER_CONFIG_TTL_MS = 60 * 60 * 1000;
 let cachedPickemCampaigns: { map: Map<string, any>; timestamp: number } | null = null;
 const PICKEM_CAMPAIGNS_TTL_MS = 5 * 60 * 1000;
 
+export function invalidatePickemCampaignsCache() {
+  cachedPickemCampaigns = null;
+}
+
 export async function syncLeagueSchedules(
   league: League,
   scoreboardOnly: boolean = false,

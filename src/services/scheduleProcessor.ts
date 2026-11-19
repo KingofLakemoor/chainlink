@@ -1078,7 +1078,9 @@ export async function syncLeagueSchedules(
           if (scrapedMatchup.status === 'STATUS_FINAL') {
               matchupsToGrade.push({ ...newMatchupData, id: gameId, gameId: gameId });
           }
-          matchupsToSyncToPickem.push({ ...newMatchupData, id: gameId, gameId: gameId });
+          if (scrapedMatchup.status === 'STATUS_FINAL' || pickemMatchupIds.has(gameId)) {
+            matchupsToSyncToPickem.push({ ...newMatchupData, id: gameId, gameId: gameId });
+          }
         }
 
         if (opCount >= 500) {

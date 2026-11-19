@@ -253,4 +253,62 @@ describe('pickemGrader - YES Day Moneyline Enforcement', () => {
     await gradeSinglePickemMatchup(matchupManualSpread);
     expect(matchupUpdates[0].data.winnerId).toBe('15');
   });
+
+  it('strictly grades YES Day as straight moneyline when identified solely by document ID prefix', async () => {
+    // Game where home team wins 21-20, but spread is -3.5.
+    // If graded ATS: 21 - 3.5 = 17.5 < 20 (away covers).
+    // If straight moneyline: 21 > 20 (home wins straight up).
+    const matchup = {
+      id: 'yes_day_2026_12_401873111',
+      campaignId: 'unknown_raw_id_123',
+      week: 12,
+      gameId: '401873111',
+      title: 'Green Bay Packers @ Detroit Lions - ATS',
+      type: 'SPREAD',
+      status: 'STATUS_FINAL',
+      homeTeam: { id: 'DET', name: 'Detroit Lions', score: 21 },
+      awayTeam: { id: 'GB', name: 'Green Bay Packers', score: 20 },
+      metadata: { spread: -3.5 },
+    };
+
+    const { mockDb, matchupUpdates, pickUpdates } = createMockDb({
+      campaignDocs: {}, // Campaign lookup yields nothing
+      picks: [
+        {
+          id: 'pick_lions',
+          data: {
+            matchupId: 'yes_day_2026_12_401873111',
+            week: 12,
+            pick: { teamId: 'DET' },
+            status: 'PENDING',
+          },
+        },
+        {
+          id: 'pick_packers',
+          data: {
+            matchupId: 'yes_day_2026_12_401873111',
+            week: 12,
+            pick: { teamId: 'GB' },
+            status: 'PENDING',
+          },
+        },
+      ],
+    });
+
+    setAdminDbMock(mockDb);
+    await gradeSinglePickemMatchup(matchup);
+
+    // Straight-up winner is DET ('DET')
+    expect(matchupUpdates[0].data.winnerId).toBe('DET');
+    expect(matchupUpdates[0].data.type).toBe('STANDARD');
+    expect(matchupUpdates[0].data.title).toBe('Green Bay Packers @ Detroit Lions');
+
+    const lionsPick = pickUpdates.find((p) => p.id === 'pick_lions');
+    const packersPick = pickUpdates.find((p) => p.id === 'pick_packers');
+    expect(lionsPick?.data.status).toBe('WIN');
+    expect(lionsPick?.data.pointsEarned).toBe(1);
+    expect(packersPick?.data.status).toBe('LOSS');
+    expect(packersPick?.data.pointsEarned).toBe(0);
+  });
 });
+

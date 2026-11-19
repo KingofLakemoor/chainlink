@@ -1268,16 +1268,31 @@ export async function syncLeagueSchedules(
 
               const camp = pData.campaignId ? campaignMap.get(pData.campaignId) : null;
               const campName = pData.campaignName || camp?.name || '';
+              const docIdStr = String(doc.id || '').toLowerCase();
+              const pDataCampIdStr = String(pData.campaignId || '').toLowerCase();
+              const pDataMetadataCampIdStr = String(pData.metadata?.campaignId || '').toLowerCase();
+              const campNameStr = typeof campName === 'string' ? campName.toLowerCase() : '';
 
               // Sync standard matchup score and status into the pickem matchup
               const isYesDay = !!(
                 pData.isCharity ||
+                pData.metadata?.isCharity ||
                 camp?.isCharity ||
                 pData.campaignId === 'yes_day_2026' ||
                 pData.campaignId === 'charity' ||
                 pData.campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
+                pDataCampIdStr === 'yes_day_2026' ||
+                pDataCampIdStr === 'charity' ||
+                pDataCampIdStr === 'auqhdht3vkwfkpgsavzf' ||
+                pDataMetadataCampIdStr === 'yes_day_2026' ||
+                pDataMetadataCampIdStr === 'charity' ||
+                pDataMetadataCampIdStr === 'auqhdht3vkwfkpgsavzf' ||
                 campName === 'YES Day Walk for Autism 2026' ||
-                (typeof campName === 'string' && campName.toLowerCase().includes('yes day'))
+                campNameStr.includes('yes day') ||
+                campNameStr.includes('walk for autism') ||
+                docIdStr.startsWith('yes_day') ||
+                docIdStr.startsWith('charity') ||
+                docIdStr.includes('auqhdht3vkwfkpgsavzf')
               );
               const isManualOverride = !isYesDay && (pData.manualTypeOverride === true || pData.isManualOverride === true);
               const campaignForcesStandard = camp?.defaultMatchType === 'STANDARD';

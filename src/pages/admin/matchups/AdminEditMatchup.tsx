@@ -3,7 +3,7 @@ import { collection, getDocs, doc, setDoc, query, where, updateDoc, documentId }
 import { db, auth } from "../../../lib/firebase";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
-import { Edit, Shield, Lock } from "lucide-react";
+import { Edit, Shield, Lock, RotateCcw } from "lucide-react";
 import { FirebaseImage } from "../../../components/ui/FirebaseImage";
 
 export function AdminEditMatchup() {
@@ -264,7 +264,17 @@ export function AdminEditMatchup() {
             <h2 className="text-2xl font-bold text-white mb-1">Edit Matchup</h2>
             <p className="text-zinc-400 text-sm">{matchup.title} - {matchup.league}</p>
         </div>
-        <Button onClick={() => navigate('/admin/matchups')} variant="outline">Back to Matchups</Button>
+        <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleRegrade}
+              className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 font-bold px-4 py-2 rounded-lg text-sm transition-colors shadow-lg flex items-center gap-2"
+              title="Recalculate picks and chains for this matchup"
+            >
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <span>Regrade Picks & Chains</span>
+            </button>
+            <Button onClick={() => navigate('/admin/matchups')} variant="outline">Back to Matchups</Button>
+        </div>
       </div>
 
       <div className="p-6 space-y-6">

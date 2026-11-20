@@ -3,7 +3,7 @@ import { collection, getDocs, deleteDoc, doc, updateDoc, writeBatch, query, wher
 import { db } from '../../../lib/firebase';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
-import { Trash2, Search, Edit, RefreshCw, Shield } from 'lucide-react';
+import { Trash2, Search, Edit, RefreshCw, Shield, RotateCcw } from 'lucide-react';
 import { scrapeLeagueSchedules } from '../../../services/espnScraper';
 import { useAuth } from '../../../lib/auth-context';
 
@@ -147,6 +147,34 @@ export function AdminMatchups() {
     } catch (e) {
       console.error("Error toggling Link4 excluded status", e);
       alert("Failed to toggle Link4 excluded status");
+    }
+  };
+
+  const handleRegradeMatchup = async (matchup: any) => {
+    const gameId = matchup.gameId || matchup.id;
+    if (!confirm(`Are you sure you want to regrade "${matchup.title}"? This will recalculate picks, wins, losses, links, and chains.`)) {
+      return;
+    }
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/admin/regrade-matchup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ gameId })
+      });
+      const resultData = await res.json();
+      if (resultData.success) {
+        alert(resultData.message || 'Matchup regraded successfully!');
+        fetchData();
+      } else {
+        alert('Regrade failed: ' + (resultData.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('Regrade failed: ' + e.message);
     }
   };
 
@@ -301,8 +329,15 @@ export function AdminMatchups() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link to={`/admin/matchups/${row.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block"><Edit className="w-4 h-4" /></Link>
-                    <button onClick={() => handleDelete(row.id)} className="text-red-500/70 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    <button
+                      onClick={() => handleRegradeMatchup(row)}
+                      className="text-amber-500/70 hover:text-amber-400 mr-3 inline-block"
+                      title="Quick Regrade Picks & Chains"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <Link to={`/admin/matchups/${row.id}`} className="text-zinc-500 hover:text-white mr-3 inline-block" title="Edit Matchup"><Edit className="w-4 h-4" /></Link>
+                    <button onClick={() => handleDelete(row.id)} className="text-red-500/70 hover:text-red-500" title="Delete Matchup"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
               ))}

@@ -89,3 +89,53 @@ export interface IWalletProvider {
   /** Direct debit (for single-step checkout or standalone mock) */
   debit(userId: string, amount: number, reason: string): Promise<{ success: boolean; newBalance?: number; error?: string }>;
 }
+
+/**
+ * Pluggable schedule and matchup provider contract.
+ * Allows custom or external leagues (e.g. Grassroots Scriptless, Darts, Putting)
+ * to be plugged into the schedule sync engine without hardcoding proprietary endpoints.
+ */
+export interface ScrapedMatchup {
+  gameId: string;
+  startTime: number;
+  active: boolean;
+  featured?: boolean;
+  featuredType?: string;
+  title: string;
+  league: string;
+  status: string;
+  statusDesc: string;
+  type: string;
+  homeTeam: {
+    id: string;
+    name: string;
+    shortName?: string;
+    image: string;
+    score: number;
+  };
+  awayTeam: {
+    id: string;
+    name: string;
+    shortName?: string;
+    image: string;
+    score: number;
+  };
+  metadata?: Record<string, any>;
+}
+
+export interface IScheduleProvider {
+  /** The league identifier handled by this provider (e.g., 'SCRIPTLESS') */
+  readonly league: string;
+
+  /** Resolves schedule / scoreboard endpoints for the league */
+  getEndpoints(options: { scoreboardOnly?: boolean; specificDates?: string[] }): string[];
+
+  /** Fetches and parses raw payload into a standardized dictionary or array */
+  fetchScheduleData?(endpoint: string, options: { scoreboardOnly?: boolean }): Promise<any>;
+
+  /** Parses raw schedule data item into a ScrapedMatchup */
+  parseMatchup?(rawItem: any): ScrapedMatchup | null;
+
+  /** Optional direct retrieval bypassing generic fetch */
+  getMatchups?(options: { scoreboardOnly?: boolean; specificDates?: string[] }): Promise<ScrapedMatchup[]>;
+}

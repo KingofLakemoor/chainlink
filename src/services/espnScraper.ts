@@ -1,4 +1,22 @@
-import { ScriptLessPayload } from '../types/scriptless.js';
+import { IScheduleProvider, ScrapedMatchup } from '../types/providers.js';
+import { defaultScriptlessProvider } from '../integrations/club602/scriptlessProvider.js';
+
+// Pluggable schedule provider registry
+const scheduleProviders = new Map<string, IScheduleProvider>([
+  ['SCRIPTLESS', defaultScriptlessProvider],
+]);
+
+export function registerScheduleProvider(provider: IScheduleProvider): void {
+  scheduleProviders.set(provider.league.toUpperCase(), provider);
+}
+
+export function getScheduleProvider(league: string): IScheduleProvider | undefined {
+  return scheduleProviders.get(league.toUpperCase());
+}
+
+export function unregisterScheduleProvider(league: string): void {
+  scheduleProviders.delete(league.toUpperCase());
+}
 
 export const SUPPORTED_LEAGUES = ["NFL", "NBA", "NBASL", "NHL", "MLB", "LLWS", "MLS", "EPL", "MBB", "WBB", "NWSL", "CFB", "CBASE", "ATP", "WTA", "WNBA", "PGA", "FIFA", "FRA", "TUR", "RPL", "CHN", "LMX", "ARG", "BRA", "CRICKET", "SCRIPTLESS"] as const;
 
@@ -119,8 +137,10 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     return dates.map(date => `https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard?dates=${date}`);
   }
 
-  if (league === "SCRIPTLESS") {
-    return ['https://scriptless.club602.com/api/chainlink/matchups'];
+  // Check pluggable schedule provider registry
+  const customProvider = getScheduleProvider(league);
+  if (customProvider) {
+    return customProvider.getEndpoints({ scoreboardOnly, specificDates });
   }
 
   // If scoreboardOnly is true, use scoreboard endpoints to save bandwidth
@@ -233,18 +253,18 @@ export async function fetchScheduleData(endpoint: string, league: League, isScor
     },
     signal: AbortSignal.timeout(25000)
   };
+
+  const customProvider = getScheduleProvider(league);
+  if (customProvider?.fetchScheduleData) {
+    return await customProvider.fetchScheduleData(endpoint, { scoreboardOnly: isScoreboardOnly });
+  }
+
   const response = await fetch(endpoint, fetchOptions);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} ${response.statusText}`);
   }
   const data = await response.json();
   const scheduleData: Record<string, any> = {};
-
-  if (league === "SCRIPTLESS") {
-    const scriptlessData = data.matchups || [];
-    scheduleData["scriptless"] = { games: scriptlessData };
-    return scheduleData;
-  }
 
   if (league === "PGA") {
     // For PGA, we merge the scoreboard API data (which contains hole-by-hole stats) into the leaderboard data
@@ -381,40 +401,16 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
         if (!games) continue;
 
         for (const game of games) {
-          const gameId = String(game.id || (game as ScriptLessPayload).eventId);
+          const gameId = String(game.id || game.eventId || '');
 
-          if (league === "SCRIPTLESS") {
-            const sm = game as ScriptLessPayload;
-
-            let finalStatus = sm.status || "STATUS_SCHEDULED";
-            let finalStatusDesc = finalStatus === "STATUS_SCHEDULED" ? "Upcoming" : (finalStatus === "STATUS_FINAL" ? "Final" : "In Progress");
-
-            parsedMatchups.push({
-               gameId: sm.eventId,
-               startTime: new Date(sm.startTime).getTime(),
-               active: finalStatus === "STATUS_SCHEDULED",
-               featured: true,
-               featuredType: "ScriptLess",
-               title: sm.name,
-               league: sm.league,
-               status: finalStatus,
-               statusDesc: finalStatusDesc,
-               type: "SCORE",
-               homeTeam: {
-                   id: sm.homeTeam.name,
-                   name: sm.homeTeam.name,
-                   image: sm.homeTeam.logo || "/images/scriptless.png",
-                   score: sm.homeTeam.score || 0
-               },
-               awayTeam: {
-                   id: sm.awayTeam.name,
-                   name: sm.awayTeam.name,
-                   image: sm.awayTeam.logo || "/images/scriptless.png",
-                   score: sm.awayTeam.score || 0
-               },
-               metadata: sm.metadata || {}
-            });
-            continue;
+          // Check custom schedule provider parsing
+          const customProvider = getScheduleProvider(league);
+          if (customProvider?.parseMatchup) {
+            const parsed = customProvider.parseMatchup(game);
+            if (parsed) {
+              parsedMatchups.push(parsed);
+              continue;
+            }
           }
 
           if (league === "ATP" || league === "WTA") {

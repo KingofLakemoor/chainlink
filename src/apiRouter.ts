@@ -1297,6 +1297,11 @@ apiRouter.post("/admin/users/rebuild-chain", validateAdmin, async (req, res) => 
       updatedAt: Date.now()
     });
 
+    chainsCache = null;
+    chainsCacheTime = 0;
+    publicUsersCache = null;
+    publicUsersCacheTime = 0;
+
     res.json({ success: true, updatedChain, scope, picksCount: picks.length });
   } catch (e: any) {
     console.error("Rebuild chain error:", e);
@@ -1336,6 +1341,11 @@ apiRouter.post("/admin/users/update-chain", validateAdmin, async (req, res) => {
         updatedAt: Date.now()
       });
     }
+
+    chainsCache = null;
+    chainsCacheTime = 0;
+    publicUsersCache = null;
+    publicUsersCacheTime = 0;
 
     res.json({ success: true, updatedChain: { ...existingChain, ...updatePayload } });
   } catch (e: any) {

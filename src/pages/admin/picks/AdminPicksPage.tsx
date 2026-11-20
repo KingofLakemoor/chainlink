@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, where, documentId, addDoc, limit, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { Search, Trash2, Edit, X, Save } from 'lucide-react';
+import { Search, Trash2, Edit, X, Save, ExternalLink } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 
 export default function AdminPicksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -242,6 +242,15 @@ export default function AdminPicksPage() {
                        </span>
                     </td>
                     <td className="px-4 py-3 text-right">
+                      {row.matchupId && (
+                        <Link
+                          to={`/admin/matchups/${row.matchupId}`}
+                          className="text-zinc-500 hover:text-cyan-400 mr-3 inline-block"
+                          title="Open Matchup (Edit / Regrade)"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
+                      )}
                       <button onClick={() => setEditingPick(row)} className="text-zinc-500 hover:text-white mr-3 inline-block">
                         <Edit className="w-4 h-4" />
                       </button>

@@ -16,13 +16,16 @@ export function AdminMatchups() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
   const [overrideFilter, setOverrideFilter] = useState('All');
+  const [showFinal, setShowFinal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'matchups'), where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])));
+      const statusesToFetch = showFinal 
+        ? ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED', 'STATUS_FINAL', 'STATUS_CANCELED']
+        : ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'];
+      const snap = await getDocs(query(collection(db, 'matchups'), where('status', 'in', statusesToFetch)));
       const matchupIds = snap.docs.map(d => d.id);
       const pickCounts: Record<string, number> = {};
 
@@ -61,7 +64,7 @@ export function AdminMatchups() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [showFinal]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -152,7 +155,7 @@ export function AdminMatchups() {
   const statuses = Array.from(new Set(data.map(m => m.status))).filter(Boolean);
 
   const filteredData = data.filter(row => {
-    if (row.abandoned || row.status === 'STATUS_FINAL' || row.status === 'STATUS_POSTPONED' || row.status === 'STATUS_CANCELED') return false;
+    if (!showFinal && (row.abandoned || row.status === 'STATUS_FINAL' || row.status === 'STATUS_POSTPONED' || row.status === 'STATUS_CANCELED')) return false;
     if (leagueFilter !== 'All' && row.league !== leagueFilter) return false;
     if (statusFilter !== 'All' && row.status !== statusFilter) return false;
     if (activeFilter !== 'All') {
@@ -186,6 +189,15 @@ export function AdminMatchups() {
             <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? "Syncing..." : "Sync ESPN APIs"}
           </Button>
+          <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg select-none hover:border-zinc-700">
+            <input
+              type="checkbox"
+              checked={showFinal}
+              onChange={(e) => setShowFinal(e.target.checked)}
+              className="rounded bg-zinc-800 border-zinc-700 text-cyan-500 focus:ring-cyan-500/20"
+            />
+            <span>Include Final</span>
+          </label>
           <select value={leagueFilter} onChange={(e) => setLeagueFilter(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-zinc-700 text-zinc-300">
             <option value="All">All Leagues</option>
             {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET"].map(l => <option key={l} value={l}>{l}</option>)}

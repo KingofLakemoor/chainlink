@@ -6,7 +6,7 @@ import { ProfileBannerMap, AvatarRingMap } from '../../../lib/cosmetics';
 import { TitleMap } from '../../../components/ui/titles';
 import {
   X, Shield, UserCheck, Link2, Crown, Sparkles, RefreshCw,
-  Plus, Trash2, Check, Coins, User, Shirt, Award, Eye
+  Plus, Trash2, Check, Coins, User, Shirt, Award, Eye, Flame, RotateCcw
 } from 'lucide-react';
 
 export interface UserRecord {
@@ -37,7 +37,7 @@ interface UserDetailModalProps {
   onUserUpdated: (updatedUser: UserRecord) => void;
 }
 
-type TabType = 'OVERVIEW' | 'LINKS' | 'PREMIUM' | 'COSMETICS';
+type TabType = 'OVERVIEW' | 'CHAIN' | 'LINKS' | 'PREMIUM' | 'COSMETICS';
 
 // Popular cosmetics inventory catalog for admin assignment
 const AVAILABLE_COSMETICS = [
@@ -91,8 +91,39 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
   const [cosmeticCategory, setCosmeticCategory] = useState<'all' | 'banner' | 'ring' | 'title'>('all');
   const [updatingCosmetics, setUpdatingCosmetics] = useState(false);
 
+  // Chain state
+  const [chainData, setChainData] = useState<any | null>(null);
+  const [simulatedChain, setSimulatedChain] = useState<any | null>(null);
+  const [loadingChain, setLoadingChain] = useState(false);
+  const [updatingChain, setUpdatingChain] = useState(false);
+  const [editChainVal, setEditChainVal] = useState<number>(0);
+  const [editBestVal, setEditBestVal] = useState<number>(0);
+  const [editAllTimeBestVal, setEditAllTimeBestVal] = useState<number>(0);
+
   // Feedback banner state
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const fetchChainDetail = async (userId: string) => {
+    setLoadingChain(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/users/chain-detail?targetUserId=${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setChainData(data.currentChain || {});
+        setSimulatedChain(data.simulatedChain || {});
+        setEditChainVal(data.currentChain?.chain ?? 0);
+        setEditBestVal(data.currentChain?.best ?? 0);
+        setEditAllTimeBestVal(data.currentChain?.allTimeBest ?? 0);
+      }
+    } catch (e) {
+      console.error("Error loading chain detail:", e);
+    } finally {
+      setLoadingChain(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -103,6 +134,7 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
       setInventory(Array.isArray(user.inventory) ? user.inventory : []);
       setLinkAdjustment(0);
       setFeedback(null);
+      fetchChainDetail(user.id);
     }
   }, [user]);
 
@@ -239,6 +271,66 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
     }
   };
 
+  const handleRebuildChain = async () => {
+    if (!confirm(`Rebuild chain from pick history for @${currentUser.username || currentUser.name}? This will replay all resolved picks chronologically.`)) {
+      return;
+    }
+    setUpdatingChain(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/users/rebuild-chain', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetUserId: currentUser.id })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to rebuild chain');
+
+      setChainData(data.updatedChain);
+      setEditChainVal(data.updatedChain.chain);
+      setEditBestVal(data.updatedChain.best);
+      setEditAllTimeBestVal(data.updatedChain.allTimeBest);
+      showFeedback(`Chain recalculated: Current ${data.updatedChain.chain > 0 ? 'W' + data.updatedChain.chain : data.updatedChain.chain < 0 ? 'L' + Math.abs(data.updatedChain.chain) : '0'}, Best ${data.updatedChain.best}`, 'success');
+      fetchChainDetail(currentUser.id);
+    } catch (e: any) {
+      showFeedback(e.message || 'Error rebuilding chain', 'error');
+    } finally {
+      setUpdatingChain(false);
+    }
+  };
+
+  const handleChainSave = async () => {
+    setUpdatingChain(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/users/update-chain', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetUserId: currentUser.id,
+          chain: editChainVal,
+          best: editBestVal,
+          allTimeBest: editAllTimeBestVal
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to update chain');
+
+      setChainData(data.updatedChain);
+      showFeedback(`Chain updated successfully: ${editChainVal > 0 ? 'W' + editChainVal : editChainVal < 0 ? 'L' + Math.abs(editChainVal) : '0'}`, 'success');
+    } catch (e: any) {
+      showFeedback(e.message || 'Error saving chain', 'error');
+    } finally {
+      setUpdatingChain(false);
+    }
+  };
+
   const formatDate = (val?: number | string) => {
     if (!val) return 'N/A';
     return new Date(val).toLocaleDateString(undefined, {
@@ -327,6 +419,17 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
             }`}
           >
             <User className="w-4 h-4" /> Overview & Role
+          </button>
+
+          <button
+            onClick={() => setActiveTab('CHAIN')}
+            className={`py-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors ${
+              activeTab === 'CHAIN'
+                ? 'border-amber-500 text-amber-400 bg-amber-500/5'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Flame className="w-4 h-4" /> Chain & Streaks
           </button>
 
           <button
@@ -439,7 +542,158 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
             </div>
           )}
 
-          {/* TAB 2: LINKS & BALANCE */}
+          {/* TAB 2: CHAIN & STREAKS */}
+          {activeTab === 'CHAIN' && (
+            <div className="space-y-6">
+              {loadingChain ? (
+                <div className="flex items-center justify-center p-12 text-zinc-400 gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin text-amber-400" />
+                  <span>Loading streak and pick history...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Live Firestore Chain */}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-400 font-medium">Live Active Streak</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-zinc-400">Current DB State</span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-3xl font-mono font-black ${
+                          (chainData?.chain || 0) > 0 ? 'text-emerald-400' : (chainData?.chain || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                        }`}>
+                          {(chainData?.chain || 0) > 0 ? `W${chainData.chain}` : (chainData?.chain || 0) < 0 ? `L${Math.abs(chainData.chain)}` : '0'}
+                        </span>
+                        <span className="text-xs text-zinc-500 font-mono">({chainData?.chain || 0})</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800 text-xs">
+                        <div>
+                          <div className="text-zinc-500">Season Best</div>
+                          <div className="font-mono font-bold text-amber-400">W{chainData?.best || 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500">All-Time Best</div>
+                          <div className="font-mono font-bold text-amber-300">W{chainData?.allTimeBest || 0}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Chronologically Simulated Chain */}
+                    <div className="bg-zinc-900 border border-amber-500/30 rounded-xl p-5 space-y-3 bg-amber-500/[0.02]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-amber-400 font-medium">Simulated from Picks</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Chronological Replay
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-3xl font-mono font-black ${
+                          (simulatedChain?.chain || 0) > 0 ? 'text-emerald-400' : (simulatedChain?.chain || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                        }`}>
+                          {(simulatedChain?.chain || 0) > 0 ? `W${simulatedChain.chain}` : (simulatedChain?.chain || 0) < 0 ? `L${Math.abs(simulatedChain.chain)}` : '0'}
+                        </span>
+                        <span className="text-xs text-zinc-500 font-mono">({simulatedChain?.chain || 0})</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800 text-xs">
+                        <div>
+                          <div className="text-zinc-500">Simulated Best</div>
+                          <div className="font-mono font-bold text-amber-400">W{simulatedChain?.best || 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500">Picks (W / L)</div>
+                          <div className="font-mono font-bold text-zinc-300">{simulatedChain?.wins || 0}W - {simulatedChain?.losses || 0}L</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Auto-Rebuild Button */}
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Flame className="w-4 h-4 text-amber-400" /> Rebuild Chain from Pick History
+                      </h4>
+                      <p className="text-xs text-zinc-400 mt-1">
+                        Re-evaluates every resolved pick chronologically and applies the streak progression directly to this user's live chain and record.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleRebuildChain}
+                      disabled={updatingChain}
+                      className="bg-amber-600 hover:bg-amber-500 text-black font-bold text-xs px-4 py-2 shrink-0"
+                    >
+                      {updatingChain ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                      Rebuild From History
+                    </Button>
+                  </div>
+
+                  {/* Manual Adjustment Form */}
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-purple-400" /> Manual Streak Adjustment
+                    </h4>
+                    <p className="text-xs text-zinc-400">
+                      If needed, you can explicitly set the streak integers (e.g. positive 3 for W3, negative 2 for L2).
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs text-zinc-400 block mb-1 font-medium">
+                          Current Chain (+W / -L)
+                        </label>
+                        <input
+                          type="number"
+                          value={editChainVal}
+                          onChange={(e) => setEditChainVal(parseInt(e.target.value) || 0)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-zinc-700"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-zinc-400 block mb-1 font-medium">
+                          Season Best (Win Streak)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editBestVal}
+                          onChange={(e) => setEditBestVal(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-zinc-700"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-zinc-400 block mb-1 font-medium">
+                          All-Time Best
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editAllTimeBestVal}
+                          onChange={(e) => setEditAllTimeBestVal(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-zinc-700"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        onClick={handleChainSave}
+                        disabled={updatingChain}
+                        className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs px-4 py-2"
+                      >
+                        {updatingChain ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                        Save Streak Values
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: LINKS & BALANCE */}
           {activeTab === 'LINKS' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

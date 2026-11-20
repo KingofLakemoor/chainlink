@@ -1119,6 +1119,166 @@ apiRouter.post("/admin/users/update-role", validateAdmin, async (req, res) => {
   }
 });
 
+apiRouter.get("/admin/users/chain-detail", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId } = req.query;
+    if (!targetUserId || typeof targetUserId !== 'string') {
+      return res.status(400).json({ success: false, error: "Missing targetUserId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const chainRef = adminDb.collection('chains').doc(`${targetUserId}_current`);
+    const chainDoc = await chainRef.get();
+    const chainData = chainDoc.exists ? chainDoc.data() : { chain: 0, best: 0, allTimeBest: 0, wins: 0, losses: 0 };
+
+    // Get user's resolved picks sorted by date
+    const picksSnap = await adminDb.collection('picks')
+      .where('userId', '==', targetUserId)
+      .where('status', 'in', ['WIN', 'LOSS', 'PUSH'])
+      .get();
+
+    const picks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    picks.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
+
+    // Calculate chronological chain
+    let simulatedChain = 0;
+    let simulatedBest = 0;
+    let simulatedWins = 0;
+    let simulatedLosses = 0;
+    for (const p of picks) {
+      if (p.status === 'WIN') {
+        simulatedWins++;
+        simulatedChain = simulatedChain < 0 ? 1 : simulatedChain + 1;
+        if (simulatedChain > simulatedBest) simulatedBest = simulatedChain;
+      } else if (p.status === 'LOSS') {
+        simulatedLosses++;
+        simulatedChain = simulatedChain > 0 ? -1 : (simulatedChain === 0 ? -1 : simulatedChain - 1);
+      }
+    }
+
+    res.json({
+      success: true,
+      currentChain: chainData,
+      simulatedChain: {
+        chain: simulatedChain,
+        best: simulatedBest,
+        wins: simulatedWins,
+        losses: simulatedLosses
+      },
+      picksCount: picks.length
+    });
+  } catch (e: any) {
+    console.error("Fetch chain detail error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/users/rebuild-chain", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, error: "Missing targetUserId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const userRef = adminDb.collection('users').doc(targetUserId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) return res.status(404).json({ success: false, error: "User not found" });
+
+    const chainRef = adminDb.collection('chains').doc(`${targetUserId}_current`);
+    const chainDoc = await chainRef.get();
+    const existingChain = chainDoc.exists ? chainDoc.data()! : { chain: 0, best: 0, allTimeBest: 0 };
+
+    // Fetch user picks sorted chronologically
+    const picksSnap = await adminDb.collection('picks')
+      .where('userId', '==', targetUserId)
+      .where('status', 'in', ['WIN', 'LOSS', 'PUSH'])
+      .get();
+
+    const picks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    picks.sort((a: any, b: any) => (a.createdAt || 0) - (a.createdAt || 0));
+
+    let chain = 0;
+    let best = 0;
+    let wins = 0;
+    let losses = 0;
+    for (const p of picks) {
+      if (p.status === 'WIN') {
+        wins++;
+        chain = chain < 0 ? 1 : chain + 1;
+        if (chain > best) best = chain;
+      } else if (p.status === 'LOSS') {
+        losses++;
+        chain = chain > 0 ? -1 : (chain === 0 ? -1 : chain - 1);
+      }
+    }
+
+    const allTimeBest = Math.max(best, existingChain.allTimeBest || 0, existingChain.best || 0, userDoc.data()?.allTimeBest || 0);
+
+    const updatedChain = {
+      chain,
+      best,
+      allTimeBest,
+      wins,
+      losses,
+      userId: targetUserId,
+      active: true,
+      updatedAt: Date.now()
+    };
+
+    await chainRef.set(updatedChain, { merge: true });
+    await userRef.update({
+      allTimeBest,
+      updatedAt: Date.now()
+    });
+
+    res.json({ success: true, updatedChain });
+  } catch (e: any) {
+    console.error("Rebuild chain error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/admin/users/update-chain", validateAdmin, async (req, res) => {
+  try {
+    const { targetUserId, chain, best, allTimeBest, wins, losses } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, error: "Missing targetUserId" });
+    }
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const chainRef = adminDb.collection('chains').doc(`${targetUserId}_current`);
+    const chainDoc = await chainRef.get();
+    const existingChain = chainDoc.exists ? chainDoc.data()! : { chain: 0, best: 0, allTimeBest: 0 };
+
+    const updatePayload: any = {
+      userId: targetUserId,
+      active: true,
+      updatedAt: Date.now()
+    };
+
+    if (chain !== undefined) updatePayload.chain = Number(chain);
+    if (best !== undefined) updatePayload.best = Number(best);
+    if (allTimeBest !== undefined) updatePayload.allTimeBest = Number(allTimeBest);
+    if (wins !== undefined) updatePayload.wins = Number(wins);
+    if (losses !== undefined) updatePayload.losses = Number(losses);
+
+    await chainRef.set(updatePayload, { merge: true });
+
+    if (allTimeBest !== undefined) {
+      await adminDb.collection('users').doc(targetUserId).update({
+        allTimeBest: Number(allTimeBest),
+        updatedAt: Date.now()
+      });
+    }
+
+    res.json({ success: true, updatedChain: { ...existingChain, ...updatePayload } });
+  } catch (e: any) {
+    console.error("Update chain error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/users/create-test-user", validateAdmin, async (req, res) => {
   try {
     const { username, email, password, role, links, count } = req.body;

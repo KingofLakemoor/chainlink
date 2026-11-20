@@ -1131,41 +1131,89 @@ apiRouter.get("/admin/users/chain-detail", validateAdmin, async (req, res) => {
     const chainDoc = await chainRef.get();
     const chainData = chainDoc.exists ? chainDoc.data() : { chain: 0, best: 0, allTimeBest: 0, wins: 0, losses: 0 };
 
-    // Get user's resolved picks sorted by date
+    // Get user's resolved picks
     const picksSnap = await adminDb.collection('picks')
       .where('userId', '==', targetUserId)
       .where('status', 'in', ['WIN', 'LOSS', 'PUSH'])
       .get();
 
-    const picks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    picks.sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0));
+    const allPicks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Calculate chronological chain
-    let simulatedChain = 0;
-    let simulatedBest = 0;
-    let simulatedWins = 0;
-    let simulatedLosses = 0;
-    for (const p of picks) {
+    // Deterministic chronological sort using createdAt, falling back to updatedAt
+    allPicks.sort((a: any, b: any) => {
+      const timeA = a.createdAt || a.updatedAt || 0;
+      const timeB = b.createdAt || b.updatedAt || 0;
+      return timeA - timeB;
+    });
+
+    // Determine current month boundary (UTC start of current month)
+    const now = new Date();
+    const currentMonthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0);
+
+    // Calculate All-Time streak
+    let allTimeSimChain = 0;
+    let allTimeSimBest = 0;
+    let allTimeSimWins = 0;
+    let allTimeSimLosses = 0;
+    for (const p of allPicks) {
       if (p.status === 'WIN') {
-        simulatedWins++;
-        simulatedChain = simulatedChain < 0 ? 1 : simulatedChain + 1;
-        if (simulatedChain > simulatedBest) simulatedBest = simulatedChain;
+        allTimeSimWins++;
+        allTimeSimChain = allTimeSimChain < 0 ? 1 : allTimeSimChain + 1;
+        if (allTimeSimChain > allTimeSimBest) allTimeSimBest = allTimeSimChain;
       } else if (p.status === 'LOSS') {
-        simulatedLosses++;
-        simulatedChain = simulatedChain > 0 ? -1 : (simulatedChain === 0 ? -1 : simulatedChain - 1);
+        allTimeSimLosses++;
+        allTimeSimChain = allTimeSimChain > 0 ? -1 : (allTimeSimChain === 0 ? -1 : allTimeSimChain - 1);
       }
     }
+
+    // Filter picks for Current Month (since monthly reset)
+    const monthPicks = allPicks.filter((p: any) => {
+      const t = p.createdAt || p.updatedAt || 0;
+      return t >= currentMonthStart;
+    });
+
+    let monthSimChain = 0;
+    let monthSimBest = 0;
+    let monthSimWins = 0;
+    let monthSimLosses = 0;
+    for (const p of monthPicks) {
+      if (p.status === 'WIN') {
+        monthSimWins++;
+        monthSimChain = monthSimChain < 0 ? 1 : monthSimChain + 1;
+        if (monthSimChain > monthSimBest) monthSimBest = monthSimChain;
+      } else if (p.status === 'LOSS') {
+        monthSimLosses++;
+        monthSimChain = monthSimChain > 0 ? -1 : (monthSimChain === 0 ? -1 : monthSimChain - 1);
+      }
+    }
+
+    // Return the last 15 picks so the admin can visually inspect the timeline
+    const recentPicks = allPicks.slice(-15).reverse().map((p: any) => ({
+      id: p.id,
+      matchupId: p.matchupId,
+      pickName: p.pick?.name || p.pick?.id || 'Pick',
+      status: p.status,
+      createdAt: p.createdAt || p.updatedAt || 0
+    }));
 
     res.json({
       success: true,
       currentChain: chainData,
       simulatedChain: {
-        chain: simulatedChain,
-        best: simulatedBest,
-        wins: simulatedWins,
-        losses: simulatedLosses
+        chain: monthSimChain,
+        best: monthSimBest,
+        wins: monthSimWins,
+        losses: monthSimLosses
       },
-      picksCount: picks.length
+      allTimeSimulatedChain: {
+        chain: allTimeSimChain,
+        best: allTimeSimBest,
+        wins: allTimeSimWins,
+        losses: allTimeSimLosses
+      },
+      picksCount: allPicks.length,
+      monthPicksCount: monthPicks.length,
+      recentPicks
     });
   } catch (e: any) {
     console.error("Fetch chain detail error:", e);
@@ -1175,7 +1223,7 @@ apiRouter.get("/admin/users/chain-detail", validateAdmin, async (req, res) => {
 
 apiRouter.post("/admin/users/rebuild-chain", validateAdmin, async (req, res) => {
   try {
-    const { targetUserId } = req.body;
+    const { targetUserId, scope = 'currentMonth' } = req.body;
     if (!targetUserId) {
       return res.status(400).json({ success: false, error: "Missing targetUserId" });
     }
@@ -1189,14 +1237,31 @@ apiRouter.post("/admin/users/rebuild-chain", validateAdmin, async (req, res) => 
     const chainDoc = await chainRef.get();
     const existingChain = chainDoc.exists ? chainDoc.data()! : { chain: 0, best: 0, allTimeBest: 0 };
 
-    // Fetch user picks sorted chronologically
+    // Fetch user picks
     const picksSnap = await adminDb.collection('picks')
       .where('userId', '==', targetUserId)
       .where('status', 'in', ['WIN', 'LOSS', 'PUSH'])
       .get();
 
-    const picks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    picks.sort((a: any, b: any) => (a.createdAt || 0) - (a.createdAt || 0));
+    let picks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Deterministic chronological sort: A to B
+    picks.sort((a: any, b: any) => {
+      const timeA = a.createdAt || a.updatedAt || 0;
+      const timeB = b.createdAt || b.updatedAt || 0;
+      return timeA - timeB;
+    });
+
+    const now = new Date();
+    const currentMonthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0);
+
+    // If scope is currentMonth, filter to picks created/graded this month
+    if (scope === 'currentMonth') {
+      picks = picks.filter((p: any) => {
+        const t = p.createdAt || p.updatedAt || 0;
+        return t >= currentMonthStart;
+      });
+    }
 
     let chain = 0;
     let best = 0;
@@ -1232,7 +1297,7 @@ apiRouter.post("/admin/users/rebuild-chain", validateAdmin, async (req, res) => 
       updatedAt: Date.now()
     });
 
-    res.json({ success: true, updatedChain });
+    res.json({ success: true, updatedChain, scope, picksCount: picks.length });
   } catch (e: any) {
     console.error("Rebuild chain error:", e);
     res.status(500).json({ success: false, error: e.message });

@@ -94,6 +94,8 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
   // Chain state
   const [chainData, setChainData] = useState<any | null>(null);
   const [simulatedChain, setSimulatedChain] = useState<any | null>(null);
+  const [allTimeSimulatedChain, setAllTimeSimulatedChain] = useState<any | null>(null);
+  const [recentPicks, setRecentPicks] = useState<any[]>([]);
   const [loadingChain, setLoadingChain] = useState(false);
   const [updatingChain, setUpdatingChain] = useState(false);
   const [editChainVal, setEditChainVal] = useState<number>(0);
@@ -114,6 +116,8 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
       if (res.ok && data.success) {
         setChainData(data.currentChain || {});
         setSimulatedChain(data.simulatedChain || {});
+        setAllTimeSimulatedChain(data.allTimeSimulatedChain || {});
+        setRecentPicks(data.recentPicks || []);
         setEditChainVal(data.currentChain?.chain ?? 0);
         setEditBestVal(data.currentChain?.best ?? 0);
         setEditAllTimeBestVal(data.currentChain?.allTimeBest ?? 0);
@@ -271,8 +275,9 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
     }
   };
 
-  const handleRebuildChain = async () => {
-    if (!confirm(`Rebuild chain from pick history for @${currentUser.username || currentUser.name}? This will replay all resolved picks chronologically.`)) {
+  const handleRebuildChain = async (scope: 'currentMonth' | 'allTime' = 'currentMonth') => {
+    const scopeLabel = scope === 'currentMonth' ? 'Current Month (Active Season)' : 'All-Time Lifetime Picks';
+    if (!confirm(`Rebuild chain from ${scopeLabel} for @${currentUser.username || currentUser.name}? This will replay resolved picks chronologically.`)) {
       return;
     }
     setUpdatingChain(true);
@@ -284,7 +289,7 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ targetUserId: currentUser.id })
+        body: JSON.stringify({ targetUserId: currentUser.id, scope })
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to rebuild chain');
@@ -293,7 +298,7 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
       setEditChainVal(data.updatedChain.chain);
       setEditBestVal(data.updatedChain.best);
       setEditAllTimeBestVal(data.updatedChain.allTimeBest);
-      showFeedback(`Chain recalculated: Current ${data.updatedChain.chain > 0 ? 'W' + data.updatedChain.chain : data.updatedChain.chain < 0 ? 'L' + Math.abs(data.updatedChain.chain) : '0'}, Best ${data.updatedChain.best}`, 'success');
+      showFeedback(`Chain recalculated (${scope}): Current ${data.updatedChain.chain > 0 ? 'W' + data.updatedChain.chain : data.updatedChain.chain < 0 ? 'L' + Math.abs(data.updatedChain.chain) : '0'}, Best ${data.updatedChain.best}`, 'success');
       fetchChainDetail(currentUser.id);
     } catch (e: any) {
       showFeedback(e.message || 'Error rebuilding chain', 'error');
@@ -552,7 +557,7 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {/* Live Firestore Chain */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-3">
                       <div className="flex items-center justify-between">
@@ -579,12 +584,12 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
                       </div>
                     </div>
 
-                    {/* Chronologically Simulated Chain */}
+                    {/* Current Month Simulated */}
                     <div className="bg-zinc-900 border border-amber-500/30 rounded-xl p-5 space-y-3 bg-amber-500/[0.02]">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-amber-400 font-medium">Simulated from Picks</span>
+                        <span className="text-xs text-amber-400 font-medium">Current Month Streak</span>
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          Chronological Replay
+                          Active Contest
                         </span>
                       </div>
                       <div className="flex items-baseline gap-2">
@@ -597,36 +602,105 @@ export function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDe
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800 text-xs">
                         <div>
-                          <div className="text-zinc-500">Simulated Best</div>
+                          <div className="text-zinc-500">Month Best</div>
                           <div className="font-mono font-bold text-amber-400">W{simulatedChain?.best || 0}</div>
                         </div>
                         <div>
-                          <div className="text-zinc-500">Picks (W / L)</div>
+                          <div className="text-zinc-500">Picks (W/L)</div>
                           <div className="font-mono font-bold text-zinc-300">{simulatedChain?.wins || 0}W - {simulatedChain?.losses || 0}L</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* All-Time Lifetime Simulated */}
+                    <div className="bg-zinc-900 border border-cyan-500/30 rounded-xl p-5 space-y-3 bg-cyan-500/[0.02]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-cyan-400 font-medium">All-Time Lifetime Streak</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                          All History
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-3xl font-mono font-black ${
+                          (allTimeSimulatedChain?.chain || 0) > 0 ? 'text-emerald-400' : (allTimeSimulatedChain?.chain || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                        }`}>
+                          {(allTimeSimulatedChain?.chain || 0) > 0 ? `W${allTimeSimulatedChain.chain}` : (allTimeSimulatedChain?.chain || 0) < 0 ? `L${Math.abs(allTimeSimulatedChain.chain)}` : '0'}
+                        </span>
+                        <span className="text-xs text-zinc-500 font-mono">({allTimeSimulatedChain?.chain || 0})</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800 text-xs">
+                        <div>
+                          <div className="text-zinc-500">Lifetime Best</div>
+                          <div className="font-mono font-bold text-amber-400">W{allTimeSimulatedChain?.best || 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-zinc-500">Lifetime Picks</div>
+                          <div className="font-mono font-bold text-zinc-300">{allTimeSimulatedChain?.wins || 0}W - {allTimeSimulatedChain?.losses || 0}L</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Auto-Rebuild Button */}
+                  {/* Rebuild Actions (Current Month vs All-Time) */}
                   <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         <Flame className="w-4 h-4 text-amber-400" /> Rebuild Chain from Pick History
                       </h4>
                       <p className="text-xs text-zinc-400 mt-1">
-                        Re-evaluates every resolved pick chronologically and applies the streak progression directly to this user's live chain and record.
+                        Re-evaluates picks in exact chronological sequence. Choose whether to rebuild for the current monthly season (standard leaderboard streak) or lifetime history.
                       </p>
                     </div>
-                    <Button
-                      onClick={handleRebuildChain}
-                      disabled={updatingChain}
-                      className="bg-amber-600 hover:bg-amber-500 text-black font-bold text-xs px-4 py-2 shrink-0"
-                    >
-                      {updatingChain ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-                      Rebuild From History
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        onClick={() => handleRebuildChain('currentMonth')}
+                        disabled={updatingChain}
+                        className="bg-amber-600 hover:bg-amber-500 text-black font-bold text-xs px-4 py-2"
+                      >
+                        {updatingChain ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                        Rebuild Current Month
+                      </Button>
+                      <Button
+                        onClick={() => handleRebuildChain('allTime')}
+                        disabled={updatingChain}
+                        variant="outline"
+                        className="border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs px-3 py-2"
+                      >
+                        Rebuild All-Time
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Recent Resolved Picks Timeline */}
+                  {recentPicks && recentPicks.length > 0 && (
+                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                          Recent Resolved Picks Timeline (Most Recent First)
+                        </h5>
+                        <span className="text-[10px] text-zinc-500 font-mono">Showing last {recentPicks.length} picks</span>
+                      </div>
+                      <div className="divide-y divide-zinc-800/60 max-h-48 overflow-y-auto custom-scrollbar">
+                        {recentPicks.map((p, idx) => (
+                          <div key={p.id || idx} className="py-2 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded font-black font-mono text-[10px] ${
+                                p.status === 'WIN' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                p.status === 'LOSS' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                                'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              }`}>
+                                {p.status}
+                              </span>
+                              <span className="font-medium text-white">{p.pickName}</span>
+                            </div>
+                            <span className="text-zinc-500 font-mono text-[11px]">
+                              {p.createdAt ? new Date(p.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Manual Adjustment Form */}
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">

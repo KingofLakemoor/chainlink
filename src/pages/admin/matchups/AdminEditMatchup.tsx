@@ -232,7 +232,7 @@ export function AdminEditMatchup() {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
               },
-              body: JSON.stringify({ gameId: matchup.gameId })
+              body: JSON.stringify({ gameId: matchup.gameId || matchup.id || id })
           });
 
           const contentType = res.headers.get("content-type");

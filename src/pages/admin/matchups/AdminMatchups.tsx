@@ -193,7 +193,13 @@ export function AdminMatchups() {
             <input
               type="checkbox"
               checked={showFinal}
-              onChange={(e) => setShowFinal(e.target.checked)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setShowFinal(checked);
+                if (checked && activeFilter === 'ACTIVE') {
+                  setActiveFilter('All');
+                }
+              }}
               className="rounded bg-zinc-800 border-zinc-700 text-cyan-500 focus:ring-cyan-500/20"
             />
             <span>Include Final</span>

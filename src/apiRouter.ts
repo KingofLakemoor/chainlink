@@ -3245,13 +3245,25 @@ apiRouter.post("/admin/regrade-matchup", validateAdmin, async (req, res) => {
     if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
     if (!gameId) return res.status(400).json({ success: false, error: "Missing gameId" });
 
+    // Look up by gameId field or direct doc ID
+    let matchupDoc: any = null;
     const matchupSnap = await adminDb.collection('matchups').where('gameId', '==', gameId).get();
-    if (matchupSnap.empty) {
+    if (!matchupSnap.empty) {
+      matchupDoc = matchupSnap.docs[0];
+    } else {
+      const byIdDoc = await adminDb.collection('matchups').doc(gameId).get();
+      if (byIdDoc.exists) {
+        matchupDoc = byIdDoc;
+      }
+    }
+
+    if (!matchupDoc) {
       return res.status(404).json({ success: false, error: "Matchup not found" });
     }
 
-    const matchupDoc = matchupSnap.docs[0];
     const matchup = { id: matchupDoc.id, ...matchupDoc.data() };
+    const effectiveGameId = matchup.gameId || matchupDoc.id;
+    const targetMatchupIds = Array.from(new Set([String(gameId), String(effectiveGameId), String(matchupDoc.id)])).filter(Boolean);
     const homeScore = Number(matchup.homeTeam?.score || 0);
     const awayScore = Number(matchup.awayTeam?.score || 0);
 
@@ -3287,8 +3299,8 @@ apiRouter.post("/admin/regrade-matchup", validateAdmin, async (req, res) => {
       else correctWinnerId = adjustedHome > awayScore ? matchup.homeTeam?.id : matchup.awayTeam?.id;
     }
 
-    // Regrade standard picks
-    const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).get();
+    // Regrade standard picks across all alias IDs
+    const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetMatchupIds).get();
     let regradedPicksCount = 0;
 
     for (const pickDoc of picksSnap.docs) {

@@ -317,7 +317,8 @@ export default function ShopPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setMessage({ text: "Purchase successful! Equip it in your Profile.", type: 'success' });
+        const balanceNotice = typeof data.newBalance === 'number' ? ` (Remaining: ${data.newBalance.toLocaleString()} Links)` : '';
+        setMessage({ text: `Purchase successful! Equip it in your Profile.${balanceNotice}`, type: 'success' });
       } else {
         setMessage({ text: data.error || "Purchase failed.", type: 'error' });
       }

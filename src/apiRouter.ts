@@ -29,6 +29,7 @@ import {
 import { isMatchupLocked, getMatchupStartTime } from './utils/matchupUtils.js';
 import { isBracketLocked } from './utils/bracketUtils.js';
 import { createClub602SpokeRouter } from './integrations/club602/spokeRouter.js';
+import { defaultWalletAdapter } from './integrations/club602/walletAdapter.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -2956,54 +2957,84 @@ apiRouter.post("/shop/buy", async (req, res) => {
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
-    await adminDb.runTransaction(async (transaction: any) => {
-      const userRef = adminDb.collection('users').doc(uid);
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists) throw new Error("User not found");
+    // 1. Resolve item details
+    const itemRef = adminDb.collection('shopItems').doc(itemId);
+    const itemDoc = await itemRef.get();
+    let item: any;
 
-      const itemRef = adminDb.collection('shopItems').doc(itemId);
-      const itemDoc = await transaction.get(itemRef);
-      let item: any;
-
-      if (!itemDoc.exists) {
-        // Fallback to local manifest shop_items.json if item document has not been seeded to Firestore yet
-        const catalogPath = path.resolve(process.cwd(), 'shop_items.json');
-        if (fs.existsSync(catalogPath)) {
-          const fileContent = fs.readFileSync(catalogPath, 'utf-8');
-          const localItems = JSON.parse(fileContent);
-          const found = localItems.find((i: any) => i.id === itemId);
-          if (found) {
-            item = found;
-          }
+    if (!itemDoc.exists) {
+      // Fallback to local manifest shop_items.json if item document has not been seeded to Firestore yet
+      const catalogPath = path.resolve(process.cwd(), 'shop_items.json');
+      if (fs.existsSync(catalogPath)) {
+        const fileContent = fs.readFileSync(catalogPath, 'utf-8');
+        const localItems = JSON.parse(fileContent);
+        const found = localItems.find((i: any) => i.id === itemId);
+        if (found) {
+          item = found;
         }
-        if (!item) throw new Error("Item not found");
+      }
+      if (!item) return res.status(404).json({ success: false, error: "Item not found" });
+    } else {
+      item = itemDoc.data()!;
+    }
+
+    if (item.active === false || item.forSale === false) {
+      return res.status(400).json({ success: false, error: "Item is no longer available" });
+    }
+
+    // 2. Fetch user profile
+    const userRef = adminDb.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const profile = userDoc.data()!;
+    const cost = item.cost ?? 0;
+
+    if (item.premiumOnly && !profile.premium) {
+      return res.status(403).json({ success: false, error: "This item requires ChainLink Pro." });
+    }
+
+    const inventory = profile.inventory || [];
+    const unlockedCosmetics = profile.unlockedCosmetics || [];
+    if (inventory.includes(itemId) || unlockedCosmetics.includes(itemId)) {
+      return res.status(400).json({ success: false, error: "You already own this item!" });
+    }
+
+    // 3. Two-phase hold & capture via defaultWalletAdapter
+    let newBalance = profile.links ?? 0;
+    if (cost > 0) {
+      const holdRes = await defaultWalletAdapter.createHold(uid, cost, itemId, 300);
+      if (!holdRes.success || !holdRes.holdId) {
+        return res.status(400).json({ success: false, error: holdRes.error || "Not enough links!" });
+      }
+
+      const captureRes = await defaultWalletAdapter.captureHold(holdRes.holdId, `shop_${itemId}_${Date.now()}`);
+      if (!captureRes.success) {
+        return res.status(400).json({ success: false, error: captureRes.error || "Transaction capture failed" });
+      }
+
+      if (typeof captureRes.newBalance === 'number') {
+        newBalance = captureRes.newBalance;
       } else {
-        item = itemDoc.data()!;
+        newBalance = Math.max(0, (profile.links ?? 0) - cost);
       }
+    }
 
-      if (item.active === false || item.forSale === false) throw new Error("Item is no longer available");
-
-      const profile = userDoc.data()!;
-      const cost = item.cost ?? 0;
-
-      if (item.premiumOnly && !profile.premium) {
-        throw new Error("This item requires ChainLink Pro.");
-      }
-
-      if (profile.links < cost) {
-        throw new Error("Not enough links!");
-      }
-
-      const inventory = profile.inventory || [];
-      if (inventory.includes(itemId)) {
-        throw new Error("You already own this item!");
-      }
+    // 4. Update Firestore user document with inventory and unlockedCosmetics
+    await adminDb.runTransaction(async (transaction: any) => {
+      const latestUserDoc = await transaction.get(userRef);
+      const latestProfile = latestUserDoc.data() || {};
+      const latestInventory = latestProfile.inventory || [];
+      const latestUnlocked = latestProfile.unlockedCosmetics || [];
 
       const updateData: any = {
         updatedAt: Date.now(),
-        links: profile.links - cost,
-        inventory: [...inventory, itemId],
-        purchasedItems: [...(profile.purchasedItems || []), itemId]
+        links: newBalance,
+        inventory: Array.from(new Set([...latestInventory, itemId])),
+        unlockedCosmetics: Array.from(new Set([...latestUnlocked, itemId])),
+        purchasedItems: Array.from(new Set([...(latestProfile.purchasedItems || []), itemId]))
       };
 
       transaction.update(userRef, updateData);
@@ -3018,7 +3049,7 @@ apiRouter.post("/shop/buy", async (req, res) => {
       });
     });
 
-    res.json({ success: true });
+    res.json({ success: true, newBalance });
   } catch (e: any) {
     console.error("Buy item error:", e.message, e);
     res.status(500).json({ success: false, error: e.message });
@@ -3039,34 +3070,50 @@ apiRouter.post("/shop/buy-merch", async (req, res) => {
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
+    const userRef = adminDb.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) return res.status(404).json({ success: false, error: "User not found" });
+
+    const itemRef = adminDb.collection('shopItems').doc(itemId);
+    const itemDoc = await itemRef.get();
+    if (!itemDoc.exists) return res.status(404).json({ success: false, error: "Item not found" });
+
+    const item = itemDoc.data()!;
+    if (!item.active || item.forSale === false) return res.status(400).json({ success: false, error: "Item is no longer available" });
+    if (item.type !== 'MERCH') return res.status(400).json({ success: false, error: "Item is not a merch item" });
+
+    const profile = userDoc.data()!;
+    const cost = item.cost ?? 0;
+
+    if (item.premiumOnly && !profile.premium) {
+      return res.status(403).json({ success: false, error: "This item requires ChainLink Pro." });
+    }
+
+    // Two-phase hold & capture via defaultWalletAdapter
+    let newBalance = profile.links ?? 0;
+    if (cost > 0) {
+      const holdRes = await defaultWalletAdapter.createHold(uid, cost, itemId, 300);
+      if (!holdRes.success || !holdRes.holdId) {
+        return res.status(400).json({ success: false, error: holdRes.error || "Not enough links!" });
+      }
+
+      const captureRes = await defaultWalletAdapter.captureHold(holdRes.holdId, `merch_${itemId}_${Date.now()}`);
+      if (!captureRes.success) {
+        return res.status(400).json({ success: false, error: captureRes.error || "Transaction capture failed" });
+      }
+
+      if (typeof captureRes.newBalance === 'number') {
+        newBalance = captureRes.newBalance;
+      } else {
+        newBalance = Math.max(0, (profile.links ?? 0) - cost);
+      }
+    }
+
     await adminDb.runTransaction(async (transaction: any) => {
-      const userRef = adminDb.collection('users').doc(uid);
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists) throw new Error("User not found");
-
-      const itemRef = adminDb.collection('shopItems').doc(itemId);
-      const itemDoc = await transaction.get(itemRef);
-      if (!itemDoc.exists) throw new Error("Item not found");
-
-      const item = itemDoc.data()!;
-      if (!item.active || item.forSale === false) throw new Error("Item is no longer available");
-      if (item.type !== 'MERCH') throw new Error("Item is not a merch item");
-
-      const profile = userDoc.data()!;
-      const cost = item.cost ?? 0;
-
-      if (item.premiumOnly && !profile.premium) {
-        throw new Error("This item requires ChainLink Pro.");
-      }
-
-      if (profile.links < cost) {
-        throw new Error("Not enough links!");
-      }
-
       // We don't add merch to inventory like cosmetics, we create an order
       const updateData: any = {
         updatedAt: Date.now(),
-        links: profile.links - cost,
+        links: newBalance,
       };
 
       transaction.update(userRef, updateData);

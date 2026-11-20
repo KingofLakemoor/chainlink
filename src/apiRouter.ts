@@ -28,6 +28,7 @@ import {
 } from './services/apifyHorseRacingService.js';
 import { isMatchupLocked, getMatchupStartTime } from './utils/matchupUtils.js';
 import { isBracketLocked } from './utils/bracketUtils.js';
+import { createClub602SpokeRouter } from './integrations/club602/spokeRouter.js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
@@ -3267,167 +3268,18 @@ apiRouter.post("/admin/release-picks", validateAdmin, async (req, res) => {
     res.status(500).json({ success: false, error: e.message });
   }
 });
-
-apiRouter.post("/webhooks/scriptless", async (req, res) => {
-  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
-  try {
-    const providedApiKey = req.headers['x-api-key'];
-    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
-    }
-
-    console.log("Received ScriptLess webhook. Body:", req.body);
-    
-    // Trigger sync for SCRIPTLESS
-    const result = await syncLeagueSchedules('SCRIPTLESS', false);
-    
-    // Update props in case a matchup finalized
-    try {
-      await updateAllProps();
-    } catch (err) {
-      console.error('Failed to update props during scriptless webhook:', err);
-    }
-    
-    // Process notifications
-    try {
-      await processPendingNotifications();
-    } catch (err) {
-      console.error('Failed to process notifications during scriptless webhook:', err);
-    }
-    
-    return res.json({ success: true, result });
-  } catch (e: any) {
-    console.error("ScriptLess webhook error:", e);
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-apiRouter.post("/webhooks/putting", async (req, res) => {
-  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
-  try {
-    const providedApiKey = req.headers['x-api-key'];
-    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
-    }
-
-    console.log("Received PUTTING webhook. Body:", req.body);
-    
-    // If it contains matchup data, process it like /admin/matchups/external
-    const { gameId, title, league, startTime, homeTeam, awayTeam, status, active } = req.body;
-    
-    if (gameId && homeTeam && awayTeam) {
-       const matchupRef = adminDb.collection('matchups').doc(gameId);
-       const existingDoc = await matchupRef.get();
-       const existingData = existingDoc.exists ? existingDoc.data() : null;
-
-       let finalStartTime = startTime ? getMatchupStartTime(startTime) : 0;
-       if (finalStartTime <= 0) {
-         if (existingDoc.exists && existingData?.startTime) {
-           finalStartTime = existingData.startTime;
-         } else {
-           finalStartTime = Date.now() + 15 * 60 * 1000;
-         }
-       }
-
-       const matchupData: any = {
-         gameId,
-         title: title || `${awayTeam.name} @ ${homeTeam.name}`,
-         league: league || 'PUTTING',
-         startTime: finalStartTime,
-         homeTeam: {
-           id: homeTeam.id,
-           name: homeTeam.name,
-           image: homeTeam.image || "/logo.png",
-           score: homeTeam.score || 0
-         },
-         awayTeam: {
-           id: awayTeam.id,
-           name: awayTeam.name,
-           image: awayTeam.image || "/logo.png",
-           score: awayTeam.score || 0
-         },
-         status: status || 'STATUS_SCHEDULED',
-         active: active !== undefined ? Boolean(active) : true,
-         manuallyActivated: true,
-         type: "SCORE",
-         updatedAt: Date.now()
-       };
-
-       if (!existingDoc.exists) {
-         matchupData.createdAt = Date.now();
-       }
-
-       await matchupRef.set(matchupData, { merge: true });
-
-       if (matchupData.status === 'STATUS_FINAL' || matchupData.status === 'STATUS_POSTPONED') {
-         await gradeMatchups([matchupData]);
-         await gradeLink4Matchups([matchupData]);
-       }
-       
-       invalidateMatchupCaches();
-
-       // Update props and notifications
-       try {
-         await updateAllProps();
-         await processPendingNotifications();
-       } catch (err) {
-         console.error('Failed to update props/notifications during putting webhook:', err);
-       }
-       
-       return res.json({ success: true, message: "Putting Matchup webhook processed", matchup: matchupData });
-    }
-    
-    return res.json({ success: true, message: "Webhook received" });
-  } catch (e: any) {
-    console.error("PUTTING webhook error:", e);
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-apiRouter.get("/chainlink/matchups", async (req, res) => {
-  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
-  try {
-    const providedApiKey = req.headers['x-api-key'];
-    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
-    }
-
-    const snap = await adminDb.collection('matchups').where('active', '==', true).get();
-    const matchups = snap.docs.map(doc => doc.data());
-
-    return res.json({ success: true, matchups });
-  } catch (e: any) {
-    console.error("External get matchups error:", e);
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-apiRouter.get("/external/check-premium", async (req, res) => {
-  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
-  try {
-    const providedApiKey = req.headers['x-api-key'];
-    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
-      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
-    }
-
-    const { email } = req.query;
-    if (!email || typeof email !== 'string') {
-      return res.status(400).json({ success: false, error: "Missing or invalid email parameter" });
-    }
-
-    const snap = await adminDb.collection('users').where('email', '==', email).limit(1).get();
-
-    if (snap.empty) {
-      return res.json({ success: true, isPremium: false });
-    }
-
-    const userDoc = snap.docs[0].data();
-    return res.json({ success: true, isPremium: !!userDoc.premium });
-  } catch (e: any) {
-    console.error("External check-premium error:", e);
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
+ 
+// Mount proprietary Club 602 spoke router (ScriptLess, Putting League, Cross-Spoke Check Premium)
+apiRouter.use(createClub602SpokeRouter({
+  adminDb,
+  syncLeagueSchedules,
+  updateAllProps,
+  processPendingNotifications,
+  getMatchupStartTime,
+  gradeMatchups,
+  gradeLink4Matchups,
+  invalidateMatchupCaches
+}));
 
 apiRouter.post("/admin/matchups/external", validateAdminOrApiKey, async (req, res) => {
   if (!adminDb) return res.status(500).json({ error: "adminDb not configured" });

@@ -4,7 +4,7 @@ import { db, auth } from '../../../lib/firebase';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import {
-  CheckCircle2, Flag, UserPlus, Search, RefreshCw, Plus, Edit, Trash2, X, Layers, Clock, Flame, Shield, ShieldCheck, Lock
+  CheckCircle2, Flag, UserPlus, Search, RefreshCw, Plus, Edit, Trash2, X, Layers, Clock, Flame, Shield, ShieldCheck, Lock, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../../../lib/auth-context';
 import { FirebaseImage } from '../../../components/ui/FirebaseImage';
@@ -33,7 +33,7 @@ export default function MatchupsAdminHub() {
   const [leagueFilter, setLeagueFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
-  const [featuredFilter, setFeaturedFilter] = useState('All');
+  const [showFinal, setShowFinal] = useState(false);
   const [overrideFilter, setOverrideFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -59,10 +59,13 @@ export default function MatchupsAdminHub() {
   const fetchMatchupsData = async () => {
     setLoading(true);
     try {
+      const statusesToFetch = showFinal
+        ? ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED', 'STATUS_FINAL', 'STATUS_CANCELED']
+        : ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'];
       const snap = await getDocs(
         query(
           collection(db, 'matchups'),
-          where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])
+          where('status', 'in', statusesToFetch)
         )
       );
       const matchupIds = snap.docs.map(d => d.id);
@@ -133,7 +136,7 @@ export default function MatchupsAdminHub() {
 
   useEffect(() => {
     fetchMatchupsData();
-  }, []);
+  }, [showFinal]);
 
   // Fetch Edit Matchup Data when drawer is opened with selectedMatchupId
   useEffect(() => {
@@ -508,10 +511,41 @@ export default function MatchupsAdminHub() {
     }
   };
 
+  const handleRegradeMatchup = async (targetData?: any) => {
+    const target = targetData || editMatchupData;
+    if (!target) return;
+    const gameId = target.gameId || target.id;
+    if (!confirm(`Are you sure you want to regrade "${target.title}"? This will recalculate picks, wins, losses, links, and chains.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/regrade-matchup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({ gameId })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Matchup regraded successfully!');
+        fetchMatchupsData();
+      } else {
+        alert('Failed to regrade: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      console.error('Error regrading matchup:', e);
+      alert(`Failed to contact server for regrading. Error: ${e.message}`);
+    }
+  };
+
   const statuses = Array.from(new Set(matchups.map(m => m.status))).filter(Boolean);
 
   const filteredMatchups = matchups.filter(row => {
-    if (row.abandoned || row.status === 'STATUS_FINAL' || row.status === 'STATUS_POSTPONED' || row.status === 'STATUS_CANCELED') return false;
+    if (!showFinal && (row.abandoned || row.status === 'STATUS_FINAL' || row.status === 'STATUS_POSTPONED' || row.status === 'STATUS_CANCELED')) return false;
     if (leagueFilter !== 'All' && row.league !== leagueFilter) return false;
     if (statusFilter !== 'All' && row.status !== statusFilter) return false;
     if (activeFilter !== 'All') {
@@ -692,6 +726,21 @@ export default function MatchupsAdminHub() {
                 <RefreshCw className={`w-3.5 h-3.5 mr-2 ${horseSyncing ? 'animate-spin' : ''}`} />
                 {horseSyncing ? "Syncing Horses..." : "Sync Horse Racing"}
               </Button>
+              <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg select-none hover:border-zinc-700">
+                <input
+                  type="checkbox"
+                  checked={showFinal}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setShowFinal(checked);
+                    if (checked && activeFilter === 'ACTIVE') {
+                      setActiveFilter('All');
+                    }
+                  }}
+                  className="rounded bg-zinc-800 border-zinc-700 text-cyan-500 focus:ring-cyan-500/20 w-3.5 h-3.5"
+                />
+                <span>Include Final</span>
+              </label>
               <select
                 value={leagueFilter}
                 onChange={(e) => setLeagueFilter(e.target.value)}
@@ -850,6 +899,13 @@ export default function MatchupsAdminHub() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
+                          onClick={() => handleRegradeMatchup(row)}
+                          className="text-amber-500/70 hover:text-amber-400 mr-3 inline-block"
+                          title="Quick Regrade Picks & Chains"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleOpenDrawer('edit', row.id)}
                           className="text-zinc-400 hover:text-white mr-3 inline-block"
                           title="Edit Matchup"
@@ -950,9 +1006,19 @@ export default function MatchupsAdminHub() {
                 <h3 className="font-bold text-lg text-white">Edit Matchup</h3>
                 <p className="text-xs text-zinc-400">{editMatchupData?.title || selectedMatchupId}</p>
               </div>
-              <button onClick={handleCloseDrawer} className="text-zinc-500 hover:text-white p-2">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleRegradeMatchup()}
+                  className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-md flex items-center gap-1.5"
+                  title="Recalculate picks and chains for this matchup"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Regrade Picks & Chains</span>
+                </button>
+                <button onClick={handleCloseDrawer} className="text-zinc-500 hover:text-white p-2">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {loadingEditMatchup || !editMatchupData ? (
@@ -1304,9 +1370,13 @@ export default function MatchupsAdminHub() {
                 {/* In Progress Actions */}
                 <div className="border-t border-zinc-800/80 pt-4 space-y-3">
                   <h4 className="font-bold text-sm text-white uppercase tracking-wider">In Progress Actions</h4>
-                  <div className="flex gap-3">
-                    <button onClick={handleFinalizeMatchup} className="flex-1 bg-red-900/40 hover:bg-red-800/60 text-red-100 font-bold py-2.5 rounded-lg text-xs transition-colors border border-red-900/50">Finalize Matchup</button>
-                    <button onClick={handleReleasePicks} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-2.5 rounded-lg text-xs transition-colors">Release Picks</button>
+                  <div className="flex gap-3 flex-wrap">
+                    <button onClick={handleFinalizeMatchup} className="flex-1 min-w-[120px] bg-red-900/40 hover:bg-red-800/60 text-red-100 font-bold py-2.5 rounded-lg text-xs transition-colors border border-red-900/50">Finalize Matchup</button>
+                    <button onClick={() => handleRegradeMatchup()} className="flex-1 min-w-[120px] bg-amber-900/40 hover:bg-amber-800/60 text-amber-200 font-bold py-2.5 rounded-lg text-xs transition-colors border border-amber-900/50 flex items-center justify-center gap-1.5">
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Regrade Picks & Chains</span>
+                    </button>
+                    <button onClick={handleReleasePicks} className="flex-1 min-w-[120px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-2.5 rounded-lg text-xs transition-colors">Release Picks</button>
                   </div>
                 </div>
 

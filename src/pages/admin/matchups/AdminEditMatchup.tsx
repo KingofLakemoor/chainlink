@@ -220,6 +220,40 @@ export function AdminEditMatchup() {
       }
   };
 
+  const handleRegrade = async () => {
+      if (!confirm('Are you sure you want to regrade this matchup? This will re-evaluate all picks on this game, correct incorrect wins/losses, refund/award links, and adjust user chains accordingly.')) {
+        return;
+      }
+
+      try {
+          const res = await fetch('/api/admin/regrade-matchup', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+              },
+              body: JSON.stringify({ gameId: matchup.gameId })
+          });
+
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            const rawText = await res.text();
+            throw new Error(`Server returned an invalid response (${res.status}). The backend API may not be running.\nResponse: ${rawText.substring(0, 100)}`);
+          }
+          const data = await res.json();
+          if (data.success) {
+              alert(data.message || 'Matchup regraded successfully!');
+              window.location.reload();
+          } else {
+              alert('Failed to regrade: ' + (data.error || 'Unknown error'));
+          }
+      } catch (e: any) {
+          console.error('Error regrading matchup:', e);
+          alert(`Failed to contact server for regrading. Error: ${e.message}`);
+      }
+  };
+
+
   if (loading) return <div className="p-8 text-zinc-500">Loading matchup details...</div>;
   if (!matchup) return <div className="p-8 text-zinc-500">Matchup not found</div>;
 
@@ -500,6 +534,7 @@ export function AdminEditMatchup() {
             <h3 className="font-bold text-lg text-white">In Progress Actions</h3>
             <div className="flex flex-col gap-3">
                 <button onClick={handleFinalize} className="w-full bg-red-900/40 hover:bg-red-800/60 text-red-100 font-bold py-3 rounded-lg transition-colors border border-red-900/50">Finalize Matchup</button>
+                <button onClick={handleRegrade} className="w-full bg-amber-900/40 hover:bg-amber-800/60 text-amber-200 font-bold py-3 rounded-lg transition-colors border border-amber-900/50">Regrade Picks & Chains</button>
                 <button onClick={handleReleasePicks} className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-3 rounded-lg transition-colors">Release Picks</button>
             </div>
         </div>

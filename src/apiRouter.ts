@@ -3239,6 +3239,202 @@ apiRouter.post("/admin/grade-matchup", validateAdmin, async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/regrade-matchup", validateAdmin, async (req, res) => {
+  try {
+    const { gameId } = req.body;
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+    if (!gameId) return res.status(400).json({ success: false, error: "Missing gameId" });
+
+    const matchupSnap = await adminDb.collection('matchups').where('gameId', '==', gameId).get();
+    if (matchupSnap.empty) {
+      return res.status(404).json({ success: false, error: "Matchup not found" });
+    }
+
+    const matchupDoc = matchupSnap.docs[0];
+    const matchup = { id: matchupDoc.id, ...matchupDoc.data() };
+    const homeScore = Number(matchup.homeTeam?.score || 0);
+    const awayScore = Number(matchup.awayTeam?.score || 0);
+
+    // Determine correct winnerId
+    let correctWinnerId: string | null = null;
+    let isTie = false;
+
+    if (matchup.status === 'STATUS_POSTPONED') {
+      isTie = true;
+    } else if (matchup.type === 'OVER_UNDER') {
+      const isSolo = matchup.metadata?.isSoloProp || matchup.metadata?.isSinglePlayerProp;
+      const statScore = isSolo ? awayScore : (homeScore + awayScore);
+      const parsedLine = (await import('./utils/matchupUtils.js')).extractOverUnderLine(matchup);
+      const targetLine = parsedLine !== null ? parsedLine : Number(matchup.metadata?.overUnder ?? matchup.metadata?.targetLine ?? 0);
+
+      // Ensure matchup metadata preserves line
+      if (parsedLine !== null && matchup.metadata?.overUnder !== String(parsedLine)) {
+        await matchupDoc.ref.update({
+          'metadata.overUnder': String(parsedLine),
+          updatedAt: Date.now()
+        });
+      }
+
+      if (statScore === targetLine) isTie = true;
+      else if (statScore > targetLine) correctWinnerId = 'OVER';
+      else correctWinnerId = 'UNDER';
+    } else {
+      let adjustedHome = homeScore;
+      if (matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
+        adjustedHome += Number(matchup.metadata.spread);
+      }
+      if (adjustedHome === awayScore) isTie = true;
+      else correctWinnerId = adjustedHome > awayScore ? matchup.homeTeam?.id : matchup.awayTeam?.id;
+    }
+
+    // Regrade standard picks
+    const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).get();
+    let regradedPicksCount = 0;
+
+    for (const pickDoc of picksSnap.docs) {
+      const pickData = pickDoc.data();
+      const currentStatus = pickData.status;
+      const expectedStatus = isTie ? 'PUSH' : (pickData.pick?.id === correctWinnerId ? 'WIN' : 'LOSS');
+
+      if (currentStatus === expectedStatus) {
+        continue; // Already correctly graded
+      }
+
+      regradedPicksCount++;
+      const userId = pickData.userId;
+      const wager = Number(pickData.links ?? 0);
+      const reward = wager + Number(matchup.reward ?? 10);
+
+      await adminDb.runTransaction(async (transaction) => {
+        const userRef = adminDb!.collection('users').doc(userId);
+        const chainRef = adminDb!.collection('chains').doc(`${userId}_current`);
+
+        const userDoc = await transaction.get(userRef);
+        const chainDoc = await transaction.get(chainRef);
+
+        if (!userDoc.exists) return;
+        const userData = userDoc.data()!;
+        let links = userData.links || 0;
+        let stats = userData.stats || { wins: 0, losses: 0, pushes: 0 };
+        let allTimeStats = userData.allTimeStats || { wins: stats.wins, losses: stats.losses, pushes: stats.pushes };
+        let statsByLeague = userData.statsByLeague || {};
+        const league = matchup.league || 'UNKNOWN';
+        if (!statsByLeague[league]) statsByLeague[league] = { wins: 0, losses: 0, pushes: 0 };
+
+        let chainData = chainDoc.exists ? chainDoc.data()! : { chain: 0, wins: 0, losses: 0, best: 0, allTimeBest: 0 };
+        let allTimeBest = chainData.allTimeBest || chainData.best || 0;
+
+        // Undo current status effects
+        if (currentStatus === 'WIN') {
+          links = Math.max(0, links - reward);
+          stats.wins = Math.max(0, stats.wins - 1);
+          allTimeStats.wins = Math.max(0, allTimeStats.wins - 1);
+          statsByLeague[league].wins = Math.max(0, statsByLeague[league].wins - 1);
+          chainData.wins = Math.max(0, chainData.wins - 1);
+        } else if (currentStatus === 'LOSS') {
+          stats.losses = Math.max(0, stats.losses - 1);
+          allTimeStats.losses = Math.max(0, allTimeStats.losses - 1);
+          statsByLeague[league].losses = Math.max(0, statsByLeague[league].losses - 1);
+          chainData.losses = Math.max(0, chainData.losses - 1);
+        } else if (currentStatus === 'PUSH') {
+          links = Math.max(0, links - wager);
+          stats.pushes = Math.max(0, stats.pushes - 1);
+          allTimeStats.pushes = Math.max(0, allTimeStats.pushes - 1);
+          statsByLeague[league].pushes = Math.max(0, statsByLeague[league].pushes - 1);
+        }
+
+        // Apply expected status effects
+        if (expectedStatus === 'WIN') {
+          links += reward;
+          stats.wins += 1;
+          allTimeStats.wins += 1;
+          statsByLeague[league].wins += 1;
+          chainData.chain = chainData.chain < 0 ? 1 : chainData.chain + 1;
+          chainData.wins += 1;
+          if (chainData.chain > (chainData.best || 0)) chainData.best = chainData.chain;
+          if (chainData.chain > allTimeBest) allTimeBest = chainData.chain;
+        } else if (expectedStatus === 'LOSS') {
+          stats.losses += 1;
+          allTimeStats.losses += 1;
+          statsByLeague[league].losses += 1;
+          chainData.chain = chainData.chain > 0 ? -1 : (chainData.chain === 0 ? -1 : chainData.chain - 1);
+          chainData.losses += 1;
+        } else if (expectedStatus === 'PUSH') {
+          links += wager;
+          stats.pushes += 1;
+          allTimeStats.pushes += 1;
+          statsByLeague[league].pushes += 1;
+        }
+
+        // Commit transaction updates
+        transaction.update(pickDoc.ref, {
+          status: expectedStatus,
+          regradedAt: Date.now(),
+          updatedAt: Date.now()
+        });
+
+        transaction.update(userRef, {
+          links,
+          stats,
+          allTimeStats,
+          statsByLeague,
+          updatedAt: Date.now()
+        });
+
+        transaction.set(chainRef, {
+          ...chainData,
+          allTimeBest,
+          userId,
+          active: true,
+          updatedAt: Date.now()
+        }, { merge: true });
+
+        // Log correction
+        const logRef = adminDb!.collection('linkTransactions').doc();
+        transaction.set(logRef, {
+          userId,
+          username: userData.username || userData.name || 'Unknown User',
+          type: 'REGRADE_CORRECTION',
+          amount: expectedStatus === 'WIN' ? reward : -reward,
+          description: `Regrade adjustment for ${matchup.title || gameId} (from ${currentStatus} to ${expectedStatus})`,
+          createdAt: Date.now()
+        });
+      });
+    }
+
+    // Regrade pickem picks if any exist
+    const pickemPicksSnap = await adminDb.collection('pickemPicks').where('gameId', '==', gameId).get();
+    let regradedPickemCount = 0;
+    for (const pDoc of pickemPicksSnap.docs) {
+      const pData = pDoc.data();
+      const currentStatus = pData.status;
+      const expectedStatus = isTie ? 'PUSH' : (pData.pick?.teamId === correctWinnerId ? 'WIN' : 'LOSS');
+      if (currentStatus !== expectedStatus) {
+        regradedPickemCount++;
+        await pDoc.ref.update({
+          status: expectedStatus,
+          pointsEarned: expectedStatus === 'WIN' ? (pData.potentialPoints || 1) : 0,
+          regradedAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+    }
+
+    invalidateMatchupCaches();
+
+    res.json({
+      success: true,
+      correctWinnerId,
+      regradedPicksCount,
+      regradedPickemCount,
+      message: `Successfully regraded matchup ${gameId}. ${regradedPicksCount} picks and user chains updated.`
+    });
+  } catch (e: any) {
+    console.error("Regrade matchup error:", e.message, e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/release-picks", validateAdmin, async (req, res) => {
   try {
     const { gameId } = req.body;

@@ -3130,7 +3130,7 @@ apiRouter.post("/shop/buy-merch", async (req, res) => {
 
 apiRouter.post("/user/equip" , async (req, res) => {
   try {
-    const { itemId, type } = req.body; // type is e.g. 'PROFILE_BANNER', 'AVATAR_RING', 'TITLE'
+    const { itemId, type, scope } = req.body; // type is e.g. 'PROFILE_BANNER', 'AVATAR_RING', 'TITLE'
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -3151,25 +3151,42 @@ apiRouter.post("/user/equip" , async (req, res) => {
       const ownedItems = new Set([
         ...(profile.inventory || []),
         ...(profile.purchasedItems || []),
-        ...(profile.titles || [])
+        ...(profile.titles || []),
+        ...(profile.unlockedCosmetics || [])
       ]);
 
+      const isVip = profile.membershipTier === 'VIP_FOUNDER';
+
       // If itemId is null, it means unequip
-      if (itemId !== null && !ownedItems.has(itemId)) {
+      if (itemId !== null && !isVip && !ownedItems.has(itemId)) {
         throw new Error("You do not own this item!");
       }
 
-      const equippedCosmetics = { ...(profile.equippedCosmetics || {}) };
-      if (itemId === null) {
-        delete equippedCosmetics[type];
-      } else {
-        equippedCosmetics[type] = itemId;
-      }
-
       const updateData: any = {
-        updatedAt: Date.now(),
-        equippedCosmetics
+        updatedAt: Date.now()
       };
+
+      if (scope === 'chainlink') {
+        const spokeCosmetics = { ...(profile.spokeCosmetics || {}) };
+        const chainlinkOverrides = { ...(spokeCosmetics.chainlink || {}) };
+
+        if (itemId === null) {
+          delete chainlinkOverrides[type];
+        } else {
+          chainlinkOverrides[type] = itemId;
+        }
+
+        spokeCosmetics.chainlink = chainlinkOverrides;
+        updateData.spokeCosmetics = spokeCosmetics;
+      } else {
+        const equippedCosmetics = { ...(profile.equippedCosmetics || {}) };
+        if (itemId === null) {
+          delete equippedCosmetics[type];
+        } else {
+          equippedCosmetics[type] = itemId;
+        }
+        updateData.equippedCosmetics = equippedCosmetics;
+      }
 
       transaction.update(userRef, updateData);
     });

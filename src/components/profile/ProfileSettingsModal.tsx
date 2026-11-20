@@ -6,13 +6,14 @@ import { Input } from '../ui/input';
 import { auth, db } from '../../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { Settings, Download, Coins, Tag, ShoppingCart, Search, Sparkles, Check, X, RefreshCw } from 'lucide-react';
+import { Settings, Download, Coins, Tag, ShoppingCart, Search, Sparkles, Check, X, RefreshCw, Globe, Link as LinkIcon } from 'lucide-react';
 import { getShopItemsCached } from '../../lib/firestore-cache';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { requestNotificationPermission } from '../../hooks/useNotifications';
 import { Link } from 'react-router-dom';
 import { CosmeticPreview } from './CosmeticPreview';
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
+import { defaultCosmeticsAdapter } from '../../lib/cosmeticsAdapter';
 import { TitleMap } from '../ui/titles';
 import { FirebaseImage } from '../ui/FirebaseImage';
 
@@ -35,6 +36,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
   const [equipLoading, setEquipLoading] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PROFILE_BANNER' | 'AVATAR_RING' | 'TITLE'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [equipScope, setEquipScope] = useState<'chainlink' | 'global'>('chainlink');
 
   useEffect(() => {
     if (isOpen && profile) {
@@ -132,20 +134,32 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ itemId, type })
+          body: JSON.stringify({ itemId, type, scope: equipScope })
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.error || 'Failed to equip item.');
         }
       } else {
-        const updatedCosmetics = { ...(profile.equippedCosmetics || {}) };
-        if (itemId === null) {
-          delete updatedCosmetics[type];
+        if (equipScope === 'chainlink') {
+          const spokeCosmetics = { ...(profile.spokeCosmetics || {}) };
+          const chainlinkOverrides = { ...(spokeCosmetics.chainlink || {}) };
+          if (itemId === null) {
+            delete chainlinkOverrides[type];
+          } else {
+            chainlinkOverrides[type] = itemId;
+          }
+          spokeCosmetics.chainlink = chainlinkOverrides;
+          await updateDoc(doc(db, 'users', user.uid), { spokeCosmetics });
         } else {
-          updatedCosmetics[type] = itemId;
+          const updatedCosmetics = { ...(profile.equippedCosmetics || {}) };
+          if (itemId === null) {
+            delete updatedCosmetics[type];
+          } else {
+            updatedCosmetics[type] = itemId;
+          }
+          await updateDoc(doc(db, 'users', user.uid), { equippedCosmetics: updatedCosmetics });
         }
-        await updateDoc(doc(db, 'users', user.uid), { equippedCosmetics: updatedCosmetics });
       }
     } catch (err) {
       console.error("Failed to equip item", err);
@@ -200,19 +214,27 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     return matchesCategory && matchesSearch;
   });
 
-  // Equipped cosmetic item lookups
-  const equippedBannerId = profile?.equippedCosmetics?.PROFILE_BANNER;
-  const equippedRingId = profile?.equippedCosmetics?.AVATAR_RING;
-  const equippedTitleId = profile?.equippedCosmetics?.TITLE;
+  // Equipped cosmetic item lookups resolved via defaultCosmeticsAdapter with spoke override precedence
+  const userCosmeticProfile = {
+    uid: user?.uid || '',
+    unlockedCosmetics: profile?.unlockedCosmetics || ownedIds,
+    equippedCosmetics: profile?.equippedCosmetics || {},
+    spokeCosmetics: profile?.spokeCosmetics || {},
+    membershipTier: profile?.membershipTier
+  };
+
+  const equippedBannerId = defaultCosmeticsAdapter.getEquippedCosmeticId(userCosmeticProfile, 'PROFILE_BANNER', 'chainlink');
+  const equippedRingId = defaultCosmeticsAdapter.getEquippedCosmeticId(userCosmeticProfile, 'AVATAR_RING', 'chainlink');
+  const equippedTitleId = defaultCosmeticsAdapter.getEquippedCosmeticId(userCosmeticProfile, 'TITLE', 'chainlink');
 
   const equippedBannerItem = userInventoryItems.find(i => i.id === equippedBannerId) || (equippedBannerId ? { id: equippedBannerId, type: 'PROFILE_BANNER', image: equippedBannerId, name: 'Banner' } : null);
   const equippedRingItem = userInventoryItems.find(i => i.id === equippedRingId) || (equippedRingId ? { id: equippedRingId, type: 'AVATAR_RING', image: equippedRingId, name: 'Ring' } : null);
   const equippedTitleItem = userInventoryItems.find(i => i.id === equippedTitleId) || (equippedTitleId ? { id: equippedTitleId, type: 'TITLE', image: equippedTitleId, name: 'Title' } : null);
 
   // Resolution order: evaluate item.id FIRST in component maps so React shader/badge components render properly
-  const BannerComp = equippedBannerItem ? (ProfileBannerMap[equippedBannerItem.id] || ProfileBannerMap[equippedBannerItem.image || '']) : null;
-  const RingComp = equippedRingItem ? (AvatarRingMap[equippedRingItem.id] || AvatarRingMap[equippedRingItem.image || '']) : null;
-  const TitleComp = equippedTitleItem ? (TitleMap[equippedTitleItem.id] || TitleMap[equippedTitleItem.image || ''] || TitleMap[equippedTitleItem.preview || '']) : null;
+  const BannerComp = equippedBannerItem ? defaultCosmeticsAdapter.resolveProfileBannerComponent(equippedBannerItem.id) || defaultCosmeticsAdapter.resolveProfileBannerComponent(equippedBannerItem.image || '') : null;
+  const RingComp = equippedRingItem ? defaultCosmeticsAdapter.resolveAvatarRingComponent(equippedRingItem.id) || defaultCosmeticsAdapter.resolveAvatarRingComponent(equippedRingItem.image || '') : null;
+  const TitleComp = equippedTitleItem ? defaultCosmeticsAdapter.resolveTitleComponent(equippedTitleItem.id) || defaultCosmeticsAdapter.resolveTitleComponent(equippedTitleItem.image || '') || defaultCosmeticsAdapter.resolveTitleComponent(equippedTitleItem.preview || '') : null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -266,13 +288,42 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
         {activeTab === 'inventory' && (
           <div className="space-y-6">
 
-            {/* Live Profile Header Preview Box */}
+            {/* Live Profile Header Preview Box & Scope Switcher */}
             <div className="bg-[#121212] border border-cyan-500/30 rounded-2xl p-4 relative overflow-hidden shadow-xl bg-gradient-to-r from-cyan-950/20 via-[#121212] to-[#121212]">
-              <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-3 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" /> Live Equipped Profile Preview
                 </span>
-                <span className="text-zinc-500 font-normal hidden sm:inline">Click items below to toggle equip status</span>
+                
+                {/* 602 Scope Switcher: ChainLink Only vs Everywhere */}
+                <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setEquipScope('chainlink')}
+                    className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                      equipScope === 'chainlink'
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                    title="Equip cosmetics for ChainLink only"
+                  >
+                    <LinkIcon className="w-3 h-3" />
+                    <span>⛓️ ChainLink Only</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEquipScope('global')}
+                    className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                      equipScope === 'global'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                    title="Equip cosmetics globally across all Club 602 spokes"
+                  >
+                    <Globe className="w-3 h-3" />
+                    <span>🌐 Everywhere</span>
+                  </button>
+                </div>
               </div>
 
               <div className="relative rounded-xl border border-zinc-800 p-4 flex flex-col sm:flex-row items-center gap-4 overflow-hidden bg-zinc-950/80 min-h-[120px]">
@@ -446,7 +497,10 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredInventory.map(item => {
                   if (!item) return null;
-                  const isEquipped = profile?.equippedCosmetics?.[item.type] === item.id;
+                  const currentEquippedId = equipScope === 'chainlink'
+                    ? (profile?.spokeCosmetics?.chainlink?.[item.type] ?? profile?.equippedCosmetics?.[item.type])
+                    : profile?.equippedCosmetics?.[item.type];
+                  const isEquipped = currentEquippedId === item.id;
                   const isUpdating = equipLoading === item.type;
 
                   return (

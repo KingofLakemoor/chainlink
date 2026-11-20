@@ -459,5 +459,53 @@ describe('pickemGrader - YES Day Moneyline Enforcement', () => {
       expect(p.data.pointsEarned).toBe(1);
     });
   });
+
+  it('correctly grades OVER_UNDER matchup when overUnder is in title but null in metadata (e.g. Colts @ Texans - O/U 44.5)', async () => {
+    // 26 + 3 = 29, O/U is 44.5 -> UNDER wins
+    const matchup = {
+      id: 'pickem_401873066',
+      gameId: '401873066',
+      title: 'Colts @ Texans - O/U 44.5',
+      type: 'OVER_UNDER',
+      status: 'STATUS_FINAL',
+      homeTeam: { id: '34', name: 'Texans', score: 26 },
+      awayTeam: { id: '11', name: 'Colts', score: 3 },
+      metadata: { overUnder: null },
+    };
+
+    const { mockDb, matchupUpdates, pickUpdates } = createMockDb({
+      picks: [
+        {
+          id: 'pick_over',
+          data: {
+            matchupId: 'pickem_401873066',
+            pick: { teamId: 'OVER' },
+            status: 'PENDING',
+          },
+        },
+        {
+          id: 'pick_under',
+          data: {
+            matchupId: 'pickem_401873066',
+            pick: { teamId: 'UNDER' },
+            status: 'PENDING',
+          },
+        },
+      ],
+    });
+
+    setAdminDbMock(mockDb);
+    await gradeSinglePickemMatchup(matchup);
+
+    expect(matchupUpdates[0].data.winnerId).toBe('UNDER');
+    const overPick = pickUpdates.find((p) => p.id === 'pick_over');
+    const underPick = pickUpdates.find((p) => p.id === 'pick_under');
+
+    expect(underPick?.data.status).toBe('WIN');
+    expect(underPick?.data.pointsEarned).toBe(1);
+    expect(overPick?.data.status).toBe('LOSS');
+    expect(overPick?.data.pointsEarned).toBe(0);
+  });
 });
+
 

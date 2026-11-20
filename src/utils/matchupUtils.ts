@@ -57,3 +57,36 @@ export function isMatchupLocked(matchup: any, now: number = Date.now()): boolean
 
   return false;
 }
+
+/**
+ * Extracts the over/under total target line from matchup metadata or parses it from the matchup title.
+ * Examples:
+ *   "Colts @ Texans - O/U 44.5" -> 44.5
+ *   "Colts @ Texans - Over/Under 44.5" -> 44.5
+ *   metadata: { overUnder: "44.5" } -> 44.5
+ */
+export function extractOverUnderLine(matchup: any): number | null {
+  if (!matchup) return null;
+
+  if (matchup.metadata?.overUnder !== undefined && matchup.metadata?.overUnder !== null && matchup.metadata?.overUnder !== '') {
+    const parsed = Number(matchup.metadata.overUnder);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  if (matchup.metadata?.targetLine !== undefined && matchup.metadata?.targetLine !== null && matchup.metadata?.targetLine !== '') {
+    const parsed = Number(matchup.metadata.targetLine);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  const title = matchup.title;
+  if (typeof title === 'string') {
+    const match = title.match(/(?:O\/U|Over\/Under|Total)[^\d]*(\d+(?:\.\d+)?)/i);
+    if (match) {
+      const parsed = parseFloat(match[1]);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+
+  return null;
+}
+

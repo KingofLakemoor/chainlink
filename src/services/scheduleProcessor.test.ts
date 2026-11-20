@@ -571,5 +571,59 @@ describe('scheduleProcessor - adminOverride Preservation Tests', () => {
     expect(updatePayload).toBeDefined();
     expect(updatePayload.active).toBe(false);
   });
+
+  it('preserves existing metadata.overUnder when scraped overUnder is undefined/null', async () => {
+    const scrapedMatchup = {
+      gameId: 'nfl_ou_test_game',
+      league: 'NFL',
+      title: 'Colts @ Texans',
+      type: 'SCORE',
+      active: true,
+      status: 'STATUS_FINAL',
+      statusDesc: 'Final',
+      startTime: 1795137300000,
+      homeTeam: { id: '34', name: 'Texans', score: 26 },
+      awayTeam: { id: '11', name: 'Colts', score: 3 },
+      metadata: {
+        overUnder: null,
+      },
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'nfl_ou_test_game',
+      ref: 'matchupRef_nfl_ou',
+      data: () => ({
+        gameId: 'nfl_ou_test_game',
+        league: 'NFL',
+        title: 'Colts @ Texans - O/U 44.5',
+        type: 'OVER_UNDER',
+        active: true,
+        adminOverride: true,
+        hasCustomTitle: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        startTime: 1795137300000,
+        homeTeam: { id: '34', name: 'Texans', score: 0 },
+        awayTeam: { id: '11', name: 'Colts', score: 0 },
+        metadata: {
+          overUnder: '44.5',
+        },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('NFL' as any, false);
+    expect(res.success).toBe(true);
+
+    const updateCalls = mockBatch.update.mock.calls;
+    const updatePayload = updateCalls.find(c => c[0] === 'matchupRef_nfl_ou')?.[1];
+    expect(updatePayload).toBeDefined();
+    expect(updatePayload['metadata.overUnder']).toBe('44.5');
+  });
 });
+
 

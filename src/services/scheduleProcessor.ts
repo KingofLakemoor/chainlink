@@ -848,7 +848,7 @@ export async function syncLeagueSchedules(
               },
               metadata: {
                   ...(existingData.metadata || {}),
-                  overUnder: (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null) ? scrapedMatchup.metadata?.overUnder : (existingData.metadata?.overUnder || null),
+                  overUnder: (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null) ? scrapedMatchup.metadata?.overUnder : (existingData.metadata?.overUnder !== undefined ? existingData.metadata?.overUnder : null),
                   mlHome: (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null) ? scrapedMatchup.metadata?.mlHome : (existingData.metadata?.mlHome || null),
                   mlAway: (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null) ? scrapedMatchup.metadata?.mlAway : (existingData.metadata?.mlAway || null),
                   spread: isAdminOverride ? (existingData.metadata?.spread !== undefined ? existingData.metadata.spread : null) : (existingData.type === 'SPREAD' ? ((!isProtected && spreadUpdatePicksCache.get(existingData.gameId) === false) ? scrapedMatchup.metadata?.spread : existingData.metadata?.spread) : ((scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null) ? scrapedMatchup.metadata?.spread : (existingData.metadata?.spread || null))),

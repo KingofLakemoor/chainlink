@@ -1,8 +1,10 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { isTeamMatch } from '../lib/teamUtils.js';
 import { generateAndSavePickemLeaderboard } from './pickemLeaderboardService.js';
+import { extractOverUnderLine } from '../utils/matchupUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
+
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
 
 export async function gradePickemMatchups(pickemMatchups: any[]) {
@@ -157,10 +159,11 @@ export async function gradeSinglePickemMatchup(matchup: any) {
     }
   } else if (isPostponed) {
     isTie = true; // Treats postponed as a push
-  } else if (matchup.type === 'OVER_UNDER' && (matchup.metadata?.overUnder !== undefined || matchup.metadata?.targetLine !== undefined)) {
+  } else if (matchup.type === 'OVER_UNDER') {
     const isSolo = matchup.metadata?.isSoloProp || matchup.metadata?.isSinglePlayerProp;
     const statScore = isSolo ? awayScore : (homeScore + awayScore);
-    const overUnderLine = Number(matchup.metadata?.overUnder ?? matchup.metadata?.targetLine ?? 0);
+    const parsedLine = extractOverUnderLine(matchup);
+    const overUnderLine = parsedLine !== null ? parsedLine : Number(matchup.metadata?.overUnder ?? matchup.metadata?.targetLine ?? 0);
 
     if (statScore === overUnderLine) {
       isTie = true;

@@ -124,6 +124,54 @@ describe('Solo Over/Under Prop Grading Tests', () => {
     expect(mockAdminDb.runTransaction).toHaveBeenCalled();
   });
 
+  it('grader: grades UNDER as winner for game over/under when overUnder line is in title but null in metadata', async () => {
+    // Colts @ Texans: 26 + 3 = 29, O/U is 44.5 in title -> UNDER wins
+    mockPendingPicks = [
+      { id: 'p1', userId: 'user1', matchupId: '401873066', links: 10, pick: { id: 'UNDER' }, status: 'PENDING' }
+    ];
+
+    let gradedPickStatus = '';
+    mockAdminDb.runTransaction = vi.fn(async (cb: any) => {
+      const tx = {
+        get: async (ref: any) => ({
+          exists: true,
+          data: () => ({
+            status: 'PENDING',
+            links: 100,
+            stats: { wins: 0, losses: 0, pushes: 0 },
+            allTimeStats: { wins: 0, losses: 0, pushes: 0 },
+            statsByLeague: {},
+            achievements: [],
+            inventory: [],
+          })
+        }),
+        update: vi.fn((ref: any, data: any) => {
+          if (data.status) gradedPickStatus = data.status;
+        }),
+        set: vi.fn()
+      };
+      await cb(tx);
+    });
+
+    const matchup = {
+      gameId: '401873066',
+      title: 'Colts @ Texans - O/U 44.5',
+      status: 'STATUS_FINAL',
+      type: 'OVER_UNDER',
+      homeTeam: { id: '34', name: 'Texans', score: 26 },
+      awayTeam: { id: '11', name: 'Colts', score: 3 },
+      metadata: {
+        overUnder: null
+      }
+    };
+
+    await gradeSingleMatchup(matchup);
+
+    expect(mockAdminDb.runTransaction).toHaveBeenCalled();
+    expect(gradedPickStatus).toBe('WIN');
+  });
+
+
   it('pickemGrader: grades OVER as winner when player stat exceeds targetLine for solo pickem prop', async () => {
     mockPendingPicks = [
       { id: 'p1', participantId: 'user1', campaignId: 'c1', matchupId: 'solo_pickem_1', pick: { teamId: 'OVER' }, status: 'PENDING' }

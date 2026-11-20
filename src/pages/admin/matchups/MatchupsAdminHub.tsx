@@ -33,6 +33,7 @@ export default function MatchupsAdminHub() {
   const [leagueFilter, setLeagueFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeFilter, setActiveFilter] = useState('ACTIVE');
+  const [featuredFilter, setFeaturedFilter] = useState('All');
   const [showFinal, setShowFinal] = useState(false);
   const [overrideFilter, setOverrideFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');

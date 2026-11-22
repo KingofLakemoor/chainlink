@@ -1868,5 +1868,33 @@
     "preview": "CrescentCrownBanner",
     "order": 18,
     "collectionId": ""
+  },
+  {
+    "id": "banner_gotham_mach",
+    "name": "The Gotham Mach",
+    "description": "New York Jets-inspired banner featuring stealth Gotham obsidian skies, supersonic green afterburner shock diamonds, high-velocity vapor trails, and a chiseled supersonic jet crest.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "GothamMachBanner",
+    "featured": true,
+    "preview": "GothamMachBanner",
+    "order": 19,
+    "collectionId": ""
+  },
+  {
+    "id": "banner_arc_surge",
+    "name": "The Arc Surge",
+    "description": "Los Angeles Chargers-inspired banner featuring deep Pacific thunderstorm skies, undulating powder blue plasma waves, jagged solar-gold lightning discharge, and a forged electric bolt crest.",
+    "cost": 250,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": true,
+    "image": "ArcSurgeBanner",
+    "featured": true,
+    "preview": "ArcSurgeBanner",
+    "order": 20,
+    "collectionId": ""
   }
 ]

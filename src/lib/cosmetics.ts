@@ -48,6 +48,8 @@ import { TaskForceCamoBanner } from '../components/ui/profile-banners/task-force
 import { ViceCityBanner } from '../components/ui/profile-banners/vice-city';
 import { MidwayChargeBanner } from '../components/banners/MidwayChargeBanner';
 import { CrescentCrownBanner } from '../components/banners/CrescentCrownBanner';
+import { GothamMachBanner } from '../components/banners/GothamMachBanner';
+import { ArcSurgeBanner } from '../components/banners/ArcSurgeBanner';
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerAvatarRing": ResponsibleGamblerAvatarRing,
@@ -114,5 +116,13 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'CrescentCrownBanner': CrescentCrownBanner,
   'CrescentCrown': CrescentCrownBanner,
   'banner_crescent_crown': CrescentCrownBanner,
-  'banner_new_orleans_saints': CrescentCrownBanner
+  'banner_new_orleans_saints': CrescentCrownBanner,
+  'GothamMachBanner': GothamMachBanner,
+  'GothamMach': GothamMachBanner,
+  'banner_gotham_mach': GothamMachBanner,
+  'banner_new_york_jets': GothamMachBanner,
+  'ArcSurgeBanner': ArcSurgeBanner,
+  'ArcSurge': ArcSurgeBanner,
+  'banner_arc_surge': ArcSurgeBanner,
+  'banner_los_angeles_chargers': ArcSurgeBanner
 };

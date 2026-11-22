@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { ProfileBannerMap } from '../../lib/cosmetics';
 import { MidwayChargeBanner } from './MidwayChargeBanner';
 import { CrescentCrownBanner } from './CrescentCrownBanner';
+import { GothamMachBanner } from './GothamMachBanner';
+import { ArcSurgeBanner } from './ArcSurgeBanner';
 
-describe('NFL Series Banners (Chicago Bears & New Orleans Saints)', () => {
+describe('NFL Series Banners (Chicago Bears, New Orleans Saints, NY Jets & LA Chargers)', () => {
   describe('The Midway Charge (Chicago Bears inspired)', () => {
     it('exports MidwayChargeBanner component correctly', () => {
       expect(MidwayChargeBanner).toBeDefined();
@@ -71,4 +73,73 @@ describe('NFL Series Banners (Chicago Bears & New Orleans Saints)', () => {
       expect(ProfileBannerMap[bannerItem.id]).toBeDefined();
     });
   });
+
+  describe('The Gotham Mach (New York Jets inspired)', () => {
+    it('exports GothamMachBanner component correctly', () => {
+      expect(GothamMachBanner).toBeDefined();
+      expect(typeof GothamMachBanner).toBe('function');
+    });
+
+    it('registers GothamMachBanner under canonical keys in ProfileBannerMap', () => {
+      expect(ProfileBannerMap['GothamMachBanner']).toBe(GothamMachBanner);
+      expect(ProfileBannerMap['GothamMach']).toBe(GothamMachBanner);
+      expect(ProfileBannerMap['banner_gotham_mach']).toBe(GothamMachBanner);
+      expect(ProfileBannerMap['banner_new_york_jets']).toBe(GothamMachBanner);
+    });
+
+    it('matches NFL series banner specification for shop integration', () => {
+      const bannerItem = {
+        id: 'banner_gotham_mach',
+        name: 'The Gotham Mach',
+        description: 'New York Jets-inspired banner featuring stealth Gotham obsidian skies, supersonic green afterburner shock diamonds, high-velocity vapor trails, and a chiseled supersonic jet crest.',
+        cost: 250,
+        type: 'PROFILE_BANNER',
+        active: true,
+        forSale: true,
+        image: 'GothamMachBanner',
+      };
+
+      expect(bannerItem.cost).toBe(250);
+      expect(bannerItem.type).toBe('PROFILE_BANNER');
+      expect(bannerItem.active).toBe(true);
+      expect(bannerItem.forSale).toBe(true);
+      expect(ProfileBannerMap[bannerItem.image]).toBeDefined();
+      expect(ProfileBannerMap[bannerItem.id]).toBeDefined();
+    });
+  });
+
+  describe('The Arc Surge (Los Angeles Chargers inspired)', () => {
+    it('exports ArcSurgeBanner component correctly', () => {
+      expect(ArcSurgeBanner).toBeDefined();
+      expect(typeof ArcSurgeBanner).toBe('function');
+    });
+
+    it('registers ArcSurgeBanner under canonical keys in ProfileBannerMap', () => {
+      expect(ProfileBannerMap['ArcSurgeBanner']).toBe(ArcSurgeBanner);
+      expect(ProfileBannerMap['ArcSurge']).toBe(ArcSurgeBanner);
+      expect(ProfileBannerMap['banner_arc_surge']).toBe(ArcSurgeBanner);
+      expect(ProfileBannerMap['banner_los_angeles_chargers']).toBe(ArcSurgeBanner);
+    });
+
+    it('matches NFL series banner specification for shop integration', () => {
+      const bannerItem = {
+        id: 'banner_arc_surge',
+        name: 'The Arc Surge',
+        description: 'Los Angeles Chargers-inspired banner featuring deep Pacific thunderstorm skies, undulating powder blue plasma waves, jagged solar-gold lightning discharge, and a forged electric bolt crest.',
+        cost: 250,
+        type: 'PROFILE_BANNER',
+        active: true,
+        forSale: true,
+        image: 'ArcSurgeBanner',
+      };
+
+      expect(bannerItem.cost).toBe(250);
+      expect(bannerItem.type).toBe('PROFILE_BANNER');
+      expect(bannerItem.active).toBe(true);
+      expect(bannerItem.forSale).toBe(true);
+      expect(ProfileBannerMap[bannerItem.image]).toBeDefined();
+      expect(ProfileBannerMap[bannerItem.id]).toBeDefined();
+    });
+  });
 });
+

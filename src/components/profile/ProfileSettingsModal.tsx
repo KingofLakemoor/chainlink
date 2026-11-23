@@ -215,8 +215,8 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
   const TitleComp = equippedTitleItem ? (TitleMap[equippedTitleItem.id] || TitleMap[equippedTitleItem.image || ''] || TitleMap[equippedTitleItem.preview || '']) : null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <div className="space-y-6 max-h-[82vh] overflow-y-auto custom-scrollbar pr-1">
+    <Modal isOpen={isOpen} onClose={onClose} cardClassName="max-w-2xl w-full p-4 sm:p-6">
+      <div className="space-y-6 max-h-[80dvh] sm:max-h-[82vh] overflow-y-auto custom-scrollbar pr-1 pt-6 sm:pt-2">
         
         {/* Top Header & Tab Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4">

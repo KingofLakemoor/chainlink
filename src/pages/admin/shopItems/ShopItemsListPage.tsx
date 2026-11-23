@@ -886,6 +886,27 @@ export default function ShopItemsListPage() {
         </div>
       </div>
 
+      {/* Quick Type Selector Pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(['ALL', 'PROFILE_BANNER', 'AVATAR_RING', 'TITLE', 'MERCH', 'GIFT_CARD'] as const).map(t => {
+          const label = t === 'ALL' ? 'All Items' : t === 'PROFILE_BANNER' ? 'Banners' : t === 'AVATAR_RING' ? 'Avatar Rings' : t === 'TITLE' ? 'Titles' : t === 'MERCH' ? 'Merch' : 'Gift Cards';
+          const isActive = typeFilter === t;
+          return (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                isActive
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm'
+                  : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 border border-zinc-800'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters and Controls */}
       <div className="bg-[#121212] border border-zinc-800 rounded-xl p-4 space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
@@ -896,8 +917,16 @@ export default function ShopItemsListPage() {
               placeholder="Search by name, ID, description, or collection..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500 w-full"
+              className="bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-9 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500 w-full"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-300"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -971,169 +1000,330 @@ export default function ShopItemsListPage() {
             No shop items found matching your filters.
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[70vh] custom-scrollbar">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-[#18181A] text-zinc-400 sticky top-0 border-b border-zinc-800 z-10 font-semibold uppercase">
-                <tr>
-                  <th className="px-4 py-3">Preview</th>
-                  <th className="px-4 py-3">Name & ID</th>
-                  <th className="px-4 py-3">Type & Category</th>
-                  <th className="px-4 py-3">Cost (Links)</th>
-                  <th className="px-4 py-3 text-center">For Sale</th>
-                  <th className="px-4 py-3 text-center">Pro Only</th>
-                  <th className="px-4 py-3 text-center">Active</th>
-                  <th className="px-4 py-3 text-center">Featured</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60">
-                {sortedItems.map((item) => {
-                  const isEditingCost = editingCostId === item.id;
+          <>
+            {/* MOBILE VIEW (Screens < md): Fast, touch-friendly cards */}
+            <div className="block md:hidden divide-y divide-zinc-800/80">
+              {sortedItems.map((item) => {
+                const isEditingCost = editingCostId === item.id;
+                const isForSale = item.forSale !== false;
+                const isActive = item.active !== false;
+                const isPro = !!item.premiumOnly;
+                const isFeatured = !!item.featured;
 
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`hover:bg-zinc-800/30 transition-colors ${item.active === false ? 'opacity-40 bg-zinc-950/40' : ''}`}
-                    >
-                      {/* Visual Preview */}
-                      <td className="px-4 py-3">
+                return (
+                  <div key={item.id} className="p-4 space-y-3 bg-[#141416]/50 hover:bg-zinc-900/40 transition-colors">
+                    {/* Header: Preview, Name, ID, Actions */}
+                    <div className="flex items-center gap-3">
+                      <div className="shrink-0">
                         {renderCosmeticPreview(item)}
-                      </td>
-
-                      {/* Name & ID */}
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-zinc-100 text-sm">{item.name}</div>
-                        <div className="font-mono text-[11px] text-zinc-500">{item.id}</div>
-                        {item.collectionId && (
-                          <span className="inline-block mt-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-cyan-400 border border-zinc-700">
-                            set: {item.collectionId}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-zinc-100 text-sm truncate">{item.name}</div>
+                        <div className="font-mono text-[11px] text-zinc-500 truncate">{item.id}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">
+                            {item.type?.replace('_', ' ')}
                           </span>
-                        )}
-                      </td>
+                          {item.collectionId && (
+                            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1 py-0.5 rounded truncate max-w-[120px]">
+                              {item.collectionId}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-zinc-400 hover:text-white"
+                          onClick={() => openEditDrawer(item.id)}
+                          title="Edit Full Details"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          onClick={() => handleDelete(item.id)}
+                          title="Delete Item"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
 
-                      {/* Type & Category */}
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-zinc-300">{item.type?.replace('_', ' ')}</div>
-                        <div className="text-[11px] text-zinc-500">{item.category || 'Uncategorized'}</div>
-                      </td>
-
-                      {/* Cost Input / Display */}
-                      <td className="px-4 py-3 font-mono font-bold">
-                        {isEditingCost ? (
-                          <div className="flex items-center gap-1">
-                            <Input
-                              type="number"
-                              value={editingCostValue}
-                              onChange={(e) => setEditingCostValue(e.target.value)}
-                              className="w-20 h-7 text-xs bg-zinc-900 border-zinc-700 font-mono text-cyan-400 focus:ring-emerald-500"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveCost(item.id);
-                                if (e.key === 'Escape') setEditingCostId(null);
-                              }}
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveCost(item.id)}
-                              className="h-7 px-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px]"
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setEditingCostId(item.id);
-                              setEditingCostValue(item.cost || 0);
+                    {/* Price editor on mobile */}
+                    <div className="flex items-center justify-between bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2">
+                      <span className="text-xs text-zinc-400 font-medium flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-cyan-400" /> Price:
+                      </span>
+                      {isEditingCost ? (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            value={editingCostValue}
+                            onChange={(e) => setEditingCostValue(e.target.value)}
+                            className="w-24 h-8 text-xs bg-zinc-950 border-emerald-500 font-mono text-cyan-400"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveCost(item.id);
+                              if (e.key === 'Escape') setEditingCostId(null);
                             }}
-                            className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 group cursor-pointer"
-                            title="Click to edit cost"
-                          >
-                            <Coins className="w-3.5 h-3.5 text-cyan-400" />
-                            <span>{(item.cost || 0).toLocaleString()}</span>
-                            <Edit3 className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors ml-1" />
-                          </button>
-                        )}
-                      </td>
-
-                      {/* Toggle: For Sale */}
-                      <td className="px-4 py-3 text-center">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.forSale !== false}
-                            onChange={() => handleToggle(item.id, 'forSale', item.forSale !== false)}
-                            className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
                           />
-                        </label>
-                      </td>
-
-                      {/* Toggle: Premium Only */}
-                      <td className="px-4 py-3 text-center">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.premiumOnly || false}
-                            onChange={() => handleToggle(item.id, 'premiumOnly', item.premiumOnly || false)}
-                            className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-purple-500 focus:ring-purple-500/20"
-                          />
-                        </label>
-                      </td>
-
-                      {/* Toggle: Active */}
-                      <td className="px-4 py-3 text-center">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.active !== false}
-                            onChange={() => handleToggle(item.id, 'active', item.active !== false)}
-                            className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
-                          />
-                        </label>
-                      </td>
-
-                      {/* Toggle: Featured */}
-                      <td className="px-4 py-3 text-center">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={item.featured || false}
-                            onChange={() => handleToggle(item.id, 'featured', item.featured || false)}
-                            className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/20"
-                          />
-                        </label>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-zinc-400 hover:text-white"
-                            onClick={() => openEditDrawer(item.id)}
-                            title="Edit Full Details"
+                            size="sm"
+                            onClick={() => handleSaveCost(item.id)}
+                            className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
+                            <Check className="w-3.5 h-3.5" />
                           </Button>
-
                           <Button
+                            size="sm"
                             variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            onClick={() => handleDelete(item.id)}
-                            title="Delete Item"
+                            onClick={() => setEditingCostId(null)}
+                            className="h-8 px-2 text-zinc-400 text-xs"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <X className="w-3.5 h-3.5" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingCostId(item.id);
+                            setEditingCostValue(item.cost || 0);
+                          }}
+                          className="flex items-center gap-1.5 text-cyan-400 font-mono font-bold text-sm bg-zinc-800/80 hover:bg-zinc-800 px-2.5 py-1 rounded border border-zinc-700/60"
+                        >
+                          <span>{(item.cost || 0).toLocaleString()} Links</span>
+                          <Edit3 className="w-3 h-3 text-zinc-400 ml-1" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Touch-Friendly Availability Buttons */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {/* For Sale Toggle */}
+                      <button
+                        onClick={() => handleToggle(item.id, 'forSale', isForSale)}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                          isForSale
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm'
+                            : 'bg-zinc-900/60 text-zinc-500 border-zinc-800'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${isForSale ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                        <span>{isForSale ? 'In Shop (For Sale)' : 'Off Shop'}</span>
+                      </button>
+
+                      {/* Active Status Toggle */}
+                      <button
+                        onClick={() => handleToggle(item.id, 'active', isActive)}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                          isActive
+                            ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                            : 'bg-red-950/30 text-red-400 border-red-900/50'
+                        }`}
+                      >
+                        <span>{isActive ? 'Active' : 'Disabled'}</span>
+                      </button>
+
+                      {/* Pro Only Toggle */}
+                      <button
+                        onClick={() => handleToggle(item.id, 'premiumOnly', isPro)}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                          isPro
+                            ? 'bg-purple-950/50 text-purple-300 border-purple-500/60'
+                            : 'bg-zinc-900/40 text-zinc-500 border-zinc-800'
+                        }`}
+                      >
+                        <Crown className={`w-3.5 h-3.5 ${isPro ? 'text-purple-400' : 'text-zinc-600'}`} />
+                        <span>{isPro ? 'Pro Only' : 'Standard'}</span>
+                      </button>
+
+                      {/* Featured Toggle */}
+                      <button
+                        onClick={() => handleToggle(item.id, 'featured', isFeatured)}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                          isFeatured
+                            ? 'bg-amber-950/50 text-amber-300 border-amber-500/60'
+                            : 'bg-zinc-900/40 text-zinc-500 border-zinc-800'
+                        }`}
+                      >
+                        <Sparkles className={`w-3.5 h-3.5 ${isFeatured ? 'text-amber-400' : 'text-zinc-600'}`} />
+                        <span>{isFeatured ? 'Featured' : 'Not Featured'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DESKTOP VIEW (Screens >= md): Table View */}
+            <div className="hidden md:block overflow-x-auto max-h-[70vh] custom-scrollbar">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="bg-[#18181A] text-zinc-400 sticky top-0 border-b border-zinc-800 z-10 font-semibold uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Preview</th>
+                    <th className="px-4 py-3">Name & ID</th>
+                    <th className="px-4 py-3">Type & Category</th>
+                    <th className="px-4 py-3">Cost (Links)</th>
+                    <th className="px-4 py-3 text-center">For Sale</th>
+                    <th className="px-4 py-3 text-center">Pro Only</th>
+                    <th className="px-4 py-3 text-center">Active</th>
+                    <th className="px-4 py-3 text-center">Featured</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  {sortedItems.map((item) => {
+                    const isEditingCost = editingCostId === item.id;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`hover:bg-zinc-800/30 transition-colors ${item.active === false ? 'opacity-40 bg-zinc-950/40' : ''}`}
+                      >
+                        {/* Visual Preview */}
+                        <td className="px-4 py-3">
+                          {renderCosmeticPreview(item)}
+                        </td>
+
+                        {/* Name & ID */}
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-zinc-100 text-sm">{item.name}</div>
+                          <div className="font-mono text-[11px] text-zinc-500">{item.id}</div>
+                          {item.collectionId && (
+                            <span className="inline-block mt-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-cyan-400 border border-zinc-700">
+                              set: {item.collectionId}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Type & Category */}
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-zinc-300">{item.type?.replace('_', ' ')}</div>
+                          <div className="text-[11px] text-zinc-500">{item.category || 'Uncategorized'}</div>
+                        </td>
+
+                        {/* Cost Input / Display */}
+                        <td className="px-4 py-3 font-mono font-bold">
+                          {isEditingCost ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                value={editingCostValue}
+                                onChange={(e) => setEditingCostValue(e.target.value)}
+                                className="w-20 h-7 text-xs bg-zinc-900 border-zinc-700 font-mono text-cyan-400 focus:ring-emerald-500"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveCost(item.id);
+                                  if (e.key === 'Escape') setEditingCostId(null);
+                                }}
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveCost(item.id)}
+                                className="h-7 px-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px]"
+                              >
+                                Save
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingCostId(item.id);
+                                setEditingCostValue(item.cost || 0);
+                              }}
+                              className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 group cursor-pointer"
+                              title="Click to edit cost"
+                            >
+                              <Coins className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>{(item.cost || 0).toLocaleString()}</span>
+                              <Edit3 className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors ml-1" />
+                            </button>
+                          )}
+                        </td>
+
+                        {/* Toggle: For Sale */}
+                        <td className="px-4 py-3 text-center">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.forSale !== false}
+                              onChange={() => handleToggle(item.id, 'forSale', item.forSale !== false)}
+                              className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
+                            />
+                          </label>
+                        </td>
+
+                        {/* Toggle: Premium Only */}
+                        <td className="px-4 py-3 text-center">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.premiumOnly || false}
+                              onChange={() => handleToggle(item.id, 'premiumOnly', item.premiumOnly || false)}
+                              className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-purple-500 focus:ring-purple-500/20"
+                            />
+                          </label>
+                        </td>
+
+                        {/* Toggle: Active */}
+                        <td className="px-4 py-3 text-center">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.active !== false}
+                              onChange={() => handleToggle(item.id, 'active', item.active !== false)}
+                              className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
+                            />
+                          </label>
+                        </td>
+
+                        {/* Toggle: Featured */}
+                        <td className="px-4 py-3 text-center">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.featured || false}
+                              onChange={() => handleToggle(item.id, 'featured', item.featured || false)}
+                              className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-amber-500 focus:ring-amber-500/20"
+                            />
+                          </label>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-zinc-400 hover:text-white"
+                              onClick={() => openEditDrawer(item.id)}
+                              title="Edit Full Details"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              onClick={() => handleDelete(item.id)}
+                              title="Delete Item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

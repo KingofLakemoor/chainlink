@@ -1137,7 +1137,7 @@ apiRouter.get("/admin/users/chain-detail", validateAdmin, async (req, res) => {
       .where('status', 'in', ['WIN', 'LOSS', 'PUSH'])
       .get();
 
-    const allPicks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allPicks: any[] = picksSnap.docs.map(d => ({ id: d.id, ...((d.data() as any) || {}) }));
 
     // Deterministic chronological sort using createdAt, falling back to updatedAt
     allPicks.sort((a: any, b: any) => {
@@ -1243,7 +1243,7 @@ apiRouter.post("/admin/users/rebuild-chain", validateAdmin, async (req, res) => 
       .where('status', 'in', ['WIN', 'LOSS', 'PUSH'])
       .get();
 
-    let picks = picksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let picks: any[] = picksSnap.docs.map(d => ({ id: d.id, ...((d.data() as any) || {}) }));
 
     // Deterministic chronological sort: A to B
     picks.sort((a: any, b: any) => {

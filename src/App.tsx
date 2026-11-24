@@ -459,24 +459,35 @@ const TopStats = React.memo(function TopStats() {
 
   return (
     <>
-      <div className="flex items-center gap-2 md:gap-5">
-        <div className="hidden md:flex items-center gap-1.5 text-sm">
-           <Link2 className="w-4 h-4 text-cyan-400" />
-           <span className="font-mono text-cyan-400 font-medium tracking-wide">{profile?.links?.toLocaleString() || 0}</span>
-        </div>
-        <div className="hidden md:block w-px h-4 bg-zinc-700"></div>
-        <div className="flex items-center gap-2 md:gap-3 text-sm">
-           <span className={cn("font-bold tracking-tight", (chain?.chain || 0) < 0 ? "text-red-500" : "text-[#22c55e]")}>
-             {(chain?.chain || 0) < 0 ? `L${Math.abs(chain?.chain || 0)}` : `W${chain?.chain || 0}`}
-           </span>
-           <span className="text-zinc-400 font-mono text-xs tracking-wider">
-             {profile?.stats?.wins || 0} - {profile?.stats?.losses || 0} - {profile?.stats?.pushes || 0}
-           </span>
-        </div>
-        <div className="w-px h-4 bg-zinc-700"></div>
+      <div className="flex items-center gap-2 md:gap-4">
+        {/* Links Badge - visible on both mobile and desktop */}
         <button
           onClick={() => setIsSettingsOpen(true)}
-          className="w-8 h-8 rounded-full border border-zinc-700 hover:border-zinc-400 overflow-hidden bg-zinc-800 shrink-0 transition-colors cursor-pointer flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50"
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-cyan-950/40 border border-cyan-800/50 hover:border-cyan-500/80 transition-colors"
+          title="Club 602 Links"
+        >
+          <Link2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span className="font-mono text-cyan-300 font-semibold text-xs md:text-sm tracking-wide">
+            {profile?.links?.toLocaleString() || 0}
+          </span>
+        </button>
+
+        <div className="w-px h-4 bg-zinc-800"></div>
+
+        <div className="flex items-center gap-1.5 md:gap-3 text-xs md:text-sm">
+          <span className={cn("font-bold tracking-tight", (chain?.chain || 0) < 0 ? "text-red-500" : "text-[#22c55e]")}>
+            {(chain?.chain || 0) < 0 ? `L${Math.abs(chain?.chain || 0)}` : `W${chain?.chain || 0}`}
+          </span>
+          <span className="text-zinc-400 font-mono text-[11px] md:text-xs tracking-wider">
+            {profile?.stats?.wins || 0}-{profile?.stats?.losses || 0}-{profile?.stats?.pushes || 0}
+          </span>
+        </div>
+
+        <div className="w-px h-4 bg-zinc-800"></div>
+
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="w-7 h-7 md:w-8 md:h-8 rounded-full border border-zinc-700 hover:border-zinc-400 overflow-hidden bg-zinc-800 shrink-0 transition-colors cursor-pointer flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50"
           title="Account Settings"
           aria-label="Account Settings"
         >

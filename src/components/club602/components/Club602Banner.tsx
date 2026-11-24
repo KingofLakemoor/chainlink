@@ -61,7 +61,7 @@ export const Club602Banner: React.FC<Club602BannerProps> = ({
 }) => {
   // If rendering in micro context (e.g. dense leaderboard or compact item pill), render minimal accent container
   const isMicro = presentationContext === 'micro';
-  const forceStatic = isStatic || isMicro || presentationContext === 'card';
+  const forceStatic = isStatic || isMicro;
   const spokeOverrides = spokeId && user?.spokeCosmetics?.[spokeId];
   const chosenBannerId = bannerId || (
     bannerType === 'ROSTER_BANNER'

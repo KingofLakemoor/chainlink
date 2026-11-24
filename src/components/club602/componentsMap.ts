@@ -58,6 +58,9 @@ import { SeismicStrikeBanner } from './components/banners/SeismicStrikeBanner';
 import { GoldenSpiralBanner } from './components/banners/GoldenSpiralBanner';
 import { CrescentCrownBanner } from './components/banners/CrescentCrownBanner';
 import { MidwayChargeBanner } from './components/banners/MidwayChargeBanner';
+import { GothamMachBanner } from './components/banners/GothamMachBanner';
+import { ArcSurgeBanner } from './components/banners/ArcSurgeBanner';
+import { TurkeyGobblerBanner } from './components/banners/TurkeyGobblerBanner';
 
 // Custom Titles
 import { ResponsibleGamblerTitle } from './components/titles/responsible-gambler/ResponsibleGamblerTitle';
@@ -183,7 +186,19 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   banner_task_force_camo: TaskForceCamoBanner,
   banner_vice_city: ViceCityBanner,
   banner_crescent_crown: CrescentCrownBanner,
-  banner_midway_charge: MidwayChargeBanner
+  banner_midway_charge: MidwayChargeBanner,
+  GothamMachBanner,
+  GothamMach: GothamMachBanner,
+  banner_gotham_mach: GothamMachBanner,
+  banner_new_york_jets: GothamMachBanner,
+  ArcSurgeBanner,
+  ArcSurge: ArcSurgeBanner,
+  banner_arc_surge: ArcSurgeBanner,
+  banner_los_angeles_chargers: ArcSurgeBanner,
+  TurkeyGobblerBanner,
+  TurkeyGobbler: TurkeyGobblerBanner,
+  banner_turkey_gobbler: TurkeyGobblerBanner,
+  banner_turkey_day_gobbler: TurkeyGobblerBanner
 };
 
 /**

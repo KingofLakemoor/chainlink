@@ -39,7 +39,7 @@ export default function LeaderboardsPage() {
   const [selectedMonth, setSelectedMonth] = useState('current'); // current by default
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-  const [animateCosmetics, setAnimateCosmetics] = useState(false);
+  const [animateCosmetics, setAnimateCosmetics] = useState(true);
   const [archivedMonths, setArchivedMonths] = useState<Array<{ monthKey: string; monthLabel: string; completedAt: number }>>([]);
   const [snapshotWinners, setSnapshotWinners] = useState<any | null>(null);
   const [snapshotGlobals, setSnapshotGlobals] = useState<{ totalWins: number; totalLosses: number; globalWinRate: string } | null>(null);

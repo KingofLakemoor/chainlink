@@ -1016,7 +1016,19 @@ export default function PickEmAdminPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Weeks</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="52"
+                    value={createData.totalWeeks}
+                    onChange={e => setCreateForm({ ...createData, totalWeeks: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Default Match Type</label>
                   <select
@@ -1234,6 +1246,19 @@ export default function PickEmAdminPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-zinc-400 font-semibold uppercase">Total Weeks:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="52"
+                          value={editTotalWeeks}
+                          onChange={(e) => setEditTotalWeeks(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-16 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 text-center"
+                          title="Total number of weeks in this campaign"
+                        />
+                      </div>
+
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-zinc-400 font-semibold uppercase">Current Week:</span>
                         <select

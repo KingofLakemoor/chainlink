@@ -1896,5 +1896,19 @@
     "preview": "ArcSurgeBanner",
     "order": 20,
     "collectionId": ""
+  },
+  {
+    "id": "banner_turkey_gobbler",
+    "name": "The Turkey Day Gobbler",
+    "description": "Exclusive trophy banner awarded to the champion of the 1st Annual Turkey Day Gobbler Pick 'Em Campaign. Features roasting dusk embers, majestic harvest-gold feather rays, and a forged champion turkey crest.",
+    "cost": 500,
+    "type": "PROFILE_BANNER",
+    "active": true,
+    "forSale": false,
+    "image": "TurkeyGobblerBanner",
+    "featured": true,
+    "preview": "TurkeyGobblerBanner",
+    "order": 21,
+    "collectionId": ""
   }
 ]

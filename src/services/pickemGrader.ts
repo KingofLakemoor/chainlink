@@ -440,7 +440,23 @@ export async function payoutPickemCampaign(campaignId: string) {
         const userDoc = await transaction.get(userRef);
         if (userDoc.exists) {
           const userData = userDoc.data();
-          transaction.update(userRef, { links: (userData.links || 0) + w.amount });
+          const updatePayload: any = { links: (userData.links || 0) + w.amount };
+
+          // Award exclusive banner for 1st place winner of Turkey Day Gobbler campaign (or any campaign configured with awardBannerId)
+          const isTurkeyGobblerCampaign = (campaignData.name && typeof campaignData.name === 'string' && campaignData.name.toLowerCase().includes('gobbler')) ||
+                                          campaignId.toLowerCase().includes('gobbler') ||
+                                          campaignData.awardBannerId === 'banner_turkey_gobbler';
+
+          const bannerToAward = campaignData.awardBannerId || (isTurkeyGobblerCampaign ? 'banner_turkey_gobbler' : null);
+
+          if (w.rank === '1st' && bannerToAward) {
+            const currentInventory = userData.inventory || [];
+            if (!currentInventory.includes(bannerToAward)) {
+              updatePayload.inventory = [...currentInventory, bannerToAward];
+            }
+          }
+
+          transaction.update(userRef, updatePayload);
 
           const logRef = adminDb.collection('linkTransactions').doc();
           transaction.set(logRef, {
@@ -453,9 +469,10 @@ export async function payoutPickemCampaign(campaignId: string) {
           });
 
           const notificationsRef = adminDb.collection('notifications').doc();
+          const bannerAwardMsg = (w.rank === '1st' && bannerToAward) ? ` You have also been awarded the exclusive "The Turkey Day Gobbler" profile banner!` : '';
           transaction.set(notificationsRef, {
             title: `Pick 'Em Winner! 🎉`,
-            body: `You finished ${w.placeName} in ${campaignData.name || 'Pick Em'}! ${w.amount} links have been added to your account.`,
+            body: `You finished ${w.placeName} in ${campaignData.name || 'Pick Em'}! ${w.amount} links have been added to your account.${bannerAwardMsg}`,
             audience: 'USER',
             targetUserId: w.uid,
             status: 'PENDING',

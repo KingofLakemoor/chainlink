@@ -50,6 +50,7 @@ import { MidwayChargeBanner } from '../components/banners/MidwayChargeBanner';
 import { CrescentCrownBanner } from '../components/banners/CrescentCrownBanner';
 import { GothamMachBanner } from '../components/banners/GothamMachBanner';
 import { ArcSurgeBanner } from '../components/banners/ArcSurgeBanner';
+import { TurkeyGobblerBanner } from '../components/banners/TurkeyGobblerBanner';
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerAvatarRing": ResponsibleGamblerAvatarRing,
@@ -124,5 +125,9 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'ArcSurgeBanner': ArcSurgeBanner,
   'ArcSurge': ArcSurgeBanner,
   'banner_arc_surge': ArcSurgeBanner,
-  'banner_los_angeles_chargers': ArcSurgeBanner
+  'banner_los_angeles_chargers': ArcSurgeBanner,
+  'TurkeyGobblerBanner': TurkeyGobblerBanner,
+  'TurkeyGobbler': TurkeyGobblerBanner,
+  'banner_turkey_gobbler': TurkeyGobblerBanner,
+  'banner_turkey_day_gobbler': TurkeyGobblerBanner
 };

@@ -55,6 +55,7 @@ const AVAILABLE_COSMETICS = [
   { id: 'banner_crescent_crown', name: 'The Crescent Crown', category: 'banner', key: 'CrescentCrownBanner' },
   { id: 'banner_gotham_mach', name: 'The Gotham Mach', category: 'banner', key: 'GothamMachBanner' },
   { id: 'banner_arc_surge', name: 'The Arc Surge', category: 'banner', key: 'ArcSurgeBanner' },
+  { id: 'banner_turkey_gobbler', name: 'The Turkey Day Gobbler', category: 'banner', key: 'TurkeyGobblerBanner' },
 
   // Avatar Rings
   { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },

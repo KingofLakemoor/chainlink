@@ -3754,5 +3754,53 @@
     "renderValue": "CrescentCrownBanner",
     "preview": "CrescentCrownBanner",
     "order": 226
+  },
+  {
+    "id": "banner_gotham_mach",
+    "name": "The Gotham Mach",
+    "category": "PROFILE_BANNER",
+    "originSpoke": "chainlink",
+    "description": "New York Jets-inspired banner featuring stealth Gotham obsidian skies, supersonic green afterburner shock diamonds, high-velocity vapor trails, and a chiseled supersonic jet crest.",
+    "cost": 250,
+    "forSale": true,
+    "active": true,
+    "featured": true,
+    "rarity": "rare",
+    "renderType": "component",
+    "renderValue": "GothamMachBanner",
+    "preview": "GothamMachBanner",
+    "order": 227
+  },
+  {
+    "id": "banner_arc_surge",
+    "name": "The Arc Surge",
+    "category": "PROFILE_BANNER",
+    "originSpoke": "chainlink",
+    "description": "Los Angeles Chargers-inspired banner featuring deep Pacific thunderstorm skies, undulating powder blue plasma waves, jagged solar-gold lightning discharge, and a forged electric bolt crest.",
+    "cost": 250,
+    "forSale": true,
+    "active": true,
+    "featured": true,
+    "rarity": "rare",
+    "renderType": "component",
+    "renderValue": "ArcSurgeBanner",
+    "preview": "ArcSurgeBanner",
+    "order": 228
+  },
+  {
+    "id": "banner_turkey_gobbler",
+    "name": "The Turkey Day Gobbler",
+    "category": "PROFILE_BANNER",
+    "originSpoke": "chainlink",
+    "description": "Exclusive trophy banner awarded to the champion of the 1st Annual Turkey Day Gobbler Pick 'Em Campaign. Features roasting dusk embers, majestic harvest-gold feather rays, and a forged champion turkey crest.",
+    "cost": 500,
+    "forSale": false,
+    "active": true,
+    "featured": true,
+    "rarity": "legendary",
+    "renderType": "component",
+    "renderValue": "TurkeyGobblerBanner",
+    "preview": "TurkeyGobblerBanner",
+    "order": 229
   }
 ]

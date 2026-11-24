@@ -23,6 +23,7 @@ import { FaDiscord } from 'react-icons/fa';
 import { Download } from 'lucide-react';
 
 import { ErrorBoundaryWrapper } from './components/ErrorBoundary';
+import { VersionChecker } from './components/VersionChecker';
 import { ProfileSettingsModal } from './components/profile/ProfileSettingsModal';
 import { Club602Avatar } from './components/club602';
 

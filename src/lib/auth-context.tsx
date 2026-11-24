@@ -147,6 +147,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return mergedProfile;
         });
+
+        // Non-blocking sync with Central Club 602 Wallet
+        try {
+          const { chainlinkHubClient } = await import('./chainlinkHubClient');
+          const token = await user.getIdToken();
+          const walletId = data.walletId || `wlt_${user.uid}`;
+          const hubWallet = await chainlinkHubClient.getWalletBalance(walletId, token, user.email || undefined);
+          if (hubWallet && typeof hubWallet.availableBalance === 'number') {
+            setProfile((prev: any) => prev ? { ...prev, links: hubWallet.availableBalance, hubWallet } : prev);
+          }
+        } catch (hubErr) {
+          // Graceful fallback: local Firestore links remain active
+        }
       } else if (import.meta.env.DEV && user.uid === 'mock-user-123') {
         // preserve the mock profile
       } else {

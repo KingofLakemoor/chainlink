@@ -7,6 +7,7 @@ export * from './components/Club602Avatar';
 export * from './components/Club602Banner';
 export * from './components/Club602Nameplate';
 export * from './components/CosmeticOriginBadge';
+export * from './components/Club602LockerModal';
 export * from './componentsMap';
 
 /**

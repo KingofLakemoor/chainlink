@@ -22,6 +22,15 @@ export type SpokeOrigin =
   | 'gridiron'
   | 'core';
 
+/**
+ * Universal Presentation Context
+ * Governs visual density, animation performance, and fallback degradation
+ * - 'micro': Leaderboards, chat feeds, ticker rows, compact header pills (60fps, CSS rings, static canvas, suppressed banners)
+ * - 'card': Matchup cards, roster cards, contestant lineup cards (mid-tier visuals, roster banner backdrops)
+ * - 'hero': Profile modals, player hub profile pages, championship cards (full animation, WebGL/shader rings, full-bleed hero banners)
+ */
+export type PresentationContext = 'micro' | 'card' | 'hero';
+
 export type CosmeticRarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 export type CosmeticRenderType =

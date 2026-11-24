@@ -1,6 +1,7 @@
 import React from 'react';
 import { COSMETICS_CATALOG } from '../index';
 import { getBadgeNode } from './badgeIcons';
+import { PresentationContext } from '../types';
 
 import { TitleMap } from '../componentsMap';
 
@@ -24,9 +25,11 @@ export interface Club602NameplateProps {
   fallbackName?: string;
   /** Spoke context for spoke-specific cosmetic overrides */
   spokeId?: 'chainlink' | 'scriptless' | 'darts' | 'putting' | 'bingo' | 'flip' | 'core';
+  /** Presentation context: 'micro' (dense leaderboard/ticker: hides subtitle unless explicit), 'card', 'hero' */
+  presentationContext?: PresentationContext;
   /** Size scale */
   size?: 'sm' | 'md' | 'lg';
-  /** Show the subtitle/flair */
+  /** Show the subtitle/flair (defaults to false in 'micro' context, true in 'card' and 'hero') */
   showTitle?: boolean;
   /** Show the badge/icon next to the name */
   showBadge?: boolean;
@@ -42,19 +45,23 @@ export interface Club602NameplateProps {
  * Universal Club 602 Nameplate Component
  * Renders the player's name with their equipped Name Gradient, Badge icon, and Title flair.
  * Supports both typography titles and custom animated/styled Title components.
+ * Context-aware: cleanly suppresses subtitles in micro rows while preserving gradients and badges.
  */
 export const Club602Nameplate: React.FC<Club602NameplateProps> = ({
   user,
   fallbackName = 'Player',
   spokeId,
+  presentationContext = 'hero',
   size = 'md',
-  showTitle = true,
+  showTitle,
   showBadge = true,
   className = '',
   nameClassName = '',
   titleClassName = '',
   isStatic = false
 }) => {
+  const isMicro = presentationContext === 'micro';
+  const shouldShowTitle = showTitle !== undefined ? showTitle : !isMicro;
   const displayName = user?.displayName || user?.name || user?.username || fallbackName;
 
   const spokeOverrides = spokeId && user?.spokeCosmetics?.[spokeId];
@@ -106,7 +113,7 @@ export const Club602Nameplate: React.FC<Club602NameplateProps> = ({
       </div>
 
       {/* Title Subtitle */}
-      {showTitle && (TitleComponent || titleStr) && (
+      {shouldShowTitle && (TitleComponent || titleStr) && (
         <div className="mt-0.5">
           {TitleComponent ? (
             <div className="inline-block" title={titleItem ? `Title: ${titleItem.name} (${titleItem.originSpoke})` : undefined}>

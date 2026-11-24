@@ -1,6 +1,6 @@
 import React from 'react';
 import { COSMETICS_CATALOG } from '../index';
-import { CosmeticItem } from '../types';
+import { CosmeticItem, PresentationContext } from '../types';
 
 import { AvatarRingMap } from '../componentsMap';
 
@@ -25,6 +25,8 @@ export interface Club602AvatarProps {
   spokeId?: 'chainlink' | 'scriptless' | 'darts' | 'putting' | 'bingo' | 'flip' | 'core';
   /** Avatar size preset */
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  /** Presentation context: 'micro' enforces static mode and CSS fallback for 60fps leaderboard performance */
+  presentationContext?: PresentationContext;
   /** Custom outer wrapper className */
   className?: string;
   /** Custom image className */
@@ -47,17 +49,21 @@ const SIZE_MAP = {
  * Universal Club 602 Avatar Component
  * Displays user photo with their equipped avatar frame/ring across any spoke app.
  * Supports CSS border rings as well as rich React/Canvas animated rings from ChainLink & spokes.
+ * Context-aware: automatically down-scales to static/CSS performance mode on 'micro' surfaces.
  */
 export const Club602Avatar: React.FC<Club602AvatarProps> = ({
   user,
   ringId,
   spokeId,
   size = 'md',
+  presentationContext,
   className = '',
   imageClassName = '',
   fallbackName,
   isStatic = false
 }) => {
+  // Enforce static mode on micro surfaces (e.g. dense leaderboards) or xs/sm sizes
+  const forceStatic = isStatic || presentationContext === 'micro' || size === 'xs' || size === 'sm';
   const spokeOverrides = spokeId && user?.spokeCosmetics?.[spokeId];
   const chosenRingId = ringId || spokeOverrides?.AVATAR_RING || user?.equippedCosmetics?.AVATAR_RING || user?.avatarFrame;
   const cosmeticItem: CosmeticItem | undefined = chosenRingId
@@ -95,7 +101,7 @@ export const Club602Avatar: React.FC<Club602AvatarProps> = ({
     >
       {RingComponent && (
         <div className="absolute inset-0 transform scale-[1.35] pointer-events-none z-0 flex items-center justify-center">
-          {React.createElement(RingComponent, { isStatic })}
+          {React.createElement(RingComponent, { isStatic: forceStatic })}
         </div>
       )}
       <img

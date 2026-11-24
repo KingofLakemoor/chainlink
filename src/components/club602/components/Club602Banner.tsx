@@ -1,6 +1,6 @@
 import React from 'react';
 import { COSMETICS_CATALOG } from '../index';
-import { CosmeticItem } from '../types';
+import { CosmeticItem, PresentationContext } from '../types';
 
 import { ProfileBannerMap } from '../componentsMap';
 
@@ -22,6 +22,8 @@ export interface Club602BannerProps {
   bannerId?: string;
   /** Type of banner to resolve from user cosmetics: 'PROFILE_BANNER' (default) or 'ROSTER_BANNER' */
   bannerType?: 'PROFILE_BANNER' | 'ROSTER_BANNER';
+  /** Presentation context: 'micro' converts banner to a subtle accent line / border glow; 'card' optimizes height; 'hero' provides full bleed */
+  presentationContext?: PresentationContext;
   /** Spoke context for spoke-specific cosmetic overrides */
   spokeId?: 'chainlink' | 'scriptless' | 'darts' | 'putting' | 'bingo' | 'flip' | 'core';
   /** Banner container height preset or custom className */
@@ -44,17 +46,22 @@ const HEIGHT_MAP = {
 /**
  * Universal Club 602 Banner Component (Profile Banners & Matchup Roster Banners)
  * Handles CSS gradient classes, WebGL/Canvas shader components, image URLs, and fallback styles.
+ * Presentation-aware: adapts rendering between dense micro cards, lineup cards, and hero profile banners.
  */
 export const Club602Banner: React.FC<Club602BannerProps> = ({
   user,
   bannerId,
   bannerType = 'PROFILE_BANNER',
+  presentationContext = 'hero',
   spokeId,
   height = 'md',
   className = '',
   children,
   isStatic = false
 }) => {
+  // If rendering in micro context (e.g. dense leaderboard or compact item pill), render minimal accent container
+  const isMicro = presentationContext === 'micro';
+  const forceStatic = isStatic || isMicro || presentationContext === 'card';
   const spokeOverrides = spokeId && user?.spokeCosmetics?.[spokeId];
   const chosenBannerId = bannerId || (
     bannerType === 'ROSTER_BANNER'
@@ -108,19 +115,23 @@ export const Club602Banner: React.FC<Club602BannerProps> = ({
     }
   }
 
+  const finalHeightClass = isMicro ? 'h-1.5' : heightClass;
+
   return (
     <div
       style={customStyle}
-      className={`w-full relative overflow-hidden transition-all duration-300 ${heightClass} ${bgClasses} ${className}`}
+      className={`w-full relative overflow-hidden transition-all duration-300 ${finalHeightClass} ${bgClasses} ${className}`}
       title={cosmeticItem ? `${cosmeticItem.name} (${cosmeticItem.originSpoke})` : undefined}
     >
-      {BannerComponent && (
+      {BannerComponent && !isMicro && (
         <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
-          {React.createElement(BannerComponent, { isStatic })}
+          {React.createElement(BannerComponent, { isStatic: forceStatic })}
         </div>
       )}
       {/* Subtle sheen highlight */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none z-[1]" />
+      {!isMicro && (
+        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none z-[1]" />
+      )}
       <div className="relative z-[2] w-full h-full">
         {children}
       </div>

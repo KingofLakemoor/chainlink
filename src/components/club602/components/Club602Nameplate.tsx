@@ -62,7 +62,7 @@ export const Club602Nameplate: React.FC<Club602NameplateProps> = ({
 }) => {
   const isMicro = presentationContext === 'micro';
   const shouldShowTitle = showTitle !== undefined ? showTitle : !isMicro;
-  const displayName = user?.displayName || user?.name || user?.username || fallbackName;
+  const displayName = user?.username || user?.displayName || user?.name || fallbackName;
 
   const spokeOverrides = spokeId && user?.spokeCosmetics?.[spokeId];
 

@@ -70,7 +70,7 @@ export const Club602Avatar: React.FC<Club602AvatarProps> = ({
     ? COSMETICS_CATALOG.find((c) => c.id === chosenRingId)
     : undefined;
 
-  const displayName = user?.displayName || user?.name || user?.username || fallbackName || 'Player';
+  const displayName = user?.username || user?.displayName || user?.name || fallbackName || 'Player';
   const photoUrl = user?.photoURL || user?.avatarUrl || user?.image || 
     (user?.id ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.id)}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random&color=fff`);
 

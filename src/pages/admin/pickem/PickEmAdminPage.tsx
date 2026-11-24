@@ -912,7 +912,7 @@ export default function PickEmAdminPage() {
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Supported Leagues *</label>
                 <div className="flex flex-wrap gap-3">
-                  {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING'].map(l => (
+                  {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING'].map(l => (
                     <label key={l} className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg hover:border-zinc-700">
                       <input
                         type="checkbox"

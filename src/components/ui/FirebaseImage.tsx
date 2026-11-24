@@ -31,6 +31,8 @@ export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: Firebas
       if (!s) return fallback || undefined;
       if (s.startsWith('gs://')) return undefined;
       if (s.startsWith('/contestants/')) return 'https://scriptless.club602.com' + s;
+      if (s.startsWith('public/contestants/')) return 'https://scriptless.club602.com/' + s.replace(/^public\//, '');
+      if (s.startsWith('/public/contestants/')) return 'https://scriptless.club602.com/' + s.replace(/^\/public\//, '');
       return optimizeEspnUrl(s);
   };
   const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(getInitialSrc(src));
@@ -67,7 +69,11 @@ export function FirebaseImage({ src, fallback, fallbackIcon, ...props }: Firebas
         }
       } else {
         if (isMounted) {
-          setResolvedSrc(optimizeEspnUrl(src.startsWith('/contestants/') ? 'https://scriptless.club602.com' + src : src));
+          let s = src;
+          if (s.startsWith('/contestants/')) s = 'https://scriptless.club602.com' + s;
+          else if (s.startsWith('public/contestants/')) s = 'https://scriptless.club602.com/' + s.replace(/^public\//, '');
+          else if (s.startsWith('/public/contestants/')) s = 'https://scriptless.club602.com/' + s.replace(/^\/public\//, '');
+          setResolvedSrc(optimizeEspnUrl(s));
         }
       }
     }

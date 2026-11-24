@@ -91,6 +91,7 @@ export default function PickEmAdminPage() {
   const [propOptionA, setPropOptionA] = useState('');
   const [propOptionB, setPropOptionB] = useState('');
   const [propDate, setPropDate] = useState('');
+  const [isScriptlessProp, setIsScriptlessProp] = useState(false);
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -412,11 +413,14 @@ export default function PickEmAdminPage() {
         gameId: `prop_${Date.now()}`,
         title: propTitle,
         type: 'PROP',
+        league: isScriptlessProp ? 'SCRIPTLESS' : undefined,
+        featured: isScriptlessProp ? true : undefined,
+        featuredType: isScriptlessProp ? 'ScriptLess' : undefined,
         startTime: new Date(propDate).getTime(),
         status: 'STATUS_SCHEDULED',
         statusDesc: 'Scheduled',
-        awayTeam: { id: 'option_a', name: propOptionA, image: `https://ui-avatars.com/api/?name=${encodeURIComponent(propOptionA[0] || 'A')}&background=random` },
-        homeTeam: { id: 'option_b', name: propOptionB, image: `https://ui-avatars.com/api/?name=${encodeURIComponent(propOptionB[0] || 'B')}&background=random` },
+        awayTeam: { id: 'option_a', name: propOptionA, image: isScriptlessProp ? '/images/scriptless.png' : `https://ui-avatars.com/api/?name=${encodeURIComponent(propOptionA[0] || 'A')}&background=random` },
+        homeTeam: { id: 'option_b', name: propOptionB, image: isScriptlessProp ? '/images/scriptless.png' : `https://ui-avatars.com/api/?name=${encodeURIComponent(propOptionB[0] || 'B')}&background=random` },
         createdAt: Date.now()
       });
       setShowPropModal(false);
@@ -424,6 +428,7 @@ export default function PickEmAdminPage() {
       setPropOptionA('');
       setPropOptionB('');
       setPropDate('');
+      setIsScriptlessProp(false);
       fetchMatchups(selectedWeek);
     } catch (e: any) {
       console.error(e);
@@ -536,6 +541,9 @@ export default function PickEmAdminPage() {
             week: selectedWeek,
             gameId: String(m.gameId),
             title: finalTitle,
+            league: m.league || lg,
+            featured: m.featured || undefined,
+            featuredType: m.featuredType || undefined,
             startTime: m.startTime,
             status: m.status,
             statusDesc: m.statusDesc,
@@ -912,7 +920,7 @@ export default function PickEmAdminPage() {
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Supported Leagues *</label>
                 <div className="flex flex-wrap gap-3">
-                  {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING'].map(l => (
+                  {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING', 'SCRIPTLESS'].map(l => (
                     <label key={l} className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg hover:border-zinc-700">
                       <input
                         type="checkbox"
@@ -926,7 +934,7 @@ export default function PickEmAdminPage() {
                         }}
                         className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
                       />
-                      {l}
+                      {l === 'SCRIPTLESS' ? 'ScriptLess Props' : l}
                     </label>
                   ))}
                 </div>
@@ -1429,6 +1437,15 @@ export default function PickEmAdminPage() {
               <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Event Start Time</label>
               <input type="datetime-local" value={propDate} onChange={e => setPropDate(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white [color-scheme:dark]" />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={isScriptlessProp}
+                onChange={e => setIsScriptlessProp(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500"
+              />
+              <span className="text-xs text-zinc-300 font-medium">ScriptLess Prop (tag with ScriptLess branding & league)</span>
+            </label>
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowPropModal(false)} size="sm">Cancel</Button>
               <Button onClick={handleAddProp} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold">Add Prop</Button>

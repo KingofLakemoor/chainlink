@@ -45,7 +45,7 @@ export default function PickEmCreateCampaign() {
   });
 
 
-  const availableLeagues = ['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX'];
+  const availableLeagues = ['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'SCRIPTLESS'];
 
   const handleLeagueToggle = (league: string) => {
     setLeagues(prev =>
@@ -141,7 +141,7 @@ export default function PickEmCreateCampaign() {
                     onChange={() => handleLeagueToggle(l)}
                     className="w-4 h-4 rounded border-zinc-800 bg-[#18181A] text-[#22c55e] focus:ring-[#22c55e]"
                   />
-                  {l.replace('-', ' ')}
+                  {l === 'SCRIPTLESS' ? 'ScriptLess Props' : l.replace('-', ' ')}
                 </label>
               ))}
             </div>

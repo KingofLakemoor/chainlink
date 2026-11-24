@@ -24,6 +24,7 @@ export default function PickEmCampaignDetail() {
   const [propOptionA, setPropOptionA] = useState('');
   const [propOptionB, setPropOptionB] = useState('');
   const [propDate, setPropDate] = useState('');
+  const [isScriptlessProp, setIsScriptlessProp] = useState(false);
 
 
   const [themePrimaryColor, setThemePrimaryColor] = useState('#22c55e');
@@ -226,11 +227,14 @@ export default function PickEmCampaignDetail() {
         gameId: `prop_${Date.now()}`,
         title: propTitle,
         type: 'PROP',
+        league: isScriptlessProp ? 'SCRIPTLESS' : undefined,
+        featured: isScriptlessProp ? true : undefined,
+        featuredType: isScriptlessProp ? 'ScriptLess' : undefined,
         startTime: new Date(propDate).getTime(),
         status: 'STATUS_SCHEDULED',
         statusDesc: 'Scheduled',
-        awayTeam: { id: 'option_a', name: propOptionA, image: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(propOptionA[0] || 'A') + '&background=random' },
-        homeTeam: { id: 'option_b', name: propOptionB, image: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(propOptionB[0] || 'B') + '&background=random' },
+        awayTeam: { id: 'option_a', name: propOptionA, image: isScriptlessProp ? '/images/scriptless.png' : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(propOptionA[0] || 'A') + '&background=random' },
+        homeTeam: { id: 'option_b', name: propOptionB, image: isScriptlessProp ? '/images/scriptless.png' : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(propOptionB[0] || 'B') + '&background=random' },
         createdAt: Date.now()
       });
       setShowPropModal(false);
@@ -238,6 +242,7 @@ export default function PickEmCampaignDetail() {
       setPropOptionA('');
       setPropOptionB('');
       setPropDate('');
+      setIsScriptlessProp(false);
       fetchMatchups(selectedWeek);
     } catch (e) {
       console.error(e);
@@ -408,6 +413,9 @@ export default function PickEmCampaignDetail() {
             week: selectedWeek,
             gameId: String(m.gameId),
             title: finalTitle,
+            league: m.league || lg,
+            featured: m.featured || undefined,
+            featuredType: m.featuredType || undefined,
             startTime: m.startTime,
             status: m.status,
             statusDesc: m.statusDesc,
@@ -673,6 +681,15 @@ export default function PickEmCampaignDetail() {
                 <label className="block text-sm font-medium text-zinc-400 mb-1">Event Time</label>
                 <input type="datetime-local" value={propDate} onChange={e => setPropDate(e.target.value)} className="w-full bg-[#121212] border border-zinc-800 rounded-lg px-4 py-2 text-white [color-scheme:dark]" />
               </div>
+              <label className="flex items-center gap-2 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={isScriptlessProp}
+                  onChange={e => setIsScriptlessProp(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="text-xs text-zinc-300 font-medium">ScriptLess Prop (tag with ScriptLess branding & league)</span>
+              </label>
             </div>
             <div className="flex items-center gap-3 mt-6 justify-end">
               <Button variant="ghost" onClick={() => setShowPropModal(false)} className="text-zinc-400 hover:text-white">Cancel</Button>

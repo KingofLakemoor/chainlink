@@ -11,6 +11,7 @@ import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../../components/ui/titles';
 import { getShopItemsCached } from '../../lib/firestore-cache';
+import { Club602Avatar, Club602Nameplate, Club602Banner } from '../../components/club602';
 class CosmeticsErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
   public state = { hasError: false };
   constructor(props: any) {
@@ -504,57 +505,46 @@ export default function LeaderboardsPage() {
     const TitleComponent = titleImage ? TitleMap[titleImage || ''] : null;
 
     return (
-      <div className={`bg-[#121212] border border-zinc-800 rounded-xl relative overflow-hidden group min-h-[220px] flex flex-col ${
-        BannerComponent || (bannerImage?.startsWith('/') || bannerImage?.startsWith('http') || bannerImage?.startsWith('gs://')) ? '' : (bannerImage || '')
-      }`}>
-         {BannerComponent ? (
-            <div className="absolute inset-0 z-0">
-               <CosmeticsErrorBoundary fallback={<div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_10%,transparent_80%)] opacity-5 pointer-events-none"></div>}><BannerComponent isStatic={!animateCosmetics} /></CosmeticsErrorBoundary>
-            </div>
-         ) : (bannerImage?.startsWith('/') || bannerImage?.startsWith('http') || bannerImage?.startsWith('gs://')) ? (
-            <FirebaseImage src={bannerImage} fallback={`https://placehold.co/600x200/18181b/ffffff?text=${encodeURIComponent(bannerItem?.name || "Profile Banner")}`} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
-         ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_10%,transparent_80%)] opacity-5 pointer-events-none"></div>
-         )}
+      <div className="bg-[#121212] border border-zinc-800 rounded-xl relative overflow-hidden group min-h-[220px] flex flex-col">
+         {/* Background Banner */}
+         <div className="absolute inset-0 z-0">
+           <Club602Banner
+             user={player}
+             height="auto"
+             presentationContext="card"
+             spokeId="chainlink"
+             isStatic={!animateCosmetics}
+             className="w-full h-full"
+           />
+         </div>
 
-         <div className="absolute inset-0 bg-black/20 z-0"></div>
+         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-[1] pointer-events-none" />
 
          <div className="relative z-10 flex-1 flex flex-col justify-end items-center p-4 pb-3 min-h-[160px]">
             {/* Bottom Centered Username & Title */}
             <div className="flex flex-col items-center justify-end text-center z-10">
-              {TitleComponent ? (
-                 <div className="mb-1.5 flex justify-center">
-                    <TitleComponent isStatic={!animateCosmetics} />
-                 </div>
-              ) : titleItem ? (
-                 <div className="mb-1.5 flex justify-center">
-                    <span className={`text-[10px] md:text-xs font-bold text-[#22c55e] px-2 py-0.5 rounded bg-black/40 border border-[#22c55e]/30 shadow-sm backdrop-blur-sm ${titleItem?.image || ''}`}>
-                       {titleItem?.name || 'Title'}
-                    </span>
-                 </div>
-              ) : null}
-              <h3 className="text-white font-bold text-sm md:text-base truncate max-w-[160px] drop-shadow-md">
-                 {player.displayName || player.username || player.name}
-              </h3>
+              <Club602Nameplate
+                user={player}
+                presentationContext="card"
+                spokeId="chainlink"
+                size="md"
+                showTitle={true}
+                showBadge={true}
+                isStatic={!animateCosmetics}
+                nameClassName="text-white font-bold text-sm md:text-base truncate max-w-[160px] drop-shadow-md"
+              />
             </div>
 
             {/* Offset Avatar and Ring in lower left */}
             <div className="absolute left-4 bottom-3 z-10 flex items-center justify-center">
-              <div className="relative w-12 h-12 md:w-14 md:h-14 flex items-center justify-center flex-shrink-0">
-                 {RingComponent && (
-                    <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none flex items-center justify-center">
-                       <CosmeticsErrorBoundary fallback={null}>
-                          <RingComponent isStatic={!animateCosmetics} />
-                       </CosmeticsErrorBoundary>
-                    </div>
-                 )}
-                 <FirebaseImage loading="lazy"
-                    src={player.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`}
-                    fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`}
-                    alt={player.displayName || player.username || player.name}
-                    className="w-12 h-12 md:w-14 md:h-14 rounded-full relative z-10 border-2 border-[#121212] object-cover shadow-lg"
-                 />
-              </div>
+              <Club602Avatar
+                user={player}
+                size="lg"
+                presentationContext="card"
+                spokeId="chainlink"
+                isStatic={!animateCosmetics}
+                fallbackName={player.displayName || player.username || player.name}
+              />
             </div>
          </div>
 
@@ -734,52 +724,27 @@ export default function LeaderboardsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="relative">
-                          {player.equippedCosmetics?.AVATAR_RING && (() => {
-                            const ringImage = inventoryItems.find(i => i.id === player.equippedCosmetics.AVATAR_RING)?.image;
-                            const RingComponent = AvatarRingMap[ringImage || ''];
-                            if (!RingComponent) return null;
-                            return (
-                              <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
-                                <CosmeticsErrorBoundary fallback={null}><RingComponent isStatic={!animateCosmetics} /></CosmeticsErrorBoundary>
-                              </div>
-                            )
-                          })()}
-                          <div className={`w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden border flex-shrink-0 relative z-10 ${player.equippedCosmetics?.AVATAR_RING ? 'border-transparent' : 'border-zinc-700'}`}>
-                            {player.image ? (
-                               <FirebaseImage loading="lazy" src={player.image} fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`} alt={player.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-bold text-zinc-500">{(player.username || player.name || '?').charAt(0).toUpperCase()}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col justify-center min-h-[32px]">
-                           <div className="flex items-center gap-2 leading-none">
-                             <span className="font-medium text-zinc-200">{player.username || player.name}</span>
-                             {user?.uid === player.id && <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase">You</span>}
-                           </div>
-                           {player.equippedCosmetics?.TITLE && (() => {
-                             const titleItem = inventoryItems.find(i => i.id === player.equippedCosmetics.TITLE);
-                             const titleImage = titleItem?.image;
-                             const TitleComponent = TitleMap[titleImage || ''];
-                             if (TitleComponent) {
-                               return (
-                                 <div className="mt-1 transform scale-75 origin-left">
-                                    <TitleComponent isStatic={!animateCosmetics} />
-                                 </div>
-                               )
-                             }
-                             if (titleItem) {
-                               return (
-                                 <div className="mt-1">
-                                    <span className={`text-[10px] font-bold text-[#22c55e] px-1.5 py-0.5 rounded bg-black/40 border border-[#22c55e]/30 shadow-sm backdrop-blur-sm ${titleItem?.image || ''}`}>
-                                       {titleItem?.name || 'Title'}
-                                    </span>
-                                 </div>
-                               )
-                             }
-                             return null;
-                           })()}
+                        <Club602Avatar
+                          user={player}
+                          size="sm"
+                          presentationContext="micro"
+                          spokeId="chainlink"
+                          fallbackName={player.username || player.name}
+                        />
+                        <div className="flex items-center gap-2">
+                          <Club602Nameplate
+                            user={player}
+                            size="sm"
+                            presentationContext="micro"
+                            spokeId="chainlink"
+                            fallbackName={player.username || player.name}
+                            nameClassName="font-medium text-zinc-200"
+                          />
+                          {user?.uid === player.id && (
+                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase shrink-0">
+                              You
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>

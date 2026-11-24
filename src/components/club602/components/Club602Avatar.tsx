@@ -71,8 +71,8 @@ export const Club602Avatar: React.FC<Club602AvatarProps> = ({
     : undefined;
 
   const displayName = user?.displayName || user?.name || user?.username || fallbackName || 'Player';
-  const photoUrl = user?.photoURL || user?.avatarUrl || 
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random&color=fff`;
+  const photoUrl = user?.photoURL || user?.avatarUrl || user?.image || 
+    (user?.id ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.id)}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random&color=fff`);
 
   const sizeStyles = SIZE_MAP[size] || SIZE_MAP.md;
 

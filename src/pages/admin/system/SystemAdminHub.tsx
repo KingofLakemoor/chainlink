@@ -3,16 +3,18 @@ import BannerAdminPage from './BannerAdminPage';
 import MonthlyRolloverPage from './MonthlyRolloverPage';
 import EngagementAdminPage from './EngagementAdminPage';
 import PrizeAdminPage from '../prize/PrizeAdminPage';
-import { Megaphone, Calendar, Activity, Trophy, Settings } from 'lucide-react';
+import WalletMigrationPage from './WalletMigrationPage';
+import { Megaphone, Calendar, Activity, Trophy, Settings, Wallet } from 'lucide-react';
 
 export default function SystemAdminHub() {
-  const [activeTab, setActiveTab] = useState<'banner' | 'prize' | 'rollover' | 'engagement'>('banner');
+  const [activeTab, setActiveTab] = useState<'banner' | 'prize' | 'rollover' | 'engagement' | 'wallet'>('banner');
 
   const tabs = [
     { id: 'banner', label: 'Play Page Banner', icon: Megaphone },
     { id: 'prize', label: 'Monthly Prize & Sponsor', icon: Trophy },
     { id: 'rollover', label: 'Monthly Rollover', icon: Calendar },
     { id: 'engagement', label: 'Engagement & Records', icon: Activity },
+    { id: 'wallet', label: 'Wallet Migration', icon: Wallet },
   ] as const;
 
   return (
@@ -58,6 +60,7 @@ export default function SystemAdminHub() {
         {activeTab === 'prize' && <PrizeAdminPage />}
         {activeTab === 'rollover' && <MonthlyRolloverPage />}
         {activeTab === 'engagement' && <EngagementAdminPage />}
+        {activeTab === 'wallet' && <WalletMigrationPage />}
       </div>
     </div>
   );

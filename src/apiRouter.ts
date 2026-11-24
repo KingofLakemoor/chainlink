@@ -2176,6 +2176,166 @@ apiRouter.post("/admin/update-links", validateAdmin, async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/reconcile-wallets", validateAdmin, async (req, res) => {
+  try {
+    const isApply = req.body?.apply === true;
+    if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not initialized" });
+
+    const timestamp = Date.now();
+    const usersSnap = await adminDb.collection('users').get();
+
+    let countTotal = 0;
+    let countUpdated = 0;
+    let totalChainlinkLinksBefore = 0;
+    let totalReconciledLinksAfter = 0;
+    const results: any[] = [];
+
+    // Snapshot current users to backup collection if applying
+    if (isApply) {
+      const backupCollection = adminDb.collection(`migration_backups_${timestamp}`);
+      let backupBatch = adminDb.batch();
+      let backupCount = 0;
+      for (const d of usersSnap.docs) {
+        backupBatch.set(backupCollection.doc(d.id), { ...d.data(), backupTimestamp: timestamp });
+        backupCount++;
+        if (backupCount >= 400) {
+          await backupBatch.commit();
+          backupBatch = adminDb.batch();
+          backupCount = 0;
+        }
+      }
+      if (backupCount > 0) {
+        await backupBatch.commit();
+      }
+    }
+
+    for (const doc of usersSnap.docs) {
+      countTotal++;
+      const u = doc.data();
+      const userId = doc.id;
+      const email = (u.email || '').trim().toLowerCase();
+      const username = u.username || u.name || 'Anonymous';
+      const chainlinkLinks = Number(u.links ?? 0);
+      totalChainlinkLinksBefore += chainlinkLinks;
+
+      let coreLinks = 100;
+      let targetWalletId = `wlt_${userId}`;
+
+      if (email) {
+        try {
+          const coreRes = await fetch(`https://api.club602.com/v1/wallet/${targetWalletId}?email=${encodeURIComponent(email)}`);
+          if (coreRes.ok) {
+            const wData: any = await coreRes.json();
+            coreLinks = Number(wData.availableBalance ?? wData.balance ?? 100);
+            if (wData.walletId) targetWalletId = wData.walletId;
+          }
+        } catch (err) {}
+      }
+
+      // Reconciliation Rules
+      const base = chainlinkLinks < 100 ? 100 : chainlinkLinks;
+      let finalLinks = base;
+      let calculationSource = 'ChainLink Base Floor (100)';
+
+      if (chainlinkLinks >= 100) {
+        if (coreLinks > 100 && chainlinkLinks > coreLinks) {
+          const surplus = coreLinks - 100;
+          finalLinks = chainlinkLinks + surplus;
+          calculationSource = `ChainLink (${chainlinkLinks}) + Core Surplus (${surplus})`;
+        } else if (coreLinks >= chainlinkLinks) {
+          finalLinks = coreLinks;
+          calculationSource = `Core Wallet Balance (${coreLinks})`;
+        } else {
+          finalLinks = chainlinkLinks;
+          calculationSource = `ChainLink Balance (${chainlinkLinks})`;
+        }
+      } else {
+        if (coreLinks > 100) {
+          finalLinks = coreLinks;
+          calculationSource = `Floor elevated by Core Wallet (${coreLinks})`;
+        } else {
+          finalLinks = 100;
+          calculationSource = 'Floor raised to 100';
+        }
+      }
+
+      totalReconciledLinksAfter += finalLinks;
+      const deltaChainlink = finalLinks - chainlinkLinks;
+      const deltaCore = finalLinks - coreLinks;
+      if (deltaChainlink !== 0 || deltaCore !== 0) {
+        countUpdated++;
+      }
+
+      results.push({
+        userId,
+        email: email || 'NO_EMAIL',
+        username,
+        chainlinkLinks,
+        coreLinks,
+        finalLinks,
+        deltaChainlink,
+        deltaCore,
+        targetWalletId,
+        source: calculationSource
+      });
+    }
+
+    if (isApply) {
+      let applyBatch = adminDb.batch();
+      let opCount = 0;
+      for (const r of results) {
+        const uRef = adminDb.collection('users').doc(r.userId);
+        applyBatch.update(uRef, {
+          links: r.finalLinks,
+          walletId: r.targetWalletId,
+          reconciledAt: timestamp,
+          updatedAt: timestamp
+        });
+        opCount++;
+
+        if (r.deltaChainlink !== 0) {
+          const txRef = adminDb.collection('linkTransactions').doc();
+          applyBatch.set(txRef, {
+            userId: r.userId,
+            username: r.username,
+            type: 'WALLET_CONSOLIDATION',
+            amount: r.deltaChainlink,
+            description: `Consolidated to Central Club 602 Wallet (${r.source})`,
+            createdAt: timestamp
+          });
+          opCount++;
+        }
+
+        if (opCount >= 400) {
+          await applyBatch.commit();
+          applyBatch = adminDb.batch();
+          opCount = 0;
+        }
+      }
+      if (opCount > 0) {
+        await applyBatch.commit();
+      }
+    }
+
+    res.json({
+      success: true,
+      mode: isApply ? 'APPLY' : 'DRY_RUN',
+      timestamp,
+      summary: {
+        totalUsers: countTotal,
+        usersWithChanges: countUpdated,
+        totalLinksBefore: totalChainlinkLinksBefore,
+        totalLinksAfter: totalReconciledLinksAfter,
+        netDelta: totalReconciledLinksAfter - totalChainlinkLinksBefore
+      },
+      results
+    });
+  } catch (e: any) {
+    console.error("Reconcile wallets error:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/admin/grade-pickem-matchup", validateAdmin, async (req, res) => {
   try {
     const { matchupId, manualWinnerId } = req.body;

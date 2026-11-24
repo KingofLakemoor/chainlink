@@ -118,7 +118,7 @@ export const ensureUserProfile = async (user: User, username?: string, referrerI
       username: resolvedUsername,
       usernameLower: resolvedUsername.toLowerCase(),
       image: user.photoURL || '',
-      links: 10, // starting links
+      links: 100, // starting links (aligned with Club 602 standards)
       role: 'USER', // Defaulting to USER for security
       status: 'ACTIVE',
       stats: { wins: 0, losses: 0, pushes: 0 },

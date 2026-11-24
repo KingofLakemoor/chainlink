@@ -520,31 +520,29 @@ export default function LeaderboardsPage() {
 
          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-[1] pointer-events-none" />
 
-         <div className="relative z-10 flex-1 flex flex-col justify-end items-center p-4 pb-3 min-h-[160px]">
-            {/* Bottom Centered Username & Title */}
-            <div className="flex flex-col items-center justify-end text-center z-10">
-              <Club602Nameplate
-                user={player}
-                presentationContext="card"
-                spokeId="chainlink"
-                size="md"
-                showTitle={true}
-                showBadge={true}
-                isStatic={!animateCosmetics}
-                nameClassName="text-white font-bold text-sm md:text-base truncate max-w-[160px] drop-shadow-md"
-              />
-            </div>
-
-            {/* Offset Avatar and Ring in lower left */}
-            <div className="absolute left-4 bottom-3 z-10 flex items-center justify-center">
+         <div className="relative z-10 flex-1 flex flex-col justify-end p-4 pb-3 min-h-[160px]">
+            {/* Player Info Row (Avatar + Nameplate side-by-side) */}
+            <div className="flex items-center gap-3 z-10">
               <Club602Avatar
                 user={player}
-                size="lg"
+                size="md"
                 presentationContext="card"
                 spokeId="chainlink"
                 isStatic={!animateCosmetics}
                 fallbackName={player.displayName || player.username || player.name}
               />
+              <div className="min-w-0 flex-1">
+                <Club602Nameplate
+                  user={player}
+                  presentationContext="card"
+                  spokeId="chainlink"
+                  size="md"
+                  showTitle={true}
+                  showBadge={true}
+                  isStatic={!animateCosmetics}
+                  nameClassName="text-white font-bold text-sm md:text-base truncate drop-shadow-md"
+                />
+              </div>
             </div>
          </div>
 

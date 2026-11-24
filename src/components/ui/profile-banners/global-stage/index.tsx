@@ -225,7 +225,8 @@ function GlobalStageBanner({ isStatic = false, ...props }: { isStatic?: boolean,
                 inset: 0,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "flex-end",
+                paddingRight: "14%",
                 pointerEvents: "none"
             }}>
                 <svg

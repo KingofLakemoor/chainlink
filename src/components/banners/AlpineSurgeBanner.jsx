@@ -138,7 +138,7 @@ export function AlpineSurgeBanner({ isStatic = false, ...props }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: "8px", overflow: "hidden" }} {...props}>
             <div ref={ctnDom} className="uvc__container" />
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "14%", pointerEvents: "none" }}>
                 {/* Sharp, Frosted Ice Link Icon */}
                 <svg width="84" height="84" viewBox="0 0 100 100" fill="none" style={{ filter: "drop-shadow(0px 0px 10px rgba(255, 255, 255, 0.5))" }}>
                     <defs>

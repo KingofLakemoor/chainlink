@@ -169,7 +169,7 @@ export function TurkeyGobblerBanner({ isStatic = false, ...props }: TurkeyGobble
     return (
         <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: "8px", overflow: "hidden" }} {...props}>
             <div ref={ctnDom} className="uvc__container" />
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "14%", pointerEvents: "none" }}>
                 {/* 1st Annual Turkey Day Gobbler Pick 'Em Champion Crest */}
                 <svg width="104" height="104" viewBox="0 0 120 120" fill="none" style={{ filter: "drop-shadow(0px 0px 20px rgba(255, 178, 44, 0.8))" }}>
                     <defs>

@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
 import { Layers, Search, Shield, ChevronRight, Lock, CheckCircle, XCircle, AlertTriangle, ExternalLink, ArrowLeft, Trophy } from 'lucide-react';
 import { CharityBanner } from '../../components/pickem/CharityBanner';
+import { CampaignPrizeTeaser } from '../../components/pickem/CampaignPrizeTeaser';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { cn } from '../../lib/utils';
 import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
@@ -439,6 +440,14 @@ export default function PickEmLandingPage() {
               </div>
             </div>
 
+            {directCampaign.awardCosmeticId && (
+              <CampaignPrizeTeaser
+                cosmeticId={directCampaign.awardCosmeticId}
+                cosmeticName={directCampaign.awardCosmeticName}
+                variant="card"
+              />
+            )}
+
             {directJoinError && (
               <div className="p-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl">
                 {directJoinError}
@@ -794,9 +803,6 @@ export default function PickEmLandingPage() {
 
       {activeTab === 'join' && (
         <div className="space-y-8">
-          
-          <CharityBanner />
-
           <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6">
             <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <Lock className="w-5 h-5 text-zinc-400" /> Join Private League
@@ -860,6 +866,16 @@ export default function PickEmLandingPage() {
                           <span className="text-white font-medium">{c.pickLimit > 0 ? c.pickLimit : 'Unlimited'}</span>
                         </div>
                       </div>
+
+                      {c.awardCosmeticId && (
+                        <div className="mb-4">
+                          <CampaignPrizeTeaser
+                            cosmeticId={c.awardCosmeticId}
+                            cosmeticName={c.awardCosmeticName}
+                            variant="compact"
+                          />
+                        </div>
+                      )}
                       
                       <Button className="w-full" onClick={() => setSelectedPublicCamp(c)}>View Details</Button>
                     </div>
@@ -911,6 +927,14 @@ export default function PickEmLandingPage() {
                   <span className="text-white font-medium text-lg">{selectedPublicCamp.entryFee > 0 ? `${selectedPublicCamp.entryFee} Links` : 'Free'}</span>
                 </div>
               </div>
+
+              {selectedPublicCamp.awardCosmeticId && (
+                <CampaignPrizeTeaser
+                  cosmeticId={selectedPublicCamp.awardCosmeticId}
+                  cosmeticName={selectedPublicCamp.awardCosmeticName}
+                  variant="card"
+                />
+              )}
             </div>
             
             <div className="p-6 border-t border-zinc-800 bg-[#18181A] flex gap-4">

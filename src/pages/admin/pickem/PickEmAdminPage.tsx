@@ -7,8 +7,10 @@ import { Button } from '../../../components/ui/button';
 import { scrapeLeagueSchedules } from '../../../services/espnScraper';
 import {
   Layers, Plus, Search, Edit, Trash2, Archive, ArchiveRestore, Lock, Unlock,
-  RefreshCw, CheckCircle2, Trophy, Users, Calendar, Shield, X, Eye, Palette
+  RefreshCw, CheckCircle2, Trophy, Users, Calendar, Shield, X, Eye, Palette,
+  Sparkles, Gift, Percent
 } from 'lucide-react';
+import { AVAILABLE_COSMETICS } from '../../../lib/cosmetics';
 
 export default function PickEmAdminPage() {
   const navigate = useNavigate();
@@ -43,6 +45,10 @@ export default function PickEmAdminPage() {
     isFridayOnly: false,
     joinCode: '',
     trackFilter: '',
+    prizePotPercent: 65,
+    payoutSplit: { first: 70, second: 20, third: 10 },
+    awardCosmeticId: '',
+    awardCosmeticName: '',
     themePrimaryColor: '#22c55e',
     themeTitle: '',
     themeSubtitle: '',
@@ -78,6 +84,10 @@ export default function PickEmAdminPage() {
   const [editHasWeekZero, setEditHasWeekZero] = useState(false);
   const [editUseTiebreaker, setEditUseTiebreaker] = useState(false);
   const [editEntryFee, setEditEntryFee] = useState(0);
+  const [editPrizePotPercent, setEditPrizePotPercent] = useState<number>(65);
+  const [editPayoutSplit, setEditPayoutSplit] = useState<{ first: number; second: number; third: number }>({ first: 70, second: 20, third: 10 });
+  const [editAwardCosmeticId, setEditAwardCosmeticId] = useState<string>('');
+  const [editAwardCosmeticName, setEditAwardCosmeticName] = useState<string>('');
 
   // Week level settings
   const [weekLabel, setWeekLabel] = useState('');
@@ -149,6 +159,10 @@ export default function PickEmAdminPage() {
           setEditIsOpen(data.isOpen !== false);
           setEditIsPrivate(!!data.isPrivate);
           setEditJoinCode(data.joinCode || '');
+          setEditPrizePotPercent(data.prizePotPercent !== undefined ? data.prizePotPercent : 65);
+          setEditPayoutSplit(data.payoutSplit || { first: 70, second: 20, third: 10 });
+          setEditAwardCosmeticId(data.awardCosmeticId || data.awardBannerId || '');
+          setEditAwardCosmeticName(data.awardCosmeticName || '');
 
           setEditThemeColor(data.theme?.primaryColor || '#22c55e');
           setEditThemeTitle(data.theme?.title || '');
@@ -306,6 +320,14 @@ export default function PickEmAdminPage() {
         isFridayOnly: createData.isFridayOnly,
         joinCode: createData.isPrivate ? createData.joinCode : '',
         entryFee: createData.entryFee,
+        prizePotPercent: Number(createData.prizePotPercent) || 65,
+        payoutSplit: {
+          first: Number(createData.payoutSplit?.first ?? 70),
+          second: Number(createData.payoutSplit?.second ?? 20),
+          third: Number(createData.payoutSplit?.third ?? 10)
+        },
+        awardCosmeticId: createData.awardCosmeticId || '',
+        awardCosmeticName: createData.awardCosmeticName || '',
         createdAt: Date.now()
       };
 
@@ -358,6 +380,14 @@ export default function PickEmAdminPage() {
         hasWeekZero: editHasWeekZero,
         useTiebreaker: editUseTiebreaker,
         entryFee: editEntryFee,
+        prizePotPercent: Number(editPrizePotPercent) || 65,
+        payoutSplit: {
+          first: Number(editPayoutSplit?.first ?? 70),
+          second: Number(editPayoutSplit?.second ?? 20),
+          third: Number(editPayoutSplit?.third ?? 10)
+        },
+        awardCosmeticId: editAwardCosmeticId || '',
+        awardCosmeticName: editAwardCosmeticName || '',
         isOpen: editIsOpen,
         isPrivate: editIsPrivate,
         joinCode: editIsPrivate ? editJoinCode : '',
@@ -379,6 +409,14 @@ export default function PickEmAdminPage() {
         hasWeekZero: editHasWeekZero,
         useTiebreaker: editUseTiebreaker,
         entryFee: editEntryFee,
+        prizePotPercent: Number(editPrizePotPercent) || 65,
+        payoutSplit: {
+          first: Number(editPayoutSplit?.first ?? 70),
+          second: Number(editPayoutSplit?.second ?? 20),
+          third: Number(editPayoutSplit?.third ?? 10)
+        },
+        awardCosmeticId: editAwardCosmeticId || '',
+        awardCosmeticName: editAwardCosmeticName || '',
         isOpen: editIsOpen,
         isPrivate: editIsPrivate,
         joinCode: editIsPrivate ? editJoinCode : '',
@@ -1006,6 +1044,98 @@ export default function PickEmAdminPage() {
                 </div>
               </div>
 
+              {/* Custom Payout & Prize Pool Configuration */}
+              <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">Prize Pool & Payout Rules</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-zinc-400">Total: {Number(createData.payoutSplit?.first || 0) + Number(createData.payoutSplit?.second || 0) + Number(createData.payoutSplit?.third || 0)}%</span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Prize Pot (% of Total Entries Pot)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={createData.prizePotPercent}
+                    onChange={e => setCreateForm({ ...createData, prizePotPercent: Number(e.target.value) || 65 })}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white"
+                  />
+                  <span className="text-[10px] text-zinc-500">Portion of entry fees dedicated to the winners' prize pool (defaults to 65%).</span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-400 mb-1">Place Distribution (% of Prize Pool)</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="text-[10px] text-zinc-400 block mb-0.5">1st Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={createData.payoutSplit.first}
+                        onChange={e => setCreateForm({ ...createData, payoutSplit: { ...createData.payoutSplit, first: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 block mb-0.5">2nd Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={createData.payoutSplit.second}
+                        onChange={e => setCreateForm({ ...createData, payoutSplit: { ...createData.payoutSplit, second: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-zinc-400 block mb-0.5">3rd Place (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={createData.payoutSplit.third}
+                        onChange={e => setCreateForm({ ...createData, payoutSplit: { ...createData.payoutSplit, third: Number(e.target.value) } })}
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cosmetic Prize Assignment */}
+                <div className="pt-2 border-t border-zinc-800">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <label className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">1st Place Cosmetic Award (Optional)</label>
+                  </div>
+                  <select
+                    value={createData.awardCosmeticId}
+                    onChange={e => {
+                      const selId = e.target.value;
+                      const cosmetic = AVAILABLE_COSMETICS.find(c => c.id === selId);
+                      setCreateForm({
+                        ...createData,
+                        awardCosmeticId: selId,
+                        awardCosmeticName: cosmetic ? cosmetic.name : ''
+                      });
+                    }}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">None (Links Only)</option>
+                    {AVAILABLE_COSMETICS.map(cos => (
+                      <option key={cos.id} value={cos.id}>
+                        {cos.name} ({cos.category.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-zinc-500 mt-1">If selected, 1st place champion automatically receives this cosmetic into their profile inventory.</p>
+                </div>
+              </div>
+
               <div className="pt-4 border-t border-zinc-800 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -1190,6 +1320,110 @@ export default function PickEmAdminPage() {
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Campaign Rules, Custom Payouts & Cosmetic Prize Settings */}
+                <div className="bg-[#18181A] border border-zinc-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-amber-400" />
+                      <h4 className="font-bold text-sm text-white">Prize Pool, Custom Payouts & Cosmetic Reward</h4>
+                    </div>
+                    <Button onClick={handleSaveDetail} disabled={savingDetail} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs">
+                      {savingDetail ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <label className="block font-semibold text-zinc-400 mb-1">Entry Fee (Links)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editEntryFee}
+                        onChange={e => setEditEntryFee(parseInt(e.target.value) || 0)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-zinc-400 mb-1">Prize Pot (% of Total Fees)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={editPrizePotPercent}
+                        onChange={e => setEditPrizePotPercent(Number(e.target.value) || 65)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block font-semibold text-zinc-400 mb-1">
+                        Place Distribution (% of Prize Pool) - Total: {Number(editPayoutSplit?.first || 0) + Number(editPayoutSplit?.second || 0) + Number(editPayoutSplit?.third || 0)}%
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <span className="text-[10px] text-zinc-500 block mb-0.5">1st Place (%)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editPayoutSplit.first}
+                            onChange={e => setEditPayoutSplit({ ...editPayoutSplit, first: Number(e.target.value) })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-white"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-zinc-500 block mb-0.5">2nd Place (%)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editPayoutSplit.second}
+                            onChange={e => setEditPayoutSplit({ ...editPayoutSplit, second: Number(e.target.value) })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-white"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-zinc-500 block mb-0.5">3rd Place (%)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editPayoutSplit.third}
+                            onChange={e => setEditPayoutSplit({ ...editPayoutSplit, third: Number(e.target.value) })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-zinc-800">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <label className="text-xs font-semibold uppercase tracking-wider text-amber-300">1st Place Cosmetic Award (Optional)</label>
+                    </div>
+                    <select
+                      value={editAwardCosmeticId}
+                      onChange={e => {
+                        const selId = e.target.value;
+                        const cosmetic = AVAILABLE_COSMETICS.find(c => c.id === selId);
+                        setEditAwardCosmeticId(selId);
+                        setEditAwardCosmeticName(cosmetic ? cosmetic.name : '');
+                      }}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">None (Links Only)</option>
+                      {AVAILABLE_COSMETICS.map(cos => (
+                        <option key={cos.id} value={cos.id}>
+                          {cos.name} ({cos.category.toUpperCase()})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-zinc-500 mt-1">If assigned, the 1st place winner is automatically awarded this exclusive cosmetic into their profile inventory upon payout.</p>
                   </div>
                 </div>
 

@@ -131,3 +131,49 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'banner_turkey_gobbler': TurkeyGobblerBanner,
   'banner_turkey_day_gobbler': TurkeyGobblerBanner
 };
+
+export interface AvailableCosmetic {
+  id: string;
+  name: string;
+  category: 'banner' | 'ring' | 'title';
+  key?: string;
+  titleText?: string;
+  description?: string;
+}
+
+export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
+  // Banners
+  { id: 'banner_turkey_gobbler', name: 'The Turkey Day Gobbler', category: 'banner', key: 'TurkeyGobblerBanner', description: 'Exclusive 1st Annual Gobbler Champion Banner' },
+  { id: 'banner_inferno', name: 'Inferno Banner', category: 'banner', key: 'InfernoBanner' },
+  { id: 'banner_boardroom', name: 'Board Room Banner', category: 'banner', key: 'BoardRoomBanner' },
+  { id: 'banner_phantom', name: 'Phantom Star Banner', category: 'banner', key: 'PhantomStarBanner' },
+  { id: 'banner_emerald', name: 'Emerald Storm Banner', category: 'banner', key: 'EmeraldStormBanner' },
+  { id: 'banner_opulento', name: 'Opulento Vault Banner', category: 'banner', key: 'OpulentoVaultBanner' },
+  { id: 'banner_xenon', name: 'Xenon Terminal Banner', category: 'banner', key: 'XenonTerminalBanner' },
+  { id: 'banner_pinktober', name: 'Pinktober', category: 'banner', key: 'PinktoberBanner' },
+  { id: 'banner_task_force_camo', name: 'Task Force Camo', category: 'banner', key: 'TaskForceCamoBanner' },
+  { id: 'banner_vice_city', name: 'Vice Neon', category: 'banner', key: 'ViceCityBanner' },
+  { id: 'banner_midway_charge', name: 'The Midway Charge', category: 'banner', key: 'MidwayChargeBanner' },
+  { id: 'banner_crescent_crown', name: 'The Crescent Crown', category: 'banner', key: 'CrescentCrownBanner' },
+  { id: 'banner_gotham_mach', name: 'The Gotham Mach', category: 'banner', key: 'GothamMachBanner' },
+  { id: 'banner_arc_surge', name: 'The Arc Surge', category: 'banner', key: 'ArcSurgeBanner' },
+
+  // Avatar Rings
+  { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },
+  { id: 'ring_hexagons', name: 'Hexagons Ring', category: 'ring', key: 'Hexagons' },
+  { id: 'ring_ocean', name: 'Ocean Ring', category: 'ring', key: 'Ocean' },
+  { id: 'ring_opulento', name: 'Opulento Ring', category: 'ring', key: 'OpulentoAvatarRing' },
+  { id: 'ring_vice_neon', name: 'Vice Neon Ring', category: 'ring', key: 'ViceNeonAvatarRing' },
+
+  // Titles
+  { id: 'title_whale', name: 'High Roller', category: 'title', titleText: 'HIGH ROLLER' },
+  { id: 'title_legend', name: 'Gridiron Legend', category: 'title', titleText: 'GRIDIRON LEGEND' },
+  { id: 'title_champ', name: 'Weekly Champion', category: 'title', titleText: 'WEEKLY CHAMP' },
+  { id: 'title_vip', name: 'ChainLink VIP', category: 'title', titleText: 'CHAINLINK VIP' },
+  { id: 'title_vice_lord', name: 'Vice Lord', category: 'title', titleText: 'VICE LORD', key: 'ViceLordTitle' },
+];
+
+export function getCosmeticById(id?: string | null): AvailableCosmetic | undefined {
+  if (!id) return undefined;
+  return AVAILABLE_COSMETICS.find(c => c.id === id || c.key === id);
+}

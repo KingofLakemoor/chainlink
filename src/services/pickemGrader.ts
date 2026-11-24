@@ -421,10 +421,14 @@ export async function payoutPickemCampaign(campaignId: string) {
       return;
     }
 
-    // Payout percentages: 65% total entries pot (1st: 45%, 2nd: 15%, 3rd: 5%)
-    const firstPayout = Math.floor(totalPot * 0.45);
-    const secondPayout = Math.floor(totalPot * 0.15);
-    const thirdPayout = Math.floor(totalPot * 0.05);
+    // Payout percentages: defaults to 65% total entries pot (1st: 70%, 2nd: 20%, 3rd: 10% of prize pool, or 45%/15%/5% of total pot)
+    const split = campaignData.payoutSplit || { first: 70, second: 20, third: 10 };
+    const prizePotPercent = campaignData.prizePotPercent !== undefined ? campaignData.prizePotPercent : 65;
+    const distributablePot = Math.floor(totalPot * (prizePotPercent / 100));
+
+    const firstPayout = Math.floor(distributablePot * ((split.first ?? 70) / 100));
+    const secondPayout = Math.floor(distributablePot * ((split.second ?? 20) / 100));
+    const thirdPayout = Math.floor(distributablePot * ((split.third ?? 10) / 100));
 
     const leaderboard = Object.values(participantPoints).sort((a, b) => b.points - a.points);
 
@@ -442,12 +446,13 @@ export async function payoutPickemCampaign(campaignId: string) {
           const userData = userDoc.data();
           const updatePayload: any = { links: (userData.links || 0) + w.amount };
 
-          // Award exclusive banner for 1st place winner of Turkey Day Gobbler campaign (or any campaign configured with awardBannerId)
+          // Award exclusive cosmetic / banner for 1st place winner
           const isTurkeyGobblerCampaign = (campaignData.name && typeof campaignData.name === 'string' && campaignData.name.toLowerCase().includes('gobbler')) ||
                                           campaignId.toLowerCase().includes('gobbler') ||
                                           campaignData.awardBannerId === 'banner_turkey_gobbler';
 
-          const bannerToAward = campaignData.awardBannerId || (isTurkeyGobblerCampaign ? 'banner_turkey_gobbler' : null);
+          const bannerToAward = campaignData.awardCosmeticId || campaignData.awardBannerId || (isTurkeyGobblerCampaign ? 'banner_turkey_gobbler' : null);
+          const cosmeticTitle = campaignData.awardCosmeticName || (isTurkeyGobblerCampaign ? 'The Turkey Day Gobbler' : 'Exclusive Champion Cosmetic');
 
           if (w.rank === '1st' && bannerToAward) {
             const currentInventory = userData.inventory || [];
@@ -469,7 +474,7 @@ export async function payoutPickemCampaign(campaignId: string) {
           });
 
           const notificationsRef = adminDb.collection('notifications').doc();
-          const bannerAwardMsg = (w.rank === '1st' && bannerToAward) ? ` You have also been awarded the exclusive "The Turkey Day Gobbler" profile banner!` : '';
+          const bannerAwardMsg = (w.rank === '1st' && bannerToAward) ? ` You have also been awarded the exclusive "${cosmeticTitle}" cosmetic!` : '';
           transaction.set(notificationsRef, {
             title: `Pick 'Em Winner! 🎉`,
             body: `You finished ${w.placeName} in ${campaignData.name || 'Pick Em'}! ${w.amount} links have been added to your account.${bannerAwardMsg}`,

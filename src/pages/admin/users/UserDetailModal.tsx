@@ -40,7 +40,7 @@ interface UserDetailModalProps {
 type TabType = 'OVERVIEW' | 'CHAIN' | 'LINKS' | 'PREMIUM' | 'COSMETICS';
 
 // Popular cosmetics inventory catalog for admin assignment
-const AVAILABLE_COSMETICS = [
+export const AVAILABLE_COSMETICS = [
   // Banners
   { id: 'banner_inferno', name: 'Inferno Banner', category: 'banner', key: 'InfernoBanner' },
   { id: 'banner_boardroom', name: 'Board Room Banner', category: 'banner', key: 'BoardRoomBanner' },

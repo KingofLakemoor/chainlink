@@ -1,5 +1,6 @@
 import { CharityBanner } from '../../components/pickem/CharityBanner';
 import { CharityProgressTracker } from '../../components/pickem/CharityProgressTracker';
+import { CampaignPrizeTeaser } from '../../components/pickem/CampaignPrizeTeaser';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
 import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
@@ -1594,9 +1595,12 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
             }
 
             const totalPot = totalEntries * entryFee;
-            const firstPayout = Math.floor(totalPot * 0.45);
-            const secondPayout = Math.floor(totalPot * 0.15);
-            const thirdPayout = Math.floor(totalPot * 0.05);
+            const potPercent = typeof selectedCampaign.prizePotPercent === 'number' ? selectedCampaign.prizePotPercent : 65;
+            const prizePot = Math.floor(totalPot * (potPercent / 100));
+            const split = selectedCampaign.payoutSplit || { first: 70, second: 20, third: 10 };
+            const firstPayout = Math.floor(prizePot * (split.first / 100));
+            const secondPayout = Math.floor(prizePot * (split.second / 100));
+            const thirdPayout = Math.floor(prizePot * (split.third / 100));
 
             return (
               <div className="p-4 md:p-6 border-b border-zinc-800 bg-[#18181A]">
@@ -1613,18 +1617,28 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                     <span className="text-base font-bold text-white">{totalEntries}</span>
                   </div>
                   <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
-                    <span className="text-xs text-zinc-500 font-medium block mb-1">1st Place (45%)</span>
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">1st Place ({split.first}%)</span>
                     <span className="text-base font-bold text-green-400">{firstPayout} Links</span>
                   </div>
                   <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
-                    <span className="text-xs text-zinc-500 font-medium block mb-1">2nd Place (15%)</span>
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">2nd Place ({split.second}%)</span>
                     <span className="text-base font-bold text-green-400">{secondPayout} Links</span>
                   </div>
                   <div className="bg-[#121212] border border-zinc-800 p-3 rounded-lg">
-                    <span className="text-xs text-zinc-500 font-medium block mb-1">3rd Place (5%)</span>
+                    <span className="text-xs text-zinc-500 font-medium block mb-1">3rd Place ({split.third}%)</span>
                     <span className="text-base font-bold text-green-400">{thirdPayout} Links</span>
                   </div>
                 </div>
+
+                {selectedCampaign.awardCosmeticId && (
+                  <div className="mt-4">
+                    <CampaignPrizeTeaser
+                      cosmeticId={selectedCampaign.awardCosmeticId}
+                      cosmeticName={selectedCampaign.awardCosmeticName}
+                      variant="banner"
+                    />
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -6,6 +6,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { app } from '../../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
+import { Trophy, Sparkles } from 'lucide-react';
+import { AVAILABLE_COSMETICS } from '../../../lib/cosmetics';
 
 export default function PickEmCreateCampaign() {
   const navigate = useNavigate();
@@ -18,6 +20,10 @@ export default function PickEmCreateCampaign() {
   const [hasWeekZero, setHasWeekZero] = useState<boolean>(false);
   const [useTiebreaker, setUseTiebreaker] = useState<boolean>(false);
   const [entryFee, setEntryFee] = useState<number>(0);
+  const [prizePotPercent, setPrizePotPercent] = useState<number>(65);
+  const [payoutSplit, setPayoutSplit] = useState<{ first: number; second: number; third: number }>({ first: 70, second: 20, third: 10 });
+  const [awardCosmeticId, setAwardCosmeticId] = useState<string>('');
+  const [awardCosmeticName, setAwardCosmeticName] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const [themePrimaryColor, setThemePrimaryColor] = useState('#22c55e');
@@ -98,6 +104,10 @@ export default function PickEmCreateCampaign() {
         isPrivate,
         joinCode: isPrivate ? joinCode : '',
         entryFee: entryFee,
+        prizePotPercent: prizePotPercent,
+        payoutSplit: payoutSplit,
+        awardCosmeticId: awardCosmeticId || null,
+        awardCosmeticName: awardCosmeticName || null,
         createdAt: Date.now()
       });
       navigate('/admin/pickem');
@@ -157,6 +167,94 @@ export default function PickEmCreateCampaign() {
               onChange={e => setEntryFee(parseInt(e.target.value) || 0)}
               className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
             />
+          </div>
+
+          {/* Custom Payouts & Cosmetic Reward */}
+          <div className="pt-6 border-t border-zinc-800 space-y-4">
+            <h3 className="text-lg font-medium text-white flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" />
+              Payouts & Cosmetic Rewards
+            </h3>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1">Prize Pot Percentage (%)</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={prizePotPercent}
+                onChange={e => setPrizePotPercent(Math.max(1, Math.min(100, parseInt(e.target.value) || 65)))}
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+              />
+              <p className="text-xs text-zinc-500 mt-1">Percentage of total entry fees allocated to the prize pot (default is 65%).</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">Prize Pot Split (%)</label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <span className="text-xs text-zinc-400 block mb-1">1st Place (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={payoutSplit.first}
+                    onChange={e => setPayoutSplit(prev => ({ ...prev, first: parseInt(e.target.value) || 0 }))}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-400 block mb-1">2nd Place (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={payoutSplit.second}
+                    onChange={e => setPayoutSplit(prev => ({ ...prev, second: parseInt(e.target.value) || 0 }))}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <span className="text-xs text-zinc-400 block mb-1">3rd Place (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={payoutSplit.third}
+                    onChange={e => setPayoutSplit(prev => ({ ...prev, third: parseInt(e.target.value) || 0 }))}
+                    className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+              <p className={`text-xs mt-1 ${payoutSplit.first + payoutSplit.second + payoutSplit.third === 100 ? 'text-zinc-500' : 'text-amber-400'}`}>
+                Total Split: {payoutSplit.first + payoutSplit.second + payoutSplit.third}% (Should sum to 100%)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                Award Cosmetic Prize (1st Place)
+              </label>
+              <select
+                value={awardCosmeticId}
+                onChange={e => {
+                  const val = e.target.value;
+                  setAwardCosmeticId(val);
+                  const selected = AVAILABLE_COSMETICS.find(c => c.id === val);
+                  setAwardCosmeticName(selected ? selected.name : '');
+                }}
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-4 py-2 text-white"
+              >
+                <option value="">None (Standard Links Only)</option>
+                {AVAILABLE_COSMETICS.map(cosmetic => (
+                  <option key={cosmetic.id} value={cosmetic.id}>
+                    [{cosmetic.category.toUpperCase()}] {cosmetic.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">If selected, 1st place winner will automatically receive this cosmetic unlock upon campaign grading.</p>
+            </div>
           </div>
 
           <div>

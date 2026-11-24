@@ -1,0 +1,35 @@
+.ocean-banner__container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #041428; /* deep abyssal navy fallback color */
+}
+
+.ocean-banner__gradient-canvas {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.ocean-banner__gradient-canvas canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.ocean-banner__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ocean-banner__gradient-canvas canvas {
+        /* Handled gracefully in JS via matchMedia, but we can also set static props here if needed */
+    }
+}

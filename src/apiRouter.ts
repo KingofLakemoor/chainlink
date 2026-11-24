@@ -3884,8 +3884,80 @@ apiRouter.post("/webhooks/scriptless", async (req, res) => {
 
     console.log("Received ScriptLess webhook. Body:", req.body);
     
-    // Trigger sync for SCRIPTLESS
-    const result = await syncLeagueSchedules('SCRIPTLESS', false);
+    // If payload contains inline matchups (from new SDK or direct push), ingest directly to ensure zero data loss
+    const rawMatchups = Array.isArray(req.body.matchups) ? req.body.matchups : (req.body.gameId || req.body.eventId ? [req.body] : []);
+    if (rawMatchups.length > 0) {
+      for (const item of rawMatchups) {
+        const gameId = item.gameId || item.eventId;
+        const homeTeam = item.homeTeam;
+        const awayTeam = item.awayTeam;
+        if (!gameId || !homeTeam || !awayTeam) continue;
+
+        const matchupRef = adminDb.collection('matchups').doc(gameId);
+        const existingDoc = await matchupRef.get();
+        const existingData = existingDoc.exists ? existingDoc.data() : null;
+
+        let finalStartTime = item.startTime ? getMatchupStartTime(item.startTime) : 0;
+        if (finalStartTime <= 0) {
+          if (existingDoc.exists && existingData?.startTime) {
+            finalStartTime = existingData.startTime;
+          } else {
+            finalStartTime = Date.now() + 15 * 60 * 1000;
+          }
+        }
+
+        const finalStatus = item.status || 'STATUS_SCHEDULED';
+        const finalStatusDesc = finalStatus === 'STATUS_SCHEDULED' ? 'Upcoming' : (finalStatus === 'STATUS_FINAL' ? 'Final' : 'In Progress');
+
+        const matchupData: any = {
+          gameId,
+          title: item.title || item.name || `${awayTeam.name} @ ${homeTeam.name}`,
+          league: item.league || 'SCRIPTLESS',
+          startTime: finalStartTime,
+          featured: true,
+          featuredType: "ScriptLess",
+          homeTeam: {
+            id: homeTeam.id || homeTeam.name,
+            name: homeTeam.name,
+            image: homeTeam.image || homeTeam.logo || "/images/scriptless.png",
+            score: homeTeam.score || 0
+          },
+          awayTeam: {
+            id: awayTeam.id || awayTeam.name,
+            name: awayTeam.name,
+            image: awayTeam.image || awayTeam.logo || "/images/scriptless.png",
+            score: awayTeam.score || 0
+          },
+          status: finalStatus,
+          statusDesc: finalStatusDesc,
+          active: item.active !== undefined ? Boolean(item.active) : (finalStatus === 'STATUS_SCHEDULED'),
+          manuallyActivated: true,
+          type: "SCORE",
+          metadata: item.metadata || {},
+          updatedAt: Date.now()
+        };
+
+        if (!existingDoc.exists) {
+          matchupData.createdAt = Date.now();
+        }
+
+        await matchupRef.set(matchupData, { merge: true });
+
+        if (matchupData.status === 'STATUS_FINAL' || matchupData.status === 'STATUS_POSTPONED') {
+          await gradeMatchups([matchupData]);
+          await gradeLink4Matchups([matchupData]);
+        }
+      }
+      invalidateMatchupCaches();
+    }
+
+    // Also trigger sync for SCRIPTLESS endpoint polling to ensure complete backwards-compatibility
+    let result: any = null;
+    try {
+      result = await syncLeagueSchedules('SCRIPTLESS', false);
+    } catch (schedErr) {
+      console.warn('syncLeagueSchedules for SCRIPTLESS had minor issue:', schedErr);
+    }
     
     // Update props in case a matchup finalized
     try {
@@ -3901,7 +3973,7 @@ apiRouter.post("/webhooks/scriptless", async (req, res) => {
       console.error('Failed to process notifications during scriptless webhook:', err);
     }
     
-    return res.json({ success: true, result });
+    return res.json({ success: true, result, ingestedInlineCount: rawMatchups.length });
   } catch (e: any) {
     console.error("ScriptLess webhook error:", e);
     return res.status(500).json({ success: false, error: e.message });
@@ -3986,6 +4058,95 @@ apiRouter.post("/webhooks/putting", async (req, res) => {
     return res.json({ success: true, message: "Webhook received" });
   } catch (e: any) {
     console.error("PUTTING webhook error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post(["/webhooks/darts", "/webhooks/flip", "/webhooks/gridiron"], async (req, res) => {
+  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
+  try {
+    const providedApiKey = req.headers['x-api-key'];
+    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
+      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
+    }
+
+    const path = req.path.toLowerCase();
+    const defaultLeague = path.includes('darts') ? 'DARTS' : path.includes('flip') ? 'FLIPCUP' : 'GRIDIRON';
+    console.log(`Received ${defaultLeague} webhook. Body:`, req.body);
+
+    const matchupsList = Array.isArray(req.body.matchups) ? req.body.matchups : (req.body.gameId ? [req.body] : []);
+    let processedCount = 0;
+
+    for (const item of matchupsList) {
+      const gameId = item.gameId || item.eventId;
+      const homeTeam = item.homeTeam;
+      const awayTeam = item.awayTeam;
+
+      if (!gameId || !homeTeam || !awayTeam) continue;
+
+      const matchupRef = adminDb.collection('matchups').doc(gameId);
+      const existingDoc = await matchupRef.get();
+      const existingData = existingDoc.exists ? existingDoc.data() : null;
+
+      let finalStartTime = item.startTime ? getMatchupStartTime(item.startTime) : 0;
+      if (finalStartTime <= 0) {
+        if (existingDoc.exists && existingData?.startTime) {
+          finalStartTime = existingData.startTime;
+        } else {
+          finalStartTime = Date.now() + 15 * 60 * 1000;
+        }
+      }
+
+      const matchupData: any = {
+        gameId,
+        title: item.title || item.name || `${awayTeam.name} @ ${homeTeam.name}`,
+        league: item.league || defaultLeague,
+        startTime: finalStartTime,
+        homeTeam: {
+          id: homeTeam.id || homeTeam.name,
+          name: homeTeam.name,
+          image: homeTeam.image || homeTeam.logo || "/logo.png",
+          score: homeTeam.score || 0
+        },
+        awayTeam: {
+          id: awayTeam.id || awayTeam.name,
+          name: awayTeam.name,
+          image: awayTeam.image || awayTeam.logo || "/logo.png",
+          score: awayTeam.score || 0
+        },
+        status: item.status || 'STATUS_SCHEDULED',
+        active: item.active !== undefined ? Boolean(item.active) : true,
+        manuallyActivated: true,
+        type: "SCORE",
+        metadata: item.metadata || {},
+        updatedAt: Date.now()
+      };
+
+      if (!existingDoc.exists) {
+        matchupData.createdAt = Date.now();
+      }
+
+      await matchupRef.set(matchupData, { merge: true });
+
+      if (matchupData.status === 'STATUS_FINAL' || matchupData.status === 'STATUS_POSTPONED') {
+        await gradeMatchups([matchupData]);
+        await gradeLink4Matchups([matchupData]);
+      }
+      processedCount++;
+    }
+
+    invalidateMatchupCaches();
+
+    try {
+      await updateAllProps();
+      await processPendingNotifications();
+    } catch (err) {
+      console.error(`Failed to update props/notifications during ${defaultLeague} webhook:`, err);
+    }
+
+    return res.json({ success: true, count: processedCount, message: `${defaultLeague} webhook processed` });
+  } catch (e: any) {
+    console.error("Spoke webhook error:", e);
     return res.status(500).json({ success: false, error: e.message });
   }
 });

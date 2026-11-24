@@ -23,8 +23,8 @@ import { FaDiscord } from 'react-icons/fa';
 import { Download } from 'lucide-react';
 
 import { ErrorBoundaryWrapper } from './components/ErrorBoundary';
-import { VersionChecker } from './components/VersionChecker';
 import { ProfileSettingsModal } from './components/profile/ProfileSettingsModal';
+import { Club602Avatar } from './components/club602';
 
 const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, setOpen: (open: boolean) => void }) {
   const { user, profile } = useAuth();
@@ -487,11 +487,19 @@ const TopStats = React.memo(function TopStats() {
 
         <button
           onClick={() => setIsSettingsOpen(true)}
-          className="w-7 h-7 md:w-8 md:h-8 rounded-full border border-zinc-700 hover:border-zinc-400 overflow-hidden bg-zinc-800 shrink-0 transition-colors cursor-pointer flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50"
-          title="Account Settings"
-          aria-label="Account Settings"
+          className="shrink-0 transition-transform hover:scale-105 cursor-pointer flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#22c55e]/50 rounded-full"
+          title="Account Settings & Locker"
+          aria-label="Account Settings & Locker"
         >
-          <FirebaseImage fallback={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.id || 'guest'}`} src={profile?.image || ''} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="Avatar" loading="lazy" />
+          <Club602Avatar
+            user={{
+              ...profile,
+              photoURL: profile?.image,
+              equippedCosmetics: profile?.equippedCosmetics
+            }}
+            spokeId="chainlink"
+            size="sm"
+          />
         </button>
       </div>
       <ProfileSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

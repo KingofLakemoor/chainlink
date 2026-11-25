@@ -9,6 +9,7 @@ import { app } from '../../../lib/firebase';
 import { scrapeLeagueSchedules } from '../../../services/espnScraper';
 import { RefreshCw, Trash2, Plus, Trophy, Sparkles } from 'lucide-react';
 import { AVAILABLE_COSMETICS } from '../../../lib/cosmetics';
+import { getPropScoringCategory } from '../../../utils/matchupUtils';
 
 export default function PickEmCampaignDetail() {
   const { id } = useParams();
@@ -1307,8 +1308,20 @@ export default function PickEmCampaignDetail() {
                       )}
                     </td>
                     <td className="px-4 py-3 font-medium text-zinc-200">
-                      <div className="flex flex-col">
-                        <span>{m.title}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span>{m.title}</span>
+                          {(() => {
+                            const cat = getPropScoringCategory(m);
+                            if (!cat) return null;
+                            return (
+                              <span className="px-1.5 py-0.5 text-[9px] uppercase tracking-wider rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 w-fit">
+                                <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                                {cat}
+                              </span>
+                            );
+                          })()}
+                        </div>
                         {m.manualWinnerId && (
                           <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
                             FORCED: {

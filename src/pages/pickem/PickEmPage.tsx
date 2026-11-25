@@ -3,14 +3,14 @@ import { CharityProgressTracker } from '../../components/pickem/CharityProgressT
 import { CampaignPrizeTeaser } from '../../components/pickem/CampaignPrizeTeaser';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
-import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
+import { isMatchupLocked, getMatchupStartTime, getPropScoringCategory } from '../../utils/matchupUtils';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '../../components/ui/button';
-import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
+import { Layers, CheckCircle, Trophy, Lock, XCircle, Star, HelpCircle, AlertTriangle, ChevronRight, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import { MATCHUP_FINAL_STATUSES } from '../../services/espnScraper';
 
 export const getCampaignIds = (campaign: any, allCampaigns: any[] = []): string[] => {
@@ -1359,10 +1359,13 @@ export default function PickEmPage() {
                   ? Number(m.metadata.mlHome) < Number(m.metadata.mlAway)
                   : (m.metadata?.spread !== undefined ? Number(m.metadata.spread) < 0 : false);
 
+                const propCategory = getPropScoringCategory(m);
+                const isPropMatchup = !!propCategory || m.type === 'PROP' || m.type === 'STATS' || m.metadata?.isPropMatchup || m.league === 'SCRIPTLESS';
+
                 return (
                   <div key={m.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
                     <div className="p-3 bg-[#18181A] border-b border-zinc-800 text-xs text-zinc-400 font-medium flex justify-between items-center">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {m.league === 'SCRIPTLESS' ? (
                           <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-[#d46f1c]/20 text-[#d46f1c] border border-[#d46f1c]/40 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#d46f1c]"></span>
@@ -1373,6 +1376,12 @@ export default function PickEmPage() {
                             {m.league}
                           </span>
                         ) : null}
+                        {propCategory && (
+                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 shadow-sm">
+                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                            {propCategory}
+                          </span>
+                        )}
                         <span>{new Date(m.startTime).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1391,6 +1400,16 @@ export default function PickEmPage() {
                       {isSpreadPendingLock && (
                         <div className="text-center text-xs font-bold text-yellow-500/80 bg-yellow-500/10 py-1.5 rounded-md border border-yellow-500/20 mb-1">
                           Spread Lock Thursday Morning
+                        </div>
+                      )}
+
+                      {propCategory && (
+                        <div className="flex items-center justify-between bg-zinc-900/90 border border-amber-500/20 px-3 py-1.5 rounded-lg text-xs shadow-inner">
+                          <span className="text-zinc-400 font-medium flex items-center gap-1.5">
+                            <Sparkles className="w-3 h-3 text-amber-400" />
+                            Scoring Category:
+                          </span>
+                          <span className="font-bold text-amber-300 tracking-wide">{propCategory}</span>
                         </div>
                       )}
 
@@ -1441,7 +1460,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                         })()}
                       </button>
 
-                      {m.type === 'PROP' ? <div className="text-center text-xs text-zinc-600 font-bold uppercase">VS</div> : <div className="text-center text-xs text-zinc-600 font-bold uppercase">@</div>}
+                      {isPropMatchup ? <div className="text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">VS</div> : <div className="text-center text-xs text-zinc-600 font-bold uppercase">@</div>}
 
                       <button
 onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)}

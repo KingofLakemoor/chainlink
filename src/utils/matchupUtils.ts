@@ -110,3 +110,76 @@ export function extractOverUnderLine(matchup: any): number | null {
   return null;
 }
 
+/**
+ * Extracts the scoring category / prop metric label for player props and custom league props (e.g. NFL props and ScriptLess props).
+ * Returns a human-friendly string (e.g. "Rushing Yards", "Total Points", "Anytime Touchdown") or null if standard game.
+ */
+export function getPropScoringCategory(matchup: any): string | null {
+  if (!matchup) return null;
+  const meta = matchup.metadata || {};
+
+  // 1. Explicit metric in metadata (e.g. ScriptLess props: metric: "Total Points", metric: "Baking Time")
+  if (meta.metric && typeof meta.metric === 'string' && meta.metric.trim()) {
+    return meta.metric.trim();
+  }
+
+  // 2. Yes-Only label (e.g. "Anytime Touchdown Scorer")
+  if (meta.yesOnlyLabel && typeof meta.yesOnlyLabel === 'string' && meta.yesOnlyLabel.trim()) {
+    return meta.yesOnlyLabel.trim();
+  }
+
+  // 3. Stat type from optionA / optionB (H2H or Solo Player Props)
+  const statA = meta.optionA?.statType || meta.statTypeA;
+  const statB = meta.optionB?.statType || meta.statTypeB;
+  if (statA || statB) {
+    const rawStat = statA || statB;
+    const formatted = String(rawStat)
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, c => c.toUpperCase());
+    
+    // If timeframe is specified and not FULL_GAME, append e.g. " (1st Half)"
+    const timeframe = meta.timeframe;
+    if (timeframe && timeframe !== 'FULL_GAME') {
+      const tfFormatted = String(timeframe)
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, c => c.toUpperCase());
+      return `${formatted} (${tfFormatted})`;
+    }
+    return formatted;
+  }
+
+  // 4. Over/Under target line or stat label from solo prop
+  if (meta.isSoloProp || meta.propType === 'OVER_UNDER') {
+    const targetLine = meta.targetLine ?? meta.overUnder;
+    if (meta.statType) {
+      const formatted = String(meta.statType).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      return targetLine !== undefined && targetLine !== null ? `${formatted} (O/U ${targetLine})` : formatted;
+    }
+    if (targetLine !== undefined && targetLine !== null) {
+      return `O/U ${targetLine}`;
+    }
+  }
+
+  // 5. Title inspection for props with parenthesized stat e.g. "D'Andre Swift (RUSHING_YARDS) vs Jahmyr Gibbs"
+  if (typeof matchup.title === 'string') {
+    const title = matchup.title;
+    const parenMatch = title.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1]) {
+      const candidate = parenMatch[1].trim();
+      // If it looks like a stat type (e.g., RUSHING_YARDS, PASSING_YARDS, POINTS, REBOUNDS)
+      if (/^[A-Z_]{3,30}$/.test(candidate) || /yards|touchdown|points|rebounds|assists|strikeouts|hits/i.test(candidate)) {
+        return candidate.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      }
+    }
+  }
+
+  // 6. ScriptLess default metric fallback
+  if (matchup.league === 'SCRIPTLESS') {
+    return 'Total Points';
+  }
+
+  return null;
+}
+

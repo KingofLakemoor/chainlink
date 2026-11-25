@@ -112,10 +112,14 @@ export function extractOverUnderLine(matchup: any): number | null {
 
 /**
  * Extracts the player name or entity subject for props (e.g. "Dak Prescott" or "D'Andre Swift vs Jahmyr Gibbs").
- * Returns null if this is a standard team vs team game.
+ * Returns null if this is a standard team vs team game or ATS game.
  */
 export function getPropPlayerOrSubject(matchup: any): { playerName?: string; playerImage?: string; subject?: string } | null {
   if (!matchup) return null;
+  // If standard spread or moneyline game between two teams, not a prop
+  if (matchup.type === 'SPREAD' || matchup.type === 'STANDARD') {
+    return null;
+  }
   const meta = matchup.metadata || {};
 
   // 1. Explicit playerName in metadata or optionA
@@ -138,11 +142,11 @@ export function getPropPlayerOrSubject(matchup: any): { playerName?: string; pla
     const title = matchup.title.trim();
     if (title.includes(' - ')) {
       const candidate = title.split(' - ')[0].trim();
-      // Ensure candidate is not just a team or generic term
-      if (candidate && !/@/.test(candidate) && !/\bvs\b/i.test(candidate)) {
+      // Ensure candidate is not just a team or generic term, and title is not an ATS / game title
+      if (candidate && !/@/.test(candidate) && !/\bvs\b/i.test(candidate) && !/ - ATS$/i.test(title)) {
         return { playerName: candidate, playerImage: explicitImage || (matchup.awayTeam?.image && !matchup.awayTeam.image.includes('/images/over.png') ? matchup.awayTeam.image : undefined) };
       }
-    } else if (title.includes(' vs ')) {
+    } else if (title.includes(' vs ') && (meta.isPropMatchup || matchup.type === 'PROP' || matchup.type === 'STATS')) {
       // H2H prop
       return { subject: title };
     }
@@ -153,10 +157,20 @@ export function getPropPlayerOrSubject(matchup: any): { playerName?: string; pla
 
 /**
  * Extracts target line for Over/Under props (e.g. 250.5 or 0.5).
+ * Only applies to props and OVER_UNDER matchups, NOT standard ATS / spread games.
  */
 export function getPropTargetLine(matchup: any): number | null {
   if (!matchup) return null;
+  // Standard spread games are not Over/Under props
+  if (matchup.type === 'SPREAD' || matchup.type === 'STANDARD') {
+    return null;
+  }
   const meta = matchup.metadata || {};
+  const isProp = meta.isPropMatchup || meta.isSoloProp || meta.propType === 'OVER_UNDER' || matchup.type === 'OVER_UNDER' || matchup.type === 'PROP' || matchup.type === 'STATS';
+  if (!isProp) {
+    return null;
+  }
+
   if (meta.targetLine !== undefined && meta.targetLine !== null && !isNaN(Number(meta.targetLine))) {
     return Number(meta.targetLine);
   }
@@ -182,6 +196,10 @@ export function getPropTargetLine(matchup: any): number | null {
  */
 export function getPropScoringCategory(matchup: any): string | null {
   if (!matchup) return null;
+  // If it's a standard SPREAD or standard game between teams, do not return a prop scoring category
+  if (matchup.type === 'SPREAD' || (matchup.type === 'STANDARD' && matchup.league !== 'SCRIPTLESS' && !matchup.metadata?.isPropMatchup)) {
+    return null;
+  }
   const meta = matchup.metadata || {};
 
   // 1. Explicit metric in metadata (e.g. ScriptLess props: metric: "Total Points", metric: "Baking Time")
@@ -228,7 +246,7 @@ export function getPropScoringCategory(matchup: any): string | null {
   // or hyphenated stat e.g. "Dak Prescott - PASSING_YARDS (250.5)"
   if (typeof matchup.title === 'string') {
     const title = matchup.title;
-    if (title.includes(' - ')) {
+    if (title.includes(' - ') && !title.endsWith(' - ATS')) {
       const parts = title.split(' - ');
       if (parts[1]) {
         const candidate = parts[1].split('(')[0].trim();

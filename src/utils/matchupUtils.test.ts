@@ -139,5 +139,23 @@ describe('matchupUtils', () => {
       const category = getPropScoringCategory(matchup);
       expect(category).toBe('Passing Yards');
     });
+
+    it('does not treat standard ATS / spread games as props or over-unders', () => {
+      const atsGame = {
+        title: 'Eagles @ Cowboys - ATS',
+        type: 'SPREAD',
+        league: 'NFL',
+        metadata: {
+          spread: -3.5,
+          overUnder: 47.5
+        },
+        awayTeam: { id: 'eagles', name: 'Eagles', image: '/images/eagles.png' },
+        homeTeam: { id: 'cowboys', name: 'Cowboys', image: '/images/cowboys.png' }
+      };
+
+      expect(getPropPlayerOrSubject(atsGame)).toBeNull();
+      expect(getPropTargetLine(atsGame)).toBeNull();
+      expect(getPropScoringCategory(atsGame)).toBeNull();
+    });
   });
 });

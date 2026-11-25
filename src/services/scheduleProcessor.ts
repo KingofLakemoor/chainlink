@@ -1188,7 +1188,7 @@ export async function syncLeagueSchedules(
         const gamesToCheck = [];
         for (const [gameId, doc] of existingMap.entries()) {
             const data = doc.data();
-            const nonScrapedLeagues = ['PGA', 'PUTTING', 'SCRIPTLESS', 'DARTS', 'FLIPCUP', 'CBASE', 'CRICKET', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'];
+            const nonScrapedLeagues = ['PGA', 'PUTTING', 'SCRIPTLESS', 'DARTS', 'FLIPCUP', 'BINGO', 'CBASE', 'CRICKET', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'];
             if (data.status === 'STATUS_SCHEDULED' && !data.abandoned && !data.manuallyActivated && !data.adminOverride && !scrapedGameIds.has(gameId) && !nonScrapedLeagues.includes(data.league)) {
                 gamesToCheck.push({ gameId, doc, data });
             }

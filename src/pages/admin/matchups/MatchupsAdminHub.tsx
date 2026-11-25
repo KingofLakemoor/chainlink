@@ -748,7 +748,7 @@ export default function MatchupsAdminHub() {
                 className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-700 text-zinc-300"
               >
                 <option value="All">All Leagues</option>
-                {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "HORSE_RACING", "SCRIPTLESS", "PROP"].map(l => <option key={l} value={l}>{l}</option>)}
+                {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "HORSE_RACING", "SCRIPTLESS", "DARTS", "PUTTING", "FLIPCUP", "BINGO", "PROP"].map(l => <option key={l} value={l}>{l}</option>)}
               </select>
               <select
                 value={statusFilter}
@@ -1102,7 +1102,7 @@ export default function MatchupsAdminHub() {
                       onChange={(e) => handleEditChange('league', e.target.value)}
                       className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                     >
-                      {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "HORSE_RACING", "SCRIPTLESS", "PROP"].map(l => <option key={l} value={l}>{l}</option>)}
+                      {["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "HORSE_RACING", "SCRIPTLESS", "DARTS", "PUTTING", "FLIPCUP", "BINGO", "PROP"].map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </div>
 

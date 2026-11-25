@@ -51,7 +51,7 @@ export default function PickEmCreateCampaign() {
   });
 
 
-  const availableLeagues = ['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'SCRIPTLESS'];
+  const availableLeagues = ['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'];
 
   const handleLeagueToggle = (league: string) => {
     setLeagues(prev =>

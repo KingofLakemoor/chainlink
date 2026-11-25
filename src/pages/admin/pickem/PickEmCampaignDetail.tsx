@@ -946,10 +946,10 @@ export default function PickEmCampaignDetail() {
           </div>
 
           <div className="flex flex-wrap gap-2.5">
-            {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING', 'SCRIPTLESS'].map(l => (
+            {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING', 'SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].map(l => (
               <label key={l} className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
                 leagues.includes(l)
-                  ? (l === 'SCRIPTLESS' ? 'bg-[#d46f1c]/20 border-[#d46f1c]/50 text-[#d46f1c]' : 'bg-purple-600/20 border-purple-500/50 text-purple-300')
+                  ? (['SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].includes(l) ? 'bg-[#d46f1c]/20 border-[#d46f1c]/50 text-[#d46f1c]' : 'bg-purple-600/20 border-purple-500/50 text-purple-300')
                   : 'bg-[#18181A] border-zinc-800 text-zinc-400 hover:border-zinc-700'
               }`}>
                 <input
@@ -961,7 +961,7 @@ export default function PickEmCampaignDetail() {
                   }}
                   className="rounded border-zinc-700 bg-zinc-900 text-purple-600 focus:ring-purple-500/20"
                 />
-                {l === 'SCRIPTLESS' ? 'ScriptLess Props' : l}
+                {l === 'SCRIPTLESS' ? 'ScriptLess' : l === 'FLIPCUP' ? 'Flip Cup' : l}
               </label>
             ))}
           </div>
@@ -1267,6 +1267,11 @@ export default function PickEmCampaignDetail() {
                         <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-[#d46f1c]/20 text-[#d46f1c] border border-[#d46f1c]/40 flex items-center gap-1 w-fit">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#d46f1c]"></span>
                           ScriptLess
+                        </span>
+                      ) : ['DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].includes(m.league) ? (
+                        <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                          {m.league === 'FLIPCUP' ? 'Flip Cup' : m.league}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-zinc-800 text-zinc-300 border border-zinc-700/60 w-fit">

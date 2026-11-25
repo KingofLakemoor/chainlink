@@ -355,6 +355,54 @@ export const LEAGUE_METADATA: Record<string, LeagueMeta> = {
     liveScoreDetails: "Overs & Innings breakdown",
     pickemStatus: "Supported",
     defaultLink4Status: "INCLUDED"
+  },
+  DARTS: {
+    id: "DARTS",
+    name: "Darts",
+    category: "Special",
+    provider: "ScriptLess / Darts Webhook API",
+    dataAvailable: "Custom head-to-head match schedules, player avatars, scores",
+    oddsSource: "N/A (Custom match scoring)",
+    liveScores: true,
+    liveScoreDetails: "Real-time leg & set score sync",
+    pickemStatus: "Supported",
+    defaultLink4Status: "EXCLUDED"
+  },
+  PUTTING: {
+    id: "PUTTING",
+    name: "Putting",
+    category: "Special",
+    provider: "ScriptLess / Putting Webhook API",
+    dataAvailable: "Matchplay putting schedules, golfer avatars, hole scores",
+    oddsSource: "N/A (Custom stroke / hole scoring)",
+    liveScores: true,
+    liveScoreDetails: "Real-time hole-by-hole status",
+    pickemStatus: "Supported",
+    defaultLink4Status: "EXCLUDED"
+  },
+  FLIPCUP: {
+    id: "FLIPCUP",
+    name: "Flip Cup",
+    category: "Special",
+    provider: "ScriptLess / Flip Cup Webhook API",
+    dataAvailable: "Tournament matchups, team logos, round scores",
+    oddsSource: "N/A (Round scoring)",
+    liveScores: true,
+    liveScoreDetails: "Round and match final status",
+    pickemStatus: "Supported",
+    defaultLink4Status: "EXCLUDED"
+  },
+  BINGO: {
+    id: "BINGO",
+    name: "Bingo",
+    category: "Special",
+    provider: "ScriptLess / Bingo Webhook API",
+    dataAvailable: "Game rounds, card patterns, winner verification",
+    oddsSource: "N/A (Card pattern scoring)",
+    liveScores: true,
+    liveScoreDetails: "Live ball call & line status",
+    pickemStatus: "Supported",
+    defaultLink4Status: "EXCLUDED"
   }
 };
 
@@ -373,7 +421,7 @@ export const CATEGORIES = [
 
 export function AdminLeagues() {
   const ALL_LEAGUES = [
-    "PROP", "SCRIPTLESS", "MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA",
+    "PROP", "SCRIPTLESS", "DARTS", "PUTTING", "FLIPCUP", "BINGO", "MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA",
     "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL",
     "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET"
   ];

@@ -4069,7 +4069,7 @@ apiRouter.post("/webhooks/putting", async (req, res) => {
   }
 });
 
-apiRouter.post(["/webhooks/darts", "/webhooks/flip", "/webhooks/gridiron"], async (req, res) => {
+apiRouter.post(["/webhooks/darts", "/webhooks/flip", "/webhooks/gridiron", "/webhooks/bingo"], async (req, res) => {
   if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
   try {
     const providedApiKey = req.headers['x-api-key'];
@@ -4078,7 +4078,7 @@ apiRouter.post(["/webhooks/darts", "/webhooks/flip", "/webhooks/gridiron"], asyn
     }
 
     const path = req.path.toLowerCase();
-    const defaultLeague = path.includes('darts') ? 'DARTS' : path.includes('flip') ? 'FLIPCUP' : 'GRIDIRON';
+    const defaultLeague = path.includes('darts') ? 'DARTS' : path.includes('flip') ? 'FLIPCUP' : path.includes('bingo') ? 'BINGO' : 'GRIDIRON';
     console.log(`Received ${defaultLeague} webhook. Body:`, req.body);
 
     const matchupsList = Array.isArray(req.body.matchups) ? req.body.matchups : (req.body.gameId ? [req.body] : []);

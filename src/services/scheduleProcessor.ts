@@ -307,8 +307,10 @@ export async function syncLeagueSchedules(
           const chunk = gameIds.slice(i, i + 30);
           const chunkSnap = await matchupsRef.where('gameId', 'in', chunk).get();
           chunkSnap.docs.forEach(d => {
-            if (d.data().league === league) {
-              existingMap.set(d.data().gameId, d);
+            const data = d.data();
+            // Match gameId: prefer matching same league, but store any matching gameId so we don't insert duplicate or cross-contaminate
+            if (!existingMap.has(data.gameId) || data.league === league) {
+              existingMap.set(data.gameId, d);
             }
           });
         }
@@ -885,7 +887,7 @@ export async function syncLeagueSchedules(
               existingData.homeTeam?.score !== homeScore ||
               existingData.awayTeam?.score !== awayScore ||
               (!isAdminOverride && existingData.title !== newTitle) ||
-              existingData.league !== scrapedMatchup.league ||
+              (!isAdminOverride && existingData.league !== scrapedMatchup.league) ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name) ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName) ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.image !== resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image)) ||
@@ -911,7 +913,7 @@ export async function syncLeagueSchedules(
               title: isAdminOverride ? existingData.title : newTitle,
               hasCustomTitle: isAdminOverride ? true : (newlyCustomizedTitle ? true : existingData.hasCustomTitle),
               adminOverride: isAdminOverride ? true : (existingData.adminOverride || false),
-              league: scrapedMatchup.league,
+              league: isAdminOverride ? (existingData.league || scrapedMatchup.league) : scrapedMatchup.league,
               type: isAdminOverride ? existingData.type : ((existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type),
               active: isAdminOverride ? existingData.active : ((existingData.abandoned === true && !isProtected) ? false : finalActive),
               status: newStatus,

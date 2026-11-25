@@ -548,11 +548,22 @@ export default function PickEmAdminPage() {
         if (!res.data || res.data.length === 0) continue;
 
         for (const m of res.data) {
-          if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
-          if (effectiveEndDate && m.startTime >= effectiveEndDate) continue;
+          const gameTime = typeof m.startTime === 'number' ? m.startTime : new Date(m.startTime).getTime();
+          const gameNyStr = new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+          const [mMonth, mDay, mYear] = gameNyStr.split("/");
+          const gameNyKey = `${mYear}${mMonth}${mDay}`;
+
+          // If specificDates were generated for this date window in ET, an event matching one of those days is within range
+          const matchesSpecificDate = specificDates && specificDates.includes(gameNyKey);
+
+          if (!matchesSpecificDate) {
+            // Generous end-of-day tolerance: check timestamp bounds with up to 12 hour leeway for timezone alignment
+            if (effectiveBeginDate && gameTime < (effectiveBeginDate - 43200000)) continue;
+            if (effectiveEndDate && gameTime > (effectiveEndDate + 43200000)) continue;
+          }
 
           if (isFridayOnly) {
-            const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+            const gameNyDate = new Date(new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
             if (gameNyDate.getDay() !== 5) {
               continue;
             }

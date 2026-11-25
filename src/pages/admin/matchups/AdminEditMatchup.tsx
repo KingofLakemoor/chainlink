@@ -98,8 +98,8 @@ export function AdminEditMatchup() {
         }
         current[keys[keys.length - 1]] = value;
 
-        // Auto-maintain admin override if an admin touches Title, Type, Spread, or Active
-        if (field === 'title' || field === 'type' || field === 'metadata.spread' || field === 'active') {
+        // Auto-maintain admin override if an admin touches Title, Type, Spread, League, or Active
+        if (field === 'title' || field === 'type' || field === 'metadata.spread' || field === 'league' || field === 'active') {
             newData.adminOverride = true;
         }
 
@@ -343,7 +343,14 @@ export function AdminEditMatchup() {
                 </div>
             </div>
             <div className="space-y-2">
-                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">League</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">League</label>
+                  {matchup.adminOverride && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                      <Shield className="w-2.5 h-2.5" /> protected
+                    </span>
+                  )}
+                </div>
                 <select
                     value={matchup.league || ''}
                     onChange={(e) => handleChange('league', e.target.value)}

@@ -388,8 +388,8 @@ export default function MatchupsAdminHub() {
       }
       current[keys[keys.length - 1]] = value;
 
-      // Maintain admin override whenever core fields (Title, Type, Spread, Active) are modified
-      if (['title', 'type', 'metadata.spread', 'active'].includes(field)) {
+      // Maintain admin override whenever core fields (Title, Type, Spread, League, Active) are modified
+      if (['title', 'type', 'metadata.spread', 'league', 'active'].includes(field)) {
         newData.adminOverride = true;
       }
 

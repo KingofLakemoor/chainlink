@@ -374,16 +374,24 @@ export default function PickEmCampaignDetail() {
         }
 
         for (const m of gamesList) {
-          console.log('Game', m.title, new Date(m.startTime).toLocaleString(), 'vs bounds:', effectiveBeginDate ? new Date(effectiveBeginDate).toLocaleString() : null, effectiveEndDate ? new Date(effectiveEndDate).toLocaleString() : null);
-          if (effectiveBeginDate && m.startTime < effectiveBeginDate) {
-            continue;
-          }
-          if (effectiveEndDate && m.startTime > effectiveEndDate) {
-            continue;
+          const gameTime = typeof m.startTime === 'number' ? m.startTime : new Date(m.startTime).getTime();
+          const gameNyStr = new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+          const [mMonth, mDay, mYear] = gameNyStr.split("/");
+          const gameNyKey = `${mYear}${mMonth}${mDay}`;
+
+          const matchesSpecificDate = specificDates && specificDates.includes(gameNyKey);
+
+          if (!matchesSpecificDate) {
+            if (effectiveBeginDate && gameTime < (effectiveBeginDate - 43200000)) {
+              continue;
+            }
+            if (effectiveEndDate && gameTime > (effectiveEndDate + 43200000)) {
+              continue;
+            }
           }
 
           if (isFridayOnly) {
-            const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+            const gameNyDate = new Date(new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
             if (gameNyDate.getDay() !== 5) {
               continue;
             }

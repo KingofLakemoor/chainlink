@@ -111,8 +111,74 @@ export function extractOverUnderLine(matchup: any): number | null {
 }
 
 /**
+ * Extracts the player name or entity subject for props (e.g. "Dak Prescott" or "D'Andre Swift vs Jahmyr Gibbs").
+ * Returns null if this is a standard team vs team game.
+ */
+export function getPropPlayerOrSubject(matchup: any): { playerName?: string; playerImage?: string; subject?: string } | null {
+  if (!matchup) return null;
+  const meta = matchup.metadata || {};
+
+  // 1. Explicit playerName in metadata or optionA
+  const explicitPlayer = meta.optionA?.playerName || meta.playerName;
+  const explicitImage = meta.optionA?.playerImage || meta.playerImage || (matchup.awayTeam?.image && !matchup.awayTeam.image.includes('/images/over.png') ? matchup.awayTeam.image : undefined);
+
+  if (explicitPlayer && typeof explicitPlayer === 'string' && explicitPlayer.trim()) {
+    return { playerName: explicitPlayer.trim(), playerImage: explicitImage };
+  }
+
+  // 2. Solo prop or Over/Under where awayTeam has the player name (and homeTeam is "under")
+  if (meta.isSoloProp || meta.propType === 'OVER_UNDER' || matchup.type === 'OVER_UNDER') {
+    if (matchup.awayTeam?.name && !/^over/i.test(matchup.awayTeam.name)) {
+      return { playerName: matchup.awayTeam.name, playerImage: matchup.awayTeam.image };
+    }
+  }
+
+  // 3. Extract player name from matchup title (e.g. "Dak Prescott - PASSING_YARDS (250.5)")
+  if (typeof matchup.title === 'string') {
+    const title = matchup.title.trim();
+    if (title.includes(' - ')) {
+      const candidate = title.split(' - ')[0].trim();
+      // Ensure candidate is not just a team or generic term
+      if (candidate && !/@/.test(candidate) && !/\bvs\b/i.test(candidate)) {
+        return { playerName: candidate, playerImage: explicitImage || (matchup.awayTeam?.image && !matchup.awayTeam.image.includes('/images/over.png') ? matchup.awayTeam.image : undefined) };
+      }
+    } else if (title.includes(' vs ')) {
+      // H2H prop
+      return { subject: title };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extracts target line for Over/Under props (e.g. 250.5 or 0.5).
+ */
+export function getPropTargetLine(matchup: any): number | null {
+  if (!matchup) return null;
+  const meta = matchup.metadata || {};
+  if (meta.targetLine !== undefined && meta.targetLine !== null && !isNaN(Number(meta.targetLine))) {
+    return Number(meta.targetLine);
+  }
+  if (meta.overUnder !== undefined && meta.overUnder !== null && !isNaN(Number(meta.overUnder))) {
+    return Number(meta.overUnder);
+  }
+  // Try parsing from awayTeam.name if it says "Over 250.5"
+  if (typeof matchup.awayTeam?.name === 'string') {
+    const match = matchup.awayTeam.name.match(/over\s+([0-9.]+)/i);
+    if (match && match[1]) return parseFloat(match[1]);
+  }
+  // Try parsing from title e.g. "Dak Prescott - PASSING_YARDS (250.5)"
+  if (typeof matchup.title === 'string') {
+    const match = matchup.title.match(/\(([0-9.]+)\)/);
+    if (match && match[1]) return parseFloat(match[1]);
+  }
+  return null;
+}
+
+/**
  * Extracts the scoring category / prop metric label for player props and custom league props (e.g. NFL props and ScriptLess props).
- * Returns a human-friendly string (e.g. "Rushing Yards", "Total Points", "Anytime Touchdown") or null if standard game.
+ * Returns a human-friendly string (e.g. "Passing Yards", "Rushing Yards", "Total Points", "Anytime Touchdown") or null if standard game.
  */
 export function getPropScoringCategory(matchup: any): string | null {
   if (!matchup) return null;
@@ -129,7 +195,7 @@ export function getPropScoringCategory(matchup: any): string | null {
   }
 
   // 3. Stat type from optionA / optionB (H2H or Solo Player Props)
-  const statA = meta.optionA?.statType || meta.statTypeA;
+  const statA = meta.optionA?.statType || meta.statTypeA || meta.statType;
   const statB = meta.optionB?.statType || meta.statTypeB;
   if (statA || statB) {
     const rawStat = statA || statB;
@@ -153,18 +219,24 @@ export function getPropScoringCategory(matchup: any): string | null {
   // 4. Over/Under target line or stat label from solo prop
   if (meta.isSoloProp || meta.propType === 'OVER_UNDER') {
     const targetLine = meta.targetLine ?? meta.overUnder;
-    if (meta.statType) {
-      const formatted = String(meta.statType).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-      return targetLine !== undefined && targetLine !== null ? `${formatted} (O/U ${targetLine})` : formatted;
-    }
     if (targetLine !== undefined && targetLine !== null) {
       return `O/U ${targetLine}`;
     }
   }
 
   // 5. Title inspection for props with parenthesized stat e.g. "D'Andre Swift (RUSHING_YARDS) vs Jahmyr Gibbs"
+  // or hyphenated stat e.g. "Dak Prescott - PASSING_YARDS (250.5)"
   if (typeof matchup.title === 'string') {
     const title = matchup.title;
+    if (title.includes(' - ')) {
+      const parts = title.split(' - ');
+      if (parts[1]) {
+        const candidate = parts[1].split('(')[0].trim();
+        if (/^[A-Z_]{3,30}$/.test(candidate) || /yards|touchdown|points|rebounds|assists|strikeouts|hits/i.test(candidate)) {
+          return candidate.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        }
+      }
+    }
     const parenMatch = title.match(/\(([^)]+)\)/);
     if (parenMatch && parenMatch[1]) {
       const candidate = parenMatch[1].trim();

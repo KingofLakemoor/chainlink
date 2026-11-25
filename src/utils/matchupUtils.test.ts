@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isMatchupLocked, getMatchupStartTime, extractOverUnderLine } from './matchupUtils';
+import { isMatchupLocked, getMatchupStartTime, extractOverUnderLine, getPropPlayerOrSubject, getPropTargetLine, getPropScoringCategory } from './matchupUtils';
 
 describe('matchupUtils', () => {
   describe('getMatchupStartTime', () => {
@@ -90,6 +90,54 @@ describe('matchupUtils', () => {
     it('extracts from title', () => {
       expect(extractOverUnderLine({ title: 'Colts @ Texans - O/U 44.5' })).toBe(44.5);
       expect(extractOverUnderLine({ title: 'Colts @ Texans - Over/Under 48' })).toBe(48);
+    });
+  });
+
+  describe('getPropPlayerOrSubject and getPropTargetLine', () => {
+    it('extracts player and target line from solo prop with metadata', () => {
+      const matchup = {
+        title: 'Dak Prescott - PASSING_YARDS (250.5)',
+        type: 'OVER_UNDER',
+        metadata: {
+          isSoloProp: true,
+          targetLine: 250.5,
+          optionA: {
+            playerName: 'Dak Prescott',
+            statType: 'PASSING_YARDS',
+            playerImage: 'https://espn.com/dak.png'
+          }
+        },
+        awayTeam: { id: 'over', name: 'Over 250.5', image: '/images/over.png' },
+        homeTeam: { id: 'under', name: 'Under 250.5', image: '/images/under.png' }
+      };
+
+      const playerInfo = getPropPlayerOrSubject(matchup);
+      expect(playerInfo?.playerName).toBe('Dak Prescott');
+      expect(playerInfo?.playerImage).toBe('https://espn.com/dak.png');
+
+      const line = getPropTargetLine(matchup);
+      expect(line).toBe(250.5);
+
+      const category = getPropScoringCategory(matchup);
+      expect(category).toBe('Passing Yards');
+    });
+
+    it('extracts player and target line from title when metadata optionA is missing', () => {
+      const matchup = {
+        title: 'Dak Prescott - PASSING_YARDS (250.5)',
+        type: 'OVER_UNDER',
+        awayTeam: { id: 'over', name: 'OVER', image: '/images/over.png' },
+        homeTeam: { id: 'under', name: 'UNDER', image: '/images/under.png' }
+      };
+
+      const playerInfo = getPropPlayerOrSubject(matchup);
+      expect(playerInfo?.playerName).toBe('Dak Prescott');
+
+      const line = getPropTargetLine(matchup);
+      expect(line).toBe(250.5);
+
+      const category = getPropScoringCategory(matchup);
+      expect(category).toBe('Passing Yards');
     });
   });
 });

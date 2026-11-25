@@ -3,7 +3,7 @@ import { CharityProgressTracker } from '../../components/pickem/CharityProgressT
 import { CampaignPrizeTeaser } from '../../components/pickem/CampaignPrizeTeaser';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
-import { isMatchupLocked, getMatchupStartTime, getPropScoringCategory } from '../../utils/matchupUtils';
+import { isMatchupLocked, getMatchupStartTime, getPropScoringCategory, getPropPlayerOrSubject, getPropTargetLine } from '../../utils/matchupUtils';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
@@ -1360,7 +1360,10 @@ export default function PickEmPage() {
                   : (m.metadata?.spread !== undefined ? Number(m.metadata.spread) < 0 : false);
 
                 const propCategory = getPropScoringCategory(m);
-                const isPropMatchup = !!propCategory || m.type === 'PROP' || m.type === 'STATS' || m.metadata?.isPropMatchup || m.league === 'SCRIPTLESS';
+                const propPlayerInfo = getPropPlayerOrSubject(m);
+                const propTargetLine = getPropTargetLine(m);
+                const isPropMatchup = !!propCategory || !!propPlayerInfo || m.type === 'PROP' || m.type === 'STATS' || m.metadata?.isPropMatchup || m.league === 'SCRIPTLESS';
+                const isOverUnderMatchup = m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER';
 
                 return (
                   <div key={m.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
@@ -1403,39 +1406,67 @@ export default function PickEmPage() {
                         </div>
                       )}
 
-                      {propCategory && (
-                        <div className="flex items-center justify-between bg-zinc-900/90 border border-amber-500/20 px-3 py-1.5 rounded-lg text-xs shadow-inner">
-                          <span className="text-zinc-400 font-medium flex items-center gap-1.5">
-                            <Sparkles className="w-3 h-3 text-amber-400" />
-                            Scoring Category:
-                          </span>
-                          <span className="font-bold text-amber-300 tracking-wide">{propCategory}</span>
+                      {/* Prop Subject / Player & Category Info Banner */}
+                      {(propPlayerInfo || propCategory) && (
+                        <div className="bg-zinc-900/95 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3 shadow-inner">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {propPlayerInfo?.playerImage ? (
+                              <img
+                                src={propPlayerInfo.playerImage}
+                                alt={propPlayerInfo.playerName || 'Player'}
+                                className="w-9 h-9 rounded-full object-cover border border-amber-500/30 bg-zinc-800 flex-shrink-0"
+                              />
+                            ) : propPlayerInfo?.playerName ? (
+                              <div className="w-9 h-9 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-bold text-xs flex-shrink-0">
+                                {propPlayerInfo.playerName.charAt(0)}
+                              </div>
+                            ) : null}
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-bold text-white truncate">
+                                {propPlayerInfo?.playerName || propPlayerInfo?.subject || m.title}
+                              </span>
+                              {propCategory && (
+                                <span className="text-xs text-amber-400/90 font-medium flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-amber-400" />
+                                  {propCategory}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {propTargetLine !== null && (
+                            <div className="flex flex-col items-end flex-shrink-0 pl-2 border-l border-zinc-800">
+                              <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Line</span>
+                              <span className="text-sm font-black text-amber-300">{propTargetLine}</span>
+                            </div>
+                          )}
                         </div>
                       )}
 
                       <button
-onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)}
-disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id))}
+onClick={() => handlePick(m, isOverUnderMatchup ? 'OVER' : m.awayTeam.id)}
+disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(isOverUnderMatchup ? 'OVER' : m.awayTeam.id))}
 
                         className={`p-3 rounded-lg border text-left flex items-center justify-between transition-colors
-                          ${pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)
+                          ${pick?.pick?.teamId === (isOverUnderMatchup ? 'OVER' : m.awayTeam.id)
                             ? '' // dynamic styles below
                             : 'border-zinc-800 hover:border-zinc-600 bg-[#18181A]'}
-                          ${isLocked && pick?.pick?.teamId !== (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
+                          ${isLocked && pick?.pick?.teamId !== (isOverUnderMatchup ? 'OVER' : m.awayTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
                         `}
-                        style={pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
+                        style={pick?.pick?.teamId === (isOverUnderMatchup ? 'OVER' : m.awayTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/over.png' : m.awayTeam.image} alt={m.type === 'OVER_UNDER' ? 'OVER' : getTeamShortName(m, false)} className="w-8 h-8 object-contain" loading="lazy" />
-                            {profile?.premium && isAwayFavorite && m.type !== 'OVER_UNDER' && (
+                            <FirebaseImage src={isOverUnderMatchup ? '/images/over.png' : m.awayTeam.image} alt={isOverUnderMatchup ? 'OVER' : getTeamShortName(m, false)} className="w-8 h-8 object-contain" loading="lazy" />
+                            {profile?.premium && isAwayFavorite && !isOverUnderMatchup && (
                               <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
                                 <Star className="w-2.5 h-2.5 text-white fill-current" />
                               </div>
                             )}
                           </div>
                           <div className="flex flex-row items-baseline gap-2">
-                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'OVER' : getTeamShortName(m, false)}</span>
+                            <span className="font-bold text-white">
+                              {isOverUnderMatchup ? (propTargetLine !== null ? `OVER ${propTargetLine}` : 'OVER') : getTeamShortName(m, false)}
+                            </span>
                             {isSpread && !isSpreadPendingLock && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `-${spread}` : `+${Math.abs(spread)}`}</span>
                             )}
@@ -1450,9 +1481,9 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                                );
                             })()}
                           </div>
-                          {(selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id)) && <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">USED</span>}
+                          {(selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(isOverUnderMatchup ? 'OVER' : m.awayTeam.id)) && <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">USED</span>}
                         </div>
-                        {pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'OVER' : m.awayTeam.id) && (() => {
+                        {pick?.pick?.teamId === (isOverUnderMatchup ? 'OVER' : m.awayTeam.id) && (() => {
                           const style = getPickStyle(pick, isLocked);
                           if (!style) return null;
                           const IconComponent = style.icon === 'Lock' ? Lock : (style.icon === 'XCircle' ? XCircle : CheckCircle);
@@ -1463,28 +1494,30 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                       {isPropMatchup ? <div className="text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">VS</div> : <div className="text-center text-xs text-zinc-600 font-bold uppercase">@</div>}
 
                       <button
-onClick={() => handlePick(m, m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)}
-disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id))}
+onClick={() => handlePick(m, isOverUnderMatchup ? 'UNDER' : m.homeTeam.id)}
+disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(isOverUnderMatchup ? 'UNDER' : m.homeTeam.id))}
 
                         className={`p-3 rounded-lg border text-left flex items-center justify-between transition-colors
-                          ${pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id)
+                          ${pick?.pick?.teamId === (isOverUnderMatchup ? 'UNDER' : m.homeTeam.id)
                             ? '' // dynamic styles below
                             : 'border-zinc-800 hover:border-zinc-600 bg-[#18181A]'}
-                          ${isLocked && pick?.pick?.teamId !== (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
+                          ${isLocked && pick?.pick?.teamId !== (isOverUnderMatchup ? 'UNDER' : m.homeTeam.id) ? 'opacity-50 cursor-not-allowed' : ''}
                         `}
-                        style={pick?.pick?.teamId === (m.type === 'OVER_UNDER' ? 'UNDER' : m.homeTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
+                        style={pick?.pick?.teamId === (isOverUnderMatchup ? 'UNDER' : m.homeTeam.id) ? (() => { const s = getPickStyle(pick, isLocked); return s ? { borderColor: s.borderColor, backgroundColor: s.backgroundColor } : undefined; })() : undefined}
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <FirebaseImage src={m.type === 'OVER_UNDER' ? '/images/under.png' : m.homeTeam.image} alt={m.type === 'OVER_UNDER' ? 'UNDER' : getTeamShortName(m, true)} className="w-8 h-8 object-contain" loading="lazy" />
-                            {profile?.premium && isHomeFavorite && m.type !== 'OVER_UNDER' && (
+                            <FirebaseImage src={isOverUnderMatchup ? '/images/under.png' : m.homeTeam.image} alt={isOverUnderMatchup ? 'UNDER' : getTeamShortName(m, true)} className="w-8 h-8 object-contain" loading="lazy" />
+                            {profile?.premium && isHomeFavorite && !isOverUnderMatchup && (
                               <div className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center shadow-md border border-[#131415] z-10" title="Betting Favorite">
                                 <Star className="w-2.5 h-2.5 text-white fill-current" />
                               </div>
                             )}
                           </div>
                           <div className="flex flex-row items-baseline gap-2">
-                            <span className="font-bold text-white">{m.type === 'OVER_UNDER' ? 'UNDER' : getTeamShortName(m, true)}</span>
+                            <span className="font-bold text-white">
+                              {isOverUnderMatchup ? (propTargetLine !== null ? `UNDER ${propTargetLine}` : 'UNDER') : getTeamShortName(m, true)}
+                            </span>
                             {isSpread && !isSpreadPendingLock && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `+${spread}` : `-${Math.abs(spread)}`}</span>
                             )}

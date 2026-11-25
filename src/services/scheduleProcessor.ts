@@ -888,6 +888,7 @@ export async function syncLeagueSchedules(
               existingData.awayTeam?.score !== awayScore ||
               (!isAdminOverride && existingData.title !== newTitle) ||
               (!isAdminOverride && existingData.league !== scrapedMatchup.league) ||
+              (existingData.league === 'MLB' && scrapedMatchup.league !== 'MLB') ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.name !== scrapedMatchup.homeTeam?.name) ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.shortName !== scrapedMatchup.homeTeam?.shortName) ||
               (existingData.type !== 'STATS' && existingData.homeTeam?.image !== resolveImage(existingData.homeTeam?.image, scrapedMatchup.homeTeam?.image)) ||
@@ -907,13 +908,19 @@ export async function syncLeagueSchedules(
               (!isAdminOverride && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
 
           if (needsUpdate || existingDoc.id !== gameId) {
+            // If existingDoc was stuck with a legacy or mismatched league (e.g. MLB for a ScriptLess event),
+            // ensure the scraped matchup's league takes precedence.
+            const resolvedLeague = isAdminOverride
+              ? ((existingData.league === 'MLB' && scrapedMatchup.league !== 'MLB') ? scrapedMatchup.league : (existingData.league || scrapedMatchup.league))
+              : scrapedMatchup.league;
+
             const updateData: any = {
               ...existingData,
               abandoned: (existingData.abandoned === true && !isProtected) ? true : false,
               title: isAdminOverride ? existingData.title : newTitle,
               hasCustomTitle: isAdminOverride ? true : (newlyCustomizedTitle ? true : existingData.hasCustomTitle),
               adminOverride: isAdminOverride ? true : (existingData.adminOverride || false),
-              league: isAdminOverride ? (existingData.league || scrapedMatchup.league) : scrapedMatchup.league,
+              league: resolvedLeague,
               type: isAdminOverride ? existingData.type : ((existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type),
               active: isAdminOverride ? existingData.active : ((existingData.abandoned === true && !isProtected) ? false : finalActive),
               status: newStatus,
@@ -1395,6 +1402,10 @@ export async function syncLeagueSchedules(
               };
 
               let needsUpdate = false;
+              if (matchup.league && pData.league !== matchup.league) {
+                updateData.league = matchup.league;
+                needsUpdate = true;
+              }
               if (pData.status !== updateData.status ||
                   pData.statusDesc !== updateData.statusDesc ||
                   pData.homeTeam?.score !== updateData['homeTeam.score'] ||

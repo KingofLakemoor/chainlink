@@ -674,6 +674,55 @@ describe('scheduleProcessor - adminOverride Preservation Tests', () => {
       expect(updatePayload.league).toBe('SCRIPTLESS');
     }
   });
+
+  it('corrects legacy MLB league to SCRIPTLESS when scraped matchup is SCRIPTLESS even if existingDoc has adminOverride and was previously MLB', async () => {
+    const scrapedMatchup = {
+      gameId: 'L4X6diIsgTRa1xstXdMG',
+      league: 'SCRIPTLESS',
+      title: 'Season 2 - Episode 2: More Points',
+      type: 'SCORE',
+      active: true,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: 1795737600000,
+      homeTeam: { id: 'Greg Mason', name: 'Greg Mason', score: 0 },
+      awayTeam: { id: 'Jimiah Albritton', name: 'Jimiah Albritton', score: 0 },
+      metadata: {},
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'L4X6diIsgTRa1xstXdMG',
+      ref: 'matchupRef_legacy_mlb_doc',
+      data: () => ({
+        gameId: 'L4X6diIsgTRa1xstXdMG',
+        league: 'MLB', // legacy corrupted value
+        title: 'Season 2 - Episode 2: More Points',
+        type: 'SCORE',
+        active: true,
+        adminOverride: true,
+        hasCustomTitle: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        startTime: 1795737600000,
+        homeTeam: { id: 'Greg Mason', name: 'Greg Mason', score: 0 },
+        awayTeam: { id: 'Jimiah Albritton', name: 'Jimiah Albritton', score: 0 },
+        metadata: {},
+      }),
+    };
+
+    const res = await syncLeagueSchedules('SCRIPTLESS' as any, false);
+    expect(res.success).toBe(true);
+
+    const updateCalls = mockBatch.update.mock.calls;
+    const updatePayload = updateCalls.find(c => c[0] === 'matchupRef_legacy_mlb_doc')?.[1];
+    expect(updatePayload).toBeDefined();
+    expect(updatePayload.league).toBe('SCRIPTLESS');
+  });
 });
 
 

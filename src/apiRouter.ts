@@ -5427,8 +5427,9 @@ apiRouter.get("/matchups/active", async (req, res) => {
         const minStartTime = nowMs - 24 * 60 * 60 * 1000;
         const maxStartTime = nowMs + 48 * 60 * 60 * 1000;
 
-        // Fetch live/postponed games and upcoming scheduled games in parallel
-        // Bounding scheduled games avoids scanning thousands of distant games
+        // Fetch live/postponed/delayed games and scheduled games
+        // We query STATUS_SCHEDULED and filter by rolling time window in-memory using getMatchupStartTime
+        // This guarantees documents with either numeric ms or ISO string startTime are both preserved
         const [liveSnap, scheduledSnap] = await Promise.all([
           adminDb.collection('matchups')
             .where('status', 'in', ['STATUS_IN_PROGRESS', 'STATUS_POSTPONED', 'STATUS_DELAYED'])
@@ -5436,23 +5437,24 @@ apiRouter.get("/matchups/active", async (req, res) => {
             .catch(() => ({ docs: [] } as any)),
           adminDb.collection('matchups')
             .where('status', '==', 'STATUS_SCHEDULED')
-            .where('startTime', '>=', minStartTime)
-            .where('startTime', '<=', maxStartTime)
             .get()
-            .catch(async () => {
-              // Fallback with a limit if the composite index is still building or for legacy docs
-              return adminDb.collection('matchups')
-                .where('status', '==', 'STATUS_SCHEDULED')
-                .limit(200)
-                .get()
-                .catch(() => ({ docs: [] } as any));
-            })
+            .catch(() => ({ docs: [] } as any))
         ]);
 
         const matchupsMap = new Map<string, any>();
-        [...liveSnap.docs, ...scheduledSnap.docs].forEach(doc => {
-          if (!matchupsMap.has(doc.id)) {
-            matchupsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        liveSnap.docs.forEach((doc: any) => {
+          matchupsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        scheduledSnap.docs.forEach((doc: any) => {
+          const data = doc.data();
+          const startMs = getMatchupStartTime(data.startTime);
+          // Keep scheduled games in rolling -24h to +72h window (or games with 0/unknown startTime or special leagues)
+          const isSpecialLeague = ['PGA', 'PUTTING', 'SCRIPTLESS', 'DARTS', 'FLIPCUP'].includes(data.league);
+          if (isSpecialLeague || data.manuallyActivated || startMs === 0 || (startMs >= minStartTime && startMs <= maxStartTime + 24 * 60 * 60 * 1000)) {
+            if (!matchupsMap.has(doc.id)) {
+              matchupsMap.set(doc.id, { id: doc.id, ...data });
+            }
           }
         });
 

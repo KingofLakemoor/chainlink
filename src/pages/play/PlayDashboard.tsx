@@ -268,14 +268,15 @@ export default function PlayDashboard() {
 
     const sports = new Set<string>();
     base.forEach((m: any) => {
-      if (['NFL', 'CFB'].includes(m.league)) sports.add('FOOTBALL');
-      if (['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) sports.add('SOCCER');
-      if (['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(m.league)) sports.add('BASKETBALL');
-      if (['NHL'].includes(m.league)) sports.add('HOCKEY');
-      if (['MLB', 'CBASE', 'LLWS'].includes(m.league)) sports.add('BASEBALL');
-      if (['ATP', 'WTA'].includes(m.league)) sports.add('TENNIS');
-      if (['PGA', 'PUTTING'].includes(m.league)) sports.add('GOLF');
-      if (['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league)) sports.add('HORSE_RACING');
+      const lg = (m.league === 'PROP' && m.metadata?.optionA?.league) ? m.metadata.optionA.league : m.league;
+      if (['NFL', 'CFB'].includes(lg) || m.league === 'PROP') sports.add('FOOTBALL');
+      if (['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(lg)) sports.add('SOCCER');
+      if (['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(lg)) sports.add('BASKETBALL');
+      if (['NHL'].includes(lg)) sports.add('HOCKEY');
+      if (['MLB', 'CBASE', 'LLWS'].includes(lg)) sports.add('BASEBALL');
+      if (['ATP', 'WTA'].includes(lg)) sports.add('TENNIS');
+      if (['PGA', 'PUTTING'].includes(lg)) sports.add('GOLF');
+      if (['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(lg)) sports.add('HORSE_RACING');
     });
 
     return { baseBoardMatchups: base, availableSports: sports };
@@ -283,14 +284,15 @@ export default function PlayDashboard() {
 
   const matchups = React.useMemo(() => {
     const filtered = baseBoardMatchups.filter((m: any) => {
-      if (selectedSport === 'FOOTBALL' && !['NFL', 'CFB'].includes(m.league)) return false;
-      if (selectedSport === 'SOCCER' && !['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(m.league)) return false;
-      if (selectedSport === 'BASKETBALL' && !['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(m.league)) return false;
-      if (selectedSport === 'HOCKEY' && !['NHL'].includes(m.league)) return false;
-      if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE', 'LLWS'].includes(m.league)) return false;
-      if (selectedSport === 'TENNIS' && !['ATP', 'WTA'].includes(m.league)) return false;
-      if (selectedSport === 'GOLF' && !['PGA', 'PUTTING'].includes(m.league)) return false;
-      if (selectedSport === 'HORSE_RACING' && !['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league)) return false;
+      const lg = (m.league === 'PROP' && m.metadata?.optionA?.league) ? m.metadata.optionA.league : m.league;
+      if (selectedSport === 'FOOTBALL' && !['NFL', 'CFB'].includes(lg) && m.league !== 'PROP') return false;
+      if (selectedSport === 'SOCCER' && !['MLS', 'LMX', 'ARG', 'BRA', 'EPL', 'NWSL', 'FIFA', 'FRA', 'TUR', 'RPL', 'CHN'].includes(lg)) return false;
+      if (selectedSport === 'BASKETBALL' && !['NBA', 'NBASL', 'MBB', 'WBB', 'WNBA'].includes(lg)) return false;
+      if (selectedSport === 'HOCKEY' && !['NHL'].includes(lg)) return false;
+      if (selectedSport === 'BASEBALL' && !['MLB', 'CBASE', 'LLWS'].includes(lg)) return false;
+      if (selectedSport === 'TENNIS' && !['ATP', 'WTA'].includes(lg)) return false;
+      if (selectedSport === 'GOLF' && !['PGA', 'PUTTING'].includes(lg)) return false;
+      if (selectedSport === 'HORSE_RACING' && !['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(lg)) return false;
 
       // Limit horse racing matchups to only appear on the Horse tab unless explicitly featured by an admin for the main board
       const isHorseLeague = ['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(m.league);

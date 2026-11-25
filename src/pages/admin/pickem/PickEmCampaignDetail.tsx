@@ -362,9 +362,14 @@ export default function PickEmCampaignDetail() {
             }
             return true;
           });
-        } else {
           const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
           gamesList = res.data || [];
+
+          // If scraper returned nothing (or for custom non-scraped leagues), check Firestore matchups directly
+          if (gamesList.length === 0 && ['SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].includes(lg)) {
+            const fsSnap = await getDocs(query(collection(db, 'matchups'), where('league', '==', lg)));
+            gamesList = fsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => !m.abandoned);
+          }
         }
 
         console.log('API returned games:', gamesList.length);

@@ -545,9 +545,16 @@ export default function PickEmAdminPage() {
         }
 
         const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
-        if (!res.data || res.data.length === 0) continue;
+        let gamesList = res.data || [];
 
-        for (const m of res.data) {
+        if (gamesList.length === 0 && ['SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].includes(lg)) {
+          const fsSnap = await getDocs(query(collection(db, 'matchups'), where('league', '==', lg)));
+          gamesList = fsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => !m.abandoned);
+        }
+
+        if (gamesList.length === 0) continue;
+
+        for (const m of gamesList) {
           const gameTime = typeof m.startTime === 'number' ? m.startTime : new Date(m.startTime).getTime();
           const gameNyStr = new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
           const [mMonth, mDay, mYear] = gameNyStr.split("/");

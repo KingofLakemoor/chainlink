@@ -1701,9 +1701,26 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
     const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
     let gamesList = res.data || [];
 
-    if (gamesList.length === 0 && ['SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].includes(lg)) {
+    // Also query custom / created matchups (including player props) stored directly in Firestore for this league
+    try {
       const fsSnap = await adminDb.collection('matchups').where('league', '==', lg).get();
-      gamesList = fsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => !m.abandoned);
+      const fsMatchups: any[] = fsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => !m.abandoned);
+
+      if (gamesList.length === 0) {
+        gamesList = fsMatchups;
+      } else {
+        const existingIds = new Set(gamesList.map((g: any) => String(g.gameId || g.id || '')));
+        for (const fm of fsMatchups) {
+          const fid = String(fm.gameId || fm.id || '');
+          if (fid && !existingIds.has(fid)) {
+            if (fm.metadata?.isPropMatchup || fm.type === 'STATS' || fm.type === 'OVER_UNDER' || fm.type === 'PROP' || fid.includes('prop')) {
+              gamesList.push(fm);
+            }
+          }
+        }
+      }
+    } catch (fsErr) {
+      console.warn(`[PickEmSync] Failed to query Firestore matchups for league ${lg}:`, fsErr);
     }
 
     if (gamesList.length === 0) continue;
@@ -1733,9 +1750,12 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
       const docRef = adminDb.collection('pickemMatchups').doc(pickemMatchupId);
 
       const isYesDay = !!(campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaignId === 'charity' || campaignId === 'yes_day_2026' || campaignId === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
+      const isProp = m.metadata?.isPropMatchup || m.type === 'OVER_UNDER' || m.type === 'STATS' || m.type === 'PROP' || effectiveGameId.includes('prop');
       const finalType = isYesDay
         ? "STANDARD"
-        : (campaign.defaultMatchType === "BOTH" ? ((m.metadata?.spread !== undefined && m.metadata?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD"));
+        : (isProp && (m.type === 'OVER_UNDER' || m.type === 'STATS' || m.type === 'PROP')
+            ? m.type
+            : (campaign.defaultMatchType === "BOTH" ? ((m.metadata?.spread !== undefined && m.metadata?.spread !== null) ? "SPREAD" : "STANDARD") : (campaign.defaultMatchType || "STANDARD")));
 
       const finalTitle = isYesDay
         ? m.title.replace(/ - ATS$/, '')

@@ -909,8 +909,9 @@ export async function syncLeagueSchedules(
             }
           }
 
-          // FORCE skip update if abandoned
-          if (existingData.abandoned === true && !pickemMatchupIds.has(gameId) && !bracketMatchIds.has(gameId)) { continue; }
+          // FORCE skip update if abandoned (unless a scheduled game is now active with valid odds, or is protected by picks/brackets)
+          const shouldUnabandon = existingData.abandoned === true && scrapedMatchup.active === true && newStatus === 'STATUS_SCHEDULED';
+          if (existingData.abandoned === true && !shouldUnabandon && !pickemMatchupIds.has(gameId) && !bracketMatchIds.has(gameId)) { continue; }
           const isProtected = pickemMatchupIds.has(gameId) || bracketMatchIds.has(gameId);
           const isClockOnlyChange = existingData.status === 'STATUS_IN_PROGRESS' &&
               newStatus === 'STATUS_IN_PROGRESS' &&
@@ -927,7 +928,7 @@ export async function syncLeagueSchedules(
               existingStartTimeMs > (nowMs + 6 * 60 * 60 * 1000);
           const isRecentlyUpdatedWithin120m = (nowMs - (existingData.updatedAt || 0)) < (120 * 60 * 1000);
 
-          const hasCoreChange = (existingData.abandoned === true && isProtected) ||
+          const hasCoreChange = (existingData.abandoned === true && (isProtected || shouldUnabandon)) ||
               existingData.status !== newStatus ||
               (!isClockOnlyChange && existingData.statusDesc !== newStatusDesc) ||
               existingData.startTime !== scrapedMatchup.startTime ||
@@ -944,8 +945,8 @@ export async function syncLeagueSchedules(
               (existingData.type !== 'STATS' && existingData.awayTeam?.shortName !== scrapedMatchup.awayTeam?.shortName) ||
               (existingData.type !== 'STATS' && existingData.awayTeam?.image !== resolveImage(existingData.awayTeam?.image, scrapedMatchup.awayTeam?.image)) ||
               (existingData.type !== 'STATS' && existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id) ||
-              (!isAdminOverride && existingData.active !== finalActive) ||
-              Boolean(existingData.abandoned) !== ((existingData.abandoned === true && !isProtected) ? true : false) ||
+              (!isAdminOverride && existingData.active !== (shouldUnabandon ? true : finalActive)) ||
+              Boolean(existingData.abandoned) !== (shouldUnabandon ? false : ((existingData.abandoned === true && !isProtected) ? true : false)) ||
               (!isAdminOverride && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
 
           const hasOddsOrMetadataChange = (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
@@ -970,13 +971,13 @@ export async function syncLeagueSchedules(
 
             const updateData: any = {
               ...existingData,
-              abandoned: (existingData.abandoned === true && !isProtected) ? true : false,
+              abandoned: shouldUnabandon ? false : ((existingData.abandoned === true && !isProtected) ? true : false),
               title: isAdminOverride ? existingData.title : newTitle,
               hasCustomTitle: isAdminOverride ? true : (newlyCustomizedTitle ? true : existingData.hasCustomTitle),
               adminOverride: isAdminOverride ? true : (existingData.adminOverride || false),
               league: resolvedLeague,
               type: isAdminOverride ? existingData.type : ((existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type),
-              active: isAdminOverride ? existingData.active : ((existingData.abandoned === true && !isProtected) ? false : finalActive),
+              active: isAdminOverride ? existingData.active : (shouldUnabandon ? true : ((existingData.abandoned === true && !isProtected) ? false : finalActive)),
               status: newStatus,
               statusDesc: newStatusDesc,
               startTime: scrapedMatchup.startTime,

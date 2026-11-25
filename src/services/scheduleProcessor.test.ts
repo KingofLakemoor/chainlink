@@ -838,6 +838,67 @@ describe('scheduleProcessor - adminOverride Preservation Tests', () => {
       'metadata.mlAway': 100,
     }));
   });
+
+  it('unabandons and activates a scheduled game (e.g. MBB) when fresh scrape has valid odds', async () => {
+    const gameTime = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const scrapedMatchup = {
+      gameId: 'mbb_revive_1',
+      league: 'MBB',
+      title: 'South Carolina @ USC',
+      type: 'SPREAD',
+      status: 'STATUS_SCHEDULED',
+      statusDesc: '3:30 PM',
+      startTime: gameTime,
+      active: true, // Scraper found spread -9.5 and moneyline
+      homeTeam: { id: 'usc', name: 'USC', score: 0 },
+      awayTeam: { id: 'sc', name: 'South Carolina', score: 0 },
+      metadata: {
+        spread: -9.5,
+        mlHome: -535,
+        mlAway: 400,
+      },
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'mbb_revive_1',
+      ref: 'matchupRef_mbb_revive_1',
+      data: () => ({
+        gameId: 'mbb_revive_1',
+        league: 'MBB',
+        title: 'South Carolina @ USC',
+        type: 'SPREAD',
+        active: false,
+        abandoned: true, // Previously abandoned because odds were not posted yet
+        status: 'STATUS_SCHEDULED',
+        statusDesc: '3:30 PM',
+        updatedAt: Date.now() - 30 * 60 * 1000,
+        startTime: gameTime,
+        homeTeam: { id: 'usc', name: 'USC', score: 0 },
+        awayTeam: { id: 'sc', name: 'South Carolina', score: 0 },
+        metadata: {
+          spread: null,
+          mlHome: null,
+          mlAway: null,
+        },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('MBB' as any, false);
+    expect(res.success).toBe(true);
+
+    // Verify batch.update was called and unabandoned/activated the game
+    expect(mockBatch.update).toHaveBeenCalledWith('matchupRef_mbb_revive_1', expect.objectContaining({
+      abandoned: false,
+      active: true,
+      'metadata.spread': -9.5,
+    }));
+  });
 });
+
 
 

@@ -6,7 +6,7 @@ import { cn, formatUpcomingTime } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { FirebaseImage } from './FirebaseImage';
 import { useAuth } from '../../lib/auth-context';
-import { isMatchupLocked, getPropScoringCategory, getPropPlayerOrSubject, getPropTargetLine } from '../../utils/matchupUtils';
+import { isMatchupLocked, getPropScoringCategory, getPropTargetLine } from '../../utils/matchupUtils';
 
 interface MatchupCardProps {
   m: any;
@@ -173,7 +173,6 @@ export const MatchupCard = React.memo(function MatchupCard({
   };
 
   const propCategory = getPropScoringCategory(m);
-  const propPlayerInfo = getPropPlayerOrSubject(m);
   const propTargetLine = getPropTargetLine(m);
   const isOverUnderMatchup = m.type === 'OVER_UNDER' || m.metadata?.propType === 'OVER_UNDER';
 
@@ -201,45 +200,9 @@ export const MatchupCard = React.memo(function MatchupCard({
 
       {/* Matchup content */}
       <div className="p-3 sm:p-5 flex-1 flex flex-col">
-        <div className="text-base font-bold text-zinc-100 mb-3">
+        <div className="text-base font-bold text-zinc-100 mb-6">
           {(m.type === 'SPREAD' && m.metadata?.spread !== undefined && !m.title.includes('ATS')) ? `${m.title} - ATS` : (m.type === 'SOCCER_SCORE' ? `${m.awayTeam.name} @ ${m.homeTeam.name}` : m.title)}
         </div>
-
-        {/* Prop Subject / Player & Category Info Banner */}
-        {(propPlayerInfo || propCategory) && !m.metadata?.isYesOnly && (
-          <div className="mb-4 bg-zinc-900/95 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3 shadow-inner">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {propPlayerInfo?.playerImage ? (
-                <img
-                  src={propPlayerInfo.playerImage}
-                  alt={propPlayerInfo.playerName || 'Player'}
-                  className="w-9 h-9 rounded-full object-cover border border-amber-500/30 bg-zinc-800 flex-shrink-0"
-                />
-              ) : propPlayerInfo?.playerName ? (
-                <div className="w-9 h-9 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-bold text-xs flex-shrink-0">
-                  {propPlayerInfo.playerName.charAt(0)}
-                </div>
-              ) : null}
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-white truncate">
-                  {propPlayerInfo?.playerName || propPlayerInfo?.subject || m.title}
-                </span>
-                {propCategory && (
-                  <span className="text-xs text-amber-400/90 font-medium flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-400" />
-                    {propCategory}
-                  </span>
-                )}
-              </div>
-            </div>
-            {propTargetLine !== null && (
-              <div className="flex flex-col items-end flex-shrink-0 pl-2 border-l border-zinc-800">
-                <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Line</span>
-                <span className="text-sm font-black text-amber-300">{propTargetLine}</span>
-              </div>
-            )}
-          </div>
-        )}
         <div className="flex-1 flex flex-col justify-center">
         {m.metadata?.isYesOnly ? (
         <div className="flex items-center justify-between gap-4">

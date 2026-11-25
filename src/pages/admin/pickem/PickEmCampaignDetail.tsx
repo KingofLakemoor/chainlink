@@ -362,6 +362,7 @@ export default function PickEmCampaignDetail() {
             }
             return true;
           });
+        } else {
           const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
           gamesList = res.data || [];
 
@@ -402,7 +403,9 @@ export default function PickEmCampaignDetail() {
             }
           }
 
-          const pickemMatchupId = `${id}_${selectedWeek}_${m.gameId}`;
+          const effectiveGameId = String(m.gameId || m.id || '');
+          if (!effectiveGameId) continue;
+          const pickemMatchupId = `${id}_${selectedWeek}_${effectiveGameId}`;
           const docRef = doc(db, 'pickemMatchups', pickemMatchupId);
 
           const existingMatchup = matchups.find(ex => ex.id === pickemMatchupId);
@@ -458,7 +461,7 @@ export default function PickEmCampaignDetail() {
           batch.set(docRef, {
             campaignId: id,
             week: selectedWeek,
-            gameId: String(m.gameId),
+            gameId: effectiveGameId,
             title: finalTitle,
             league: m.league || lg,
             featured: !!m.featured,

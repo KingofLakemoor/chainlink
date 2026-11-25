@@ -261,6 +261,27 @@ apiRouter.get("/users/public", async (req, res) => {
   }
 });
 
+apiRouter.get("/proxy/scriptless-matchups", async (req, res) => {
+  try {
+    const upstreamRes = await fetch("https://scriptless.club602.com/api/chainlink/matchups", {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!upstreamRes.ok) {
+      return res.status(upstreamRes.status).json({ error: `Upstream error: ${upstreamRes.statusText}` });
+    }
+    const data = await upstreamRes.json();
+    res.setHeader("Cache-Control", "public, max-age=60");
+    return res.json(data);
+  } catch (err: any) {
+    console.error("Error proxying scriptless matchups:", err);
+    return res.status(502).json({ error: "Failed to fetch from scriptless API", details: err.message });
+  }
+});
+
 apiRouter.post("/referral/increment", validateAuth, async (req, res) => {
   try {
     const { referrerId } = req.body;
@@ -1678,20 +1699,37 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
 
   for (const lg of leaguesToSync) {
     const res = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
-    if (!res.data || res.data.length === 0) continue;
+    let gamesList = res.data || [];
 
-    for (const m of res.data) {
-      if (effectiveBeginDate && m.startTime < effectiveBeginDate) continue;
-      if (effectiveEndDate && m.startTime >= effectiveEndDate) continue;
+    if (gamesList.length === 0 && ['SCRIPTLESS', 'DARTS', 'PUTTING', 'FLIPCUP', 'BINGO'].includes(lg)) {
+      const fsSnap = await adminDb.collection('matchups').where('league', '==', lg).get();
+      gamesList = fsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((m: any) => !m.abandoned);
+    }
+
+    if (gamesList.length === 0) continue;
+
+    for (const m of gamesList) {
+      const gameTime = typeof m.startTime === 'number' ? m.startTime : new Date(m.startTime).getTime();
+      const gameNyStr = new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+      const [mMonth, mDay, mYear] = gameNyStr.split("/");
+      const gameNyKey = `${mYear}${mMonth}${mDay}`;
+
+      const matchesSpecificDate = specificDates && specificDates.includes(gameNyKey);
+      if (!matchesSpecificDate) {
+        if (effectiveBeginDate && gameTime < (effectiveBeginDate - 43200000)) continue;
+        if (effectiveEndDate && gameTime > (effectiveEndDate + 43200000)) continue;
+      }
 
       if (isFridayOnly) {
-        const gameNyDate = new Date(new Date(m.startTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const gameNyDate = new Date(new Date(gameTime).toLocaleString("en-US", { timeZone: "America/New_York" }));
         if (gameNyDate.getDay() !== 5) {
           continue;
         }
       }
 
-      const pickemMatchupId = `${campaignId}_${weekNumber}_${m.gameId}`;
+      const effectiveGameId = String(m.gameId || m.id || '');
+      if (!effectiveGameId) continue;
+      const pickemMatchupId = `${campaignId}_${weekNumber}_${effectiveGameId}`;
       const docRef = adminDb.collection('pickemMatchups').doc(pickemMatchupId);
 
       const isYesDay = !!(campaign.isCharity || campaign.name === 'YES Day Walk for Autism 2026' || campaignId === 'charity' || campaignId === 'yes_day_2026' || campaignId === 'aUqhDhT3vKWfkPgSAVzf' || (typeof campaign.name === 'string' && campaign.name.toLowerCase().includes('yes day')));
@@ -1708,7 +1746,7 @@ export async function syncCampaignWeekMatchups(campaignId: string, weekNumber: n
       batch.set(docRef, {
         campaignId,
         week: weekNumber,
-        gameId: String(m.gameId),
+        gameId: effectiveGameId,
         title: finalTitle,
         league: m.league || lg,
         featured: !!m.featured,

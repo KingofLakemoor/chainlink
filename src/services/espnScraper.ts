@@ -120,7 +120,9 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
   }
 
   if (league === "SCRIPTLESS") {
-    return ['https://scriptless.club602.com/api/chainlink/matchups'];
+    // When executing in a browser client, fetch via backend proxy to avoid CORS restrictions
+    const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+    return [isBrowser ? '/api/proxy/scriptless-matchups' : 'https://scriptless.club602.com/api/chainlink/matchups'];
   }
 
   // If scoreboardOnly is true, use scoreboard endpoints to save bandwidth

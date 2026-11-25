@@ -576,7 +576,9 @@ export default function PickEmAdminPage() {
             }
           }
 
-          const pickemMatchupId = `${editingCampaignId}_${selectedWeek}_${m.gameId}`;
+          const effectiveGameId = String(m.gameId || m.id || '');
+          if (!effectiveGameId) continue;
+          const pickemMatchupId = `${editingCampaignId}_${selectedWeek}_${effectiveGameId}`;
           const docRef = doc(db, 'pickemMatchups', pickemMatchupId);
 
           const existingMatchup = matchups.find(ex => ex.id === pickemMatchupId);
@@ -605,7 +607,7 @@ export default function PickEmAdminPage() {
           batch.set(docRef, {
             campaignId: editingCampaignId,
             week: selectedWeek,
-            gameId: String(m.gameId),
+            gameId: effectiveGameId,
             title: finalTitle,
             league: m.league || lg,
             featured: !!m.featured,

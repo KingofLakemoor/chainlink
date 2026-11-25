@@ -1362,7 +1362,19 @@ export default function PickEmPage() {
                 return (
                   <div key={m.id} className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
                     <div className="p-3 bg-[#18181A] border-b border-zinc-800 text-xs text-zinc-400 font-medium flex justify-between items-center">
-                      <span>{new Date(m.startTime).toLocaleString()}</span>
+                      <div className="flex items-center gap-2">
+                        {m.league === 'SCRIPTLESS' ? (
+                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-[#d46f1c]/20 text-[#d46f1c] border border-[#d46f1c]/40 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#d46f1c]"></span>
+                            ScriptLess{m.metadata?.subLeague && m.metadata?.subLeague !== 'SCRIPTLESS' ? ` • ${m.metadata.subLeague.replace(/_/g, ' ')}` : ''}
+                          </span>
+                        ) : m.league ? (
+                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                            {m.league}
+                          </span>
+                        ) : null}
+                        <span>{new Date(m.startTime).toLocaleString()}</span>
+                      </div>
                       <div className="flex items-center gap-2">
                         {isSpread && (
                           <span className="px-2 py-1 text-[10px] uppercase tracking-wider rounded-md font-bold bg-purple-500/20 text-purple-300 border border-purple-400/40 [text-shadow:_0_1px_2px_rgba(0,0,0,0.9)]">

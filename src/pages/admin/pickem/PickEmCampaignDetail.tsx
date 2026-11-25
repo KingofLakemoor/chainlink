@@ -47,6 +47,8 @@ export default function PickEmCampaignDetail() {
   const [payoutSplit, setPayoutSplit] = useState<{ first: number; second: number; third: number }>({ first: 70, second: 20, third: 10 });
   const [awardCosmeticId, setAwardCosmeticId] = useState<string>('');
   const [awardCosmeticName, setAwardCosmeticName] = useState<string>('');
+  const [leagues, setLeagues] = useState<string[]>([]);
+  const [trackFilter, setTrackFilter] = useState<string>('');
   const [weekSettings, setWeekSettings] = useState<Record<string, any>>({});
   const [weekGamesBeginDateStr, setWeekGamesBeginDateStr] = useState('');
   const [weekLabel, setWeekLabel] = useState('');
@@ -73,6 +75,8 @@ export default function PickEmCampaignDetail() {
         setPayoutSplit(data.payoutSplit || { first: 70, second: 20, third: 10 });
         setAwardCosmeticId(data.awardCosmeticId || data.awardBannerId || '');
         setAwardCosmeticName(data.awardCosmeticName || '');
+        setLeagues(data.leagues && data.leagues.length > 0 ? data.leagues : (data.league ? [data.league] : ['NFL']));
+        setTrackFilter(data.trackFilter || '');
         setIsOpen(data.isOpen !== false);
         setIsPrivate(data.isPrivate || false);
         setJoinCode(data.joinCode || '');
@@ -189,6 +193,8 @@ export default function PickEmCampaignDetail() {
         },
         awardCosmeticId: awardCosmeticId || '',
         awardCosmeticName: awardCosmeticName || '',
+        leagues: leagues,
+        trackFilter: trackFilter.trim(),
         isOpen: isOpen,
         isPrivate: isPrivate,
         joinCode: isPrivate ? joinCode : '',
@@ -219,6 +225,8 @@ export default function PickEmCampaignDetail() {
         },
         awardCosmeticId: awardCosmeticId || '',
         awardCosmeticName: awardCosmeticName || '',
+        leagues: leagues,
+        trackFilter: trackFilter.trim(),
         isOpen,
         isPrivate,
         joinCode: isPrivate ? joinCode : '',
@@ -278,9 +286,11 @@ export default function PickEmCampaignDetail() {
 
   const handleSyncMatchups = async () => {
     if (!campaign || !id) return;
-    const leaguesToSync = campaign.leagues && campaign.leagues.length > 0
-      ? campaign.leagues
-      : (campaign.league ? [campaign.league] : []);
+    const leaguesToSync = leagues.length > 0
+      ? leagues
+      : (campaign.leagues && campaign.leagues.length > 0
+        ? campaign.leagues
+        : (campaign.league ? [campaign.league] : []));
 
     if (leaguesToSync.length === 0) {
       console.log("No leagues configured for this campaign.");
@@ -919,6 +929,49 @@ export default function PickEmCampaignDetail() {
             </label>
           </div>
         </div>
+
+        {/* Supported Leagues & Props Group */}
+        <div className="pt-4 border-t border-zinc-800 space-y-3">
+          <div>
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider">Supported Leagues & Props</h4>
+            <p className="text-xs text-zinc-400 mt-0.5">Toggle leagues and prop sources synced and available for picking in this campaign.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5">
+            {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING', 'SCRIPTLESS'].map(l => (
+              <label key={l} className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
+                leagues.includes(l)
+                  ? (l === 'SCRIPTLESS' ? 'bg-[#d46f1c]/20 border-[#d46f1c]/50 text-[#d46f1c]' : 'bg-purple-600/20 border-purple-500/50 text-purple-300')
+                  : 'bg-[#18181A] border-zinc-800 text-zinc-400 hover:border-zinc-700'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={leagues.includes(l)}
+                  onChange={() => {
+                    const has = leagues.includes(l);
+                    setLeagues(has ? leagues.filter(x => x !== l) : [...leagues, l]);
+                  }}
+                  className="rounded border-zinc-700 bg-zinc-900 text-purple-600 focus:ring-purple-500/20"
+                />
+                {l === 'SCRIPTLESS' ? 'ScriptLess Props' : l}
+              </label>
+            ))}
+          </div>
+
+          {leagues.includes('HORSE_RACING') && (
+            <div className="p-3 bg-amber-950/30 border border-amber-800/50 rounded-lg space-y-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-amber-300">Horse Racing Track Filter (Optional)</label>
+              <input
+                type="text"
+                value={trackFilter}
+                onChange={e => setTrackFilter(e.target.value)}
+                placeholder="e.g. SAR, BEL, AQU, DMR, GP (leave blank for all tracks)"
+                className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+              />
+              <p className="text-[10px] text-zinc-400">Specifying track codes (e.g. SAR) narrows this campaign specifically to races at those track(s).</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Prize Pool, Custom Payouts & Cosmetic Reward Card */}
@@ -1184,6 +1237,7 @@ export default function PickEmCampaignDetail() {
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-[#18181A] text-zinc-400 sticky top-0 border-b border-zinc-800 z-10">
                 <tr>
+                  <th className="px-4 py-3 font-medium">League</th>
                   <th className="px-4 py-3 font-medium">Game Title</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Start Time</th>
@@ -1200,6 +1254,18 @@ export default function PickEmCampaignDetail() {
                   return timeA - timeB;
                 }).map(m => (
                   <tr key={m.id} className="hover:bg-zinc-800/20 transition-colors">
+                    <td className="px-4 py-3">
+                      {m.league === 'SCRIPTLESS' ? (
+                        <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-[#d46f1c]/20 text-[#d46f1c] border border-[#d46f1c]/40 flex items-center gap-1 w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#d46f1c]"></span>
+                          ScriptLess
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider rounded font-bold bg-zinc-800 text-zinc-300 border border-zinc-700/60 w-fit">
+                          {m.league || '-'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium text-zinc-200">
                       <div className="flex flex-col">
                         <span>{m.title}</span>

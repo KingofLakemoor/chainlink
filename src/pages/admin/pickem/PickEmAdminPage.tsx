@@ -88,6 +88,8 @@ export default function PickEmAdminPage() {
   const [editPayoutSplit, setEditPayoutSplit] = useState<{ first: number; second: number; third: number }>({ first: 70, second: 20, third: 10 });
   const [editAwardCosmeticId, setEditAwardCosmeticId] = useState<string>('');
   const [editAwardCosmeticName, setEditAwardCosmeticName] = useState<string>('');
+  const [editLeagues, setEditLeagues] = useState<string[]>([]);
+  const [editTrackFilter, setEditTrackFilter] = useState('');
 
   // Week level settings
   const [weekLabel, setWeekLabel] = useState('');
@@ -163,6 +165,8 @@ export default function PickEmAdminPage() {
           setEditPayoutSplit(data.payoutSplit || { first: 70, second: 20, third: 10 });
           setEditAwardCosmeticId(data.awardCosmeticId || data.awardBannerId || '');
           setEditAwardCosmeticName(data.awardCosmeticName || '');
+          setEditLeagues(data.leagues && data.leagues.length > 0 ? data.leagues : (data.league ? [data.league] : ['NFL']));
+          setEditTrackFilter(data.trackFilter || '');
 
           setEditThemeColor(data.theme?.primaryColor || '#22c55e');
           setEditThemeTitle(data.theme?.title || '');
@@ -388,6 +392,8 @@ export default function PickEmAdminPage() {
         },
         awardCosmeticId: editAwardCosmeticId || '',
         awardCosmeticName: editAwardCosmeticName || '',
+        leagues: editLeagues,
+        trackFilter: editTrackFilter.trim(),
         isOpen: editIsOpen,
         isPrivate: editIsPrivate,
         joinCode: editIsPrivate ? editJoinCode : '',
@@ -417,6 +423,8 @@ export default function PickEmAdminPage() {
         },
         awardCosmeticId: editAwardCosmeticId || '',
         awardCosmeticName: editAwardCosmeticName || '',
+        leagues: editLeagues,
+        trackFilter: editTrackFilter.trim(),
         isOpen: editIsOpen,
         isPrivate: editIsPrivate,
         joinCode: editIsPrivate ? editJoinCode : '',
@@ -476,12 +484,14 @@ export default function PickEmAdminPage() {
     }
   };
 
-  // Sync Week Matchups from ESPN
+  // Sync Week Matchups from ESPN / ScriptLess
   const handleSyncMatchups = async () => {
     if (!detailCampaign || !editingCampaignId) return;
-    const leaguesToSync = detailCampaign.leagues && detailCampaign.leagues.length > 0
-      ? detailCampaign.leagues
-      : (detailCampaign.league ? [detailCampaign.league] : []);
+    const leaguesToSync = editLeagues.length > 0
+      ? editLeagues
+      : (detailCampaign.leagues && detailCampaign.leagues.length > 0
+        ? detailCampaign.leagues
+        : (detailCampaign.league ? [detailCampaign.league] : []));
 
     if (leaguesToSync.length === 0) {
       alert("No leagues configured for this campaign.");
@@ -1452,6 +1462,54 @@ export default function PickEmAdminPage() {
                   </div>
                 </div>
 
+                {/* Supported Leagues Selector */}
+                <div className="bg-[#18181A] border border-zinc-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <div>
+                      <h4 className="font-bold text-sm text-white">Supported Leagues & Props</h4>
+                      <p className="text-[11px] text-zinc-400">Select which sports and props are synced and eligible for this campaign.</p>
+                    </div>
+                    <Button onClick={handleSaveDetail} disabled={savingDetail} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs">
+                      {savingDetail ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    {['CFB', 'CBASE', 'NFL', 'NBA', 'NBASL', 'MBB', 'WBB', 'MLB', 'LLWS', 'LMX', 'HORSE_RACING', 'SCRIPTLESS'].map(l => (
+                      <label key={l} className={`flex items-center gap-2 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+                        editLeagues.includes(l)
+                          ? (l === 'SCRIPTLESS' ? 'bg-[#d46f1c]/20 border-[#d46f1c]/50 text-[#d46f1c]' : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400')
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={editLeagues.includes(l)}
+                          onChange={() => {
+                            const has = editLeagues.includes(l);
+                            setEditLeagues(has ? editLeagues.filter(x => x !== l) : [...editLeagues, l]);
+                          }}
+                          className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20"
+                        />
+                        {l === 'SCRIPTLESS' ? 'ScriptLess Props' : l}
+                      </label>
+                    ))}
+                  </div>
+
+                  {editLeagues.includes('HORSE_RACING') && (
+                    <div className="p-3 bg-amber-950/30 border border-amber-800/50 rounded-lg space-y-1">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-amber-300">Horse Racing Track Filter (Optional)</label>
+                      <input
+                        type="text"
+                        value={editTrackFilter}
+                        onChange={e => setEditTrackFilter(e.target.value)}
+                        placeholder="e.g. SAR, BEL, AQU, DMR, GP (leave blank for all tracks)"
+                        className="w-full bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                      />
+                      <p className="text-[10px] text-zinc-400">Specifying track codes (e.g. SAR) narrows this campaign specifically to races at those track(s).</p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Matchups Table for Selected Week */}
                 <div className="bg-[#18181A] border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
                   <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/60">
@@ -1461,7 +1519,7 @@ export default function PickEmAdminPage() {
                         <Plus className="w-3.5 h-3.5" /> Add Prop
                       </Button>
                       <Button onClick={handleSyncMatchups} disabled={matchupsLoading} size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold text-xs gap-1">
-                        <RefreshCw className={`w-3.5 h-3.5 ${matchupsLoading ? 'animate-spin' : ''}`} /> Sync ESPN
+                        <RefreshCw className={`w-3.5 h-3.5 ${matchupsLoading ? 'animate-spin' : ''}`} /> Sync Matchups
                       </Button>
                     </div>
                   </div>
@@ -1469,12 +1527,13 @@ export default function PickEmAdminPage() {
                   {matchupsLoading ? (
                     <div className="p-8 text-center text-zinc-500 text-xs">Loading matchups...</div>
                   ) : matchups.length === 0 ? (
-                    <div className="p-8 text-center text-zinc-500 text-xs font-medium">No matchups synced for Week {selectedWeek}. Click "Sync ESPN" to import.</div>
+                    <div className="p-8 text-center text-zinc-500 text-xs font-medium">No matchups synced for Week {selectedWeek}. Click "Sync Matchups" to import.</div>
                   ) : (
                     <div className="overflow-x-auto max-h-[50vh] custom-scrollbar">
                       <table className="w-full text-left text-xs whitespace-nowrap">
                         <thead className="bg-zinc-900 text-zinc-400 border-b border-zinc-800 uppercase tracking-wider text-[10px]">
                           <tr>
+                            <th className="px-4 py-2.5 font-medium">League</th>
                             <th className="px-4 py-2.5 font-medium">Title</th>
                             <th className="px-4 py-2.5 font-medium">Status</th>
                             <th className="px-4 py-2.5 font-medium">Start Time</th>
@@ -1487,6 +1546,18 @@ export default function PickEmAdminPage() {
                         <tbody className="divide-y divide-zinc-800/60">
                           {matchups.map(m => (
                             <tr key={m.id} className="hover:bg-zinc-800/20 transition-colors">
+                              <td className="px-4 py-2.5">
+                                {m.league === 'SCRIPTLESS' ? (
+                                  <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider rounded font-bold bg-[#d46f1c]/20 text-[#d46f1c] border border-[#d46f1c]/40 flex items-center gap-1 w-fit">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#d46f1c]"></span>
+                                    ScriptLess
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider rounded font-bold bg-zinc-800 text-zinc-300 border border-zinc-700/60 w-fit">
+                                    {m.league || '-'}
+                                  </span>
+                                )}
+                              </td>
                               <td className="px-4 py-2.5 font-bold text-zinc-200">
                                 <div className="flex flex-col">
                                   <span>{m.title}</span>

@@ -619,4 +619,94 @@ describe('Process Dependent Props & Queued Pick Cancellation Tests', () => {
       })
     );
   });
+
+  it('processDependentProps cancels queued picks when invoked directly with prop matchupId', async () => {
+    const propId = 'direct_prop_456';
+    const propDocData = {
+      id: propId,
+      title: 'Luka Doncic - Points (32.5)',
+      status: 'STATUS_SCHEDULED',
+      metadata: {
+        isPropMatchup: true,
+        optionA: { gameId: 'nba_game_888' }
+      }
+    };
+
+    const userPicks = [
+      { id: 'pick_active_1', userId: 'user_prem_2', matchupId: 'other_matchup', links: 10, status: 'PENDING', createdAt: 100 },
+      { id: 'pick_queued_1', userId: 'user_prem_2', matchupId: propId, links: 30, status: 'PENDING', createdAt: 200 }
+    ];
+
+    const deleteSpy = vi.fn();
+    const batchUpdateSpy = vi.fn();
+    const batchSetSpy = vi.fn();
+    const batchSpy = {
+      delete: deleteSpy,
+      update: batchUpdateSpy,
+      set: batchSetSpy,
+      commit: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const mockDb = {
+      collection: (coll: string) => {
+        if (coll === 'matchups') {
+          return {
+            doc: (docId: string) => ({
+              get: async () => {
+                if (docId === propId) {
+                  return { exists: true, id: propId, data: () => propDocData, ref: { id: propId } };
+                }
+                return { exists: false };
+              }
+            }),
+            where: () => ({
+              get: async () => ({ docs: [] })
+            })
+          };
+        }
+        if (coll === 'picks') {
+          return {
+            where: (field: string, op: string, val: any) => ({
+              where: (f2: string, o2: string, v2: any) => ({
+                orderBy: () => ({
+                  get: async () => ({
+                    docs: userPicks.map(p => ({ id: p.id, data: () => p, ref: { id: p.id } }))
+                  })
+                }),
+                get: async () => {
+                  if (field === 'matchupId' && val === propId) {
+                    const queuedPick = userPicks.find(p => p.id === 'pick_queued_1');
+                    return { docs: queuedPick ? [{ id: queuedPick.id, data: () => queuedPick, ref: { id: queuedPick.id } }] : [] };
+                  }
+                  return { docs: [] };
+                }
+              })
+            })
+          };
+        }
+        if (coll === 'users') {
+          return {
+            doc: () => ({
+              get: async () => ({ exists: true, data: () => ({ links: 50, username: 'QueuedUser' }) })
+            })
+          };
+        }
+        if (coll === 'linkTransactions' || coll === 'notifications') {
+          return {
+            doc: () => ({ id: 'doc_2' })
+          };
+        }
+        return {};
+      },
+      batch: () => batchSpy
+    };
+
+    await processDependentProps(mockDb, propId);
+
+    expect(deleteSpy).toHaveBeenCalledWith({ id: 'pick_queued_1' });
+    expect(batchUpdateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ links: 80 })
+    );
+  });
 });

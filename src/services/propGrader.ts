@@ -329,8 +329,29 @@ export async function updateAllProps() {
                      else if (currentScoreB > currentScoreA) updateData['metadata.winningSide'] = m.homeTeam.id;
                      else updateData['metadata.winningSide'] = 'PUSH';
                 }
-                
-                
+
+                if (newStatus !== 'STATUS_SCHEDULED' && !m.adminOverride) {
+                    if (m.active !== false || m.abandoned !== true) {
+                        const picksSnap = await adminDb.collection('picks')
+                            .where('matchupId', '==', doc.id)
+                            .limit(1)
+                            .get();
+                        let hasPicks = !picksSnap.empty;
+                        if (!hasPicks) {
+                            const pickemSnap = await adminDb.collection('pickemPicks')
+                                .where('matchupId', '==', doc.id)
+                                .limit(1)
+                                .get();
+                            hasPicks = !pickemSnap.empty;
+                        }
+
+                        if (!hasPicks) {
+                            updateData.abandoned = true;
+                            updateData.active = false;
+                        }
+                    }
+                }
+
                 let needsUpdate = false;
                 for (const key of Object.keys(updateData)) {
                     if (key === 'metadata.winningSide') {
@@ -364,12 +385,21 @@ export async function updateAllProps() {
                 // If games have started by time but boxscore is not ready, update status to lock the prop
                 if (m.metadata?.optionA?.gameId) await processDependentProps(adminDb, m.metadata.optionA.gameId);
                 if (m.metadata?.optionB?.gameId) await processDependentProps(adminDb, m.metadata.optionB.gameId);
+                await processDependentProps(adminDb, doc.id);
 
                 const picksSnap = await adminDb.collection('picks')
                     .where('matchupId', '==', doc.id)
                     .limit(1)
                     .get();
-                if (picksSnap.empty) {
+                let hasPicks = !picksSnap.empty;
+                if (!hasPicks) {
+                    const pickemSnap = await adminDb.collection('pickemPicks')
+                        .where('matchupId', '==', doc.id)
+                        .limit(1)
+                        .get();
+                    hasPicks = !pickemSnap.empty;
+                }
+                if (!hasPicks) {
                     batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS', abandoned: true, active: false });
                 } else {
                     batch.update(doc.ref, { status: 'STATUS_IN_PROGRESS' });

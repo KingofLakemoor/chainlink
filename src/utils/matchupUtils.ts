@@ -55,6 +55,26 @@ export function isMatchupLocked(matchup: any, now: number = Date.now()): boolean
     return true;
   }
 
+  // Check parent game statuses and start times for player prop matchups
+  if (matchup.metadata?.isPropMatchup || matchup.metadata?.isSinglePlayerProp || matchup.metadata?.isSoloProp) {
+    const lockedStatuses = ['STATUS_IN_PROGRESS', 'STATUS_FINAL', 'STATUS_POSTPONED', 'STATUS_SUSPENDED', 'STATUS_CANCELED', 'STATUS_DELAYED'];
+    if (matchup.metadata?.optionAStatus && lockedStatuses.includes(matchup.metadata.optionAStatus)) {
+      return true;
+    }
+    if (matchup.metadata?.optionBStatus && lockedStatuses.includes(matchup.metadata.optionBStatus)) {
+      return true;
+    }
+
+    const optAStart = getMatchupStartTime(matchup.metadata?.optionA?.startTime);
+    if (optAStart > 0 && now >= optAStart) {
+      return true;
+    }
+    const optBStart = getMatchupStartTime(matchup.metadata?.optionB?.startTime);
+    if (optBStart > 0 && now >= optBStart) {
+      return true;
+    }
+  }
+
   return false;
 }
 

@@ -2944,7 +2944,9 @@ apiRouter.post("/picks/make-pick", async (req, res) => {
       if (!matchupDoc.exists) throw new Error("Matchup not found");
 
       const matchup = matchupDoc.data()!;
-      if (!matchup.active) throw new Error("Matchup is locked");
+      if (!matchup.active || isMatchupLocked(matchup)) {
+        throw new Error("Matchup is locked or has already started");
+      }
       if (matchup.status !== 'STATUS_SCHEDULED' && matchup.status !== 'STATUS_POSTPONED') {
         throw new Error("Matchup has already started");
       }
@@ -2960,8 +2962,9 @@ apiRouter.post("/picks/make-pick", async (req, res) => {
 
       const picksQuery = adminDb.collection('picks').where('userId', '==', uid).where('status', '==', 'PENDING');
       const activePicks = await transaction.get(picksQuery);
-      if (!activePicks.empty) {
-        throw new Error("You already have an active pick!");
+      const maxPicks = profile.premium ? 2 : 1;
+      if (activePicks.size >= maxPicks) {
+        throw new Error(profile.premium ? "You already have the maximum of 2 active pending picks!" : "You already have an active pick!");
       }
 
       const pickId = uid + "_" + matchupId;
@@ -3202,7 +3205,7 @@ apiRouter.all("/admin/sync-schedules-all", validateAdminOrApiKey, async (req, re
       : (req.query?.scoreboardOnly !== undefined ? req.query.scoreboardOnly === 'true' || req.query.scoreboardOnly === '1' : false);
     const isScoreboardOnly = !!scoreboardOnly;
 
-    const leagues = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "PROP"];
+    const leagues = ["MLB", "LLWS", "NBA", "NBASL", "NHL", "PGA", "WNBA", "NFL", "WBB", "MBB", "MLS", "LMX", "ARG", "BRA", "EPL", "NWSL", "CFB", "CBASE", "FIFA", "FRA", "TUR", "RPL", "CHN", "ATP", "WTA", "CRICKET", "PROP", "SCRIPTLESS"];
 
     let totalUpdated = 0;
     let totalCreated = 0;
@@ -3909,10 +3912,11 @@ apiRouter.post("/webhooks/scriptless", async (req, res) => {
         const finalStatus = item.status || 'STATUS_SCHEDULED';
         const finalStatusDesc = finalStatus === 'STATUS_SCHEDULED' ? 'Upcoming' : (finalStatus === 'STATUS_FINAL' ? 'Final' : 'In Progress');
 
+        const subLeague = item.league && item.league !== 'SCRIPTLESS' ? item.league : (item.metadata?.subLeague || 'NEXT_LEVEL_BAKER');
         const matchupData: any = {
           gameId,
           title: item.title || item.name || `${awayTeam.name} @ ${homeTeam.name}`,
-          league: item.league || 'SCRIPTLESS',
+          league: 'SCRIPTLESS',
           startTime: finalStartTime,
           featured: true,
           featuredType: "ScriptLess",
@@ -3933,7 +3937,10 @@ apiRouter.post("/webhooks/scriptless", async (req, res) => {
           active: item.active !== undefined ? Boolean(item.active) : (finalStatus === 'STATUS_SCHEDULED'),
           manuallyActivated: true,
           type: "SCORE",
-          metadata: item.metadata || {},
+          metadata: {
+            ...(item.metadata || {}),
+            subLeague
+          },
           updatedAt: Date.now()
         };
 

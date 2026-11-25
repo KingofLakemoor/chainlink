@@ -10,6 +10,66 @@ const resolveImage = (existingImage: string | undefined, scrapedImage: string | 
 import { adminDb } from '../lib/firebase-admin.js';
 import { isBeforeThursdaySpreadLock } from '../utils/footballWeek.js';
 
+export async function cancelQueuedPicksForPropDoc(adminDb: any, propDoc: any, batch?: any): Promise<number> {
+    let localBatch = batch || adminDb.batch();
+    let opCount = 0;
+    let hasValidPicks = false;
+
+    const pendingPicksSnap = await adminDb.collection('picks')
+        .where('matchupId', '==', propDoc.id)
+        .where('status', '==', 'PENDING')
+        .get();
+
+    for (const pickDoc of pendingPicksSnap.docs) {
+        const pickData = pickDoc.data();
+        const userPicksSnap = await adminDb.collection('picks')
+            .where('userId', '==', pickData.userId)
+            .where('status', '==', 'PENDING')
+            .orderBy('createdAt', 'asc')
+            .get();
+        const pickIndex = userPicksSnap.docs.findIndex((doc: any) => doc.id === pickDoc.id);
+        if (pickIndex === 0) {
+            hasValidPicks = true;
+        }
+        if (pickIndex > 0) {
+            localBatch.delete(pickDoc.ref);
+            opCount++;
+            const userRef = adminDb.collection('users').doc(pickData.userId);
+            const userDoc = await userRef.get();
+            if (userDoc.exists && pickData.links > 0) {
+                const userData = userDoc.data();
+                localBatch.update(userRef, { links: (userData.links || 0) + pickData.links, updatedAt: Date.now() });
+                const logRef = adminDb.collection('linkTransactions').doc();
+                localBatch.set(logRef, {
+                    userId: pickData.userId,
+                    username: userData.username || userData.name || 'Unknown User',
+                    type: 'PICK_CANCELLED',
+                    amount: pickData.links,
+                    description: `Wager refunded for cancelled pick on ${propDoc.data()?.title || 'player prop'}`,
+                    createdAt: Date.now()
+                });
+                opCount += 2;
+            }
+            const notificationsRef = adminDb.collection('notifications').doc();
+            localBatch.set(notificationsRef, {
+                title: 'Queued Pick Cancelled ⏱️',
+                body: `Your queued pick on ${propDoc.data()?.title || 'a player prop'} was cancelled because the game started before it became your active pick. Your wager of ${pickData.links || 0} links was refunded.`,
+                audience: 'USER',
+                targetUserId: pickData.userId,
+                status: 'PENDING',
+                scheduledTime: Date.now(),
+                createdAt: Date.now()
+            });
+            opCount++;
+        }
+    }
+
+    if (!batch && opCount > 0) {
+        await localBatch.commit();
+    }
+    return opCount;
+}
+
 export async function processDependentProps(adminDb: any, gameId: string | number): Promise<void> {
     try {
         const gameIdStr = String(gameId);
@@ -21,14 +81,27 @@ export async function processDependentProps(adminDb: any, gameId: string | numbe
 
         if (gameIds.length === 0) return;
 
-        const propsASnap = await adminDb.collection('matchups')
+        // Also check if gameId itself is the ID of a matchup
+        const matchupsColl = adminDb.collection('matchups');
+        let directPropDoc: any = null;
+        if (typeof matchupsColl.doc === 'function') {
+            const docRef = matchupsColl.doc(gameIdStr);
+            if (docRef && typeof docRef.get === 'function') {
+                directPropDoc = await docRef.get().catch(() => null);
+            }
+        }
+
+        const propsASnap = await matchupsColl
             .where('metadata.optionA.gameId', 'in', gameIds)
             .get();
-        const propsBSnap = await adminDb.collection('matchups')
+        const propsBSnap = await matchupsColl
             .where('metadata.optionB.gameId', 'in', gameIds)
             .get();
         
         const propDocs = [...propsASnap.docs, ...propsBSnap.docs];
+        if (directPropDoc && directPropDoc.exists) {
+            propDocs.push(directPropDoc);
+        }
         const uniqueProps = Array.from(new Map(propDocs.map(d => [d.id, d])).values());
 
         if (uniqueProps.length === 0) return;
@@ -85,6 +158,20 @@ export async function processDependentProps(adminDb: any, gameId: string | numbe
                         createdAt: Date.now()
                     });
                     opCount++;
+                }
+            }
+
+            // Also check if there are any valid pickem picks for this matchup
+            if (!hasValidPicks) {
+                const pickemPicksColl = adminDb.collection('pickemPicks');
+                if (pickemPicksColl && typeof pickemPicksColl.where === 'function') {
+                    const pickemPicksSnap = await pickemPicksColl
+                        .where('matchupId', '==', propDoc.id)
+                        .limit(1)
+                        .get();
+                    if (pickemPicksSnap && !pickemPicksSnap.empty) {
+                        hasValidPicks = true;
+                    }
                 }
             }
 
@@ -1617,6 +1704,7 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
             if (newStatus !== 'STATUS_SCHEDULED') {
                 if (optionA?.gameId) await processDependentProps(adminDb, optionA.gameId);
                 if (optionB?.gameId) await processDependentProps(adminDb, optionB.gameId);
+                await processDependentProps(adminDb, propDoc.id);
             }
 
             const newStatusDesc = newStatus === 'STATUS_FINAL' ? 'Final' : (newStatus === 'STATUS_IN_PROGRESS' ? 'In Progress' : (newStatus === 'STATUS_POSTPONED' ? 'Postponed' : (data.statusDesc && data.statusDesc !== 'In Progress' && data.statusDesc !== 'Final' ? data.statusDesc : 'Upcoming')));
@@ -1640,7 +1728,32 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
                 updatedAt: Date.now()
             };
 
-            if (needsPropUpdate) {
+            // Lock out / abandon unpicked props if parent games have started or status is no longer scheduled
+            if (newStatus !== 'STATUS_SCHEDULED' && !data.adminOverride) {
+                if (data.active !== false || data.abandoned !== true) {
+                    const picksSnap = await adminDb.collection('picks')
+                        .where('matchupId', '==', propDoc.id)
+                        .limit(1)
+                        .get();
+                    let hasPicks = !picksSnap.empty;
+                    if (!hasPicks) {
+                        const pickemSnap = await adminDb.collection('pickemPicks')
+                            .where('matchupId', '==', propDoc.id)
+                            .limit(1)
+                            .get();
+                        hasPicks = !pickemSnap.empty;
+                    }
+
+                    if (!hasPicks) {
+                        updateData.abandoned = true;
+                        updateData.active = false;
+                    }
+                }
+            }
+
+            const shouldUpdate = needsPropUpdate || (updateData.abandoned !== undefined && updateData.abandoned !== data.abandoned) || (updateData.active !== undefined && updateData.active !== data.active);
+
+            if (shouldUpdate) {
                 batch.update(propDoc.ref, updateData);
                 opCount++;
             }

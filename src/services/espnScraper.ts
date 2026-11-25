@@ -396,7 +396,7 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                featured: true,
                featuredType: "ScriptLess",
                title: sm.name,
-               league: sm.league,
+               league: "SCRIPTLESS",
                status: finalStatus,
                statusDesc: finalStatusDesc,
                type: "SCORE",
@@ -412,7 +412,10 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                    image: sm.awayTeam.logo || "/images/scriptless.png",
                    score: sm.awayTeam.score || 0
                },
-               metadata: sm.metadata || {}
+               metadata: {
+                   ...(sm.metadata || {}),
+                   subLeague: sm.league || "NEXT_LEVEL_BAKER"
+               }
             });
             continue;
           }

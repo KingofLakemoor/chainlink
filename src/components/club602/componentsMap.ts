@@ -113,7 +113,9 @@ export const AvatarRingMap: Record<string, React.FC<any>> = {
   ring_edge_ledger: EdgeLedgerAvatarRing,
   ring_bad_beat: BadBeatAvatarRing,
   ViceNeonAvatarRing,
-  ring_vice_neon: ViceNeonAvatarRing
+  ViceCityAvatarRing: ViceNeonAvatarRing,
+  ring_vice_neon: ViceNeonAvatarRing,
+  ring_vice_city: ViceNeonAvatarRing
 };
 
 /**
@@ -152,6 +154,7 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   PinktoberBanner,
   TaskForceCamoBanner,
   ViceCityBanner,
+  ViceNeonBanner: ViceCityBanner,
   CrescentCrownBanner,
   MidwayChargeBanner,
   // Direct cosmetic ID mappings

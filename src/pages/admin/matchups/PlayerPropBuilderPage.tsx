@@ -46,30 +46,79 @@ function PlayerSelector({ label, onSelect }: { label: string, onSelect: (data: a
       const config = LEAGUES[league];
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
-      const url = league === 'CFB'
-        ? `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300&dates=${dateStr}`
-        : `https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.path}/scoreboard?limit=300&dates=${dateStr}`;
-      const res = await fetch(url);
-      let data = await res.json();
-      if ((!data.events || data.events.length === 0) && league === 'CFB') {
-        const fallbackRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300`);
-        data = await fallbackRes.json();
+
+      let events: any[] = [];
+
+      if (league === 'NFL') {
+        // First fetch current scoreboard without date filter
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=300`);
+        const data = await res.json();
+        events = data.events || [];
+
+        // Check if there are scheduled games in current week
+        const scheduled = events.filter((e: any) => e.status?.type?.name === 'STATUS_SCHEDULED');
+        // If no scheduled games remain in the current week (e.g. Tuesday/Wednesday), fetch next week
+        if (scheduled.length === 0 && data.week?.number) {
+          try {
+            const nextWeekRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=300&week=${data.week.number + 1}`);
+            const nextWeekData = await nextWeekRes.json();
+            if (nextWeekData.events && nextWeekData.events.length > 0) {
+              // Combine upcoming games, avoiding duplicates
+              const existingIds = new Set(events.map((e: any) => e.id));
+              for (const e of nextWeekData.events) {
+                if (!existingIds.has(e.id)) {
+                  events.push(e);
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching next week NFL games:', err);
+          }
+        }
+      } else if (league === 'CFB') {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300&dates=${dateStr}`;
+        const res = await fetch(url);
+        let data = await res.json();
+        if (!data.events || data.events.length === 0) {
+          const fallbackRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300`);
+          data = await fallbackRes.json();
+        }
+        events = data.events || [];
+      } else {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.path}/scoreboard?limit=300&dates=${dateStr}`;
+        const res = await fetch(url);
+        let data = await res.json();
+        if (!data.events || data.events.length === 0) {
+          const fallbackRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.path}/scoreboard?limit=300`);
+          data = await fallbackRes.json();
+        }
+        events = data.events || [];
       }
-      
-      const g = (data.events || []).map((e: any) => {
-        const comp = e.competitions[0];
+
+      // Sort games: upcoming/scheduled first, then by start time ascending
+      const g = events.map((e: any) => {
+        const comp = e.competitions?.[0] || {};
+        const status = e.status?.type?.name || 'STATUS_SCHEDULED';
         return {
           id: e.id,
           name: e.name,
-          startTime: new Date(comp.date).getTime(),
-          teams: comp.competitors.map((c: any) => ({
-            id: c.team.id,
-            name: c.team.displayName,
-            abbreviation: c.team.abbreviation,
-            logo: c.team.logo
+          status,
+          statusDesc: e.status?.type?.description || '',
+          startTime: new Date(comp.date || e.date).getTime(),
+          teams: (comp.competitors || []).map((c: any) => ({
+            id: c.team?.id,
+            name: c.team?.displayName,
+            abbreviation: c.team?.abbreviation,
+            logo: c.team?.logo
           }))
         };
+      }).sort((a: any, b: any) => {
+        const aScheduled = a.status === 'STATUS_SCHEDULED' ? 0 : 1;
+        const bScheduled = b.status === 'STATUS_SCHEDULED' ? 0 : 1;
+        if (aScheduled !== bScheduled) return aScheduled - bScheduled;
+        return a.startTime - b.startTime;
       });
+
       setGames(g);
     } catch (e) {
       console.error(e);

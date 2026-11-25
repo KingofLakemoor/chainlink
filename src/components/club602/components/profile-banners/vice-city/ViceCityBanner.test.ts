@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ProfileBannerMap } from '../../../../lib/cosmetics';
+import { ProfileBannerMap } from '../../../componentsMap';
 import { ViceCityBanner } from './ViceCityBanner';
 
 describe('ViceCityBanner & Shop Integration', () => {

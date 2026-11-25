@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AvatarRingMap } from '../../../../lib/cosmetics';
+import { AvatarRingMap } from '../../../componentsMap';
 import { ViceNeonAvatarRing } from './ViceNeonAvatarRing';
 
 describe('ViceNeonAvatarRing & Cosmetics Integration', () => {

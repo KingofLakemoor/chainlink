@@ -1,3 +1,17 @@
+const makeChainableQuery = (docs: any[] = []) => {
+  const q: any = {
+    where: () => q,
+    limit: () => q,
+    orderBy: () => q,
+    doc: (id?: string) => `${id || 'mock_doc'}Ref`,
+    get: async () => ({
+      empty: docs.length === 0,
+      docs,
+    }),
+  };
+  return q;
+};
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { syncTennisOdds, syncSoccerOdds, setAdminDbMock } from './oddsProcessor';
 import { canMakeOddsApiCall, recordOddsApiCall, resetInMemoryOddsRateLimiter } from './oddsRateLimiter';
@@ -58,7 +72,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'matchSharpRef' };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'matchSharpRef' };
       return {};
     });
 
@@ -135,11 +149,7 @@ describe('OddsProcessor Optimization Tests', () => {
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
       if (collName === 'matchups') return {
-        where: () => ({
-          where: () => ({
-            get: async () => ({ empty: false, docs: mockMatchups })
-          })
-        }),
+        ...makeChainableQuery(mockMatchups),
         doc: (id: string) => `${id}Ref`
       };
       if (collName === 'picks' || collName === 'pickemPicks') {
@@ -229,14 +239,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return {
-        where: () => ({
-          where: () => ({
-            get: async () => ({ empty: false, docs: [mockMatchupDoc] })
-          })
-        }),
-        doc: () => 'soccerSharpRef'
-      };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'soccerSharpRef' };
       if (collName === 'picks' || collName === 'pickemPicks') {
         return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
       }
@@ -291,7 +294,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: true, docs: [] }) }) }) };
+      if (collName === 'matchups') return makeChainableQuery([]);
       return {};
     });
 
@@ -317,15 +320,7 @@ describe('OddsProcessor Optimization Tests', () => {
           }),
         };
       }
-      if (collName === 'matchups') {
-        return {
-          where: () => ({
-            where: () => ({
-              get: async () => ({ empty: true, docs: [] }),
-            }),
-          }),
-        };
-      }
+      if (collName === 'matchups') return makeChainableQuery([]);
       return {};
     });
 
@@ -349,15 +344,7 @@ describe('OddsProcessor Optimization Tests', () => {
           }),
         };
       }
-      if (collName === 'matchups') {
-        return {
-          where: () => ({
-            where: () => ({
-              get: async () => ({ empty: true, docs: [] }),
-            }),
-          }),
-        };
-      }
+      if (collName === 'matchups') return makeChainableQuery([]);
       return {};
     });
 
@@ -395,16 +382,7 @@ describe('OddsProcessor Optimization Tests', () => {
           }),
         };
       }
-      if (collName === 'matchups') {
-        return {
-          where: () => ({
-            where: () => ({
-              get: async () => ({ empty: false, docs: [mockMatchupDoc] }),
-            }),
-          }),
-          doc: () => 'match1Ref',
-        };
-      }
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'match1Ref' };
       if (collName === 'picks' || collName === 'pickemPicks') {
         return {
           where: () => ({
@@ -472,16 +450,7 @@ describe('OddsProcessor Optimization Tests', () => {
           }),
         };
       }
-      if (collName === 'matchups') {
-        return {
-          where: () => ({
-            where: () => ({
-              get: async () => ({ empty: false, docs: [mockMatchupDoc] }),
-            }),
-          }),
-          doc: () => 'match1Ref',
-        };
-      }
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'match1Ref' };
       return {};
     });
 
@@ -555,7 +524,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'docManualRef' };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'docManualRef' };
       if (collName === 'picks' || collName === 'pickemPicks') {
         return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
       }
@@ -606,16 +575,7 @@ describe('OddsProcessor Optimization Tests', () => {
           }),
         };
       }
-      if (collName === 'matchups') {
-        return {
-          where: () => ({
-            where: () => ({
-              get: async () => ({ empty: false, docs: [mockMatchupDoc] }),
-            }),
-          }),
-          doc: () => 'doc1Ref',
-        };
-      }
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'doc1Ref' };
       if (collName === 'picks') {
         return {
           where: (field: string, op: string, val: any) => ({
@@ -689,7 +649,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'matchInitialRef' };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'matchInitialRef' };
       return {};
     });
 
@@ -760,7 +720,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return { where: () => ({ where: () => ({ get: async () => ({ empty: false, docs: [mockMatchupDoc] }) }) }), doc: () => 'matchErrRef' };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockMatchupDoc]), doc: () => 'matchErrRef' };
       return {};
     });
 
@@ -803,14 +763,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return {
-        where: () => ({
-          where: () => ({
-            get: async () => ({ empty: false, docs: [mockRplDoc] })
-          })
-        }),
-        doc: () => 'rpl1Ref'
-      };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockRplDoc]), doc: () => 'rpl1Ref' };
       return {};
     });
 
@@ -878,14 +831,7 @@ describe('OddsProcessor Optimization Tests', () => {
 
     mockAdminDb.collection.mockImplementation((collName: string) => {
       if (collName === 'systemSettings') return { doc: () => ({ get: async () => ({ exists: false }) }) };
-      if (collName === 'matchups') return {
-        where: () => ({
-          where: () => ({
-            get: async () => ({ empty: false, docs: [mockUnmatchedRplDoc] })
-          })
-        }),
-        doc: () => 'rplUnmatchedRef'
-      };
+      if (collName === 'matchups') return { ...makeChainableQuery([mockUnmatchedRplDoc]), doc: () => 'rplUnmatchedRef' };
       if (collName === 'picks' || collName === 'pickemPicks') {
         return { where: () => ({ limit: () => ({ get: async () => ({ empty: true }) }) }) };
       }

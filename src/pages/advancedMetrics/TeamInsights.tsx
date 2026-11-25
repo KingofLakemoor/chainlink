@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { getMatchupsByIdsCached } from '../../lib/firestore-cache';
 import { TrendingUp, TrendingDown, Target, Loader2 } from 'lucide-react';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 
@@ -50,16 +51,7 @@ export function TeamInsights() {
 
         let fetchedMatchups: any[] = [];
         if (matchupIdsToFetch.length > 0) {
-            const chunks = [];
-            for (let i = 0; i < matchupIdsToFetch.length; i += 30) {
-              chunks.push(matchupIdsToFetch.slice(i, i + 30));
-            }
-
-            for (const chunk of chunks) {
-              const mq = query(collection(db, 'matchups'), where('gameId', 'in', chunk));
-              const mSnap = await getDocs(mq);
-              mSnap.docs.forEach(d => fetchedMatchups.push({id: d.id, ...d.data()}));
-            }
+            fetchedMatchups = await getMatchupsByIdsCached(matchupIdsToFetch);
         }
 
         const winCounts: Record<string, { name: string, image: string, count: number }> = {};

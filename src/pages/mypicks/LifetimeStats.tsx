@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { getMatchupsByIdsCached } from '../../lib/firestore-cache';
 import { format, subMonths } from 'date-fns';
 import { LeagueRadarChart } from '../../components/charts/LeagueRadarChart';
 import { LeagueMonthlyPerformanceChart } from '../../components/charts/LeagueMonthlyPerformanceChart';
@@ -66,18 +67,7 @@ export default function LifetimeStats({ userStats }: LifetimeStatsProps) {
           return;
         }
 
-        // Chunk into 30s for the 'in' operator
-        const chunks = [];
-        for (let i = 0; i < matchupIdsToFetch.length; i += 30) {
-          chunks.push(matchupIdsToFetch.slice(i, i + 30));
-        }
-
-        const fetchedMatchups = [];
-        for (const chunk of chunks) {
-          const mq = query(collection(db, 'matchups'), where('gameId', 'in', chunk));
-          const mSnap = await getDocs(mq);
-          mSnap.docs.forEach(d => fetchedMatchups.push({id: d.id, ...d.data()}));
-        }
+        const fetchedMatchups = await getMatchupsByIdsCached(matchupIdsToFetch);
 
         const picksMapped = fetchedPicks.map((pick: any) => {
           const m = fetchedMatchups.find(m => m.gameId === pick.matchupId);

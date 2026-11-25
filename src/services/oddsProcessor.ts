@@ -89,10 +89,23 @@ export async function syncTennisOdds() {
   }
 
   try {
-    const matchupsSnap = await adminDb.collection('matchups')
-      .where('status', '==', 'STATUS_SCHEDULED')
+    const nowMs = Date.now();
+    const minStartTime = nowMs - 24 * 60 * 60 * 1000;
+    const maxStartTime = nowMs + 48 * 60 * 60 * 1000;
+
+    let matchupsSnap = await adminDb.collection('matchups')
       .where('league', 'in', ['ATP', 'WTA'])
-      .get();
+      .where('status', '==', 'STATUS_SCHEDULED')
+      .where('startTime', '>=', minStartTime)
+      .where('startTime', '<=', maxStartTime)
+      .get()
+      .catch(async () => {
+        return adminDb.collection('matchups')
+          .where('league', 'in', ['ATP', 'WTA'])
+          .where('status', '==', 'STATUS_SCHEDULED')
+          .limit(100)
+          .get();
+      });
 
     if (matchupsSnap.empty) {
       console.log("[OddsProcessor] No scheduled ATP/WTA matchups in DB.");
@@ -387,10 +400,23 @@ export async function syncSoccerOdds() {
             threshold = Math.abs(scraperConfig.sportOverrides[l.espn]);
         }
 
+        const nowMs = Date.now();
+        const minStartTime = nowMs - 24 * 60 * 60 * 1000;
+        const maxStartTime = nowMs + 48 * 60 * 60 * 1000;
+
         const matchupsSnap = await adminDb.collection('matchups')
-          .where('status', '==', 'STATUS_SCHEDULED')
           .where('league', '==', l.espn)
-          .get();
+          .where('status', '==', 'STATUS_SCHEDULED')
+          .where('startTime', '>=', minStartTime)
+          .where('startTime', '<=', maxStartTime)
+          .get()
+          .catch(async () => {
+            return adminDb.collection('matchups')
+              .where('league', '==', l.espn)
+              .where('status', '==', 'STATUS_SCHEDULED')
+              .limit(100)
+              .get();
+          });
              
         if (matchupsSnap.empty) {
             console.log(`[OddsProcessor] No scheduled matchups for soccer league ${l.espn}, skipping API call.`);

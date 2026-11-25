@@ -9,6 +9,7 @@ const resolveImage = (existingImage: string | undefined, scrapedImage: string | 
 
 import { adminDb } from '../lib/firebase-admin.js';
 import { isBeforeThursdaySpreadLock } from '../utils/footballWeek.js';
+import { getMatchupStartTime } from '../utils/matchupUtils.js';
 
 export async function cancelQueuedPicksForPropDoc(adminDb: any, propDoc: any, batch?: any): Promise<number> {
     let localBatch = batch || adminDb.batch();
@@ -216,8 +217,12 @@ const SCRAPER_CONFIG_TTL_MS = 60 * 60 * 1000;
 let cachedPickemCampaigns: { map: Map<string, any>; timestamp: number } | null = null;
 const PICKEM_CAMPAIGNS_TTL_MS = 5 * 60 * 1000;
 
+let cachedInternalPickemMatchupIds: { ids: Set<string>; timestamp: number } | null = null;
+const PICKEM_MATCHUP_IDS_TTL_MS = 5 * 60 * 1000;
+
 export function invalidatePickemCampaignsCache() {
   cachedPickemCampaigns = null;
+  cachedInternalPickemMatchupIds = null;
 }
 
 export async function syncLeagueSchedules(
@@ -284,35 +289,69 @@ export async function syncLeagueSchedules(
       }
 
       // Gather pickem match IDs to force activity
-      const pickemMatchupIds = preloadedPickemMatchupIds || new Set<string>();
-      if (!preloadedPickemMatchupIds) {
-          try {
-              const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
-              for (const doc of pickemMatchupsSnap.docs) {
-                  const gameId = doc.data().gameId;
-                  if (gameId) pickemMatchupIds.add(String(gameId));
+      let pickemMatchupIds = preloadedPickemMatchupIds;
+      if (!pickemMatchupIds) {
+          const nowMs = Date.now();
+          if (cachedInternalPickemMatchupIds && (nowMs - cachedInternalPickemMatchupIds.timestamp) < PICKEM_MATCHUP_IDS_TTL_MS) {
+              pickemMatchupIds = cachedInternalPickemMatchupIds.ids;
+          } else {
+              pickemMatchupIds = new Set<string>();
+              try {
+                  const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
+                  for (const doc of pickemMatchupsSnap.docs) {
+                      const gameId = doc.data().gameId;
+                      if (gameId) pickemMatchupIds.add(String(gameId));
+                  }
+                  cachedInternalPickemMatchupIds = { ids: pickemMatchupIds, timestamp: nowMs };
+              } catch (err) {
+                  console.error("Error fetching pickem match IDs", err);
+                  if (cachedInternalPickemMatchupIds) {
+                      pickemMatchupIds = cachedInternalPickemMatchupIds.ids;
+                  }
               }
-          } catch (err) {
-              console.error("Error fetching pickem match IDs", err);
           }
       }
 
       const existingMap = new Map<string, any>();
       const gameIds = response.data.map(m => m.gameId).filter(id => id);
 
-      // Batch fetch existing matchups using 'in' query (max 30 per chunk)
+      // Batch fetch existing matchups using primary keys via adminDb.getAll first (falling back to 'in' query)
       if (gameIds.length > 0) {
         const matchupsRef = adminDb.collection('matchups');
         for (let i = 0; i < gameIds.length; i += 30) {
           const chunk = gameIds.slice(i, i + 30);
-          const chunkSnap = await matchupsRef.where('gameId', 'in', chunk).get();
-          chunkSnap.docs.forEach(d => {
-            const data = d.data();
-            // Match gameId: prefer matching same league, but store any matching gameId so we don't insert duplicate or cross-contaminate
-            if (!existingMap.has(data.gameId) || data.league === league) {
-              existingMap.set(data.gameId, d);
+          const foundChunkGameIds = new Set<string>();
+
+          if (typeof adminDb.getAll === 'function') {
+            try {
+              const docRefs = chunk.map(id => matchupsRef.doc(id));
+              const docSnaps = await adminDb.getAll(...docRefs);
+              docSnaps.forEach(d => {
+                if (d && (d as any).exists) {
+                  const data = d.data();
+                  const gId = data?.gameId || d.id;
+                  foundChunkGameIds.add(gId);
+                  if (!existingMap.has(gId) || data?.league === league) {
+                    existingMap.set(gId, d);
+                  }
+                }
+              });
+            } catch (getAllErr) {
+              console.warn('[scheduleProcessor] adminDb.getAll failed, falling back to query:', getAllErr);
             }
-          });
+          }
+
+          const remainingChunk = chunk.filter(id => !foundChunkGameIds.has(id));
+          if (remainingChunk.length > 0) {
+            const chunkSnap = await matchupsRef.where('gameId', 'in', remainingChunk).get();
+            chunkSnap.docs.forEach(d => {
+              const data = d.data();
+              // Match gameId: prefer matching same league, but store any matching gameId so we don't insert duplicate or cross-contaminate
+              if (!existingMap.has(data.gameId) || data.league === league) {
+                existingMap.set(data.gameId, d);
+              }
+            });
+          }
         }
       } else if (league === 'PGA') {
         // PGA scraped data doesn't have gameIds, so we need to fetch all active PGA matchups recently scheduled
@@ -881,7 +920,15 @@ export async function syncLeagueSchedules(
               !['MLB', 'CBASE', 'LLWS'].includes(league) &&
               (Date.now() - (existingData.updatedAt || 0)) < (10 * 60 * 1000);
 
-          const needsUpdate = (existingData.abandoned === true && isProtected) || existingData.status !== newStatus ||
+          const existingStartTimeMs = getMatchupStartTime(existingData.startTime);
+          const nowMs = Date.now();
+          const isFarScheduledGame = existingData.status === 'STATUS_SCHEDULED' &&
+              newStatus === 'STATUS_SCHEDULED' &&
+              existingStartTimeMs > (nowMs + 6 * 60 * 60 * 1000);
+          const isRecentlyUpdatedWithin120m = (nowMs - (existingData.updatedAt || 0)) < (120 * 60 * 1000);
+
+          const hasCoreChange = (existingData.abandoned === true && isProtected) ||
+              existingData.status !== newStatus ||
               (!isClockOnlyChange && existingData.statusDesc !== newStatusDesc) ||
               existingData.startTime !== scrapedMatchup.startTime ||
               existingData.homeTeam?.score !== homeScore ||
@@ -899,13 +946,20 @@ export async function syncLeagueSchedules(
               (existingData.type !== 'STATS' && existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id) ||
               (!isAdminOverride && existingData.active !== finalActive) ||
               Boolean(existingData.abandoned) !== ((existingData.abandoned === true && !isProtected) ? true : false) ||
-              (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
+              (!isAdminOverride && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
+
+          const hasOddsOrMetadataChange = (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
               (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
               (scrapedMatchup.metadata?.mlAway !== undefined && scrapedMatchup.metadata?.mlAway !== null && existingData.metadata?.mlAway !== scrapedMatchup.metadata?.mlAway) ||
               (scrapedMatchup.metadata?.homeLinescores !== undefined && JSON.stringify(existingData.metadata?.homeLinescores) !== JSON.stringify(scrapedMatchup.metadata?.homeLinescores)) ||
               (scrapedMatchup.metadata?.awayLinescores !== undefined && JSON.stringify(existingData.metadata?.awayLinescores) !== JSON.stringify(scrapedMatchup.metadata?.awayLinescores)) ||
-              (!isAdminOverride && existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread) ||
-              (!isAdminOverride && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
+              (!isAdminOverride && existingData.type !== 'SPREAD' && scrapedMatchup.metadata?.spread !== undefined && scrapedMatchup.metadata?.spread !== null && existingData.metadata?.spread !== scrapedMatchup.metadata?.spread);
+
+          // If a game is scheduled > 6 hours away and score/status/core details haven't changed,
+          // only update odds/metadata if it hasn't been updated in the last 120 minutes.
+          const shouldApplyOddsChange = hasOddsOrMetadataChange && (!isFarScheduledGame || !isRecentlyUpdatedWithin120m);
+
+          const needsUpdate = hasCoreChange || shouldApplyOddsChange;
 
           if (needsUpdate || existingDoc.id !== gameId) {
             // If existingDoc was stuck with a legacy or mismatched league (e.g. MLB for a ScriptLess event),
@@ -1131,7 +1185,7 @@ export async function syncLeagueSchedules(
                 (newStatus === 'STATUS_POSTPONED' && existingData.status !== 'STATUS_POSTPONED'))) {
               matchupsToGrade.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
             }
-            if (needsUpdate || existingDoc.id !== gameId || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') {
+            if ((needsUpdate || existingDoc.id !== gameId || newStatus === 'STATUS_FINAL' || newStatus === 'STATUS_POSTPONED') && pickemMatchupIds.has(gameId)) {
               matchupsToSyncToPickem.push({ ...existingData, ...updateData, gameId: scrapedMatchup.gameId, id: gameId });
             }
           }
@@ -1178,7 +1232,7 @@ export async function syncLeagueSchedules(
           if (scrapedMatchup.status === 'STATUS_FINAL') {
               matchupsToGrade.push({ ...newMatchupData, id: gameId, gameId: gameId });
           }
-          if (scrapedMatchup.status === 'STATUS_FINAL' || pickemMatchupIds.has(gameId)) {
+          if (pickemMatchupIds.has(gameId)) {
             matchupsToSyncToPickem.push({ ...newMatchupData, id: gameId, gameId: gameId });
           }
         }
@@ -1323,33 +1377,36 @@ export async function syncLeagueSchedules(
       }
 
       if (matchupsToSyncToPickem.length > 0) {
-        const pickemMatchupsToGrade: any[] = [];
-        const uniqueGameIds = Array.from(new Set(matchupsToSyncToPickem.map(m => m.gameId))).filter(Boolean);
+        // Only query pickemMatchups for game IDs that are known to exist in Pick'Em
+        const uniqueGameIds = Array.from(new Set(matchupsToSyncToPickem.map(m => m.gameId)))
+          .filter(id => id && pickemMatchupIds.has(String(id)));
         const matchupMap = new Map(matchupsToSyncToPickem.map(m => [m.gameId, m]));
 
-        let campaignMap = new Map<string, any>();
-        const nowMs = Date.now();
-        if (cachedPickemCampaigns && (nowMs - cachedPickemCampaigns.timestamp) < PICKEM_CAMPAIGNS_TTL_MS) {
-          campaignMap = cachedPickemCampaigns.map;
-        } else {
-          try {
-            const campSnaps = await adminDb.collection('pickemCampaigns').get();
-            campSnaps.docs.forEach((cDoc: any) => {
-              campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
-            });
-            cachedPickemCampaigns = { map: campaignMap, timestamp: nowMs };
-          } catch (campErr) {
-            console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
-            if (cachedPickemCampaigns) {
-              campaignMap = cachedPickemCampaigns.map;
+        if (uniqueGameIds.length > 0) {
+          const pickemMatchupsToGrade: any[] = [];
+          let campaignMap = new Map<string, any>();
+          const nowMs = Date.now();
+          if (cachedPickemCampaigns && (nowMs - cachedPickemCampaigns.timestamp) < PICKEM_CAMPAIGNS_TTL_MS) {
+            campaignMap = cachedPickemCampaigns.map;
+          } else {
+            try {
+              const campSnaps = await adminDb.collection('pickemCampaigns').get();
+              campSnaps.docs.forEach((cDoc: any) => {
+                campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
+              });
+              cachedPickemCampaigns = { map: campaignMap, timestamp: nowMs };
+            } catch (campErr) {
+              console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+              if (cachedPickemCampaigns) {
+                campaignMap = cachedPickemCampaigns.map;
+              }
             }
           }
-        }
 
-        let pickemBatch = adminDb.batch();
-        let pickemOpCount = 0;
+          let pickemBatch = adminDb.batch();
+          let pickemOpCount = 0;
 
-        for (let i = 0; i < uniqueGameIds.length; i += 15) {
+          for (let i = 0; i < uniqueGameIds.length; i += 15) {
           const rawChunk = uniqueGameIds.slice(i, i + 15);
           const chunk = Array.from(new Set([
             ...rawChunk.map(id => String(id)),
@@ -1561,6 +1618,7 @@ export async function syncLeagueSchedules(
           await gradePickemMatchups(pickemMatchupsToGrade);
         }
       }
+    }
 
       response.scoreMatchupsCreated = newCount;
       response.matchupsUpdated = updateCount;

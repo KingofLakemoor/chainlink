@@ -43,7 +43,7 @@ describe('autoSync and espnScraper delayed game tests', () => {
     expect(startTime).toBe(pastStartTime); // startTime is preserved and NOT mutated
   });
 
-  it('correctly detects live games when scheduled games pass start time or are within 15 minutes', () => {
+  it('correctly detects live games when scheduled games pass start time or are within 30 minutes', () => {
     const nowMs = Date.now();
     const gameStartingIn5Mins = nowMs + 5 * 60 * 1000;
 
@@ -62,7 +62,7 @@ describe('autoSync and espnScraper delayed game tests', () => {
 
     mockMatchups.forEach((m) => {
       const startTime = typeof m.startTime === 'number' ? m.startTime : (m.startTime ? new Date(m.startTime).getTime() : 0);
-      if (startTime > 0 && startTime <= nowMs + 15 * 60 * 1000 && startTime >= nowMs - 12 * 60 * 60 * 1000) {
+      if (startTime > 0 && startTime <= nowMs + 30 * 60 * 1000 && startTime >= nowMs - 24 * 60 * 60 * 1000) {
         hasLiveGames = true;
         if (m.league) activeLeaguesSet.add(m.league);
       }
@@ -70,5 +70,24 @@ describe('autoSync and espnScraper delayed game tests', () => {
 
     expect(hasLiveGames).toBe(true);
     expect(activeLeaguesSet.has('NFL')).toBe(true);
+  });
+
+  it('bounds the query time window to [-24h, +30m] to prevent scanning unbounded future scheduled matchups', () => {
+    const nowMs = 1700000000000;
+    const minStartTime = nowMs - 24 * 60 * 60 * 1000;
+    const maxStartTime = nowMs + 30 * 60 * 1000;
+
+    const matchups = [
+      { id: 'past_2d', status: 'STATUS_SCHEDULED', startTime: nowMs - 48 * 60 * 60 * 1000 },
+      { id: 'past_2h', status: 'STATUS_SCHEDULED', startTime: nowMs - 2 * 60 * 60 * 1000 },
+      { id: 'upcoming_10m', status: 'STATUS_SCHEDULED', startTime: nowMs + 10 * 60 * 1000 },
+      { id: 'future_2d', status: 'STATUS_SCHEDULED', startTime: nowMs + 48 * 60 * 60 * 1000 },
+    ];
+
+    const queriedDocs = matchups.filter(
+      (m) => m.status === 'STATUS_SCHEDULED' && m.startTime >= minStartTime && m.startTime <= maxStartTime
+    );
+
+    expect(queriedDocs.map((m) => m.id)).toEqual(['past_2h', 'upcoming_10m']);
   });
 });

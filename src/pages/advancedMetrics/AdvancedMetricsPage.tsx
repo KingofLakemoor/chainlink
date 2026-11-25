@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, orderBy, limit, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { getMatchupsByIdsCached } from '../../lib/firestore-cache';
 import { Medal, Link2, Lock, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
@@ -15,23 +16,9 @@ const fetchMatchupsForPicks = async (fetchedPicks: any[]) => {
 
     // Extract unique matchupIds
     const matchupIdsToFetch = Array.from(new Set(fetchedPicks.map(p => p.matchupId).filter(Boolean)));
-
     if (matchupIdsToFetch.length === 0) return [];
 
-    // Chunk into 30s for the 'in' operator
-    const chunks = [];
-    for (let i = 0; i < matchupIdsToFetch.length; i += 30) {
-      chunks.push(matchupIdsToFetch.slice(i, i + 30));
-    }
-
-    const fetchedMatchups = [];
-    for (const chunk of chunks) {
-      const q = query(collection(db, 'matchups'), where('gameId', 'in', chunk));
-      const snap = await getDocs(q);
-      snap.docs.forEach(d => fetchedMatchups.push({id: d.id, ...d.data()}));
-    }
-
-    return fetchedMatchups;
+    return await getMatchupsByIdsCached(matchupIdsToFetch);
   };
 
   const { user, profile } = useAuth();

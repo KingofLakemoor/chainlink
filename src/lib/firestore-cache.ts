@@ -159,3 +159,44 @@ export async function getGlobalPendingPicksCached(ttlMs: number = 5 * 60 * 1000)
   }
 }
 
+export async function getMatchupsByIdsCached(matchupIds: string[]): Promise<any[]> {
+  const uniqueIds = Array.from(new Set(matchupIds)).filter(Boolean);
+  if (uniqueIds.length === 0) return [];
+
+  const results: any[] = [];
+  const uncachedIds: string[] = [];
+
+  for (const id of uniqueIds) {
+    const cached = getCached<any>(`matchup_${id}`, 5 * 60 * 1000);
+    if (cached) {
+      results.push(cached);
+    } else {
+      uncachedIds.push(id);
+    }
+  }
+
+  if (uncachedIds.length > 0) {
+    try {
+      for (let i = 0; i < uncachedIds.length; i += 30) {
+        const chunk = uncachedIds.slice(i, i + 30);
+        const q = query(collection(db, 'matchups'), where('gameId', 'in', chunk));
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => {
+          const m = { id: d.id, ...d.data() };
+          const gameId = (m as any).gameId || d.id;
+          setCached(`matchup_${gameId}`, m);
+          if (d.id !== gameId) {
+            setCached(`matchup_${d.id}`, m);
+          }
+          results.push(m);
+        });
+      }
+    } catch (e) {
+      console.warn('Error fetching uncached matchups by IDs:', e);
+    }
+  }
+
+  return results;
+}
+
+

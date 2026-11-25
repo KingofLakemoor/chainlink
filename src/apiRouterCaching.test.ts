@@ -20,8 +20,10 @@ vi.mock('./lib/firebase-admin.js', () => ({
         };
       }
       if (collName === 'matchups') {
-        return {
-          where: vi.fn(() => ({
+        const createQueryMock = (): any => {
+          const queryMock: any = {
+            where: vi.fn(() => queryMock),
+            limit: vi.fn(() => queryMock),
             get: vi.fn().mockResolvedValue({
               docs: [
                 {
@@ -34,8 +36,10 @@ vi.mock('./lib/firebase-admin.js', () => ({
                 },
               ],
             }),
-          })),
+          };
+          return queryMock;
         };
+        return createQueryMock();
       }
       if (collName === 'link4Matchups') {
         return {

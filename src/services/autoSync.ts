@@ -87,15 +87,29 @@ export function startAutoSyncJob() {
 
           // Check scheduled matchups whose start time has arrived or is arriving soon (next 30 minutes)
           // Look up to 24 hours back so games that should have started get synced and transitioned to in-progress
-          const activeScheduledSnap = await adminDb.collection('matchups')
-              .where('status', '==', 'STATUS_SCHEDULED')
-              .get();
+          // We bound by startTime to prevent reading thousands of future scheduled games on every cycle.
+          const minStartTime = nowMs - 24 * 60 * 60 * 1000;
+          const maxStartTime = nowMs + 30 * 60 * 1000;
+          let activeScheduledSnap;
+          try {
+              activeScheduledSnap = await adminDb.collection('matchups')
+                  .where('status', '==', 'STATUS_SCHEDULED')
+                  .where('startTime', '>=', minStartTime)
+                  .where('startTime', '<=', maxStartTime)
+                  .get();
+          } catch (indexErr: any) {
+              // Fallback with a limit if the composite index (status, startTime) is not yet built in Firestore
+              activeScheduledSnap = await adminDb.collection('matchups')
+                  .where('status', '==', 'STATUS_SCHEDULED')
+                  .limit(100)
+                  .get();
+          }
 
           activeScheduledSnap.docs.forEach(doc => {
               const m = doc.data();
               if (m.abandoned) return;
               const startTime = getMatchupStartTime(m.startTime);
-              if (startTime > 0 && startTime <= nowMs + 30 * 60 * 1000 && startTime >= nowMs - 24 * 60 * 60 * 1000) {
+              if (startTime > 0 && startTime <= maxStartTime && startTime >= minStartTime) {
                   hasLiveGames = true;
                   if (m.league) activeLeaguesSet.add(m.league);
               }
@@ -201,8 +215,8 @@ export function startAutoSyncJob() {
       console.error("[AutoSync] Error during background sync job:", e);
       logServerError('AutoSync Background Job', e);
     } finally {
-      // Adaptive interval: 60s during live games, 4 mins during off-peak hours
-      const nextDelayMs = hasLiveGames ? 60 * 1000 : 4 * 60 * 1000;
+      // Adaptive interval: 60s during live games, 12 mins during off-peak hours
+      const nextDelayMs = hasLiveGames ? 60 * 1000 : 12 * 60 * 1000;
       syncTimeout = setTimeout(runSync, nextDelayMs);
     }
   };

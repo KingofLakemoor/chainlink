@@ -41,6 +41,12 @@ vi.mock('../lib/firebase-admin.js', () => ({
       }
       return makeChainableQuery([]);
     },
+    getAll: async (...docRefs: any[]) => {
+      if (mockExistingDoc) {
+        return [{ exists: true, id: mockExistingDoc.id, ref: mockExistingDoc.ref, data: mockExistingDoc.data }];
+      }
+      return docRefs.map(ref => ({ exists: false, id: ref?.id || 'mock_id', data: () => null }));
+    },
     batch: () => mockBatch,
   },
 }));
@@ -722,6 +728,115 @@ describe('scheduleProcessor - adminOverride Preservation Tests', () => {
     const updatePayload = updateCalls.find(c => c[0] === 'matchupRef_legacy_mlb_doc')?.[1];
     expect(updatePayload).toBeDefined();
     expect(updatePayload.league).toBe('SCRIPTLESS');
+  });
+
+  it('skips odds updates for games scheduled > 6 hours away if updated within last 120 minutes', async () => {
+    const eightHoursFromNow = Date.now() + 8 * 60 * 60 * 1000;
+    const scrapedMatchup = {
+      gameId: 'nfl_future_1',
+      league: 'NFL',
+      title: 'Eagles @ Cowboys',
+      type: 'MONEYLINE',
+      active: true,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: eightHoursFromNow,
+      homeTeam: { id: 'dal', name: 'Cowboys', score: 0 },
+      awayTeam: { id: 'phi', name: 'Eagles', score: 0 },
+      metadata: {
+        mlHome: -120, // Scraped new odds
+        mlAway: 100,
+      },
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'nfl_future_1',
+      ref: 'matchupRef_nfl_future_1',
+      data: () => ({
+        gameId: 'nfl_future_1',
+        league: 'NFL',
+        title: 'Eagles @ Cowboys',
+        type: 'MONEYLINE',
+        active: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        updatedAt: Date.now() - 30 * 60 * 1000, // Updated 30 mins ago (< 120 mins)
+        startTime: eightHoursFromNow,
+        homeTeam: { id: 'dal', name: 'Cowboys', score: 0 },
+        awayTeam: { id: 'phi', name: 'Eagles', score: 0 },
+        metadata: {
+          mlHome: -115,
+          mlAway: -105,
+        },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('NFL' as any, false);
+    expect(res.success).toBe(true);
+
+    // Verify batch.update was NOT called because the game is >6h away and was updated <120m ago
+    expect(mockBatch.update).not.toHaveBeenCalled();
+  });
+
+  it('allows odds updates for games scheduled > 6 hours away if last update was > 120 minutes ago', async () => {
+    const eightHoursFromNow = Date.now() + 8 * 60 * 60 * 1000;
+    const scrapedMatchup = {
+      gameId: 'nfl_future_2',
+      league: 'NFL',
+      title: 'Eagles @ Cowboys',
+      type: 'MONEYLINE',
+      active: true,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: 'Upcoming',
+      startTime: eightHoursFromNow,
+      homeTeam: { id: 'dal', name: 'Cowboys', score: 0 },
+      awayTeam: { id: 'phi', name: 'Eagles', score: 0 },
+      metadata: {
+        mlHome: -120,
+        mlAway: 100,
+      },
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: 'nfl_future_2',
+      ref: 'matchupRef_nfl_future_2',
+      data: () => ({
+        gameId: 'nfl_future_2',
+        league: 'NFL',
+        title: 'Eagles @ Cowboys',
+        type: 'MONEYLINE',
+        active: true,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: 'Upcoming',
+        updatedAt: Date.now() - 130 * 60 * 1000, // Updated 130 mins ago (> 120 mins)
+        startTime: eightHoursFromNow,
+        homeTeam: { id: 'dal', name: 'Cowboys', score: 0 },
+        awayTeam: { id: 'phi', name: 'Eagles', score: 0 },
+        metadata: {
+          mlHome: -115,
+          mlAway: -105,
+        },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('NFL' as any, false);
+    expect(res.success).toBe(true);
+
+    // Verify batch.update WAS called because 120 minutes elapsed
+    expect(mockBatch.update).toHaveBeenCalledWith('matchupRef_nfl_future_2', expect.objectContaining({
+      'metadata.mlHome': -120,
+      'metadata.mlAway': 100,
+    }));
   });
 });
 

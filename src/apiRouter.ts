@@ -5423,10 +5423,40 @@ apiRouter.get("/matchups/active", async (req, res) => {
 
     if (!activeMatchupsInFlight) {
       activeMatchupsInFlight = (async () => {
-        const snap = await adminDb.collection('matchups')
-          .where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED'])
-          .get();
-        const matchups = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const nowMs = Date.now();
+        const minStartTime = nowMs - 24 * 60 * 60 * 1000;
+        const maxStartTime = nowMs + 48 * 60 * 60 * 1000;
+
+        // Fetch live/postponed games and upcoming scheduled games in parallel
+        // Bounding scheduled games avoids scanning thousands of distant games
+        const [liveSnap, scheduledSnap] = await Promise.all([
+          adminDb.collection('matchups')
+            .where('status', 'in', ['STATUS_IN_PROGRESS', 'STATUS_POSTPONED', 'STATUS_DELAYED'])
+            .get()
+            .catch(() => ({ docs: [] } as any)),
+          adminDb.collection('matchups')
+            .where('status', '==', 'STATUS_SCHEDULED')
+            .where('startTime', '>=', minStartTime)
+            .where('startTime', '<=', maxStartTime)
+            .get()
+            .catch(async () => {
+              // Fallback with a limit if the composite index is still building or for legacy docs
+              return adminDb.collection('matchups')
+                .where('status', '==', 'STATUS_SCHEDULED')
+                .limit(200)
+                .get()
+                .catch(() => ({ docs: [] } as any));
+            })
+        ]);
+
+        const matchupsMap = new Map<string, any>();
+        [...liveSnap.docs, ...scheduledSnap.docs].forEach(doc => {
+          if (!matchupsMap.has(doc.id)) {
+            matchupsMap.set(doc.id, { id: doc.id, ...doc.data() });
+          }
+        });
+
+        const matchups = Array.from(matchupsMap.values());
         activeMatchupsCache = { data: matchups, time: Date.now() };
         return matchups;
       })().finally(() => {
@@ -5472,16 +5502,39 @@ apiRouter.get("/matchups/by-ids", async (req, res) => {
     if (uncachedIds.length > 0) {
       for (let i = 0; i < uncachedIds.length; i += 30) {
         const chunk = uncachedIds.slice(i, i + 30);
-        const snap = await adminDb.collection('matchups').where('gameId', 'in', chunk).get();
         const foundGameIds = new Set<string>();
 
-        snap.docs.forEach(doc => {
-          const data = { id: doc.id, ...doc.data() };
-          const gameId = (data as any).gameId || doc.id;
-          foundGameIds.add(gameId);
-          matchupsByIdCache.set(gameId, { data, time: now });
-          resultMap.set(gameId, data);
-        });
+        // OPTIMIZATION: Try primary key fetch via adminDb.getAll first (avoids secondary index scan)
+        if (typeof adminDb.getAll === 'function') {
+          try {
+            const docRefs = chunk.map(id => adminDb.collection('matchups').doc(id));
+            const docSnaps = await adminDb.getAll(...docRefs);
+            docSnaps.forEach(snap => {
+              if (snap.exists) {
+                const data = { id: snap.id, ...snap.data() };
+                const gameId = (data as any).gameId || snap.id;
+                foundGameIds.add(gameId);
+                matchupsByIdCache.set(gameId, { data, time: now });
+                resultMap.set(gameId, data);
+              }
+            });
+          } catch (getAllErr) {
+            console.warn('[apiRouter] adminDb.getAll failed, falling back to query:', getAllErr);
+          }
+        }
+
+        // For any remaining IDs not found by direct doc ID, fall back to where('gameId', 'in', ...)
+        const remainingChunk = chunk.filter(id => !foundGameIds.has(id));
+        if (remainingChunk.length > 0) {
+          const snap = await adminDb.collection('matchups').where('gameId', 'in', remainingChunk).get();
+          snap.docs.forEach(doc => {
+            const data = { id: doc.id, ...doc.data() };
+            const gameId = (data as any).gameId || doc.id;
+            foundGameIds.add(gameId);
+            matchupsByIdCache.set(gameId, { data, time: now });
+            resultMap.set(gameId, data);
+          });
+        }
 
         chunk.forEach(gameId => {
           if (!foundGameIds.has(gameId)) {

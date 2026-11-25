@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getCached, setCached, clearCached, getGlobalPendingPicksCached, getSponsorsCached } from './firestore-cache';
+import { getCached, setCached, clearCached, getGlobalPendingPicksCached, getSponsorsCached, getMatchupsByIdsCached } from './firestore-cache';
 
 // Mock firebase
 vi.mock('./firebase', () => ({
@@ -83,6 +83,25 @@ describe('firestore-cache Tests', () => {
 
     const result2 = await getSponsorsCached();
     expect(result2.length).toBe(1);
+    expect(mockGetDocs).toHaveBeenCalledTimes(1);
+  });
+
+  it('getMatchupsByIdsCached fetches uncached matchups and serves subsequent calls from cache', async () => {
+    const mockMatchups = [
+      { id: 'game_101', gameId: 'game_101', homeTeam: { name: 'Eagles' } },
+      { id: 'game_102', gameId: 'game_102', homeTeam: { name: 'Chiefs' } },
+    ];
+    mockGetDocs.mockResolvedValueOnce({
+      docs: mockMatchups.map(m => ({ id: m.id, data: () => m }))
+    });
+
+    const res1 = await getMatchupsByIdsCached(['game_101', 'game_102']);
+    expect(res1.length).toBe(2);
+    expect(mockGetDocs).toHaveBeenCalledTimes(1);
+
+    // Call again with same IDs -> should return from cache without additional Firestore call
+    const res2 = await getMatchupsByIdsCached(['game_101', 'game_102']);
+    expect(res2.length).toBe(2);
     expect(mockGetDocs).toHaveBeenCalledTimes(1);
   });
 });

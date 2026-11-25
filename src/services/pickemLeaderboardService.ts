@@ -138,12 +138,19 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     (typeof campaignData?.name === 'string' && campaignData.name.toLowerCase().includes('yes day'))
   );
 
+  // Convert aliases to unique chunks (max 30 per 'in' query)
+  const aliasArray = Array.from(aliases).filter(Boolean);
+  const aliasChunks: string[][] = [];
+  for (let i = 0; i < aliasArray.length; i += 30) {
+    aliasChunks.push(aliasArray.slice(i, i + 30));
+  }
+
   // Pre-grade completed matchups across all campaign aliases before calculating standings
   try {
     const allMatchupSnaps = await Promise.all(
-      aliases.map(cid =>
+      aliasChunks.map(chunk =>
         adminDb.collection('pickemMatchups')
-          .where('campaignId', '==', cid)
+          .where('campaignId', 'in', chunk)
           .get()
           .catch(() => ({ docs: [] } as any))
       )
@@ -174,10 +181,13 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     console.warn('[LeaderboardService] Error pre-grading completed matchups:', gradeErr);
   }
 
-  // 1. Gather all participants across all aliases
+  // 1. Gather all participants across all aliases in consolidated chunks
   const partSnaps = await Promise.all(
-    aliases.map(cid =>
-      adminDb.collection('pickemParticipants').where('campaignId', '==', cid).get().catch(() => ({ docs: [] } as any))
+    aliasChunks.map(chunk =>
+      adminDb.collection('pickemParticipants')
+        .where('campaignId', 'in', chunk)
+        .get()
+        .catch(() => ({ docs: [] } as any))
     )
   );
 
@@ -190,10 +200,13 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     });
   });
 
-  // 2. Gather all picks across all aliases
+  // 2. Gather all picks across all aliases in consolidated chunks
   const pickSnaps = await Promise.all(
-    aliases.map(cid =>
-      adminDb.collection('pickemPicks').where('campaignId', '==', cid).get().catch(() => ({ docs: [] } as any))
+    aliasChunks.map(chunk =>
+      adminDb.collection('pickemPicks')
+        .where('campaignId', 'in', chunk)
+        .get()
+        .catch(() => ({ docs: [] } as any))
     )
   );
 
@@ -212,10 +225,13 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     });
   });
 
-  // 3. Gather all matchups across all aliases
+  // 3. Gather all matchups across all aliases in consolidated chunks
   const matchupSnaps = await Promise.all(
-    aliases.map(cid =>
-      adminDb.collection('pickemMatchups').where('campaignId', '==', cid).get().catch(() => ({ docs: [] } as any))
+    aliasChunks.map(chunk =>
+      adminDb.collection('pickemMatchups')
+        .where('campaignId', 'in', chunk)
+        .get()
+        .catch(() => ({ docs: [] } as any))
     )
   );
   const matchupsMap = new Map<string, any>();
@@ -545,9 +561,14 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 
     const allWeekKeys = Object.keys(weeklyRecord).map(Number);
 
-    // Write individual weekly documents for every week: pickemLeaderboards/${targetId}_w${w}
-    // Each weekly doc is ~30 KB and completely immune to the 1MB limit
-    for (const targetId of validSlugs) {
+    // Write individual weekly documents for every week: pickemLeaderboards/${canonicalId}_w${w}
+    // Only write weekly documents for canonicalId (and direct campaign aliases like 'yes_day_2026') to avoid N*M doc write multiplication
+    const weeklyDocTargets = new Set<string>();
+    weeklyDocTargets.add(canonicalId);
+    if (validSlugs.has('yes_day_2026')) weeklyDocTargets.add('yes_day_2026');
+    if (validSlugs.has('charity')) weeklyDocTargets.add('charity');
+
+    for (const targetId of weeklyDocTargets) {
       await Promise.all(
         allWeekKeys.map(wNum =>
           adminDb.collection('pickemLeaderboards').doc(`${targetId}_w${wNum}`).set({

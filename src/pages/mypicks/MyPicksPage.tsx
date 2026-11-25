@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth-context';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../lib/firebase-error';
+import { getMatchupsByIdsCached } from '../../lib/firestore-cache';
 import { Link2, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -57,13 +58,7 @@ export default function MyPicksPage() {
     const fetchMatchupsForPicks = async () => {
         try {
             const uniqueMatchupIds = Array.from(new Set(picks.map(p => p.matchupId))).filter(Boolean);
-            const fetchedMatchups: any[] = [];
-            for (let i = 0; i < uniqueMatchupIds.length; i += 30) {
-                const chunk = uniqueMatchupIds.slice(i, i + 30);
-                const q = query(collection(db, 'matchups'), where('gameId', 'in', chunk));
-                const snap = await getDocs(q);
-                fetchedMatchups.push(...snap.docs.map(d => ({id: d.id, ...d.data()})));
-            }
+            const fetchedMatchups = await getMatchupsByIdsCached(uniqueMatchupIds);
             if (isMounted) setMatchups(fetchedMatchups);
         } catch (e) {
             console.error("Failed to fetch matchups for picks:", e);

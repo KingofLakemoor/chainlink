@@ -11,6 +11,7 @@ import { adminDb } from '../lib/firebase-admin.js';
 import { isBeforeThursdaySpreadLock } from '../utils/footballWeek.js';
 import { getMatchupStartTime, resolveOddsThresholds } from '../utils/matchupUtils.js';
 import { ScraperConfig } from '../types/odds.js';
+import { generateAndSavePickemLeaderboard } from './pickemLeaderboardService.js';
 
 export async function cancelQueuedPicksForPropDoc(adminDb: any, propDoc: any, batch?: any): Promise<number> {
     let localBatch = batch || adminDb.batch();
@@ -1434,6 +1435,7 @@ export async function syncLeagueSchedules(
 
           let pickemBatch = adminDb.batch();
           let pickemOpCount = 0;
+          const pickemCampaignsToRefresh = new Set<string>();
 
           for (let i = 0; i < uniqueGameIds.length; i += 15) {
           const rawChunk = uniqueGameIds.slice(i, i + 15);
@@ -1570,6 +1572,11 @@ export async function syncLeagueSchedules(
                 pickemBatch.update(doc.ref, updateData);
                 pickemOpCount++;
 
+                if (updateData.status === 'STATUS_IN_PROGRESS' || updateData.status === 'IN_PROGRESS') {
+                  if (pData.campaignId) pickemCampaignsToRefresh.add(pData.campaignId);
+                  if (pData.campaignName) pickemCampaignsToRefresh.add(pData.campaignName);
+                }
+
                 if (pickemOpCount >= 500) {
                   await pickemBatch.commit();
                   pickemBatch = adminDb.batch();
@@ -1645,6 +1652,16 @@ export async function syncLeagueSchedules(
 
         if (pickemMatchupsToGrade.length > 0) {
           await gradePickemMatchups(pickemMatchupsToGrade);
+        }
+
+        if (pickemCampaignsToRefresh.size > 0) {
+          for (const cid of pickemCampaignsToRefresh) {
+            try {
+              await generateAndSavePickemLeaderboard(cid);
+            } catch (err) {
+              console.warn(`[Sync] Failed to update leaderboard on in-progress transition for ${cid}:`, err);
+            }
+          }
         }
       }
     }

@@ -347,6 +347,21 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
       m = matchupsMap.get(rawId);
     }
 
+    const teamId = p.pick?.teamId || p.pick?.id || p.pick?.name || (typeof p.pick === 'string' ? p.pick : p.pick?.team) || p.teamId || '';
+
+    // Fallback: If not matched by ID, try matching matchup in the same week by teamId/name
+    if (!m) {
+      for (const [key, cand] of matchupsMap.entries()) {
+        const cWeek = cand.week !== undefined && cand.week !== null ? Number(cand.week) : null;
+        if (pWeek !== null && cWeek !== null && cWeek !== pWeek) continue;
+        if (cand.type === 'OVER_UNDER') continue;
+        if (isTeamMatch(teamId, cand.homeTeam) || isTeamMatch(teamId, cand.awayTeam)) {
+          m = cand;
+          break;
+        }
+      }
+    }
+
     const week = p.week !== undefined && p.week !== null
       ? Number(p.week)
       : (m?.week !== undefined && m?.week !== null ? Number(m.week) : 1);
@@ -371,7 +386,6 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 
     let teamImage = '';
     let teamName = '';
-    const teamId = p.pick?.teamId || p.pick?.id || p.pick?.name || (typeof p.pick === 'string' ? p.pick : p.pick?.team) || p.teamId || '';
     const isLocked = m ? isMatchupLocked(m) : false;
 
     if (m) {
@@ -422,7 +436,9 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
       isRevealed: isLocked,
       week,
       status: p.status || 'PENDING',
-      pointsEarned
+      pointsEarned,
+      startTime: m?.startTime || p.startTime || 0,
+      gameStatus: m?.status || p.gameStatus || undefined
     };
     if (teamImage) pickInfo.teamImage = teamImage;
     if (p.confidence !== undefined && p.confidence !== null) pickInfo.confidence = p.confidence;
@@ -617,6 +633,52 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
 }
 
 /**
+ * Ensures picks whose game start time has passed or whose game is in-progress/final are marked isRevealed: true
+ */
+function dynamicallyRevealStartedPicks(doc: CampaignLeaderboardDoc): CampaignLeaderboardDoc {
+  if (!doc) return doc;
+  const now = Date.now();
+
+  const updatePicksList = (picks?: any[]) => {
+    if (!Array.isArray(picks)) return;
+    for (const p of picks) {
+      if (p.isRevealed === true) continue;
+      if (p.status && p.status !== 'PENDING') {
+        p.isRevealed = true;
+        continue;
+      }
+      if (p.gameStatus && p.gameStatus !== 'STATUS_SCHEDULED') {
+        p.isRevealed = true;
+        continue;
+      }
+      if (p.startTime && typeof p.startTime === 'number' && p.startTime > 0 && now >= p.startTime) {
+        p.isRevealed = true;
+        continue;
+      }
+    }
+  };
+
+  if (Array.isArray(doc.season)) {
+    for (const participant of doc.season) {
+      updatePicksList(participant.picks);
+    }
+  }
+
+  if (doc.weeks && typeof doc.weeks === 'object') {
+    for (const weekKey of Object.keys(doc.weeks)) {
+      const weekParticipants = doc.weeks[Number(weekKey)];
+      if (Array.isArray(weekParticipants)) {
+        for (const participant of weekParticipants) {
+          updatePicksList(participant.picks);
+        }
+      }
+    }
+  }
+
+  return doc;
+}
+
+/**
  * Retrieves the static leaderboard document with fast memory cache and Firestore fallback
  */
 export async function getStaticPickemLeaderboard(campaignId: string, forceRefresh = false): Promise<CampaignLeaderboardDoc> {
@@ -627,7 +689,7 @@ export async function getStaticPickemLeaderboard(campaignId: string, forceRefres
   if (!forceRefresh) {
     const cached = memoryCache.get(canonicalId) || memoryCache.get(campaignId);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.doc;
+      return dynamicallyRevealStartedPicks(cached.doc);
     }
   }
 
@@ -639,7 +701,7 @@ export async function getStaticPickemLeaderboard(campaignId: string, forceRefres
         const data = docSnap.data() as CampaignLeaderboardDoc;
         memoryCache.set(canonicalId, { doc: data, timestamp: Date.now() });
         memoryCache.set(campaignId, { doc: data, timestamp: Date.now() });
-        return data;
+        return dynamicallyRevealStartedPicks(data);
       }
     } catch (e) {
       console.warn(`[LeaderboardService] Error reading static leaderboard for ${canonicalId}:`, e);
@@ -647,5 +709,6 @@ export async function getStaticPickemLeaderboard(campaignId: string, forceRefres
   }
 
   // Generate fresh, save, and return
-  return await generateAndSavePickemLeaderboard(canonicalId);
+  const fresh = await generateAndSavePickemLeaderboard(canonicalId);
+  return dynamicallyRevealStartedPicks(fresh);
 }

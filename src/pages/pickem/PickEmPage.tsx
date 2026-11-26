@@ -1918,6 +1918,10 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                               const mRawId = mIdStr.includes('_') ? mIdStr.split('_').pop() : mIdStr;
                               if (pRawId && mRawId && pRawId === mRawId) return true;
                               if (m.gameId !== undefined && m.gameId !== null && pRawId === String(m.gameId)) return true;
+                              // Fallback match by team in matchup
+                              if (m.type !== 'OVER_UNDER' && (isTeamMatch(teamId, m.homeTeam) || isTeamMatch(teamId, m.awayTeam))) {
+                                return true;
+                              }
                               return false;
                             };
 
@@ -1927,9 +1931,12 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             }
 
                             const isMyPick = participant.uid === user?.uid;
+                            const nowMs = Date.now();
+                            const pickStartTime = typeof pick.startTime === 'number' && pick.startTime > 0 ? pick.startTime : 0;
+                            const isTimeStarted = pickStartTime > 0 && nowMs >= pickStartTime;
                             const isGameStarted = matchup
                               ? isMatchupLocked(matchup)
-                              : (pick.status && pick.status !== 'PENDING');
+                              : (isTimeStarted || (pick.gameStatus && pick.gameStatus !== 'STATUS_SCHEDULED') || (pick.status && pick.status !== 'PENDING'));
                             const isRevealed = pick.isRevealed === true || isGameStarted;
 
                             if (!isRevealed && !isMyPick) {

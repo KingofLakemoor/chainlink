@@ -1,6 +1,7 @@
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import React, { useState, useEffect } from 'react';
 import { Grid, Clock, Trophy, Lock, X } from 'lucide-react';
+import { GiHorseHead } from 'react-icons/gi';
 import { collection, query, where, getDocs, orderBy, limit, doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { MatchupCard } from '../../components/ui/MatchupCard';
@@ -49,11 +50,13 @@ interface Link4Pick {
 export default function Link4Page() {
   const { user, profile } = useAuth();
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const [segmentName, setSegmentName] = useState<string>('');
   const [isLoadingSegment, setIsLoadingSegment] = useState(true);
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
   const [allowedSports, setAllowedSports] = useState<string[]>([]);
   const [theme, setTheme] = useState<Link4SegmentTheme>({});
+  const [legsCount, setLegsCount] = useState<number>(4);
   const [picks, setPicks] = useState<(Link4Pick | null)[]>([null, null, null, null]);
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [segmentCost, setSegmentCost] = useState(10);
@@ -113,6 +116,10 @@ export default function Link4Page() {
           }
 
           setActiveSegmentId(activeDoc.id);
+          if (activeSegment.name) setSegmentName(activeSegment.name);
+          const segLegs = activeSegment.legsCount && activeSegment.legsCount >= 3 ? activeSegment.legsCount : 4;
+          setLegsCount(segLegs);
+          setPicks(new Array(segLegs).fill(null));
           if (activeSegment.startTime) setStartTime(activeSegment.startTime);
           if (activeSegment.endTime) setEndTime(activeSegment.endTime);
           if (activeSegment.allowedSports) setAllowedSports(activeSegment.allowedSports);
@@ -209,13 +216,13 @@ export default function Link4Page() {
                setHasLoss(true);
              }
 
-             // Pad picks up to 4
+             // Pad picks up to legsCount
              const paddedPicks = [...userPicks];
-             while (paddedPicks.length < 4) paddedPicks.push(null);
+             while (paddedPicks.length < legsCount) paddedPicks.push(null);
 
              setPicks(paddedPicks as (Link4Pick | null)[]);
              setSavedPicksCount(userPicks.length);
-             if (userPicks.length >= 4) {
+             if (userPicks.length >= legsCount) {
                 setHasSubmitted(true);
              }
           }
@@ -447,7 +454,7 @@ export default function Link4Page() {
     if (hasSubmitted || hasLoss) return;
     // Only clear the unsaved draft pick, keep saved ones
     const newPicks = [...picks];
-    for(let i = savedPicksCount; i < 4; i++) {
+    for(let i = savedPicksCount; i < legsCount; i++) {
         newPicks[i] = null;
     }
     setPicks(newPicks);
@@ -509,7 +516,7 @@ export default function Link4Page() {
       }
 
       setSavedPicksCount(picks.filter(p => p !== null).length);
-      if (picks.filter(p => p !== null).length >= 4) {
+      if (picks.filter(p => p !== null).length >= legsCount) {
          setHasSubmitted(true);
       }
     } catch (error: any) {
@@ -580,20 +587,28 @@ export default function Link4Page() {
     );
   }
 
+  const isHorseSegment = allowedSports.includes('HORSE_RACING') || allowedSports.includes('HORSE') || segmentName.toLowerCase().includes('turf');
+  const gameTitle = isHorseSegment ? `Turf ${legsCount}` : (legsCount === 4 ? 'Link4' : `Link${legsCount}`);
+  const gameDescription = isHorseSegment
+    ? `Pick the winner across ${legsCount} featured races! Turf ${legsCount} is an open racing challenge. Submit your contenders race by race. If a horse scratches, your leg pushes! Entry: ${segmentCost} links.`
+    : `Connect ${legsCount} to win! ${gameTitle} is an open parlay where you select ${legsCount} picks over time to win a share of the prize pot. No games from the same start time or slate are allowed. Submit your picks one by one as games become available! Entry: ${segmentCost} links.`;
+
   return (
     <div className="flex-1 p-6 md:p-8 w-full pt-20 md:pt-8 overflow-hidden">
       <div className="mb-8 max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-display font-black text-white mb-2 uppercase tracking-tight flex items-center gap-3">
             {theme.logoUrl ? (
-              <FirebaseImage src={theme.logoUrl} alt="Link4 Logo" className="w-10 h-10 object-contain" loading="lazy" />
+              <FirebaseImage src={theme.logoUrl} alt={`${gameTitle} Logo`} className="w-10 h-10 object-contain" loading="lazy" />
+            ) : isHorseSegment ? (
+              <GiHorseHead className="w-8 h-8 text-amber-400" />
             ) : (
               <Grid className="w-8 h-8" style={{ color: theme.primaryColor || '#22c55e' }} />
             )}
-            Link4
+            {gameTitle}
           </h1>
           <p className="text-zinc-400 text-lg">
-            Connect four to win! Link4 is an open parlay where you select 4 picks over time to win a share of the prize pot. No games from the same start time or slate are allowed. Submit your picks one by one as games become available! Entry: {segmentCost} links.
+            {gameDescription}
             {theme.sponsorName && (
               <span className="block mt-1 text-sm">
                 Presented by{' '}
@@ -677,7 +692,7 @@ export default function Link4Page() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-1 ${legsCount === 6 ? 'md:grid-cols-6' : legsCount === 5 ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4`}>
             {picks.map((pick, index) => {
               const isActive = index === nextPickIndex;
               const isLocked = index > nextPickIndex && nextPickIndex !== -1;

@@ -14,6 +14,8 @@ import { startAutoSyncJob } from './src/services/autoSync.js';
 import { startPickemRemindersJob } from './src/services/pickemReminders.js';
 import { startPickemEnforcerJob } from './src/services/pickemEnforcer.js';
 import { startGridironIngestionJob } from './src/services/gridironIngestion.js';
+import { startHorseRacingScheduleJobs } from './src/services/apifyHorseRacingService.js';
+import { adminDb } from './src/lib/firebase-admin.js';
 
 async function startServer() {
   const app = express();
@@ -242,6 +244,7 @@ async function startServer() {
     try { startPickemRemindersJob(); } catch (e) { console.error('Error starting pickem reminders job:', e); }
     try { startPickemEnforcerJob(); } catch (e) { console.error('Error starting pickem enforcer job:', e); }
     try { startGridironIngestionJob(); } catch (e) { console.error('Error starting gridiron ingestion job:', e); }
+    try { startHorseRacingScheduleJobs(adminDb); } catch (e) { console.error('Error starting horse racing schedule job:', e); }
   });
 
   const SECONDARY_PORT = PORT === 8080 ? 3000 : (PORT === 3000 ? 8080 : null);

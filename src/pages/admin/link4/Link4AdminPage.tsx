@@ -23,9 +23,13 @@ interface Link4Segment {
   updatedAt: number;
   payoutComplete?: boolean;
   cost: number;
+  legsCount?: number; // 4 for standard Link4, 5 for Pick 5, 6 for Pick 6
 }
 
-const SPORTS = SUPPORTED_LEAGUES.map(league => ({ id: league, label: league }));
+const SPORTS = [
+  ...SUPPORTED_LEAGUES.map(league => ({ id: league, label: league })),
+  { id: 'HORSE_RACING', label: 'HORSE_RACING (Turf / Equibase)' }
+];
 
 export default function Link4AdminPage() {
   const [segments, setSegments] = useState<Link4Segment[]>([]);
@@ -41,6 +45,7 @@ export default function Link4AdminPage() {
   const [endTime, setEndTime] = useState<string>('');
   const [allowedSports, setAllowedSports] = useState<string[]>([]);
   const [cost, setCost] = useState<number>(10);
+  const [legsCount, setLegsCount] = useState<number>(4);
 
   // Theme State
   const [primaryColor, setPrimaryColor] = useState('#22c55e');
@@ -83,6 +88,7 @@ export default function Link4AdminPage() {
     setEndTime('');
     setAllowedSports([]);
     setCost(10);
+    setLegsCount(4);
     setPrimaryColor('#22c55e');
     setLogoUrl('');
     setSponsorName('');
@@ -110,6 +116,7 @@ export default function Link4AdminPage() {
 
     setAllowedSports(segment.allowedSports || []);
     setCost(segment.cost !== undefined ? segment.cost : 10);
+    setLegsCount(segment.legsCount || 4);
 
     if (segment.theme) {
       setPrimaryColor(segment.theme.primaryColor || '#22c55e');
@@ -159,6 +166,7 @@ export default function Link4AdminPage() {
         endTime: endTimeUTC,
         allowedSports,
         cost,
+        legsCount,
         theme: {
           primaryColor,
           logoUrl,
@@ -351,6 +359,21 @@ export default function Link4AdminPage() {
                   onChange={(e) => setCost(parseInt(e.target.value) || 0)}
                   className="w-full bg-[#27272a] border border-zinc-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-1 flex items-center gap-1">
+                  <LinkIcon className="w-4 h-4" /> Number of Legs
+                </label>
+                <select
+                  value={legsCount}
+                  onChange={(e) => setLegsCount(parseInt(e.target.value) || 4)}
+                  className="w-full bg-[#27272a] border border-zinc-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500"
+                >
+                  <option value={4}>4 Legs (Standard Link4)</option>
+                  <option value={5}>5 Legs (Turf Pick 5)</option>
+                  <option value={6}>6 Legs (Turf Pick 6)</option>
+                </select>
               </div>
 
               <div>

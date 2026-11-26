@@ -165,6 +165,95 @@ describe('gradeLink4Matchups', () => {
     expect(updatedPicks.picks[0].status).toBe('LOSS');
     expect(updatedPicks.picks[1].status).toBe('CANCELLED');
   });
+
+  it('correctly grades horse racing pick as PUSH when horse is scratched', async () => {
+    mockPicksDocs[0] = {
+      id: 'pick_doc_horse_scratch',
+      data: () => ({
+        userId: 'user1',
+        segmentId: 'seg1',
+        hasLoss: false,
+        picks: [
+          {
+            id: 'pick-race1',
+            name: 'Speedy Runner',
+            pickId: 'program_3',
+            sport: 'HORSE_RACING',
+            status: 'PENDING',
+            score: 0,
+          },
+        ],
+      }),
+    };
+
+    const finalMatchups = [
+      {
+        gameId: 'race1',
+        league: 'HORSE_RACING',
+        status: 'STATUS_FINAL',
+        type: 'MONEYLINE',
+        winnerId: 'program_1',
+        metadata: {
+          runners: [
+            { programNumber: '1', horseName: 'Fast Horse', status: 'ACTIVE' },
+            { programNumber: '3', horseName: 'Speedy Runner', status: 'SCRATCHED' },
+          ],
+        },
+      },
+    ];
+
+    await gradeLink4Matchups(finalMatchups);
+
+    const updatedPicks = mockPicksDocs[0].updatedData;
+    expect(updatedPicks).toBeDefined();
+    expect(updatedPicks.hasLoss).toBe(false);
+    expect(updatedPicks.picks[0].status).toBe('PUSH');
+  });
+
+  it('correctly grades horse racing pick as WIN when horse wins via winnerId', async () => {
+    mockPicksDocs[0] = {
+      id: 'pick_doc_horse_win',
+      data: () => ({
+        userId: 'user1',
+        segmentId: 'seg1',
+        hasLoss: false,
+        picks: [
+          {
+            id: 'pick-race1',
+            name: 'Fast Horse',
+            pickId: 'program_1',
+            sport: 'HORSE_RACING',
+            status: 'PENDING',
+            score: 0,
+          },
+        ],
+      }),
+    };
+
+    const finalMatchups = [
+      {
+        gameId: 'race1',
+        league: 'HORSE_RACING',
+        status: 'STATUS_FINAL',
+        type: 'MONEYLINE',
+        winnerId: 'program_1',
+        homeTeam: { id: 'program_1', name: 'Fast Horse' },
+        metadata: {
+          runners: [
+            { programNumber: '1', horseName: 'Fast Horse', status: 'ACTIVE' },
+            { programNumber: '2', horseName: 'Other Horse', status: 'ACTIVE' },
+          ],
+        },
+      },
+    ];
+
+    await gradeLink4Matchups(finalMatchups);
+
+    const updatedPicks = mockPicksDocs[0].updatedData;
+    expect(updatedPicks).toBeDefined();
+    expect(updatedPicks.hasLoss).toBe(false);
+    expect(updatedPicks.picks[0].status).toBe('WIN');
+  });
 });
 
 describe('aggregateAndPurgeLink4Segment and purgeCompletedLink4Segments', () => {

@@ -19,6 +19,7 @@ import {
 import {
   MdOutlineSportsSoccer, MdOutlineSportsBasketball, MdOutlineSportsHockey, MdOutlineSportsBaseball, MdOutlineSportsTennis, MdOutlineSportsFootball
 } from 'react-icons/md';
+import { GiHorseHead } from 'react-icons/gi';
 import { FaDiscord } from 'react-icons/fa';
 import { Download } from 'lucide-react';
 
@@ -34,6 +35,7 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
 
   const [hasActivePickEm, setHasActivePickEm] = useState(false);
   const [hasActiveLink4, setHasActiveLink4] = useState(false);
+  const [link4NavMeta, setLink4NavMeta] = useState<{ label: string; isHorse: boolean }>({ label: 'Link4', isHorse: false });
   const [hasActiveBrackets, setHasActiveBrackets] = useState(false);
 
   useEffect(() => {
@@ -63,10 +65,11 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
   useEffect(() => {
     if (!user) return;
     
-    const cacheKeyLink4 = 'sidebar_active_link4';
-    const cachedLink4 = getCached<boolean>(cacheKeyLink4, 10 * 60 * 1000);
-    if (cachedLink4 !== null) {
-       setHasActiveLink4(cachedLink4);
+    const cacheKeyLink4 = 'sidebar_active_link4_meta';
+    const cachedMeta = getCached<{ active: boolean; label: string; isHorse: boolean }>(cacheKeyLink4, 10 * 60 * 1000);
+    if (cachedMeta !== null) {
+       setHasActiveLink4(cachedMeta.active);
+       setLink4NavMeta({ label: cachedMeta.label, isHorse: cachedMeta.isHorse });
        return;
     }
 
@@ -77,14 +80,27 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
     // Use getDocs instead of a global websocket listener to save resources
     getDocs(q).then((snap) => {
         let active = false;
+        let segLabel = 'Link4';
+        let isHorse = false;
+
         snap.forEach(doc => {
             const seg = doc.data();
             if (seg.startTime && new Date(seg.startTime) <= new Date()) {
                 active = true;
+                const allowed = Array.isArray(seg.allowedSports) ? seg.allowedSports : [];
+                const legs = seg.legsCount || 4;
+                const hasHorse = allowed.includes('HORSE_RACING') || allowed.includes('HORSE') || (seg.name || '').toLowerCase().includes('turf');
+                if (hasHorse) {
+                  isHorse = true;
+                  segLabel = `Turf ${legs}`;
+                } else if (legs !== 4) {
+                  segLabel = `Link${legs}`;
+                }
             }
         });
         setHasActiveLink4(active);
-        setCached(cacheKeyLink4, active);
+        setLink4NavMeta({ label: segLabel, isHorse });
+        setCached(cacheKeyLink4, { active, label: segLabel, isHorse });
     }).catch(() => {});
   }, [user]);
 
@@ -164,7 +180,15 @@ const Sidebar = React.memo(function Sidebar({ open, setOpen }: { open: boolean, 
         <NavItem icon={MdOutlineSportsFootball} label="Gridiron 3x3" path="/gridiron-3x3" />
         <NavItem icon={Trophy} label="Leaderboards" path="/leaderboards" />
         <NavItem icon={ShoppingCart} label="Link Shop" path="/shop" />
-        {hasActiveLink4 && <NavItem icon={Grid} label="Link4" path="/link4" showBadge={false} isShimmer={true} />}
+        {hasActiveLink4 && (
+          <NavItem
+            icon={link4NavMeta.isHorse ? GiHorseHead : Grid}
+            label={link4NavMeta.label}
+            path="/link4"
+            showBadge={false}
+            isShimmer={true}
+          />
+        )}
         {hasActiveBrackets && <NavItem icon={GitMerge} label="Brackets" path="/brackets" showBadge={false} isShimmer={true} />}
         <NavItem icon={HelpCircle} label="Help & Rules" path="/help" />
 
@@ -522,12 +546,16 @@ function MainLayout({ children }: { children: React.ReactNode }) {
     return <Navigate to="/onboarding" replace />;
   }
 
+  const link4Cache = getCached<{ active: boolean; label: string; isHorse: boolean }>('sidebar_active_link4_meta', 10 * 60 * 1000);
+  const link4Title = link4Cache?.label || 'Link4';
+
   const pageTitle = {
     '/dashboard': 'Dashboard',
     '/': 'Play',
     '/profile': 'My Profile',
     '/pickem': "Pick'em",
     '/gridiron-3x3': 'Gridiron 3x3',
+    '/link4': link4Title,
     '/leaderboards': 'Leaderboards',
   }[location.pathname] || 'ChainLink';
 

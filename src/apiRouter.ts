@@ -2798,9 +2798,10 @@ apiRouter.post("/link4/submit", async (req, res) => {
            }
         }
 
+        const maxLegs = segmentData.legsCount || 4;
         const sanitizedPicks = picks.filter((p: any) => p !== null);
-        if (sanitizedPicks.length > 4) {
-            throw new Error("Invalid submission. Cannot exceed 4 picks.");
+        if (sanitizedPicks.length > maxLegs) {
+            throw new Error(`Invalid submission. Cannot exceed ${maxLegs} picks.`);
         }
 
         let lastStartTime = 0;
@@ -2833,12 +2834,13 @@ apiRouter.post("/link4/submit", async (req, res) => {
 
       } else {
         // First pick, deduct fee
+        const maxLegs = segmentData.legsCount || 4;
         const sanitizedPicks = picks.filter((p: any) => p !== null);
         if (sanitizedPicks.length === 0) {
             throw new Error("Must provide at least one pick to enter.");
         }
-        if (sanitizedPicks.length > 4) {
-            throw new Error("Invalid submission. Cannot exceed 4 picks.");
+        if (sanitizedPicks.length > maxLegs) {
+            throw new Error(`Invalid submission. Cannot exceed ${maxLegs} picks.`);
         }
 
         let lastStartTime = 0;

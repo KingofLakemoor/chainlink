@@ -1,4 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('./grader.js', () => ({
+  gradeMatchups: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('./scheduleProcessor.js', () => ({
+  syncMatchupsToPickemAndGrade: vi.fn().mockResolvedValue(undefined)
+}));
+
 import {
   getApifyToken,
   parseRacePostTime,
@@ -376,6 +385,46 @@ describe('Apify Equibase US Horse Racing Scraper Service', () => {
       expect(mainMatchup.title).toBe('Keeneland R5: Thorpedo Anna vs Leslie\'s Rose');
       expect(mainMatchup.homeTeam.name).toBe('Thorpedo Anna (8/5)');
       expect(mainMatchup.awayTeam.name).toBe('Leslie\'s Rose (3/1)');
+    });
+
+    it('sets winnerId to homeTeam/awayTeam id and triggers gradeMatchups on final race cards', async () => {
+      const cards = parseEquibaseItems([
+        {
+          trackName: 'Saratoga',
+          trackCode: 'SAR',
+          raceNumber: 3,
+          date: '2026-08-20',
+          winningHorse: 'Fierceness',
+          status: 'FINAL',
+          runners: [
+            { programNumber: '4', horseName: 'Fierceness', finishPosition: 1 },
+            { programNumber: '6', horseName: 'Sierra Leone', finishPosition: 2 }
+          ]
+        }
+      ]);
+
+      const storedMap = new Map<string, any>();
+      const mockDb = {
+        collection: () => ({
+          doc: (id: string) => ({
+            get: async () => ({ exists: false }),
+            set: async (data: any) => { storedMap.set(id, data); }
+          }),
+          get: async () => ({ empty: true, docs: [] })
+        }),
+        batch: () => ({
+          update: () => {},
+          commit: async () => {}
+        })
+      };
+
+      const res = await syncEquibaseRacesToMatchups(mockDb, cards);
+      expect(res.syncedCount).toBeGreaterThan(0);
+
+      const mainMatchup = storedMap.get('equibase_SAR_20260820_R3');
+      expect(mainMatchup).toBeDefined();
+      expect(mainMatchup.winnerId).toBe('program_4');
+      expect(mainMatchup.homeTeam.id).toBe('program_4');
     });
   });
 

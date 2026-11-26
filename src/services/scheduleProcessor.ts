@@ -235,6 +235,18 @@ export async function syncLeagueSchedules(
   preloadedPickemMatchupIds?: Set<string>,
   preloadedLeagueSettings?: { active?: boolean }
 ): Promise<LeagueResponse> {
+  // Horse racing is powered by Apify / Equibase, not ESPN. Never pass horse racing to ESPN scrapers.
+  if (['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(league).toUpperCase())) {
+    return {
+      scoreMatchupsCreated: 0,
+      existingMatchups: 0,
+      matchupsUpdated: 0,
+      gamesOnSchedule: 0,
+      error: '',
+      data: []
+    };
+  }
+
   let scraperConfig: ScraperConfig | undefined = undefined;
   if (adminDb) {
     const now = Date.now();
@@ -1904,3 +1916,275 @@ async function processActivePlayerProps(adminDb: any, matchupsToGrade: any[], ma
         console.error('Error in processActivePlayerProps', e);
     }
 }
+
+/**
+ * Synchronizes matchup updates into pickemMatchups and invokes gradePickemMatchups for any final games.
+ * Exported so other sports ingestion providers (such as Apify Equibase horse racing) can seamlessly sync to Pick'Em.
+ */
+export async function syncMatchupsToPickemAndGrade(
+  adminDb: any,
+  matchups: any[],
+  preloadedPickemMatchupIds?: Set<string>
+): Promise<void> {
+  if (!adminDb || !matchups || matchups.length === 0) return;
+
+  let pickemMatchupIds = preloadedPickemMatchupIds;
+  if (!pickemMatchupIds) {
+    const nowMs = Date.now();
+    if (cachedInternalPickemMatchupIds && (nowMs - cachedInternalPickemMatchupIds.timestamp) < PICKEM_MATCHUP_IDS_TTL_MS) {
+      pickemMatchupIds = cachedInternalPickemMatchupIds.ids;
+    } else {
+      pickemMatchupIds = new Set<string>();
+      try {
+        const pickemMatchupsSnap = await adminDb.collection('pickemMatchups').where('status', 'in', ['STATUS_SCHEDULED', 'STATUS_IN_PROGRESS', 'STATUS_POSTPONED']).get();
+        for (const doc of pickemMatchupsSnap.docs) {
+          const gameId = doc.data().gameId;
+          if (gameId) pickemMatchupIds.add(String(gameId));
+        }
+        cachedInternalPickemMatchupIds = { ids: pickemMatchupIds, timestamp: nowMs };
+      } catch (err) {
+        console.error("Error fetching pickem match IDs", err);
+      }
+    }
+  }
+
+  const uniqueGameIds = Array.from(new Set(matchups.map(m => m.gameId)))
+    .filter(id => id && pickemMatchupIds?.has(String(id)));
+  if (uniqueGameIds.length === 0) return;
+
+  const matchupMap = new Map(matchups.map(m => [m.gameId, m]));
+  const pickemMatchupsToGrade: any[] = [];
+  let campaignMap = new Map<string, any>();
+  const nowMs = Date.now();
+
+  if (cachedPickemCampaigns && (nowMs - cachedPickemCampaigns.timestamp) < PICKEM_CAMPAIGNS_TTL_MS) {
+    campaignMap = cachedPickemCampaigns.map;
+  } else {
+    try {
+      const campSnaps = await adminDb.collection('pickemCampaigns').get();
+      campSnaps.docs.forEach((cDoc: any) => {
+        campaignMap.set(cDoc.id, { id: cDoc.id, ...cDoc.data() });
+      });
+      cachedPickemCampaigns = { map: campaignMap, timestamp: nowMs };
+    } catch (campErr) {
+      console.warn('[Sync] Failed to load pickemCampaigns for pickem sync:', campErr);
+      if (cachedPickemCampaigns) {
+        campaignMap = cachedPickemCampaigns.map;
+      }
+    }
+  }
+
+  let pickemBatch = adminDb.batch();
+  let pickemOpCount = 0;
+
+  for (let i = 0; i < uniqueGameIds.length; i += 15) {
+    const rawChunk = uniqueGameIds.slice(i, i + 15);
+    const chunk = Array.from(new Set([
+      ...rawChunk.map(id => String(id)),
+      ...rawChunk.map(id => Number(id)).filter(n => !isNaN(n))
+    ])).slice(0, 30);
+
+    try {
+      const pickemSnaps = await adminDb.collection('pickemMatchups').where('gameId', 'in', chunk).get();
+      for (const doc of pickemSnaps.docs) {
+        const pData = doc.data();
+        const matchup = matchupMap.get(pData.gameId) || matchupMap.get(String(pData.gameId)) || matchupMap.get(Number(pData.gameId));
+        if (!matchup) continue;
+
+        const camp = pData.campaignId ? campaignMap.get(pData.campaignId) : null;
+        const campName = pData.campaignName || camp?.name || '';
+        const docIdStr = String(doc.id || '').toLowerCase();
+        const pDataCampIdStr = String(pData.campaignId || '').toLowerCase();
+        const pDataMetadataCampIdStr = String(pData.metadata?.campaignId || '').toLowerCase();
+        const campNameStr = typeof campName === 'string' ? campName.toLowerCase() : '';
+
+        const isYesDay = !!(
+          pData.isCharity ||
+          pData.metadata?.isCharity ||
+          camp?.isCharity ||
+          pData.campaignId === 'yes_day_2026' ||
+          pData.campaignId === 'charity' ||
+          pData.campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
+          pDataCampIdStr === 'yes_day_2026' ||
+          pDataCampIdStr === 'charity' ||
+          pDataCampIdStr === 'auqhdht3vkwfkpgsavzf' ||
+          pDataMetadataCampIdStr === 'yes_day_2026' ||
+          pDataMetadataCampIdStr === 'charity' ||
+          pDataMetadataCampIdStr === 'auqhdht3vkwfkpgsavzf' ||
+          campName === 'YES Day Walk for Autism 2026' ||
+          campNameStr.includes('yes day') ||
+          campNameStr.includes('walk for autism') ||
+          docIdStr.startsWith('yes_day') ||
+          docIdStr.startsWith('charity') ||
+          docIdStr.includes('auqhdht3vkwfkpgsavzf')
+        );
+        const isManualOverride = !isYesDay && (pData.manualTypeOverride === true || pData.isManualOverride === true);
+        const campaignForcesStandard = camp?.defaultMatchType === 'STANDARD';
+
+        const updateData: any = {
+          status: matchup.status,
+          statusDesc: matchup.statusDesc,
+          'homeTeam.score': matchup.homeTeam?.score ?? 0,
+          'awayTeam.score': matchup.awayTeam?.score ?? 0,
+          updatedAt: Date.now()
+        };
+
+        let needsUpdate = false;
+        if (matchup.league && pData.league !== matchup.league) {
+          updateData.league = matchup.league;
+          needsUpdate = true;
+        }
+        if (pData.status !== updateData.status ||
+            pData.statusDesc !== updateData.statusDesc ||
+            pData.homeTeam?.score !== updateData['homeTeam.score'] ||
+            pData.awayTeam?.score !== updateData['awayTeam.score']) {
+            needsUpdate = true;
+        }
+
+        const baseTitle = matchup.title || pData.title || '';
+
+        if (isYesDay) {
+          if (pData.type !== 'STANDARD') {
+            updateData.type = 'STANDARD';
+            needsUpdate = true;
+          }
+          if (pData.manualTypeOverride) {
+            updateData.manualTypeOverride = false;
+            needsUpdate = true;
+          }
+          const expectedTitle = baseTitle.replace(/ - ATS$/, '');
+          if (pData.title !== expectedTitle) {
+            updateData.title = expectedTitle;
+            needsUpdate = true;
+          }
+        } else if (isManualOverride) {
+          const currentType = pData.type || 'STANDARD';
+          const expectedTitle = currentType === 'SPREAD'
+            ? (baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`)
+            : baseTitle.replace(/ - ATS$/, '');
+
+          if (pData.title !== expectedTitle) {
+            updateData.title = expectedTitle;
+            needsUpdate = true;
+          }
+
+          if (currentType === 'SPREAD') {
+            const gameTime = matchup.startTime || pData.startTime;
+            const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeThursdaySpreadLock(gameTime);
+            if (canUpdateSpread && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
+              if (pData.metadata?.spread !== matchup.metadata.spread) {
+                updateData['metadata.spread'] = matchup.metadata.spread;
+                needsUpdate = true;
+              }
+            }
+          }
+        } else {
+          if (pData.type === 'STANDARD' && matchup.type === 'SPREAD' && !campaignForcesStandard) {
+            updateData.type = 'SPREAD';
+            updateData['metadata.spread'] = matchup.metadata?.spread || null;
+            updateData.title = baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`;
+            needsUpdate = true;
+          } else if (pData.type === 'SPREAD') {
+            const gameTime = matchup.startTime || pData.startTime;
+            const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeThursdaySpreadLock(gameTime);
+            if (canUpdateSpread && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
+              if (pData.metadata?.spread !== matchup.metadata.spread) {
+                updateData['metadata.spread'] = matchup.metadata.spread;
+                needsUpdate = true;
+              }
+            }
+            const expectedTitle = baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`;
+            if (pData.title !== expectedTitle) {
+              updateData.title = expectedTitle;
+              needsUpdate = true;
+            }
+          } else {
+            const expectedTitle = baseTitle.replace(/ - ATS$/, '');
+            if (pData.title !== expectedTitle) {
+              updateData.title = expectedTitle;
+              needsUpdate = true;
+            }
+          }
+        }
+
+        if (needsUpdate) {
+          pickemBatch.update(doc.ref, updateData);
+          pickemOpCount++;
+
+          if (pickemOpCount >= 500) {
+            await pickemBatch.commit();
+            pickemBatch = adminDb.batch();
+            pickemOpCount = 0;
+          }
+        }
+
+        if (updateData.status === 'STATUS_FINAL' || updateData.status === 'STATUS_POSTPONED') {
+          const effectiveType = updateData.type || pData.type || 'STANDARD';
+          const effectiveTitle = updateData.title || pData.title || '';
+          const needsGrading =
+            needsUpdate ||
+            !pData.winnerId ||
+            !pData.isGraded ||
+            (isYesDay && pData.type !== 'STANDARD');
+
+          if (needsGrading) {
+            pickemMatchupsToGrade.push({
+              ...pData,
+              type: effectiveType,
+              title: effectiveTitle,
+              status: matchup.status,
+              statusDesc: matchup.statusDesc,
+              homeTeam: { ...(pData.homeTeam || {}), score: matchup.homeTeam?.score ?? 0 },
+              awayTeam: { ...(pData.awayTeam || {}), score: matchup.awayTeam?.score ?? 0 },
+              id: doc.id
+            });
+          } else {
+            const checkTargetIds = new Set<string>();
+            if (doc.id) checkTargetIds.add(String(doc.id));
+            if (pData.gameId) checkTargetIds.add(String(pData.gameId));
+            if (isYesDay) {
+              const aliases = Array.from(new Set(['yes_day_2026', 'charity', 'aUqhDhT3vKWfkPgSAVzf', 'YES Day Walk for Autism 2026', pData.campaignId, pData.campaignName])).filter(Boolean);
+              aliases.forEach(cid => {
+                if (pData.gameId) checkTargetIds.add(`${cid}_${pData.week || 1}_${pData.gameId}`);
+                if (doc.id) checkTargetIds.add(`${cid}_${doc.id}`);
+              });
+            }
+            const checkList = Array.from(checkTargetIds).slice(0, 30);
+
+            if (checkList.length > 0) {
+              const pendingPicksSnap = await adminDb.collection('pickemPicks')
+                .where('matchupId', 'in', checkList)
+                .where('status', '==', 'PENDING')
+                .limit(1)
+                .get();
+
+              if (!pendingPicksSnap.empty) {
+                pickemMatchupsToGrade.push({
+                  ...pData,
+                  type: effectiveType,
+                  title: effectiveTitle,
+                  status: matchup.status,
+                  statusDesc: matchup.statusDesc,
+                  homeTeam: { ...(pData.homeTeam || {}), score: matchup.homeTeam?.score ?? 0 },
+                  awayTeam: { ...(pData.awayTeam || {}), score: matchup.awayTeam?.score ?? 0 },
+                  id: doc.id
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[Sync] Error syncing pickem matchup chunk:`, err);
+    }
+  }
+
+  if (pickemOpCount > 0) {
+    await pickemBatch.commit();
+  }
+
+  if (pickemMatchupsToGrade.length > 0) {
+    await gradePickemMatchups(pickemMatchupsToGrade);
+  }
+}
+

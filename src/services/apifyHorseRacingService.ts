@@ -3,6 +3,11 @@
  * Integration with Apify actor: jungle_synthesizer/equibase-us-horse-racing-scraper
  */
 
+import { gradeMatchups } from './grader.js';
+import { syncMatchupsToPickemAndGrade } from './scheduleProcessor.js';
+import { gradeLink4Matchups } from './link4Grader.js';
+import cron from 'node-cron';
+
 export const EQUIBASE_ACTOR_ID = 'jungle_synthesizer~equibase-us-horse-racing-scraper';
 
 export interface EquibaseRunner {
@@ -219,6 +224,37 @@ function extractTrackName(item: any): string {
   return 'Unknown Track';
 }
 
+export const DEFAULT_CURATED_TRACKS = [
+  'TUP', // Turf Paradise (Phoenix, AZ - Mountain)
+  'GP',  // Gulfstream Park (Florida - Eastern)
+  'AQU', // Aqueduct (New York - Eastern)
+  'SAR', // Saratoga (New York - Eastern)
+  'BEL', // Belmont Park (New York - Eastern)
+  'CD',  // Churchill Downs (Kentucky - Eastern)
+  'KEE', // Keeneland (Kentucky - Eastern)
+  'OP',  // Oaklawn Park (Arkansas - Central)
+  'FG',  // Fair Grounds (Louisiana - Central)
+  'SA',  // Santa Anita Park (California - Pacific)
+  'DMR', // Del Mar (California - Pacific)
+  'TAM'  // Tampa Bay Downs (Florida - Eastern)
+];
+
+const KNOWN_TRACK_NAME_MAP: Record<string, string> = {
+  'TURF PARADISE': 'TUP',
+  'GULFSTREAM PARK': 'GP',
+  'AQUEDUCT': 'AQU',
+  'SARATOGA': 'SAR',
+  'BELMONT PARK': 'BEL',
+  'CHURCHILL DOWNS': 'CD',
+  'KEENELAND': 'KEE',
+  'OAKLAWN PARK': 'OP',
+  'FAIR GROUNDS': 'FG',
+  'SANTA ANITA': 'SA',
+  'SANTA ANITA PARK': 'SA',
+  'DEL MAR': 'DMR',
+  'TAMPA BAY DOWNS': 'TAM'
+};
+
 /**
  * Helper to extract track code from various JSON shapes.
  */
@@ -245,6 +281,13 @@ function extractTrackCode(item: any, fallbackName: string): string {
 
   if (typeof code === 'string' && code.trim().length >= 2 && code.trim().length <= 6) {
     return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  if (fallbackName && fallbackName !== 'Unknown Track') {
+    const cleanUpperName = fallbackName.toUpperCase().trim();
+    if (KNOWN_TRACK_NAME_MAP[cleanUpperName]) {
+      return KNOWN_TRACK_NAME_MAP[cleanUpperName];
+    }
   }
 
   const sourceStr = (fallbackName && fallbackName !== 'Unknown Track' ? fallbackName : (typeof code === 'string' ? code : 'TRK'));
@@ -539,8 +582,8 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
     league: 'HORSE_RACING',
     startTime: card.postTimeMs,
     status: card.status,
-    active: true,
-    manuallyActivated: true,
+    active: false,
+    manuallyActivated: false,
     type: 'STANDARD',
     homeTeam: {
       id: `horse_${bestFieldHorse.programNumber || '1'}`,
@@ -611,8 +654,8 @@ export function generateBalancedHorseRacingMatchups(card: EquibaseRaceCard): any
       league: 'HORSE_RACING',
       startTime: card.postTimeMs,
       status: card.status,
-      active: true,
-      manuallyActivated: true,
+      active: false,
+      manuallyActivated: false,
       type: 'STANDARD',
       homeTeam: {
         id: `horse_${horse1.programNumber || '1'}`,
@@ -801,6 +844,7 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
   }
 
   const updatedGameIds: string[] = [];
+  const finalMatchupsToGrade: any[] = [];
 
   for (const card of cards) {
     const activeRunners = card.runners.filter(r => r.status !== 'SCRATCHED');
@@ -832,8 +876,8 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
       league: 'HORSE_RACING',
       startTime: card.postTimeMs,
       status: card.status,
-      active: true,
-      manuallyActivated: true,
+      active: false,
+      manuallyActivated: false,
       type: 'STANDARD',
       homeTeam: {
         id: `program_${firstRunner.programNumber || '1'}`,
@@ -862,17 +906,26 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
       updatedAt: Date.now()
     };
 
-    if (!existingDoc.exists) {
-      matchupData.createdAt = Date.now();
-    }
+    const firstRunnerWon = Boolean(card.winningHorse && card.winningHorse.toLowerCase() === firstHorseName.toLowerCase());
+    const secondRunnerWon = Boolean(card.winningHorse && card.winningHorse.toLowerCase() === secondHorseName.toLowerCase());
 
-    if (card.winningHorse) {
-      matchupData.winnerId = card.winningHorse;
+    if (card.status === 'STATUS_FINAL') {
+      if (firstRunnerWon) {
+        matchupData.winnerId = matchupData.homeTeam.id;
+      } else if (secondRunnerWon) {
+        matchupData.winnerId = matchupData.awayTeam.id;
+      } else if (card.winningHorse) {
+        matchupData.winnerId = card.winningHorse;
+      }
     }
 
     const cleanedMatchupData = cleanFirestorePayload(matchupData);
     await docRef.set(cleanedMatchupData, { merge: true });
     updatedGameIds.push(gameId);
+
+    if (cleanedMatchupData.status === 'STATUS_FINAL' || cleanedMatchupData.status === 'STATUS_POSTPONED') {
+      finalMatchupsToGrade.push(cleanedMatchupData);
+    }
 
     // 2. Generate and store balanced Horse vs Field & Horse vs Horse Matchups
     const balancedMatchups = generateBalancedHorseRacingMatchups(card);
@@ -885,6 +938,29 @@ export async function syncEquibaseRacesToMatchups(db: any, cards: EquibaseRaceCa
       const cleanedBm = cleanFirestorePayload(bm);
       await bmRef.set(cleanedBm, { merge: true });
       updatedGameIds.push(bm.gameId);
+
+      if (cleanedBm.status === 'STATUS_FINAL' || cleanedBm.status === 'STATUS_POSTPONED') {
+        finalMatchupsToGrade.push(cleanedBm);
+      }
+    }
+  }
+
+  // Automatically grade completed horse racing matchups across Main Game picks, Pick'Em campaigns, and Link4 / Turf Pick 5-6 segments
+  if (finalMatchupsToGrade.length > 0) {
+    try {
+      await gradeMatchups(finalMatchupsToGrade);
+    } catch (e) {
+      console.error('[ApifyHorseRacing] Error grading final matchups:', e);
+    }
+    try {
+      await syncMatchupsToPickemAndGrade(db, finalMatchupsToGrade);
+    } catch (e) {
+      console.error('[ApifyHorseRacing] Error syncing and grading PickEm matchups:', e);
+    }
+    try {
+      await gradeLink4Matchups(finalMatchupsToGrade, db);
+    } catch (e) {
+      console.error('[ApifyHorseRacing] Error grading Link4/Turf Pick 5-6 matchups:', e);
     }
   }
 
@@ -971,10 +1047,12 @@ export async function runDailyHorseRacingScheduleSync(db: any, options: ApifyRun
   error?: string;
 }> {
   const targetDate = options.date || new Date().toISOString().split('T')[0];
+  const targetTracks = options.tracks && options.tracks.length > 0 ? options.tracks : DEFAULT_CURATED_TRACKS;
   const fetchResult = await fetchEquibaseScraperData({
     date: targetDate,
-    tracks: options.tracks,
-    maxItems: options.maxItems || 200
+    tracks: targetTracks,
+    maxItems: options.maxItems || 200,
+    dataMode: options.dataMode
   });
 
   if (!fetchResult.success) {
@@ -997,3 +1075,44 @@ export async function runDailyHorseRacingScheduleSync(db: any, options: ApifyRun
     updatedGameIds: syncResult.updatedGameIds
   };
 }
+
+/**
+ * Registers dedicated scheduled crons for Horse Racing:
+ * 1. Morning Ingestion (10:45 AM ET / 15:45 UTC): Pulls today's race cards, ML odds, and entries (~$0.05).
+ * 2. Evening Results & Grading (8:45 PM ET / 01:45 UTC next day): Pulls official finish order and grades all Pick 5/6 and Link4 tickets (~$0.05).
+ */
+export function startHorseRacingScheduleJobs(db: any) {
+  if (!db) {
+    console.warn('[HorseRacingCron] Database not ready, skipping horse racing cron registration.');
+    return;
+  }
+
+  // Morning Card Ingestion at 10:45 AM Eastern Time
+  cron.schedule('45 10 * * *', async () => {
+    console.log('[HorseRacingCron] Running morning horse racing card ingestion (10:45 AM ET)...');
+    try {
+      const res = await runDailyHorseRacingScheduleSync(db, { dataMode: 'entries' });
+      console.log(`[HorseRacingCron] Morning ingestion complete: synced ${res.syncedCount} races.`);
+    } catch (err: any) {
+      console.error('[HorseRacingCron] Error during morning horse card sync:', err?.message || err);
+    }
+  }, {
+    timezone: 'America/New_York'
+  });
+
+  // Evening Results Grading at 8:45 PM Eastern Time (after Turf Paradise and California tracks conclude)
+  cron.schedule('45 20 * * *', async () => {
+    console.log('[HorseRacingCron] Running evening horse racing results and grading job (8:45 PM ET)...');
+    try {
+      const res = await runDailyHorseRacingScheduleSync(db, { dataMode: 'results' });
+      console.log(`[HorseRacingCron] Evening results complete: graded ${res.syncedCount} races.`);
+    } catch (err: any) {
+      console.error('[HorseRacingCron] Error during evening horse results sync:', err?.message || err);
+    }
+  }, {
+    timezone: 'America/New_York'
+  });
+
+  console.log('[HorseRacingCron] Horse racing morning (10:45 AM ET) and evening (8:45 PM ET) cron jobs registered.');
+}
+

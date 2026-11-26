@@ -127,6 +127,10 @@ export function getScheduleEndpoints(league: League, scoreboardOnly: boolean = f
     return [isBrowser ? '/api/proxy/scriptless-matchups' : 'https://scriptless.club602.com/api/chainlink/matchups'];
   }
 
+  if (['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(league).toUpperCase())) {
+    return [];
+  }
+
   // If scoreboardOnly is true, use scoreboard endpoints to save bandwidth
   if (scoreboardOnly) {
     switch (league) {

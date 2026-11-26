@@ -4,8 +4,9 @@ import { isTeamMatch } from '../lib/teamUtils.js';
 let getAdminDb = () => firebaseAdmin.adminDb;
 export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
 
-export async function gradeLink4Matchups(matchups: any[]) {
-  if (!getAdminDb()) {
+export async function gradeLink4Matchups(matchups: any[], db?: any) {
+  const adminDb = db || getAdminDb();
+  if (!adminDb) {
     console.warn("[Link4Grader] adminDb is not initialized. Skipping grading.");
     return;
   }
@@ -14,9 +15,6 @@ export async function gradeLink4Matchups(matchups: any[]) {
   if (finalMatchups.length === 0) return;
 
   // Evaluate all active link4 segments
-  const adminDb = getAdminDb();
-  if (!adminDb) return;
-
   const now = new Date().toISOString();
   // Find all active segments (endTime is in the future) or segments that haven't been marked as payoutComplete
   const segmentsRef = adminDb.collection('link4Segments');
@@ -54,7 +52,31 @@ export async function gradeLink4Matchups(matchups: any[]) {
         // Determine outcome
         let status = 'PENDING';
         let pickScore = pick.score || 0;
-        if (finalizedMatchup.status === 'STATUS_POSTPONED') {
+
+        // Check if matchup was cancelled, postponed, or if the picked horse was scratched
+        const isPostponedOrCancelled = finalizedMatchup.status === 'STATUS_POSTPONED' || finalizedMatchup.status === 'STATUS_CANCELLED';
+        let isHorseScratched = false;
+        if (['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(finalizedMatchup.league).toUpperCase())) {
+          const runners: any[] = finalizedMatchup.metadata?.runners || [];
+          const runner1 = finalizedMatchup.metadata?.horse1;
+          const runner2 = finalizedMatchup.metadata?.horse2;
+          const singleRunner = finalizedMatchup.metadata?.runner;
+
+          // Check if picked horse name or id matches a scratched runner
+          const checkScratched = (r: any) => {
+            if (!r) return false;
+            const isScr = r.status === 'SCRATCHED' || Boolean(r.scratched);
+            if (!isScr) return false;
+            return isTeamMatch(pick.name, { name: r.horseName, id: `program_${r.programNumber}` }) ||
+                   isTeamMatch(pick.name, { name: r.horseName, id: `horse_${r.programNumber}` });
+          };
+
+          if (checkScratched(runner1) || checkScratched(runner2) || checkScratched(singleRunner) || runners.some(checkScratched)) {
+            isHorseScratched = true;
+          }
+        }
+
+        if (isPostponedOrCancelled || isHorseScratched) {
            status = 'PUSH';
         } else {
            let adjustedHomeScore = finalizedMatchup.homeTeam?.score || 0;
@@ -65,12 +87,22 @@ export async function gradeLink4Matchups(matchups: any[]) {
            }
 
            let won = false;
-           if (adjustedHomeScore === awayScore) {
+           if (adjustedHomeScore === awayScore && !finalizedMatchup.winnerId) {
              status = 'PUSH';
            } else {
-             const pickedHome = isTeamMatch(pick.name, finalizedMatchup.homeTeam);
-             if (pickedHome && adjustedHomeScore > awayScore) won = true;
-             if (!pickedHome && awayScore > adjustedHomeScore) won = true;
+             const pickedHome = isTeamMatch(pick.name, finalizedMatchup.homeTeam) || (pick.pickId && pick.pickId === finalizedMatchup.homeTeam?.id);
+             const pickedAway = isTeamMatch(pick.name, finalizedMatchup.awayTeam) || (pick.pickId && pick.pickId === finalizedMatchup.awayTeam?.id);
+
+             if (finalizedMatchup.winnerId) {
+               if (pickedHome && finalizedMatchup.winnerId === finalizedMatchup.homeTeam?.id) won = true;
+               else if (pickedAway && finalizedMatchup.winnerId === finalizedMatchup.awayTeam?.id) won = true;
+               else if (pick.pickId && pick.pickId === finalizedMatchup.winnerId) won = true;
+               else if (pick.name && isTeamMatch(pick.name, { name: finalizedMatchup.winnerId, id: finalizedMatchup.winnerId })) won = true;
+               else won = false;
+             } else {
+               if (pickedHome && adjustedHomeScore > awayScore) won = true;
+               if (!pickedHome && awayScore > adjustedHomeScore) won = true;
+             }
              status = won ? 'WIN' : 'LOSS';
 
              const ml = pickedHome ? finalizedMatchup.metadata?.mlHome : finalizedMatchup.metadata?.mlAway;

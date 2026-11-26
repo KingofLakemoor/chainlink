@@ -6,6 +6,7 @@ import { gradeGridironWeek, updateGridironLeaderboard } from './gridironGrader.j
 import { getCurrentFootballWeek } from './gridironIngestion.js';
 import { getActiveLeagues } from './leagueService.js';
 import { getMatchupStartTime } from '../utils/matchupUtils.js';
+import { runDailyHorseRacingScheduleSync, purgeUnpickedHorseMatchups } from './apifyHorseRacingService.js';
 
 let syncTimeout: NodeJS.Timeout | null = null;
 let loopCount = 0;
@@ -18,6 +19,8 @@ let lastMetadataFetchTime = 0;
 const METADATA_TTL_MS = 5 * 60 * 1000;
 
 let finalizedGridironWeeksCache = new Set<string>();
+let lastHorseSyncTime = 0;
+const HORSE_SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes between automated horse checks
 
 export function startAutoSyncJob() {
   if (syncTimeout) return;
@@ -162,6 +165,14 @@ export function startAutoSyncJob() {
            } catch (err: any) {
              console.error(`[AutoSync] Error updating props: ${err?.message || err}`);
              logServerError('AutoSync Update Props', err);
+           }
+        } else if (league === 'HORSE_RACING' || league === 'HORSE' || league === 'EQUIBASE') {
+           // Background autoSync only purges unpicked/expired horse matchups to preserve quota.
+           // Horse racing card ingestion and results grading are handled exclusively by dedicated morning/evening crons.
+           try {
+             await purgeUnpickedHorseMatchups(adminDb, nowMs);
+           } catch (err: any) {
+             console.error(`[AutoSync] Error purging unpicked Horse Racing: ${err?.message || err}`);
            }
         } else {
            try {

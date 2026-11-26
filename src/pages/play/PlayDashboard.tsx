@@ -277,8 +277,8 @@ export default function PlayDashboard() {
       if (['NHL'].includes(lg)) sports.add('HOCKEY');
       if (['MLB', 'CBASE', 'LLWS'].includes(lg)) sports.add('BASEBALL');
       if (['ATP', 'WTA'].includes(lg)) sports.add('TENNIS');
-      if (['PGA', 'PUTTING'].includes(lg)) sports.add('GOLF');
-      if (['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(lg)) sports.add('HORSE_RACING');
+      // Horse racing is currently deactivated on the main game board unless explicitly featured
+      if (['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(lg) && (m.featured || m.showOnMainBoard)) sports.add('HORSE_RACING');
 
       if (isStraightUpMatchup(m)) betTypes.add('straight_up');
       if (isAtsMatchup(m)) betTypes.add('ats');

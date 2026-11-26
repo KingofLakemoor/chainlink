@@ -138,6 +138,7 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
         try {
           const { scrapeLeagueSchedules } = await import('../../../services/espnScraper');
           for (const lg of allowedSports) {
+            if (['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(lg).toUpperCase())) continue;
             const res = await scrapeLeagueSchedules(lg, false, undefined, undefined);
             if (res.data) {
               res.data.forEach((m: any) => {

@@ -315,13 +315,14 @@ export function isTotalMatchup(matchup: any): boolean {
 
 /**
  * Checks if a matchup is against the spread (ATS / SPREAD).
+ * A game is an ATS matchup ONLY if its active pick format is against the spread (type === 'SPREAD'),
+ * NOT merely a standard moneyline/score game that has an informational point spread in metadata.
  */
 export function isAtsMatchup(matchup: any): boolean {
   if (!matchup) return false;
   if (isPropMatchup(matchup) || isTotalMatchup(matchup)) return false;
   return (
     matchup.type === 'SPREAD' ||
-    (matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null && matchup.metadata?.spread !== '') ||
     (typeof matchup.title === 'string' && matchup.title.includes(' - ATS'))
   );
 }

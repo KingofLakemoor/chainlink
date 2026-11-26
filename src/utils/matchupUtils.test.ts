@@ -299,6 +299,34 @@ describe('matchupUtils', () => {
       expect(isTotalMatchup(atsGame)).toBe(false);
       expect(isPropMatchup(atsGame)).toBe(false);
       expect(getMatchupBetType(atsGame)).toBe('ats');
+
+      // Crucial: Standard games (like Wake Forest @ Mississippi St, Canadiens @ Avalanche)
+      // that have spread info in metadata but type === 'SCORE' or 'MONEYLINE' should NOT be ATS
+      const standardGameWithSpread = {
+        title: 'Demon Deacons @ Bulldogs',
+        league: 'MBB',
+        type: 'SCORE',
+        metadata: {
+          spread: -4.5,
+          mlHome: -180,
+          mlAway: +150
+        }
+      };
+      expect(isAtsMatchup(standardGameWithSpread)).toBe(false);
+      expect(isStraightUpMatchup(standardGameWithSpread)).toBe(true);
+
+      const nhlGameWithSpread = {
+        title: 'Canadiens @ Avalanche',
+        league: 'NHL',
+        type: 'MONEYLINE',
+        metadata: {
+          spread: -1.5,
+          mlHome: -220,
+          mlAway: +180
+        }
+      };
+      expect(isAtsMatchup(nhlGameWithSpread)).toBe(false);
+      expect(isStraightUpMatchup(nhlGameWithSpread)).toBe(true);
     });
 
     it('classifies game totals (Over/Under) correctly', () => {

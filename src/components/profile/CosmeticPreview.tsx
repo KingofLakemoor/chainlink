@@ -63,6 +63,21 @@ export function CosmeticPreview({
     );
   }
 
+  // 1b. Roster & Leaderboard Banners
+  if (itemType === 'ROSTER_BANNER') {
+    const bannerClass = item.renderValue || item.image || item.preview || '';
+
+    return (
+      <div className={`w-full h-full relative overflow-hidden rounded-xl border flex items-center justify-center p-3 ${bannerClass || 'bg-zinc-900 border-zinc-800'} ${className}`}>
+        <div className="relative z-10 text-center px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 shadow-lg">
+          <span className="text-xs font-bold text-white tracking-wide truncate max-w-[160px] inline-block drop-shadow">
+            {item.name}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // 2. Avatar Rings
   if (itemType === 'AVATAR_RING') {
     const RingComponent = AvatarRingMap[item.id] || AvatarRingMap[imageKey];

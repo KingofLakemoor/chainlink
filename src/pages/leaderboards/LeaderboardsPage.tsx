@@ -11,7 +11,7 @@ import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../../components/ui/titles';
 import { getShopItemsCached } from '../../lib/firestore-cache';
-import { Club602Avatar, Club602Nameplate, Club602Banner } from '../../components/club602';
+import { Club602Avatar, Club602Nameplate, Club602Banner, COSMETICS_CATALOG } from '../../components/club602';
 class CosmeticsErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
   public state = { hasError: false };
   constructor(props: any) {
@@ -34,7 +34,7 @@ class CosmeticsErrorBoundary extends React.Component<{ children: React.ReactNode
 
 
 export default function LeaderboardsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('current'); // current by default
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
@@ -708,44 +708,63 @@ export default function LeaderboardsPage() {
                   </td>
                 </tr>
               ) : (
-                leaderboardData.map((player, index) => (
-                  <tr key={player.id} className="hover:bg-zinc-800/30 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap font-mono">
-                      <div className={`w-8 h-8 rounded flex items-center justify-center font-bold text-sm ${
-                        index === 0 ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
-                        index === 1 ? 'bg-zinc-300/20 text-zinc-300 border border-zinc-300/30' :
-                        index === 2 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/30' :
-                        'text-zinc-500'
-                      }`}>
-                        {index + 1}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <Club602Avatar
-                          user={player}
-                          size="sm"
-                          presentationContext="micro"
-                          spokeId="chainlink"
-                          fallbackName={player.username || player.name}
-                        />
-                        <div className="flex items-center gap-2">
-                          <Club602Nameplate
+                leaderboardData.map((player, index) => {
+                  const isCurrentAuthUser = user?.uid === player.id;
+                  const currentOrPlayerUser = isCurrentAuthUser ? (profile || user || player) : player;
+                  const rosterBannerId = currentOrPlayerUser?.spokeCosmetics?.['chainlink']?.ROSTER_BANNER
+                    || currentOrPlayerUser?.equippedCosmetics?.ROSTER_BANNER
+                    || currentOrPlayerUser?.rosterBanner
+                    || player?.equippedCosmetics?.ROSTER_BANNER
+                    || player?.rosterBanner;
+                  const rosterBannerCosmetic = rosterBannerId ? COSMETICS_CATALOG.find(c => c.id === rosterBannerId) : undefined;
+                  const bannerClass = rosterBannerCosmetic?.renderValue || '';
+
+                  return (
+                    <tr
+                      key={player.id}
+                      className={cn(
+                        "transition-colors group",
+                        bannerClass ? bannerClass : "hover:bg-zinc-800/30",
+                        bannerClass && "border-b border-zinc-800/50",
+                        isCurrentAuthUser && !bannerClass && "bg-cyan-950/20 hover:bg-cyan-900/30 border-l-2 border-l-cyan-400"
+                      )}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap font-mono">
+                        <div className={`w-8 h-8 rounded flex items-center justify-center font-bold text-sm ${
+                          index === 0 ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
+                          index === 1 ? 'bg-zinc-300/20 text-zinc-300 border border-zinc-300/30' :
+                          index === 2 ? 'bg-amber-700/20 text-amber-600 border border-amber-700/30' :
+                          'text-zinc-500'
+                        }`}>
+                          {index + 1}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <Club602Avatar
                             user={player}
-                            size="sm"
+                            size="md"
                             presentationContext="micro"
                             spokeId="chainlink"
                             fallbackName={player.username || player.name}
-                            nameClassName="font-medium text-zinc-200"
                           />
-                          {user?.uid === player.id && (
-                            <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase shrink-0">
-                              You
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Club602Nameplate
+                              user={player}
+                              size="md"
+                              presentationContext="micro"
+                              spokeId="chainlink"
+                              fallbackName={player.username || player.name}
+                              nameClassName="text-sm sm:text-base font-bold text-zinc-100"
+                            />
+                            {isCurrentAuthUser && (
+                              <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-bold uppercase shrink-0">
+                                You
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className={cn(
                         "font-bold text-xs px-2 py-1 rounded bg-zinc-900/50 border border-zinc-800",
@@ -768,7 +787,8 @@ export default function LeaderboardsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-yellow-400 font-mono font-bold">W{player.bestChain || 0}</td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

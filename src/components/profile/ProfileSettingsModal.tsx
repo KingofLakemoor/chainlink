@@ -34,7 +34,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [equipLoading, setEquipLoading] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PROFILE_BANNER' | 'AVATAR_RING' | 'TITLE'>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PROFILE_BANNER' | 'ROSTER_BANNER' | 'AVATAR_RING' | 'TITLE'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -183,12 +183,13 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     }
     if (!item) {
       let type = 'PROFILE_BANNER';
-      if (invId.startsWith('ring_')) type = 'AVATAR_RING';
+      if (invId.startsWith('rb_') || invId.startsWith('roster_')) type = 'ROSTER_BANNER';
+      else if (invId.startsWith('ring_') || invId.startsWith('af_')) type = 'AVATAR_RING';
       else if (invId.startsWith('title_')) type = 'TITLE';
       else if (invId.startsWith('merch_')) type = 'MERCH';
 
       const formattedName = invId
-        .replace(/^(banner_|ring_|title_|merch_)/, '')
+        .replace(/^(banner_|roster_|rb_|ring_|af_|title_|merch_)/, '')
         .split('_')
         .map(w => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ');
@@ -409,6 +410,16 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
                   }`}
                 >
                   Banners ({userInventoryItems.filter(i => i?.type === 'PROFILE_BANNER').length})
+                </button>
+                <button
+                  onClick={() => setCategoryFilter('ROSTER_BANNER')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                    categoryFilter === 'ROSTER_BANNER'
+                      ? 'bg-cyan-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  Leaderboard Banners ({userInventoryItems.filter(i => i?.type === 'ROSTER_BANNER').length})
                 </button>
                 <button
                   onClick={() => setCategoryFilter('AVATAR_RING')}

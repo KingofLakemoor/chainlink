@@ -313,6 +313,32 @@ describe('matchupUtils', () => {
       expect(isStraightUpMatchup(totalGame)).toBe(false);
       expect(isPropMatchup(totalGame)).toBe(false);
       expect(getMatchupBetType(totalGame)).toBe('total');
+
+      // Crucial: Standard games and ATS games that have overUnder stored in metadata should NOT be classified as totals
+      const standardGameWithOdds = {
+        title: 'Eagles @ Miners',
+        league: 'MBB',
+        type: 'SCORE',
+        metadata: {
+          mlHome: -150,
+          mlAway: +130,
+          overUnder: 142.5
+        }
+      };
+      expect(isTotalMatchup(standardGameWithOdds)).toBe(false);
+      expect(isStraightUpMatchup(standardGameWithOdds)).toBe(true);
+
+      const atsGameWithOdds = {
+        title: 'Eagles @ Lions - ATS',
+        league: 'MBB',
+        type: 'SPREAD',
+        metadata: {
+          spread: -7.5,
+          overUnder: 148.5
+        }
+      };
+      expect(isTotalMatchup(atsGameWithOdds)).toBe(false);
+      expect(isAtsMatchup(atsGameWithOdds)).toBe(true);
     });
 
     it('classifies player props correctly', () => {

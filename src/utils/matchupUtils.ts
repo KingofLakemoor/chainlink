@@ -298,14 +298,18 @@ export function isPropMatchup(matchup: any): boolean {
 
 /**
  * Checks if a matchup is a game total (Over/Under game total, excluding player/solo props).
+ * A game is a Total matchup if its pick format is betting on the game Over/Under (type === 'OVER_UNDER'),
+ * NOT merely a standard moneyline or ATS game that stores overUnder in its background metadata.
  */
 export function isTotalMatchup(matchup: any): boolean {
   if (!matchup) return false;
   if (isPropMatchup(matchup)) return false;
+  const title = typeof matchup.title === 'string' ? matchup.title : '';
+  const isExplicitTotalTitle = /(?:O\/U|Over\/Under|Total)[^\d]*\d+(?:\.\d+)?/i.test(title);
   return (
     matchup.type === 'OVER_UNDER' ||
     matchup.metadata?.isOverUnder === true ||
-    extractOverUnderLine(matchup) !== null
+    (isExplicitTotalTitle && matchup.awayTeam?.name?.toLowerCase().includes('over') && matchup.homeTeam?.name?.toLowerCase().includes('under'))
   );
 }
 

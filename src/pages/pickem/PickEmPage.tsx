@@ -4,6 +4,7 @@ import { CampaignPrizeTeaser } from '../../components/pickem/CampaignPrizeTeaser
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { getTeamShortName, isTeamMatch } from '../../lib/teamUtils';
 import { isMatchupLocked, getMatchupStartTime, getPropScoringCategory, getPropPlayerOrSubject, getPropTargetLine } from '../../utils/matchupUtils';
+import { isBeforeThursdaySpreadLock } from '../../utils/footballWeek';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, doc, query, where, setDoc, getDoc, deleteDoc, documentId, updateDoc } from 'firebase/firestore';
@@ -1349,7 +1350,9 @@ export default function PickEmPage() {
                 const isSpread = !isYesDay && m.type === 'SPREAD' && m.metadata?.spread !== undefined;
                 const spread = m.metadata?.spread || 0;
 
-                const isSpreadPendingLock = isSpread && (m.league === 'CFB' || m.league === 'NFL') && !m.metadata?.spreadLocked;
+                const isSpreadTimeLocked = !isBeforeThursdaySpreadLock(m.startTime);
+                const isSpreadLocked = m.metadata?.spreadLocked === true || isSpreadTimeLocked;
+                const isSpreadPendingLock = isSpread && (m.league === 'CFB' || m.league === 'NFL') && !isSpreadLocked;
 
                 const hasMoneyline = m.metadata?.mlAway !== undefined && m.metadata?.mlHome !== undefined && m.metadata?.mlAway !== null && m.metadata?.mlHome !== null;
                 const isAwayFavorite = hasMoneyline
@@ -1467,7 +1470,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             <span className="font-bold text-white">
                               {isOverUnderMatchup ? (propTargetLine !== null ? `OVER ${propTargetLine}` : 'OVER') : getTeamShortName(m, false)}
                             </span>
-                            {isSpread && !isSpreadPendingLock && (
+                            {isSpread && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `-${spread}` : `+${Math.abs(spread)}`}</span>
                             )}
                             {m.type === 'SOCCER_SCORE' && (() => {
@@ -1518,7 +1521,7 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
                             <span className="font-bold text-white">
                               {isOverUnderMatchup ? (propTargetLine !== null ? `UNDER ${propTargetLine}` : 'UNDER') : getTeamShortName(m, true)}
                             </span>
-                            {isSpread && !isSpreadPendingLock && (
+                            {isSpread && (
                                <span className="text-base text-zinc-400 font-medium">{spread > 0 ? `+${spread}` : `-${Math.abs(spread)}`}</span>
                             )}
                             {m.type === 'SOCCER_SCORE' && (() => {

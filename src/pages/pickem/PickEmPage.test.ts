@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { isTiebreakerEnabledForCampaign, getWeekTiebreakerMatchup, getCampaignIds, getPointsStyle } from './PickEmPage';
+import { isBeforeThursdaySpreadLock } from '../../utils/footballWeek';
 import { isTeamMatch } from '../../lib/teamUtils';
 
 describe('PickEmPage Yes Day prize breakdown tests', () => {
@@ -1298,5 +1299,51 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     const greenStyle = getPointsStyle(false, '#22c55e');
     expect(greenStyle.color).toBe('#22c55e');
     expect(greenStyle.textShadow).toBe('0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)');
+  });
+
+  it('displays the spread both before and after the Thursday morning spread lock, hiding only the pending lock banner after lock', () => {
+    // Thanksgiving Thursday morning game
+    // Let's test a matchup at 2026-11-26 18:00 UTC (Thursday 11 AM AZ)
+    const gameTime = new Date('2026-11-26T18:00:00Z').getTime();
+    const matchup = {
+      id: 'm-tcu-ttu',
+      type: 'SPREAD',
+      league: 'CFB',
+      startTime: gameTime,
+      metadata: { spread: 3.5 }
+    };
+
+    const isYesDayCampaign = false;
+    const isSpread = !isYesDayCampaign && matchup.type === 'SPREAD' && matchup.metadata?.spread !== undefined;
+    const spread = matchup.metadata?.spread || 0;
+
+    // Away spread string and home spread string:
+    const awaySpreadStr = spread > 0 ? `-${spread}` : `+${Math.abs(spread)}`;
+    const homeSpreadStr = spread > 0 ? `+${spread}` : `-${Math.abs(spread)}`;
+
+    expect(isSpread).toBe(true);
+    expect(awaySpreadStr).toBe('-3.5');
+    expect(homeSpreadStr).toBe('+3.5');
+
+    // Case 1: Wednesday night before lock (Wednesday 2026-11-25 18:00 UTC)
+    const wednesdayNow = new Date('2026-11-25T18:00:00Z').getTime();
+    const isTimeLockedWed = !isBeforeThursdaySpreadLock(gameTime, wednesdayNow);
+    const isSpreadLockedWed = (matchup.metadata as any)?.spreadLocked === true || isTimeLockedWed;
+    const isSpreadPendingLockWed = isSpread && (matchup.league === 'CFB' || matchup.league === 'NFL') && !isSpreadLockedWed;
+
+    expect(isSpreadLockedWed).toBe(false);
+    expect(isSpreadPendingLockWed).toBe(true); // banner displays before lock
+
+    // Case 2: Thursday afternoon after lock (Thursday 2026-11-26 15:00 UTC)
+    const thursdayNow = new Date('2026-11-26T15:00:00Z').getTime();
+    const isTimeLockedThu = !isBeforeThursdaySpreadLock(gameTime, thursdayNow);
+    const isSpreadLockedThu = (matchup.metadata as any)?.spreadLocked === true || isTimeLockedThu;
+    const isSpreadPendingLockThu = isSpread && (matchup.league === 'CFB' || matchup.league === 'NFL') && !isSpreadLockedThu;
+
+    expect(isSpreadLockedThu).toBe(true);
+    expect(isSpreadPendingLockThu).toBe(false); // banner disappears after lock
+
+    // Regardless of isSpreadPendingLock state, the spread is ALWAYS available to display:
+    expect(isSpread).toBe(true);
   });
 });

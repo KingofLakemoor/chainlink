@@ -1531,12 +1531,16 @@ export async function syncLeagueSchedules(
 
                 if (currentType === 'SPREAD') {
                   const gameTime = matchup.startTime || pData.startTime;
-                  const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeThursdaySpreadLock(gameTime);
+                  const isBeforeLock = isBeforeThursdaySpreadLock(gameTime);
+                  const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeLock;
                   if (canUpdateSpread && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
                     if (pData.metadata?.spread !== matchup.metadata.spread) {
                       updateData['metadata.spread'] = matchup.metadata.spread;
                       needsUpdate = true;
                     }
+                  } else if (!isBeforeLock && !pData.metadata?.spreadLocked) {
+                    updateData['metadata.spreadLocked'] = true;
+                    needsUpdate = true;
                   }
                 }
               } else {
@@ -1547,12 +1551,16 @@ export async function syncLeagueSchedules(
                   needsUpdate = true;
                 } else if (pData.type === 'SPREAD') {
                   const gameTime = matchup.startTime || pData.startTime;
-                  const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeThursdaySpreadLock(gameTime);
+                  const isBeforeLock = isBeforeThursdaySpreadLock(gameTime);
+                  const canUpdateSpread = !pData.metadata?.spreadLocked && isBeforeLock;
                   if (canUpdateSpread && matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null) {
                     if (pData.metadata?.spread !== matchup.metadata.spread) {
                       updateData['metadata.spread'] = matchup.metadata.spread;
                       needsUpdate = true;
                     }
+                  } else if (!isBeforeLock && !pData.metadata?.spreadLocked) {
+                    updateData['metadata.spreadLocked'] = true;
+                    needsUpdate = true;
                   }
                   const expectedTitle = baseTitle.endsWith(' - ATS') ? baseTitle : `${baseTitle} - ATS`;
                   if (pData.title !== expectedTitle) {

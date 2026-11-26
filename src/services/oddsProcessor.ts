@@ -1,6 +1,7 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { logServerError } from '../lib/serverErrorLogger.js';
 import { teamsMatch } from '../utils/sportMapping.js';
+import { resolveOddsThresholds } from '../utils/matchupUtils.js';
 import { canMakeOddsApiCall, recordOddsApiCall } from './oddsRateLimiter.js';
 import cron from 'node-cron';
 
@@ -113,14 +114,9 @@ export async function syncTennisOdds() {
     }
 
     const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
-    let threshold = 300;
-    if (scraperSnap.exists) {
-       const scraperConfig = scraperSnap.data();
-       threshold = Math.abs(scraperConfig.maxMoneylineOdds ?? 300);
-       if (scraperConfig.sportOverrides && scraperConfig.sportOverrides['ATP'] !== undefined) {
-          threshold = Math.abs(scraperConfig.sportOverrides['ATP']);
-       }
-    }
+    const scraperConfig = scraperSnap.exists ? scraperSnap.data() : undefined;
+    const thresholds = resolveOddsThresholds(scraperConfig, 'ATP');
+    let threshold = thresholds.maxMoneylineOdds;
 
     const dbMatchups: any[] = matchupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     let updatedCount = 0;
@@ -387,18 +383,11 @@ export async function syncSoccerOdds() {
 
   try {
     const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
-    let scraperConfig: any = {};
-    let baseThreshold = 300;
-    if (scraperSnap.exists) {
-       scraperConfig = scraperSnap.data();
-       baseThreshold = Math.abs(scraperConfig.maxMoneylineOdds ?? 300);
-    }
+    const scraperConfig = scraperSnap.exists ? scraperSnap.data() : undefined;
 
     for (const l of leaguesToSync) {
-        let threshold = baseThreshold;
-        if (scraperConfig.sportOverrides && scraperConfig.sportOverrides[l.espn] !== undefined) {
-            threshold = Math.abs(scraperConfig.sportOverrides[l.espn]);
-        }
+        const thresholds = resolveOddsThresholds(scraperConfig, l.espn);
+        let threshold = thresholds.maxMoneylineOdds;
 
         const nowMs = Date.now();
         const minStartTime = nowMs - 24 * 60 * 60 * 1000;

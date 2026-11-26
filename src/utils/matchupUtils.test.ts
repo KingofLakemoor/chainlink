@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isMatchupLocked, getMatchupStartTime, extractOverUnderLine, getPropPlayerOrSubject, getPropTargetLine, getPropScoringCategory } from './matchupUtils';
+import { isMatchupLocked, getMatchupStartTime, extractOverUnderLine, getPropPlayerOrSubject, getPropTargetLine, getPropScoringCategory, resolveOddsThresholds, evaluateOddsMatchupStatus } from './matchupUtils';
 
 describe('matchupUtils', () => {
   describe('getMatchupStartTime', () => {
@@ -156,6 +156,105 @@ describe('matchupUtils', () => {
       expect(getPropPlayerOrSubject(atsGame)).toBeNull();
       expect(getPropTargetLine(atsGame)).toBeNull();
       expect(getPropScoringCategory(atsGame)).toBeNull();
+    });
+  });
+
+  describe('resolveOddsThresholds and evaluateOddsMatchupStatus', () => {
+    it('uses universal default thresholds (-250 ATS start, -450 max ML, 9.5 spread cap)', () => {
+      const thresholds = resolveOddsThresholds();
+      expect(thresholds.atsMoneylineOdds).toBe(250);
+      expect(thresholds.maxMoneylineOdds).toBe(450);
+      expect(thresholds.maxPointSpread).toBe(9.5);
+    });
+
+    it('keeps games active as SCORE when moneyline is milder than atsMoneylineOdds', () => {
+      const res = evaluateOddsMatchupStatus({
+        league: 'NFL',
+        mlHome: -175,
+        mlAway: +150,
+        spread: -3.5,
+        config: { atsMoneylineOdds: -250, maxMoneylineOdds: -450, maxPointSpread: 9.5 }
+      });
+      expect(res.active).toBe(true);
+      expect(res.matchupType).toBe('SCORE');
+    });
+
+    it('switches to SPREAD (ATS) when moneyline is in the window between atsMoneylineOdds and maxMoneylineOdds and spread <= cap', () => {
+      const res = evaluateOddsMatchupStatus({
+        league: 'NFL',
+        mlHome: -320,
+        mlAway: +260,
+        spread: -7.5,
+        config: { atsMoneylineOdds: -250, maxMoneylineOdds: -450, maxPointSpread: 9.5 }
+      });
+      expect(res.active).toBe(true);
+      expect(res.matchupType).toBe('SPREAD');
+    });
+
+    it('deactivates game in ATS window if spread exceeds maxPointSpread', () => {
+      const res = evaluateOddsMatchupStatus({
+        league: 'CFB',
+        mlHome: -380,
+        mlAway: +300,
+        spread: -14.5,
+        config: { atsMoneylineOdds: -250, maxMoneylineOdds: -450, maxPointSpread: 9.5 }
+      });
+      expect(res.active).toBe(false);
+      expect(res.matchupType).toBe('SCORE');
+    });
+
+    it('deactivates game if favorite odds are steeper than maxMoneylineOdds', () => {
+      const res = evaluateOddsMatchupStatus({
+        league: 'NBA',
+        mlHome: -600,
+        mlAway: +450,
+        spread: -8.0,
+        config: { atsMoneylineOdds: -250, maxMoneylineOdds: -450, maxPointSpread: 9.5 }
+      });
+      expect(res.active).toBe(false);
+      expect(res.matchupType).toBe('SCORE');
+    });
+
+    it('respects sport-specific overrides from sportOddsRules', () => {
+      const config = {
+        atsMoneylineOdds: -250,
+        maxMoneylineOdds: -450,
+        maxPointSpread: 9.5,
+        sportOddsRules: {
+          CFB: {
+            atsMoneylineOdds: -350,
+            maxMoneylineOdds: -650,
+            maxPointSpread: 17.5
+          }
+        }
+      };
+
+      const cfbThresholds = resolveOddsThresholds(config, 'CFB');
+      expect(cfbThresholds.atsMoneylineOdds).toBe(350);
+      expect(cfbThresholds.maxMoneylineOdds).toBe(650);
+      expect(cfbThresholds.maxPointSpread).toBe(17.5);
+
+      // CFB with -300 favorite stays SCORE because CFB ATS starts at -350
+      const resScore = evaluateOddsMatchupStatus({
+        league: 'CFB',
+        mlHome: -300,
+        mlAway: +240,
+        spread: -6.5,
+        config
+      });
+      expect(resScore.active).toBe(true);
+      expect(resScore.matchupType).toBe('SCORE');
+
+      // CFB with -500 and 14.5 spread converts to ATS because 14.5 <= 17.5
+      const resAts = evaluateOddsMatchupStatus({
+        league: 'CFB',
+        mlHome: -500,
+        mlAway: +380,
+        spread: -14.5,
+        config
+      });
+      expect(resAts.active).toBe(true);
+      expect(resAts.matchupType).toBe('SPREAD');
     });
   });
 });

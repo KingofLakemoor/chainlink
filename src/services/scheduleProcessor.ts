@@ -9,7 +9,8 @@ const resolveImage = (existingImage: string | undefined, scrapedImage: string | 
 
 import { adminDb } from '../lib/firebase-admin.js';
 import { isBeforeThursdaySpreadLock } from '../utils/footballWeek.js';
-import { getMatchupStartTime } from '../utils/matchupUtils.js';
+import { getMatchupStartTime, resolveOddsThresholds } from '../utils/matchupUtils.js';
+import { ScraperConfig } from '../types/odds.js';
 
 export async function cancelQueuedPicksForPropDoc(adminDb: any, propDoc: any, batch?: any): Promise<number> {
     let localBatch = batch || adminDb.batch();
@@ -233,7 +234,7 @@ export async function syncLeagueSchedules(
   preloadedPickemMatchupIds?: Set<string>,
   preloadedLeagueSettings?: { active?: boolean }
 ): Promise<LeagueResponse> {
-  let scraperConfig: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> } | undefined = undefined;
+  let scraperConfig: ScraperConfig | undefined = undefined;
   if (adminDb) {
     const now = Date.now();
     if (cachedScraperConfig && (now - cachedScraperConfig.timestamp) < SCRAPER_CONFIG_TTL_MS) {
@@ -242,7 +243,7 @@ export async function syncLeagueSchedules(
       try {
         const scraperSnap = await adminDb.collection('systemSettings').doc('scraper').get();
         if (scraperSnap.exists) {
-          scraperConfig = scraperSnap.data() as { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> };
+          scraperConfig = scraperSnap.data() as ScraperConfig;
           cachedScraperConfig = { config: scraperConfig, timestamp: now };
         }
       } catch (e) {
@@ -417,12 +418,15 @@ export async function syncLeagueSchedules(
          }
       }
 
-      // OPTIMIZATION: Pre-fetch spread picks concurrently
+      // OPTIMIZATION: Pre-fetch spread picks concurrently (for existing SPREAD games or games transitioning to SPREAD)
       const spreadUpdateGameIds = response.data.filter((m: any) => {
          const existingDoc = existingMap.get(m.gameId);
          if (!existingDoc) return false;
          const data = existingDoc.data();
          if (data.type === 'SPREAD' && m.metadata?.spread !== undefined && m.metadata.spread !== data.metadata?.spread) {
+             return true;
+         }
+         if (data.type !== 'SPREAD' && m.type === 'SPREAD') {
              return true;
          }
          return false;
@@ -434,8 +438,15 @@ export async function syncLeagueSchedules(
          for (let i = 0; i < spreadUpdateGameIds.length; i += chunk) {
              const batchIds = spreadUpdateGameIds.slice(i, i + chunk);
              await Promise.all(batchIds.map(async (gameId) => {
-                 const picksSnap = await adminDb.collection('picks').where('matchupId', '==', gameId).limit(1).get();
-                 spreadUpdatePicksCache.set(gameId, !picksSnap.empty);
+                 const existingDoc = existingMap.get(gameId);
+                 const targetIds = Array.from(new Set([gameId, existingDoc?.id])).filter(Boolean);
+                 const picksSnap = await adminDb.collection('picks').where('matchupId', 'in', targetIds).limit(1).get();
+                 const pickemPicksSnap = await adminDb.collection('pickemPicks').where('matchupId', 'in', targetIds).limit(1).get();
+                 const hasPicks = !picksSnap.empty || !pickemPicksSnap.empty;
+                 spreadUpdatePicksCache.set(gameId, hasPicks);
+                 if (existingDoc?.id) {
+                   spreadUpdatePicksCache.set(existingDoc.id, hasPicks);
+                 }
              }));
          }
       }
@@ -773,12 +784,15 @@ export async function syncLeagueSchedules(
           // }
 
           const isAdminOverride = Boolean(existingData.adminOverride);
+          const hasExistingPicksOnGame = spreadUpdatePicksCache.get(gameId) === true || (existingDoc ? spreadUpdatePicksCache.get(existingDoc.id) === true : false);
+          const isOngoingOrFinal = existingData.status === 'STATUS_IN_PROGRESS' || existingData.status === 'STATUS_FINAL';
 
           let newTitle = (isAdminOverride || existingData.hasCustomTitle) ? existingData.title : scrapedMatchup.title;
           let newlyCustomizedTitle = false;
           // If we are auto-converting this game to SPREAD and it wasn't SPREAD before, 
-          // mimic the manual behavior of appending ' - ATS'
-          if (!isAdminOverride && existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD') {
+          // mimic the manual behavior of appending ' - ATS', but NEVER change the type/title
+          // of an ongoing/final game or any game that already has picks on it.
+          if (!isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD') {
               const awayName = scrapedMatchup.awayTeam?.name || 'Away';
               const homeName = scrapedMatchup.homeTeam?.name || 'Home';
               newTitle = `${awayName} @ ${homeName} - ATS`;
@@ -870,13 +884,10 @@ export async function syncLeagueSchedules(
             } else if (thirdPartyLeagues.includes(scrapedMatchup.league)) {
               // For 3rd-party leagues (Tennis & Soccer like RPL, TUR, ARG, BRA, LMX), require valid moneyline odds under threshold to be active
               if (hasValidMlOdds) {
-                let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
-                if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[scrapedMatchup.league] !== undefined) {
-                  threshold = Math.abs(scraperConfig.sportOverrides[scrapedMatchup.league]);
-                }
+                const thresholds = resolveOddsThresholds(scraperConfig, scrapedMatchup.league);
                 const mlH = parseInt(existingData.metadata.mlHome, 10);
                 const mlA = parseInt(existingData.metadata.mlAway, 10);
-                if (!isNaN(mlH) && !isNaN(mlA) && Math.abs(mlH) < threshold && Math.abs(mlA) < threshold) {
+                if (!isNaN(mlH) && !isNaN(mlA) && Math.abs(mlH) < thresholds.maxMoneylineOdds && Math.abs(mlA) < thresholds.maxMoneylineOdds) {
                   finalActive = true;
                 } else {
                   finalActive = false;
@@ -947,7 +958,7 @@ export async function syncLeagueSchedules(
               (existingData.type !== 'STATS' && existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id) ||
               (!isAdminOverride && existingData.active !== (shouldUnabandon ? true : finalActive)) ||
               Boolean(existingData.abandoned) !== (shouldUnabandon ? false : ((existingData.abandoned === true && !isProtected) ? true : false)) ||
-              (!isAdminOverride && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
+              (!isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
 
           const hasOddsOrMetadataChange = (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
               (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
@@ -969,6 +980,8 @@ export async function syncLeagueSchedules(
               ? ((existingData.league === 'MLB' && scrapedMatchup.league !== 'MLB') ? scrapedMatchup.league : (existingData.league || scrapedMatchup.league))
               : scrapedMatchup.league;
 
+            const shouldConvertToSpread = !isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD';
+
             const updateData: any = {
               ...existingData,
               abandoned: shouldUnabandon ? false : ((existingData.abandoned === true && !isProtected) ? true : false),
@@ -976,7 +989,7 @@ export async function syncLeagueSchedules(
               hasCustomTitle: isAdminOverride ? true : (newlyCustomizedTitle ? true : existingData.hasCustomTitle),
               adminOverride: isAdminOverride ? true : (existingData.adminOverride || false),
               league: resolvedLeague,
-              type: isAdminOverride ? existingData.type : ((existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD') ? 'SPREAD' : existingData.type),
+              type: isAdminOverride ? existingData.type : (shouldConvertToSpread ? 'SPREAD' : existingData.type),
               active: isAdminOverride ? existingData.active : (shouldUnabandon ? true : ((existingData.abandoned === true && !isProtected) ? false : finalActive)),
               status: newStatus,
               statusDesc: newStatusDesc,

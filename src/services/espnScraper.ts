@@ -1,4 +1,6 @@
 import { ScriptLessPayload } from '../types/scriptless.js';
+import { evaluateOddsMatchupStatus } from '../utils/matchupUtils.js';
+import { ScraperConfig } from '../types/odds.js';
 
 export const SUPPORTED_LEAGUES = ["NFL", "NBA", "NBASL", "NHL", "MLB", "LLWS", "MLS", "EPL", "MBB", "WBB", "NWSL", "CFB", "CBASE", "ATP", "WTA", "WNBA", "PGA", "FIFA", "FRA", "TUR", "RPL", "CHN", "LMX", "ARG", "BRA", "CRICKET", "SCRIPTLESS"] as const;
 
@@ -321,7 +323,7 @@ export async function fetchScheduleData(endpoint: string, league: League, isScor
   return scheduleData;
 }
 
-export async function scrapeLeagueSchedules(league: League, scoreboardOnly: boolean = false, scraperConfig?: { maxMoneylineOdds?: number, sportOverrides?: Record<string, number> }, specificDates?: string[]): Promise<LeagueResponse> {
+export async function scrapeLeagueSchedules(league: League, scoreboardOnly: boolean = false, scraperConfig?: ScraperConfig, specificDates?: string[]): Promise<LeagueResponse> {
   const response: LeagueResponse = {
     scoreMatchupsCreated: 0,
     existingMatchups: 0,
@@ -548,42 +550,27 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                   const homeLinescores = homeCompetitor.linescores ? homeCompetitor.linescores.map((ls: any) => ls.value || 0) : [];
                   const awayLinescores = awayCompetitor.linescores ? awayCompetitor.linescores.map((ls: any) => ls.value || 0) : [];
 
+                  const rawSpread = extractLine(comp.odds?.[0]?.spread || comp.odds?.[0]?.pointSpread?.home?.close?.line || comp.odds?.[0]?.pointSpread?.home?.open?.line || null);
                   const mlHomeStr = comp.odds?.[0]?.moneyline?.home?.close?.odds || comp.odds?.[0]?.moneyline?.home?.open?.odds;
                   const mlAwayStr = comp.odds?.[0]?.moneyline?.away?.close?.odds || comp.odds?.[0]?.moneyline?.away?.open?.odds;
-                  let isActive = true;
-                  if (!mlHomeStr && !mlAwayStr) {
-                      isActive = false;
-                  }
-                  
-                  // Force tennis & 3rd-party soccer leagues to inactive by default, oddsProcessor will activate them if valid odds exist
-                  if (['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX'].includes(league)) {
-                      isActive = false;
-                  } else {
-                      let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
-                      if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[league] !== undefined) {
-                        threshold = Math.abs(scraperConfig.sportOverrides[league]);
-                      }
-                      if (mlHomeStr) {
-                          const mlHomeNum = parseInt(mlHomeStr, 10);
-                          if (!isNaN(mlHomeNum) && (mlHomeNum <= -threshold || mlHomeNum >= threshold)) {
-                              isActive = false;
-                          }
-                      }
-                      if (mlAwayStr) {
-                          const mlAwayNum = parseInt(mlAwayStr, 10);
-                          if (!isNaN(mlAwayNum) && (mlAwayNum <= -threshold || mlAwayNum >= threshold)) {
-                              isActive = false;
-                          }
-                      }
-                  }
+                  const oddsEval = evaluateOddsMatchupStatus({
+                    league,
+                    mlHome: mlHomeStr,
+                    mlAway: mlAwayStr,
+                    spread: rawSpread,
+                    config: scraperConfig
+                  });
+                  let isActive = oddsEval.active;
+                  let matchupType = oddsEval.matchupType === 'SPREAD' ? 'SPREAD' : 'MONEYLINE';
+                  const displayTitle = matchupType === 'SPREAD' ? `${awayName || 'Away'} @ ${homeName || 'Home'} - ATS` : `${awayName || 'Away'} @ ${homeName || 'Home'}`;
 
                   parsedMatchups.push({
                      startTime,
                      active: isActive,
                      featured: false,
-                     title: `${awayName || 'Away'} @ ${homeName || 'Home'}`,
+                     title: displayTitle,
                      league,
-                     type: "MONEYLINE",
+                     type: matchupType,
                      status: finalStatus,
                      statusDesc: finalStatusDesc,
                      gameId: matchupGameId,
@@ -634,59 +621,32 @@ export async function scrapeLeagueSchedules(league: League, scoreboardOnly: bool
                                   competition.odds?.[0]?.pointSpread?.home?.open?.line ?? null;
                 const spread = extractLine(spreadRaw);
                 const network = competition.geoBroadcasts?.[0]?.media?.shortName || "N/A";
-                let active = true;
                 let mlHome = competition.odds?.[0]?.moneyline?.home?.close?.odds || competition.odds?.[0]?.moneyline?.home?.open?.odds;
                 let mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
-                
-                let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
-                if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[league] !== undefined) {
-                  threshold = Math.abs(scraperConfig.sportOverrides[league]);
-                }
-                if (mlHome) {
-                  const mlHomeNum = parseInt(mlHome, 10);
-                  if (!isNaN(mlHomeNum) && (mlHomeNum <= -threshold || mlHomeNum >= threshold)) {
-                    active = false;
-                  }
-                }
-                const details = competition.odds?.[0]?.details;
-                if (details && details !== "EVEN") {
-                  const match = details.match(/([+-]?\d+)/);
-                  if (match) {
-                    const detailsNum = parseInt(match[0], 10);
-                    if (!isNaN(detailsNum) && (detailsNum <= -threshold || detailsNum >= threshold)) {
-                      active = false;
+
+                // Fallback to details string if moneyline home is absent (e.g. details has "-350")
+                if (!mlHome && !mlAway) {
+                  const details = competition.odds?.[0]?.details;
+                  if (details && details !== "EVEN") {
+                    const match = details.match(/([+-]?\d+)/);
+                    if (match) {
+                      const detailsNum = parseInt(match[0], 10);
+                      if (!isNaN(detailsNum)) {
+                        mlHome = String(detailsNum);
+                      }
                     }
-                  }
-                }
-                if (mlAway) {
-                  const mlAwayNum = parseInt(mlAway, 10);
-                  if (!isNaN(mlAwayNum) && (mlAwayNum <= -threshold || mlAwayNum >= threshold)) {
-                    active = false;
-                  }
-                }
-                
-                if (['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'].includes(league as string) && !mlHome && !mlAway) {
-                  active = false;
-                }
-                
-                if (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB") {
-                  const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
-                  const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
-                  if (isNaN(mlHNum) || isNaN(mlANum)) {
-                    active = false;
                   }
                 }
 
-                let matchupType = "SCORE";
-                if (!active && (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB")) {
-                  if (spread !== null) {
-                    const spreadNum = parseFloat(spread);
-                    if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
-                      active = true;
-                      matchupType = "SPREAD";
-                    }
-                  }
-                }
+                const oddsEval = evaluateOddsMatchupStatus({
+                  league: league as string,
+                  mlHome,
+                  mlAway,
+                  spread,
+                  config: scraperConfig
+                });
+                let active = oddsEval.active;
+                let matchupType = oddsEval.matchupType;
                 let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
                 if (isNaN(homeScore)) homeScore = 0;
                 let awayScore = parseFloat(away.score !== undefined && away.score !== null && away.score !== "" ? away.score : "0");
@@ -880,58 +840,31 @@ export async function fetchMatchups(league: string, scraperConfig?: any) {
                                   competition.odds?.[0]?.pointSpread?.home?.open?.line ?? null;
                 const spread = extractLine(spreadRaw);
                 const network = competition.geoBroadcasts?.[0]?.media?.shortName || "N/A";
-                let active = true;
-                const mlHome = competition.odds?.[0]?.moneyline?.home?.close?.odds || competition.odds?.[0]?.moneyline?.home?.open?.odds;
-                const mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
-                let threshold = Math.abs(scraperConfig?.maxMoneylineOdds ?? 300);
-                if (scraperConfig?.sportOverrides && scraperConfig.sportOverrides[league] !== undefined) {
-                  threshold = Math.abs(scraperConfig.sportOverrides[league]);
-                }
-                if (mlHome) {
-                  const mlHomeNum = parseInt(mlHome, 10);
-                  if (!isNaN(mlHomeNum) && (mlHomeNum <= -threshold || mlHomeNum >= threshold)) {
-                    active = false;
-                  }
-                }
-                const details = competition.odds?.[0]?.details;
-                if (details && details !== "EVEN") {
-                  const match = details.match(/([+-]?\d+)/);
-                  if (match) {
-                    const detailsNum = parseInt(match[0], 10);
-                    if (!isNaN(detailsNum) && (detailsNum <= -threshold || detailsNum >= threshold)) {
-                      active = false;
+                let mlHome = competition.odds?.[0]?.moneyline?.home?.close?.odds || competition.odds?.[0]?.moneyline?.home?.open?.odds;
+                let mlAway = competition.odds?.[0]?.moneyline?.away?.close?.odds || competition.odds?.[0]?.moneyline?.away?.open?.odds;
+
+                if (!mlHome && !mlAway) {
+                  const details = competition.odds?.[0]?.details;
+                  if (details && details !== "EVEN") {
+                    const match = details.match(/([+-]?\d+)/);
+                    if (match) {
+                      const detailsNum = parseInt(match[0], 10);
+                      if (!isNaN(detailsNum)) {
+                        mlHome = String(detailsNum);
+                      }
                     }
-                  }
-                }
-                if (mlAway) {
-                  const mlAwayNum = parseInt(mlAway, 10);
-                  if (!isNaN(mlAwayNum) && (mlAwayNum <= -threshold || mlAwayNum >= threshold)) {
-                    active = false;
-                  }
-                }
-                
-                if (['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'].includes(league as string) && !mlHome && !mlAway) {
-                  active = false;
-                }
-                
-                if (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB") {
-                  const mlHNum = mlHome ? parseInt(mlHome, 10) : NaN;
-                  const mlANum = mlAway ? parseInt(mlAway, 10) : NaN;
-                  if (isNaN(mlHNum) || isNaN(mlANum)) {
-                    active = false;
                   }
                 }
 
-                let matchupType = "SCORE";
-                if (!active && (league === "NFL" || league === "CFB" || league === "NBA" || league === "MBB" || league === "WBB")) {
-                  if (spread !== null) {
-                    const spreadNum = parseFloat(spread);
-                    if (!isNaN(spreadNum) && Math.abs(spreadNum) <= 9.5) {
-                      active = true;
-                      matchupType = "SPREAD";
-                    }
-                  }
-                }
+                const oddsEval = evaluateOddsMatchupStatus({
+                  league: league as string,
+                  mlHome,
+                  mlAway,
+                  spread,
+                  config: scraperConfig
+                });
+                let active = oddsEval.active;
+                let matchupType = oddsEval.matchupType;
 
                 let homeScore = parseFloat(home.score !== undefined && home.score !== null && home.score !== "" ? home.score : "0");
                 if (isNaN(homeScore)) homeScore = 0;

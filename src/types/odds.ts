@@ -31,3 +31,17 @@ export interface StandardGame {
   };
   odds: NormalizedOdds;
 }
+
+export interface SportOddsRule {
+  maxMoneylineOdds?: number; // e.g. -450 (games with steeper odds are off the board)
+  atsMoneylineOdds?: number; // e.g. -250 (games between atsMoneylineOdds and maxMoneylineOdds switch to ATS)
+  maxPointSpread?: number;   // e.g. 9.5 (games in ATS window only switch if abs(spread) <= maxPointSpread)
+}
+
+export interface ScraperConfig {
+  maxMoneylineOdds?: number; // Default e.g. -450 (or legacy -300)
+  atsMoneylineOdds?: number; // Default e.g. -250
+  maxPointSpread?: number;   // Default e.g. 9.5
+  sportOverrides?: Record<string, number>; // Legacy per-sport maxMoneylineOdds map
+  sportOddsRules?: Record<string, SportOddsRule>; // Full per-sport rules
+}

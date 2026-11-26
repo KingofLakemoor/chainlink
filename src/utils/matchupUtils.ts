@@ -273,3 +273,148 @@ export function getPropScoringCategory(matchup: any): string | null {
   return null;
 }
 
+export const SPREAD_ELIGIBLE_LEAGUES = ['NFL', 'CFB', 'NBA', 'MBB', 'WBB'];
+
+export interface EffectiveOddsThresholds {
+  maxMoneylineOdds: number; // e.g. 450 (absolute value)
+  atsMoneylineOdds: number; // e.g. 250 (absolute value)
+  maxPointSpread: number;   // e.g. 9.5
+}
+
+/**
+ * Resolves the effective thresholds for a given league based on ScraperConfig.
+ * Returns absolute values for easier threshold checking.
+ */
+export function resolveOddsThresholds(config?: any, league?: string): EffectiveOddsThresholds {
+  // If maxMoneylineOdds is explicitly passed without atsMoneylineOdds (e.g. legacy { maxMoneylineOdds: 300 }),
+  // then the ATS window starts at maxMoneylineOdds (300) and extends up to max(450, maxMoneylineOdds).
+  // Otherwise, default globalMaxML is 450 and globalAtsML is 250.
+  const hasExplicitMaxML = config?.maxMoneylineOdds !== undefined && config?.maxMoneylineOdds !== null;
+  const hasExplicitAtsML = config?.atsMoneylineOdds !== undefined && config?.atsMoneylineOdds !== null;
+
+  let globalMaxML = 450;
+  let globalAtsML = 250;
+
+  if (hasExplicitMaxML && !hasExplicitAtsML) {
+    const passedML = Math.abs(config.maxMoneylineOdds);
+    globalAtsML = passedML; // Odds >= passedML switch to ATS
+    globalMaxML = Math.max(passedML, 450); // Up to 450 or passedML
+  } else {
+    if (hasExplicitMaxML) globalMaxML = Math.abs(config.maxMoneylineOdds);
+    if (hasExplicitAtsML) globalAtsML = Math.abs(config.atsMoneylineOdds);
+  }
+
+  const globalMaxSpread = Math.abs(config?.maxPointSpread ?? 9.5);
+
+  let leagueMaxML = globalMaxML;
+  let leagueAtsML = globalAtsML;
+  let leagueMaxSpread = globalMaxSpread;
+
+  // Check sportOddsRules first
+  if (league && config?.sportOddsRules && config.sportOddsRules[league]) {
+    const rule = config.sportOddsRules[league];
+    if (rule.maxMoneylineOdds !== undefined && rule.maxMoneylineOdds !== null) {
+      leagueMaxML = Math.abs(rule.maxMoneylineOdds);
+    }
+    if (rule.atsMoneylineOdds !== undefined && rule.atsMoneylineOdds !== null) {
+      leagueAtsML = Math.abs(rule.atsMoneylineOdds);
+    }
+    if (rule.maxPointSpread !== undefined && rule.maxPointSpread !== null) {
+      leagueMaxSpread = Math.abs(rule.maxPointSpread);
+    }
+  } else if (league && config?.sportOverrides && config.sportOverrides[league] !== undefined && config.sportOverrides[league] !== null) {
+    // Backward compatibility with legacy sportOverrides (which mapped league -> maxMoneylineOdds)
+    const passedSportML = Math.abs(config.sportOverrides[league]);
+    leagueAtsML = passedSportML;
+    leagueMaxML = Math.max(passedSportML, globalMaxML);
+  }
+
+  // Ensure atsMoneylineOdds does not exceed maxMoneylineOdds
+  if (leagueAtsML > leagueMaxML) {
+    leagueAtsML = leagueMaxML;
+  }
+
+  return {
+    maxMoneylineOdds: leagueMaxML,
+    atsMoneylineOdds: leagueAtsML,
+    maxPointSpread: leagueMaxSpread
+  };
+}
+
+export interface OddsEvaluationResult {
+  active: boolean;
+  matchupType: 'SCORE' | 'SPREAD' | 'MONEYLINE';
+  reason?: string;
+}
+
+/**
+ * Evaluates whether a matchup should be active, and if it switches to ATS (SPREAD).
+ */
+export function evaluateOddsMatchupStatus(params: {
+  league: string;
+  mlHome?: number | string | null;
+  mlAway?: number | string | null;
+  spread?: number | string | null;
+  config?: any;
+}): OddsEvaluationResult {
+  const { league, mlHome, mlAway, spread, config } = params;
+  const thresholds = resolveOddsThresholds(config, league);
+
+  const mlH = mlHome !== undefined && mlHome !== null && mlHome !== '' ? parseInt(String(mlHome), 10) : NaN;
+  const mlA = mlAway !== undefined && mlAway !== null && mlAway !== '' ? parseInt(String(mlAway), 10) : NaN;
+
+  const isSpreadEligible = SPREAD_ELIGIBLE_LEAGUES.includes(league);
+  const thirdPartyLeagues = ['ATP', 'WTA', 'RPL', 'TUR', 'ARG', 'BRA', 'LMX', 'NWSL'];
+
+  // Check if both ML odds are missing
+  const hasNoMlOdds = isNaN(mlH) && isNaN(mlA);
+  const hasAnyMissingMlOdds = isNaN(mlH) || isNaN(mlA);
+
+  if (thirdPartyLeagues.includes(league) && hasNoMlOdds) {
+    return { active: false, matchupType: 'SCORE', reason: 'Missing ML odds for 3rd-party league' };
+  }
+
+  // Parse spread
+  let spreadNum: number | null = null;
+  if (spread !== undefined && spread !== null && spread !== '') {
+    const parsed = parseFloat(String(spread));
+    if (!isNaN(parsed)) spreadNum = parsed;
+  }
+
+  // If spread-eligible league is missing ML odds (NaN), check if valid spread exists
+  if (isSpreadEligible && hasAnyMissingMlOdds) {
+    if (spreadNum !== null && Math.abs(spreadNum) <= thresholds.maxPointSpread) {
+      return { active: true, matchupType: 'SPREAD', reason: 'Missing ML but valid spread within limit' };
+    }
+    return { active: false, matchupType: 'SCORE', reason: 'Missing ML odds and no valid spread within limit' };
+  }
+
+  // Determine favorite odds magnitude
+  let favoriteMagnitude = 0;
+  if (!isNaN(mlH) && !isNaN(mlA)) {
+    favoriteMagnitude = Math.max(Math.abs(mlH), Math.abs(mlA));
+  } else if (!isNaN(mlH)) {
+    favoriteMagnitude = Math.abs(mlH);
+  } else if (!isNaN(mlA)) {
+    favoriteMagnitude = Math.abs(mlA);
+  }
+
+  // 1. If within standard moneyline threshold (< atsMoneylineOdds): active as standard SCORE
+  if (favoriteMagnitude < thresholds.atsMoneylineOdds) {
+    return { active: true, matchupType: 'SCORE' };
+  }
+
+  // 2. If between atsMoneylineOdds and maxMoneylineOdds:
+  // Can switch to ATS if spread-eligible and spread is within maxPointSpread limit
+  if (favoriteMagnitude <= thresholds.maxMoneylineOdds) {
+    if (isSpreadEligible && spreadNum !== null && Math.abs(spreadNum) <= thresholds.maxPointSpread) {
+      return { active: true, matchupType: 'SPREAD' };
+    }
+    // If not spread-eligible or spread exceeds limit/missing: deactivated
+    return { active: false, matchupType: 'SCORE', reason: 'Odds in ATS range but spread ineligible or outside limit' };
+  }
+
+  // 3. If favorite odds exceed maxMoneylineOdds (> maxMoneylineOdds): completely off the board
+  return { active: false, matchupType: 'SCORE', reason: 'Favorite odds exceed max moneyline odds' };
+}
+

@@ -368,11 +368,25 @@ export default function AdminOddsPage() {
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
             >
               <option value="ALL">All Supported Sports (Tennis, Soccer, Horse Racing)</option>
-              <option value="HORSE_RACING">Horse Racing (Equibase / Apify)</option>
-              <option value="tennis">Tennis (ATP & WTA)</option>
-              <option value="soccer">Soccer (RPL, TUR, ARG, BRA, LMX)</option>
-              <option value="ATP">ATP Tennis Only</option>
-              <option value="WTA">WTA Tennis Only</option>
+              <optgroup label="Major US Leagues (ESPN / Scoreboard Odds)">
+                <option value="MBB">Men's College Basketball (MBB)</option>
+                <option value="NBA">NBA Basketball</option>
+                <option value="NFL">NFL Football</option>
+                <option value="CFB">College Football (CFB)</option>
+                <option value="WBB">Women's College Basketball (WBB)</option>
+                <option value="MLB">MLB Baseball</option>
+                <option value="NHL">NHL Hockey</option>
+                <option value="WNBA">WNBA Basketball</option>
+                <option value="MLS">MLS Soccer</option>
+                <option value="EPL">English Premier League (EPL)</option>
+              </optgroup>
+              <optgroup label="Multi-Tier / SharpAPI / The-Odds-API">
+                <option value="tennis">Tennis (ATP & WTA)</option>
+                <option value="ATP">ATP Tennis Only</option>
+                <option value="WTA">WTA Tennis Only</option>
+                <option value="soccer">International Soccer (RPL, TUR, ARG, BRA, LMX)</option>
+                <option value="HORSE_RACING">Horse Racing (Equibase / Apify)</option>
+              </optgroup>
             </select>
           </div>
 

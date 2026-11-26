@@ -3165,6 +3165,7 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
     let tennisResult: any = null;
     let soccerResult: any = null;
     let horseRacingResult: any = null;
+    let leagueSyncResult: any = null;
 
     if (target === 'ALL' || target === 'TENNIS' || target === 'ATP' || target === 'WTA') {
       tennisResult = await syncTennisOdds();
@@ -3176,12 +3177,26 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
       horseRacingResult = await runDailyHorseRacingScheduleSync(adminDb!);
     }
 
+    // If a specific ESPN/major sport or ALL is requested, also run syncLeagueSchedules to refresh lines & ATS status
+    const majorLeagues = ['NFL', 'CFB', 'NBA', 'MBB', 'WBB', 'MLB', 'NHL', 'WNBA', 'MLS', 'EPL', 'NWSL', 'LLWS', 'NBASL', 'CBASE'];
+    if (majorLeagues.includes(target)) {
+      try {
+        leagueSyncResult = await syncLeagueSchedules(target as any, false);
+      } catch (err: any) {
+        leagueSyncResult = { success: false, error: err.message || err };
+      }
+    }
+
     const overallSuccess = (tennisResult ? tennisResult.success !== false : true) &&
                            (soccerResult ? soccerResult.success !== false : true) &&
-                           (horseRacingResult ? horseRacingResult.success !== false : true);
+                           (horseRacingResult ? horseRacingResult.success !== false : true) &&
+                           (leagueSyncResult ? leagueSyncResult.success !== false : true);
     const primaryError = (!tennisResult?.success ? tennisResult?.error : undefined) ||
                          (!soccerResult?.success ? soccerResult?.error : undefined) ||
-                         (!horseRacingResult?.success ? horseRacingResult?.error : undefined);
+                         (!horseRacingResult?.success ? horseRacingResult?.error : undefined) ||
+                         (!leagueSyncResult?.success ? leagueSyncResult?.error : undefined);
+
+    invalidateMatchupCaches();
 
     res.status(overallSuccess ? 200 : 400).json({
       success: overallSuccess,
@@ -3190,6 +3205,7 @@ apiRouter.post("/admin/sync-odds", validateAdminOrApiKey, async (req, res) => {
       tennis: tennisResult,
       soccer: soccerResult,
       horseRacing: horseRacingResult,
+      leagueSync: leagueSyncResult,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

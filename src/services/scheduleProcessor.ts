@@ -787,16 +787,25 @@ export async function syncLeagueSchedules(
           const hasExistingPicksOnGame = spreadUpdatePicksCache.get(gameId) === true || (existingDoc ? spreadUpdatePicksCache.get(existingDoc.id) === true : false);
           const isOngoingOrFinal = existingData.status === 'STATUS_IN_PROGRESS' || existingData.status === 'STATUS_FINAL';
 
+          const shouldConvertToSpread = !isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD';
+          const shouldRevertFromSpread = !isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type === 'SPREAD' && scrapedMatchup.type !== 'SPREAD';
+
+          // When transitioning between SPREAD and SCORE, determine title and hasCustomTitle:
+          // 1. If switching to SPREAD: append ' - ATS' and flag newlyCustomizedTitle.
+          // 2. If switching back to SCORE: remove auto-appended ' - ATS' (or use scrapedMatchup.title) and reset hasCustomTitle.
+          // 3. Otherwise: preserve existing title if adminOverride or hasCustomTitle.
           let newTitle = (isAdminOverride || existingData.hasCustomTitle) ? existingData.title : scrapedMatchup.title;
           let newlyCustomizedTitle = false;
-          // If we are auto-converting this game to SPREAD and it wasn't SPREAD before, 
-          // mimic the manual behavior of appending ' - ATS', but NEVER change the type/title
-          // of an ongoing/final game or any game that already has picks on it.
-          if (!isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== 'SPREAD' && scrapedMatchup.type === 'SPREAD') {
+          let resetCustomTitle = false;
+
+          if (shouldConvertToSpread) {
               const awayName = scrapedMatchup.awayTeam?.name || 'Away';
               const homeName = scrapedMatchup.homeTeam?.name || 'Home';
               newTitle = `${awayName} @ ${homeName} - ATS`;
               newlyCustomizedTitle = true;
+          } else if (shouldRevertFromSpread) {
+              newTitle = scrapedMatchup.title || (existingData.title ? existingData.title.replace(/\s*-\s*ATS$/i, '') : '');
+              resetCustomTitle = true;
           }
 
           let homeScore = existingData.type === 'STATS' ? (existingData.homeTeam?.score ?? 0) : (scrapedMatchup.homeTeam?.score ?? existingData.homeTeam?.score ?? 0);
@@ -958,7 +967,7 @@ export async function syncLeagueSchedules(
               (existingData.type !== 'STATS' && existingData.awayTeam?.id !== scrapedMatchup.awayTeam?.id) ||
               (!isAdminOverride && existingData.active !== (shouldUnabandon ? true : finalActive)) ||
               Boolean(existingData.abandoned) !== (shouldUnabandon ? false : ((existingData.abandoned === true && !isProtected) ? true : false)) ||
-              (!isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD');
+              (!isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== scrapedMatchup.type && (scrapedMatchup.type === 'SPREAD' || existingData.type === 'SPREAD'));
 
           const hasOddsOrMetadataChange = (scrapedMatchup.metadata?.overUnder !== undefined && scrapedMatchup.metadata?.overUnder !== null && existingData.metadata?.overUnder !== scrapedMatchup.metadata?.overUnder) ||
               (scrapedMatchup.metadata?.mlHome !== undefined && scrapedMatchup.metadata?.mlHome !== null && existingData.metadata?.mlHome !== scrapedMatchup.metadata?.mlHome) ||
@@ -980,16 +989,21 @@ export async function syncLeagueSchedules(
               ? ((existingData.league === 'MLB' && scrapedMatchup.league !== 'MLB') ? scrapedMatchup.league : (existingData.league || scrapedMatchup.league))
               : scrapedMatchup.league;
 
-            const shouldConvertToSpread = !isAdminOverride && !hasExistingPicksOnGame && !isOngoingOrFinal && existingData.type !== scrapedMatchup.type && scrapedMatchup.type === 'SPREAD';
+            const finalType = isAdminOverride
+              ? existingData.type
+              : (shouldConvertToSpread ? 'SPREAD' : (shouldRevertFromSpread ? (scrapedMatchup.type || 'SCORE') : existingData.type));
+            const finalHasCustomTitle = isAdminOverride
+              ? true
+              : (resetCustomTitle ? false : (newlyCustomizedTitle ? true : (existingData.hasCustomTitle || false)));
 
             const updateData: any = {
               ...existingData,
               abandoned: shouldUnabandon ? false : ((existingData.abandoned === true && !isProtected) ? true : false),
               title: isAdminOverride ? existingData.title : newTitle,
-              hasCustomTitle: isAdminOverride ? true : (newlyCustomizedTitle ? true : existingData.hasCustomTitle),
+              hasCustomTitle: finalHasCustomTitle,
               adminOverride: isAdminOverride ? true : (existingData.adminOverride || false),
               league: resolvedLeague,
-              type: isAdminOverride ? existingData.type : (shouldConvertToSpread ? 'SPREAD' : existingData.type),
+              type: finalType,
               active: isAdminOverride ? existingData.active : (shouldUnabandon ? true : ((existingData.abandoned === true && !isProtected) ? false : finalActive)),
               status: newStatus,
               statusDesc: newStatusDesc,
@@ -1035,6 +1049,7 @@ export async function syncLeagueSchedules(
             const flattenedUpdate: any = {
               abandoned: updateData.abandoned,
               title: updateData.title,
+              hasCustomTitle: updateData.hasCustomTitle,
               league: updateData.league,
               type: updateData.type,
               active: updateData.active,

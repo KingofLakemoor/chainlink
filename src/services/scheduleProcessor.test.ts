@@ -898,6 +898,69 @@ describe('scheduleProcessor - adminOverride Preservation Tests', () => {
       'metadata.spread': -9.5,
     }));
   });
+
+  it('reverts SPREAD matchup back to SCORE and removes - ATS title when odds become milder and no picks exist', async () => {
+    const gameTime = Date.now() + 2 * 60 * 60 * 1000;
+    // Scraped matchup evaluates to SCORE because ML is -112 (milder than -250 ATS threshold)
+    const scrapedMatchup = {
+      gameId: '401920550',
+      league: 'MBB',
+      title: 'Eagles @ Miners',
+      type: 'SCORE',
+      active: true,
+      abandoned: false,
+      status: 'STATUS_SCHEDULED',
+      statusDesc: '8:00 PM',
+      startTime: gameTime,
+      homeTeam: { id: 'miners', name: 'Miners', score: 0 },
+      awayTeam: { id: 'eagles', name: 'Eagles', score: 0 },
+      metadata: {
+        spread: -1.5,
+        mlHome: '-112',
+        mlAway: '-108',
+      },
+    };
+
+    vi.mocked(scrapeLeagueSchedules).mockResolvedValue({
+      success: true,
+      data: [scrapedMatchup],
+    } as any);
+
+    mockExistingDoc = {
+      id: '401920550',
+      ref: 'matchupRef_eagles_miners',
+      data: () => ({
+        gameId: '401920550',
+        league: 'MBB',
+        title: 'Eagles @ Miners - ATS',
+        type: 'SPREAD',
+        active: true,
+        hasCustomTitle: true,
+        abandoned: false,
+        status: 'STATUS_SCHEDULED',
+        statusDesc: '8:00 PM',
+        updatedAt: Date.now() - 30 * 60 * 1000,
+        startTime: gameTime,
+        homeTeam: { id: 'miners', name: 'Miners', score: 0 },
+        awayTeam: { id: 'eagles', name: 'Eagles', score: 0 },
+        metadata: {
+          spread: -1.5,
+          mlHome: '-112',
+          mlAway: '-108',
+        },
+      }),
+    };
+
+    const res = await syncLeagueSchedules('MBB' as any, false);
+    expect(res.success).toBe(true);
+
+    expect(mockBatch.update).toHaveBeenCalledWith('matchupRef_eagles_miners', expect.objectContaining({
+      type: 'SCORE',
+      title: 'Eagles @ Miners',
+      hasCustomTitle: false,
+      active: true,
+    }));
+  });
 });
 
 

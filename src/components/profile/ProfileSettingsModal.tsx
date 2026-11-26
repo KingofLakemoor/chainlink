@@ -15,7 +15,7 @@ import { CosmeticPreview } from './CosmeticPreview';
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../ui/titles';
 import { FirebaseImage } from '../ui/FirebaseImage';
-import { getUserUnlockedCosmetics, COSMETICS_CATALOG } from '../club602';
+import { getUserUnlockedCosmetics, COSMETICS_CATALOG, Club602Avatar } from '../club602';
 
 class CosmeticErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
   public state = { hasError: false };
@@ -336,22 +336,19 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
 
                 {/* Avatar & Ring Layer */}
                 <div className="relative z-10 shrink-0">
-                  <CosmeticErrorBoundary fallback={null}>
-                    {RingComp && (
-                      <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
-                        <RingComp isStatic={true} />
-                      </div>
-                    )}
+                  <CosmeticErrorBoundary fallback={
+                    <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center text-2xl font-bold text-zinc-300">
+                      {(profile?.username || profile?.name)?.charAt(0) || 'U'}
+                    </div>
+                  }>
+                    <Club602Avatar
+                      user={profile}
+                      ringId={equippedRingId}
+                      size="xl"
+                      spokeId="chainlink"
+                      fallbackName={profile?.username || profile?.name}
+                    />
                   </CosmeticErrorBoundary>
-                  <div className={`w-20 h-20 rounded-full shadow-lg z-10 relative flex items-center justify-center overflow-hidden border-2 ${RingComp ? 'border-black/60' : 'border-zinc-700'}`}>
-                    {profile?.image ? (
-                      <FirebaseImage src={profile.image} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-2xl font-bold text-zinc-300">
-                        {(profile?.username || profile?.name)?.charAt(0) || 'U'}
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 {/* User Info & Equipped Slots */}

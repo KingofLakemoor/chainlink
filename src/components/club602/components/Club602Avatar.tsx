@@ -51,6 +51,25 @@ const SIZE_MAP = {
  * Supports CSS border rings as well as rich React/Canvas animated rings from ChainLink & spokes.
  * Context-aware: automatically down-scales to static/CSS performance mode on 'micro' surfaces.
  */
+class AvatarRingErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
+  public state = { hasError: false };
+  constructor(props: any) {
+    super(props);
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("Avatar ring failed to render:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || null;
+    }
+    return this.props.children;
+  }
+}
+
 export const Club602Avatar: React.FC<Club602AvatarProps> = ({
   user,
   ringId,
@@ -101,7 +120,9 @@ export const Club602Avatar: React.FC<Club602AvatarProps> = ({
     >
       {RingComponent && (
         <div className="absolute inset-0 transform scale-[1.35] pointer-events-none z-0 flex items-center justify-center">
-          {React.createElement(RingComponent, { isStatic: forceStatic })}
+          <AvatarRingErrorBoundary fallback={null}>
+            {React.createElement(RingComponent, { isStatic: forceStatic })}
+          </AvatarRingErrorBoundary>
         </div>
       )}
       <img

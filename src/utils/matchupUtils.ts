@@ -273,6 +273,75 @@ export function getPropScoringCategory(matchup: any): string | null {
   return null;
 }
 
+/**
+ * Checks if a matchup is a prop (player prop, H2H prop, solo prop, yes-only, ScriptLess, etc.).
+ */
+export function isPropMatchup(matchup: any): boolean {
+  if (!matchup) return false;
+  const meta = matchup.metadata || {};
+  return Boolean(
+    meta.isPropMatchup ||
+    meta.isSoloProp ||
+    meta.isSinglePlayerProp ||
+    meta.isYesOnly ||
+    meta.propType ||
+    matchup.type === 'PROP' ||
+    matchup.type === 'STATS' ||
+    matchup.typeDetails === 'PLAYER_STAT' ||
+    matchup.league === 'PROP' ||
+    matchup.league === 'SCRIPTLESS' ||
+    (typeof matchup.gameId === 'string' && matchup.gameId.startsWith('prop_')) ||
+    getPropPlayerOrSubject(matchup) !== null ||
+    getPropScoringCategory(matchup) !== null
+  );
+}
+
+/**
+ * Checks if a matchup is a game total (Over/Under game total, excluding player/solo props).
+ */
+export function isTotalMatchup(matchup: any): boolean {
+  if (!matchup) return false;
+  if (isPropMatchup(matchup)) return false;
+  return (
+    matchup.type === 'OVER_UNDER' ||
+    matchup.metadata?.isOverUnder === true ||
+    extractOverUnderLine(matchup) !== null
+  );
+}
+
+/**
+ * Checks if a matchup is against the spread (ATS / SPREAD).
+ */
+export function isAtsMatchup(matchup: any): boolean {
+  if (!matchup) return false;
+  if (isPropMatchup(matchup) || isTotalMatchup(matchup)) return false;
+  return (
+    matchup.type === 'SPREAD' ||
+    (matchup.metadata?.spread !== undefined && matchup.metadata?.spread !== null && matchup.metadata?.spread !== '') ||
+    (typeof matchup.title === 'string' && matchup.title.includes(' - ATS'))
+  );
+}
+
+/**
+ * Checks if a matchup is straight up (moneyline / standard score, no spread or total, not a prop).
+ */
+export function isStraightUpMatchup(matchup: any): boolean {
+  if (!matchup) return false;
+  return !isAtsMatchup(matchup) && !isTotalMatchup(matchup) && !isPropMatchup(matchup);
+}
+
+export type MatchupBetType = 'straight_up' | 'ats' | 'total' | 'prop';
+
+/**
+ * Returns the bet classification of a matchup: 'prop' | 'total' | 'ats' | 'straight_up'.
+ */
+export function getMatchupBetType(matchup: any): MatchupBetType {
+  if (isPropMatchup(matchup)) return 'prop';
+  if (isTotalMatchup(matchup)) return 'total';
+  if (isAtsMatchup(matchup)) return 'ats';
+  return 'straight_up';
+}
+
 export const SPREAD_ELIGIBLE_LEAGUES = ['NFL', 'CFB', 'NBA', 'MBB', 'WBB'];
 
 export interface EffectiveOddsThresholds {

@@ -13,13 +13,14 @@ import { GiHorseHead } from 'react-icons/gi';
 import { MatchupCard } from '../../components/ui/MatchupCard';
 import { FirebaseImage } from '../../components/ui/FirebaseImage';
 import { PlayBannerConfig } from '../admin/system/BannerAdminPage';
-import { isMatchupLocked, getMatchupStartTime } from '../../utils/matchupUtils';
+import { isMatchupLocked, getMatchupStartTime, isPropMatchup, isTotalMatchup, isAtsMatchup, isStraightUpMatchup } from '../../utils/matchupUtils';
 
 export default function PlayDashboard() {
   const { user, profile, chain } = useAuth();
   const [userPicks, setUserPicks] = useState<Record<string, any>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'available' | 'chain'>('all');
+  const [betTypeFilter, setBetTypeFilter] = useState<'all' | 'straight_up' | 'ats' | 'total' | 'prop'>('all');
   const [sharingMatchupId, setSharingMatchupId] = useState<string | null>(null);
 
   const [allFetchedMatchups, setAllFetchedMatchups] = useState<any[]>([]);
@@ -202,7 +203,7 @@ export default function PlayDashboard() {
     return { totalUpcomingPicks: total, matchupPickCounts: counts };
   }, [globalUpcomingPicks, allFetchedMatchups]);
 
-  const { baseBoardMatchups, availableSports } = React.useMemo(() => {
+  const { baseBoardMatchups, availableSports, availableBetTypes } = React.useMemo(() => {
     let now = Date.now();
     
     // Auto-detect if database timestamps are shifted in the future (e.g. sandbox timezone in 2026 vs real browser in 2024)
@@ -267,6 +268,7 @@ export default function PlayDashboard() {
     });
 
     const sports = new Set<string>();
+    const betTypes = new Set<string>();
     base.forEach((m: any) => {
       const lg = (m.league === 'PROP' && m.metadata?.optionA?.league) ? m.metadata.optionA.league : m.league;
       if (['NFL', 'CFB'].includes(lg) || m.league === 'PROP') sports.add('FOOTBALL');
@@ -277,9 +279,14 @@ export default function PlayDashboard() {
       if (['ATP', 'WTA'].includes(lg)) sports.add('TENNIS');
       if (['PGA', 'PUTTING'].includes(lg)) sports.add('GOLF');
       if (['HORSE_RACING', 'EQUIBASE', 'HORSE'].includes(lg)) sports.add('HORSE_RACING');
+
+      if (isStraightUpMatchup(m)) betTypes.add('straight_up');
+      if (isAtsMatchup(m)) betTypes.add('ats');
+      if (isTotalMatchup(m)) betTypes.add('total');
+      if (isPropMatchup(m)) betTypes.add('prop');
     });
 
-    return { baseBoardMatchups: base, availableSports: sports };
+    return { baseBoardMatchups: base, availableSports: sports, availableBetTypes: betTypes };
   }, [allFetchedMatchups, filterType, userPicks, matchupPickCounts]);
 
   const matchups = React.useMemo(() => {
@@ -300,18 +307,29 @@ export default function PlayDashboard() {
         return false;
       }
 
+      if (betTypeFilter === 'straight_up' && !isStraightUpMatchup(m)) return false;
+      if (betTypeFilter === 'ats' && !isAtsMatchup(m)) return false;
+      if (betTypeFilter === 'total' && !isTotalMatchup(m)) return false;
+      if (betTypeFilter === 'prop' && !isPropMatchup(m)) return false;
+
       return true;
     });
 
     filtered.sort((a: any, b: any) => getMatchupStartTime(a.startTime) - getMatchupStartTime(b.startTime));
     return filtered;
-  }, [baseBoardMatchups, selectedSport]);
+  }, [baseBoardMatchups, selectedSport, betTypeFilter]);
 
   useEffect(() => {
     if (selectedSport !== null && !availableSports.has(selectedSport)) {
       setSelectedSport(null);
     }
   }, [selectedSport, availableSports]);
+
+  useEffect(() => {
+    if (betTypeFilter !== 'all' && !availableBetTypes.has(betTypeFilter)) {
+      setBetTypeFilter('all');
+    }
+  }, [betTypeFilter, availableBetTypes]);
 
 
   const handleForfeitPick = async (matchup: any) => {
@@ -695,6 +713,22 @@ export default function PlayDashboard() {
           <Button variant={filterType === 'all' ? "secondary" : "ghost"} onClick={() => setFilterType('all')} className={cn("rounded-lg px-6 h-9", filterType === 'all' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>All</Button>
           <Button variant={filterType === 'available' ? "secondary" : "ghost"} onClick={() => setFilterType('available')} className={cn("rounded-lg px-6 h-9", filterType === 'available' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>Available</Button>
           <Button variant={filterType === 'chain' ? "secondary" : "ghost"} onClick={() => setFilterType('chain')} className={cn("rounded-lg px-6 h-9", filterType === 'chain' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>Chain Builder</Button>
+        </div>
+
+        <div className="flex items-center gap-1 bg-zinc-900/80 rounded-xl p-1 border border-zinc-800">
+          <Button variant={betTypeFilter === 'all' ? "secondary" : "ghost"} onClick={() => setBetTypeFilter('all')} className={cn("rounded-lg px-4 h-9 font-medium", betTypeFilter === 'all' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>All Types</Button>
+          {availableBetTypes.has('straight_up') && (
+            <Button variant={betTypeFilter === 'straight_up' ? "secondary" : "ghost"} onClick={() => setBetTypeFilter('straight_up')} className={cn("rounded-lg px-4 h-9 font-medium", betTypeFilter === 'straight_up' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>Straight Up</Button>
+          )}
+          {availableBetTypes.has('ats') && (
+            <Button variant={betTypeFilter === 'ats' ? "secondary" : "ghost"} onClick={() => setBetTypeFilter('ats')} className={cn("rounded-lg px-4 h-9 font-medium", betTypeFilter === 'ats' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>ATS</Button>
+          )}
+          {availableBetTypes.has('total') && (
+            <Button variant={betTypeFilter === 'total' ? "secondary" : "ghost"} onClick={() => setBetTypeFilter('total')} className={cn("rounded-lg px-4 h-9 font-medium", betTypeFilter === 'total' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>Total</Button>
+          )}
+          {availableBetTypes.has('prop') && (
+            <Button variant={betTypeFilter === 'prop' ? "secondary" : "ghost"} onClick={() => setBetTypeFilter('prop')} className={cn("rounded-lg px-4 h-9 font-medium", betTypeFilter === 'prop' ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-none" : "text-zinc-400 hover:text-zinc-200")}>Prop</Button>
+          )}
         </div>
 
         <div className="flex items-center gap-1 bg-zinc-900/80 rounded-xl p-1 border border-zinc-800">

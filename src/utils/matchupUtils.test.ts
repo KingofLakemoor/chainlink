@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { isMatchupLocked, getMatchupStartTime, extractOverUnderLine, getPropPlayerOrSubject, getPropTargetLine, getPropScoringCategory, resolveOddsThresholds, evaluateOddsMatchupStatus } from './matchupUtils';
+import {
+  isMatchupLocked,
+  getMatchupStartTime,
+  extractOverUnderLine,
+  getPropPlayerOrSubject,
+  getPropTargetLine,
+  getPropScoringCategory,
+  resolveOddsThresholds,
+  evaluateOddsMatchupStatus,
+  isPropMatchup,
+  isTotalMatchup,
+  isAtsMatchup,
+  isStraightUpMatchup,
+  getMatchupBetType
+} from './matchupUtils';
 
 describe('matchupUtils', () => {
   describe('getMatchupStartTime', () => {
@@ -255,6 +269,86 @@ describe('matchupUtils', () => {
       });
       expect(resAts.active).toBe(true);
       expect(resAts.matchupType).toBe('SPREAD');
+    });
+  });
+
+  describe('Matchup Bet Type Classifiers', () => {
+    it('classifies straight up games correctly', () => {
+      const mlGame = {
+        title: 'Chiefs @ Bills',
+        league: 'NFL',
+        type: 'SCORE',
+        metadata: { mlHome: -120, mlAway: +100 }
+      };
+      expect(isStraightUpMatchup(mlGame)).toBe(true);
+      expect(isAtsMatchup(mlGame)).toBe(false);
+      expect(isTotalMatchup(mlGame)).toBe(false);
+      expect(isPropMatchup(mlGame)).toBe(false);
+      expect(getMatchupBetType(mlGame)).toBe('straight_up');
+    });
+
+    it('classifies ATS games correctly', () => {
+      const atsGame = {
+        title: 'Chiefs @ Bills - ATS',
+        league: 'NFL',
+        type: 'SPREAD',
+        metadata: { spread: -3.5 }
+      };
+      expect(isAtsMatchup(atsGame)).toBe(true);
+      expect(isStraightUpMatchup(atsGame)).toBe(false);
+      expect(isTotalMatchup(atsGame)).toBe(false);
+      expect(isPropMatchup(atsGame)).toBe(false);
+      expect(getMatchupBetType(atsGame)).toBe('ats');
+    });
+
+    it('classifies game totals (Over/Under) correctly', () => {
+      const totalGame = {
+        title: 'Chiefs @ Bills - O/U 48.5',
+        league: 'NFL',
+        type: 'OVER_UNDER',
+        metadata: { overUnder: 48.5 }
+      };
+      expect(isTotalMatchup(totalGame)).toBe(true);
+      expect(isAtsMatchup(totalGame)).toBe(false);
+      expect(isStraightUpMatchup(totalGame)).toBe(false);
+      expect(isPropMatchup(totalGame)).toBe(false);
+      expect(getMatchupBetType(totalGame)).toBe('total');
+    });
+
+    it('classifies player props correctly', () => {
+      const playerProp = {
+        title: 'Patrick Mahomes - PASSING_YARDS (275.5)',
+        league: 'NFL',
+        type: 'OVER_UNDER',
+        metadata: {
+          isPropMatchup: true,
+          isSoloProp: true,
+          targetLine: 275.5,
+          optionA: { playerName: 'Patrick Mahomes', statType: 'PASSING_YARDS' }
+        }
+      };
+      expect(isPropMatchup(playerProp)).toBe(true);
+      expect(isTotalMatchup(playerProp)).toBe(false);
+      expect(isAtsMatchup(playerProp)).toBe(false);
+      expect(isStraightUpMatchup(playerProp)).toBe(false);
+      expect(getMatchupBetType(playerProp)).toBe('prop');
+    });
+
+    it('classifies yes-only and ScriptLess props as props', () => {
+      const tdProp = {
+        title: 'Travis Kelce (Anytime TD Scorer)',
+        league: 'NFL',
+        metadata: { isYesOnly: true }
+      };
+      expect(isPropMatchup(tdProp)).toBe(true);
+      expect(getMatchupBetType(tdProp)).toBe('prop');
+
+      const scriptlessProp = {
+        title: 'Episode 5 Winner',
+        league: 'SCRIPTLESS'
+      };
+      expect(isPropMatchup(scriptlessProp)).toBe(true);
+      expect(getMatchupBetType(scriptlessProp)).toBe('prop');
     });
   });
 });

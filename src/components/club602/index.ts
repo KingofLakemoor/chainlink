@@ -103,6 +103,34 @@ export function getUserUnlockedCosmetics(user: any | null | undefined): Set<stri
     user.inventory.forEach((id: string) => unlocked.add(id));
   }
 
+  // Additional purchased/unlocked arrays across spokes
+  if (Array.isArray(user.purchasedItems)) {
+    user.purchasedItems.forEach((id: string) => unlocked.add(id));
+  }
+  if (Array.isArray(user.titles)) {
+    user.titles.forEach((id: string) => unlocked.add(id));
+  }
+
+  // Cross-spoke paid premium status unlocks all non-milestone / premium catalog items
+  const isPremiumMember = Boolean(
+    user.isPremium ||
+    user.premium ||
+    user.chainlinkPremium ||
+    user.scriptlessPremium ||
+    user.membershipTier === 'PRO' ||
+    user.membershipTier === 'VIP_FOUNDER' ||
+    user.membershipTier === 'FOUNDER'
+  );
+
+  if (isPremiumMember) {
+    COSMETICS_CATALOG.forEach((item) => {
+      // Grant cosmetics to premium members (excluding specific achievement-only milestone locks)
+      if (!item.metadata?.unlockedByMilestone) {
+        unlocked.add(item.id);
+      }
+    });
+  }
+
   // Currently equipped items are implicitly owned
   if (user.equippedCosmetics && typeof user.equippedCosmetics === 'object') {
     Object.values(user.equippedCosmetics).forEach((id: any) => {
@@ -134,14 +162,24 @@ export function getUserUnlockedCosmetics(user: any | null | undefined): Set<stri
 
 /**
  * Checks whether a specific cosmetic item is unlocked for a user.
- * VIP/Founders or Premium members may have all items unlocked if configured.
+ * VIP/Founders or Premium members across any paid spoke have items unlocked.
  */
 export function isCosmeticUnlocked(
   itemOrId: CosmeticItem | string,
   user: any | null | undefined,
   bypassForVip = false
 ): boolean {
-  if (bypassForVip && (user?.isPremium || user?.membershipTier === 'VIP_FOUNDER' || user?.membershipTier === 'FOUNDER')) {
+  const isPremium = Boolean(
+    user?.isPremium ||
+    user?.premium ||
+    user?.chainlinkPremium ||
+    user?.scriptlessPremium ||
+    user?.membershipTier === 'PRO' ||
+    user?.membershipTier === 'VIP_FOUNDER' ||
+    user?.membershipTier === 'FOUNDER'
+  );
+
+  if (bypassForVip && isPremium) {
     return true;
   }
 
@@ -150,6 +188,11 @@ export function isCosmeticUnlocked(
 
   // Base free items are unlocked for all
   if (item && item.cost === 0 && !item.metadata?.unlockedByMilestone && item.rarity === 'common') {
+    return true;
+  }
+
+  // Premium subscribers unlock catalog items across all spokes
+  if (isPremium && (!item || !item.metadata?.unlockedByMilestone)) {
     return true;
   }
 

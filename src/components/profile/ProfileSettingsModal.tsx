@@ -15,6 +15,7 @@ import { CosmeticPreview } from './CosmeticPreview';
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../ui/titles';
 import { FirebaseImage } from '../ui/FirebaseImage';
+import { getUserUnlockedCosmetics, COSMETICS_CATALOG } from '../club602';
 
 export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { user, profile } = useAuth();
@@ -154,8 +155,10 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     }
   };
 
-  // Consolidate all owned item IDs across inventory, purchasedItems, and titles arrays
+  // Consolidate all owned item IDs across inventory, purchasedItems, titles, and cross-spoke unlocks
+  const unlockedSet = getUserUnlockedCosmetics(profile);
   const ownedIds = Array.from(new Set([
+    ...Array.from(unlockedSet),
     ...(profile?.inventory || []),
     ...(profile?.purchasedItems || []),
     ...(profile?.titles || [])
@@ -164,6 +167,20 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
   // Build complete list of owned item objects with dynamic fallbacks for any unrecognized IDs
   const userInventoryItems = ownedIds.map(invId => {
     let item = catalogItems.find(i => i.id === invId);
+    if (!item) {
+      const coreItem = COSMETICS_CATALOG.find(c => c.id === invId);
+      if (coreItem) {
+        item = {
+          id: coreItem.id,
+          name: coreItem.name,
+          description: coreItem.description,
+          type: coreItem.category,
+          cost: coreItem.cost || 0,
+          image: coreItem.renderValue,
+          active: coreItem.active
+        };
+      }
+    }
     if (!item) {
       let type = 'PROFILE_BANNER';
       if (invId.startsWith('ring_')) type = 'AVATAR_RING';
@@ -249,6 +266,12 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {Boolean(profile?.premium || profile?.isPremium || profile?.scriptlessPremium || profile?.membershipTier === 'PRO' || profile?.membershipTier === 'VIP_FOUNDER' || profile?.membershipTier === 'FOUNDER') && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1 shadow-sm">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                Premium Active
+              </span>
+            )}
             <div className="flex items-center gap-1 text-xs font-bold font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/30 px-2.5 py-1 rounded-xl">
               <Coins className="w-3.5 h-3.5" />
               {(profile?.links || 0).toLocaleString()} Links

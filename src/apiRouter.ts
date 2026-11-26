@@ -3622,14 +3622,25 @@ apiRouter.post("/user/equip" , async (req, res) => {
       if (!userDoc.exists) throw new Error("User not found");
 
       const profile = userDoc.data()!;
+      const isPremium = Boolean(
+        profile.premium ||
+        profile.isPremium ||
+        profile.chainlinkPremium ||
+        profile.scriptlessPremium ||
+        profile.membershipTier === 'PRO' ||
+        profile.membershipTier === 'VIP_FOUNDER' ||
+        profile.membershipTier === 'FOUNDER'
+      );
+
       const ownedItems = new Set([
         ...(profile.inventory || []),
+        ...(profile.unlockedCosmetics || []),
         ...(profile.purchasedItems || []),
         ...(profile.titles || [])
       ]);
 
       // If itemId is null, it means unequip
-      if (itemId !== null && !ownedItems.has(itemId)) {
+      if (itemId !== null && !isPremium && !ownedItems.has(itemId)) {
         throw new Error("You do not own this item!");
       }
 
@@ -4263,16 +4274,91 @@ apiRouter.get("/external/check-premium", async (req, res) => {
       return res.status(400).json({ success: false, error: "Missing or invalid email parameter" });
     }
 
-    const snap = await adminDb.collection('users').where('email', '==', email).limit(1).get();
+    const cleanEmail = email.trim().toLowerCase();
+    let snap = await adminDb.collection('users').where('email', '==', email).limit(1).get();
+    if (snap.empty && cleanEmail !== email) {
+      snap = await adminDb.collection('users').where('email', '==', cleanEmail).limit(1).get();
+    }
 
     if (snap.empty) {
-      return res.json({ success: true, isPremium: false });
+      return res.json({ success: true, isPremium: false, inventory: [], unlockedCosmetics: [] });
     }
 
     const userDoc = snap.docs[0].data();
-    return res.json({ success: true, isPremium: !!userDoc.premium });
+    const isPremium = Boolean(
+      userDoc.premium ||
+      userDoc.isPremium ||
+      userDoc.chainlinkPremium ||
+      userDoc.scriptlessPremium ||
+      userDoc.membershipTier === 'PRO' ||
+      userDoc.membershipTier === 'VIP_FOUNDER' ||
+      userDoc.membershipTier === 'FOUNDER'
+    );
+
+    const inventory = Array.isArray(userDoc.inventory) ? userDoc.inventory : [];
+    const unlockedCosmetics = Array.isArray(userDoc.unlockedCosmetics) ? userDoc.unlockedCosmetics : [];
+    const equippedCosmetics = userDoc.equippedCosmetics || {};
+
+    return res.json({
+      success: true,
+      isPremium,
+      inventory,
+      unlockedCosmetics,
+      equippedCosmetics,
+      spokeCosmetics: userDoc.spokeCosmetics || {}
+    });
   } catch (e: any) {
     console.error("External check-premium error:", e);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+apiRouter.post("/external/sync-user", async (req, res) => {
+  if (!adminDb) return res.status(500).json({ success: false, error: "adminDb not configured" });
+  try {
+    const providedApiKey = req.headers['x-api-key'];
+    if (!providedApiKey || providedApiKey !== process.env.SCRIPTLESS_API_KEY) {
+      return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing API key" });
+    }
+
+    const { email, isPremium, cosmetics, spoke } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ success: false, error: "Missing email parameter" });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    let snap = await adminDb.collection('users').where('email', '==', email).limit(1).get();
+    if (snap.empty && cleanEmail !== email) {
+      snap = await adminDb.collection('users').where('email', '==', cleanEmail).limit(1).get();
+    }
+
+    if (!snap.empty) {
+      const userRef = snap.docs[0].ref;
+      const existing = snap.docs[0].data();
+      const updates: any = { updatedAt: Date.now() };
+
+      if (isPremium) {
+        updates.premium = true;
+        if (spoke === 'scriptless') {
+          updates.scriptlessPremium = true;
+        }
+      }
+
+      if (Array.isArray(cosmetics) && cosmetics.length > 0) {
+        const merged = Array.from(new Set([
+          ...(existing.inventory || []),
+          ...cosmetics
+        ]));
+        updates.inventory = merged;
+      }
+
+      await userRef.update(updates);
+      return res.json({ success: true, updated: true });
+    }
+
+    return res.json({ success: true, updated: false, message: "User not found by email" });
+  } catch (e: any) {
+    console.error("External sync-user error:", e);
     return res.status(500).json({ success: false, error: e.message });
   }
 });

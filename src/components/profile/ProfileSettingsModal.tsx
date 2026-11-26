@@ -17,6 +17,25 @@ import { TitleMap } from '../ui/titles';
 import { FirebaseImage } from '../ui/FirebaseImage';
 import { getUserUnlockedCosmetics, COSMETICS_CATALOG } from '../club602';
 
+class CosmeticErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
+  public state = { hasError: false };
+  constructor(props: any) {
+    super(props);
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("Cosmetic graphic failed to render:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || null;
+    }
+    return this.props.children;
+  }
+}
+
 export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { user, profile } = useAuth();
   const { isInstallable, promptInstall } = useInstallPrompt();
@@ -177,6 +196,8 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
           type: coreItem.category,
           cost: coreItem.cost || 0,
           image: coreItem.renderValue,
+          preview: coreItem.preview || coreItem.renderValue,
+          renderValue: coreItem.renderValue,
           active: coreItem.active
         };
       }
@@ -301,23 +322,27 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
 
               <div className="relative rounded-xl border border-zinc-800 p-4 flex flex-col sm:flex-row items-center gap-4 overflow-hidden bg-zinc-950/80 min-h-[120px]">
                 {/* Banner Layer */}
-                {BannerComp ? (
-                  <div className="absolute inset-0 z-0">
-                    <BannerComp isStatic={true} />
-                  </div>
-                ) : (equippedBannerItem?.image?.startsWith('/') || equippedBannerItem?.image?.startsWith('http') || equippedBannerItem?.image?.startsWith('gs://')) ? (
-                  <FirebaseImage src={equippedBannerItem.image} alt="" className="absolute inset-0 w-full h-full object-cover z-0" />
-                ) : (
-                  <div className={`absolute inset-0 z-0 ${equippedBannerItem?.image || 'bg-gradient-to-r from-zinc-900 to-zinc-950'}`} />
-                )}
+                <CosmeticErrorBoundary fallback={<div className="absolute inset-0 z-0 bg-gradient-to-r from-zinc-900 to-zinc-950" />}>
+                  {BannerComp ? (
+                    <div className="absolute inset-0 z-0">
+                      <BannerComp isStatic={true} />
+                    </div>
+                  ) : (equippedBannerItem?.image?.startsWith('/') || equippedBannerItem?.image?.startsWith('http') || equippedBannerItem?.image?.startsWith('gs://')) ? (
+                    <FirebaseImage src={equippedBannerItem.image} alt="" className="absolute inset-0 w-full h-full object-cover z-0" />
+                  ) : (
+                    <div className={`absolute inset-0 z-0 ${equippedBannerItem?.image || 'bg-gradient-to-r from-zinc-900 to-zinc-950'}`} />
+                  )}
+                </CosmeticErrorBoundary>
 
                 {/* Avatar & Ring Layer */}
                 <div className="relative z-10 shrink-0">
-                  {RingComp && (
-                    <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
-                      <RingComp isStatic={true} />
-                    </div>
-                  )}
+                  <CosmeticErrorBoundary fallback={null}>
+                    {RingComp && (
+                      <div className="absolute inset-0 z-0 transform scale-[1.3] pointer-events-none">
+                        <RingComp isStatic={true} />
+                      </div>
+                    )}
+                  </CosmeticErrorBoundary>
                   <div className={`w-20 h-20 rounded-full shadow-lg z-10 relative flex items-center justify-center overflow-hidden border-2 ${RingComp ? 'border-black/60' : 'border-zinc-700'}`}>
                     {profile?.image ? (
                       <FirebaseImage src={profile.image} alt="" className="w-full h-full object-cover" />
@@ -335,19 +360,21 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
                     {profile?.username || profile?.name}
                   </h4>
 
-                  {TitleComp ? (
-                    <div className="mt-1 inline-block">
-                      <TitleComp isStatic={true} />
-                    </div>
-                  ) : equippedTitleItem ? (
-                    <div className="mt-1 inline-block">
-                      <span className="text-xs font-bold text-[#22c55e] px-2.5 py-0.5 rounded bg-black/60 border border-[#22c55e]/30 shadow-sm font-display">
-                        {equippedTitleItem.name}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-zinc-400 italic mt-1">No title equipped</div>
-                  )}
+                  <CosmeticErrorBoundary fallback={null}>
+                    {TitleComp ? (
+                      <div className="mt-1 inline-block">
+                        <TitleComp isStatic={true} />
+                      </div>
+                    ) : equippedTitleItem ? (
+                      <div className="mt-1 inline-block">
+                        <span className="text-xs font-bold text-[#22c55e] px-2.5 py-0.5 rounded bg-black/60 border border-[#22c55e]/30 shadow-sm font-display">
+                          {equippedTitleItem.name}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-zinc-400 italic mt-1">No title equipped</div>
+                    )}
+                  </CosmeticErrorBoundary>
 
                   {/* Active Equipped Slot Badges with 1-click Unequip */}
                   <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -503,12 +530,18 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
 
                         {/* Static Image / Shader Preview */}
                         <div className="h-28 bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden relative">
-                          <CosmeticPreview
-                            item={item}
-                            isStatic={true}
-                            userImage={profile?.image}
-                            username={profile?.username || profile?.name}
-                          />
+                          <CosmeticErrorBoundary fallback={
+                            <div className="w-full h-full flex items-center justify-center p-3 text-center bg-zinc-900">
+                              <span className="text-xs font-bold text-zinc-300">{item.name}</span>
+                            </div>
+                          }>
+                            <CosmeticPreview
+                              item={item}
+                              isStatic={true}
+                              userImage={profile?.image}
+                              username={profile?.username || profile?.name}
+                            />
+                          </CosmeticErrorBoundary>
                         </div>
 
                         {/* Description */}

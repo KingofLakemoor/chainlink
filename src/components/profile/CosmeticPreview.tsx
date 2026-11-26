@@ -3,6 +3,25 @@ import { FirebaseImage } from '../ui/FirebaseImage';
 import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
 import { TitleMap } from '../ui/titles';
 
+class PreviewErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
+  public state = { hasError: false };
+  constructor(props: any) {
+    super(props);
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("CosmeticPreview shader component crashed:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || null;
+    }
+    return this.props.children;
+  }
+}
+
 interface CosmeticPreviewProps {
   item: {
     id: string;
@@ -39,7 +58,9 @@ export function CosmeticPreview({
       <div className={`w-full h-full relative overflow-hidden rounded-xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center ${className}`}>
         {BannerComponent ? (
           <div className="absolute inset-0 w-full h-full">
-            {React.createElement(BannerComponent, { isStatic })}
+            <PreviewErrorBoundary fallback={<div className="w-full h-full bg-gradient-to-r from-zinc-800 to-zinc-900" />}>
+              {React.createElement(BannerComponent, { isStatic })}
+            </PreviewErrorBoundary>
           </div>
         ) : item.thumbnail ? (
           <FirebaseImage src={item.thumbnail} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -88,7 +109,9 @@ export function CosmeticPreview({
           {RingComponent ? (
             <>
               <div className="absolute inset-0 transform scale-[1.35] pointer-events-none z-0">
-                {React.createElement(RingComponent, { isStatic })}
+                <PreviewErrorBoundary fallback={null}>
+                  {React.createElement(RingComponent, { isStatic })}
+                </PreviewErrorBoundary>
               </div>
               <div className="relative z-10 w-11 h-11 rounded-full overflow-hidden border border-black/60 bg-zinc-800 flex items-center justify-center shadow-inner">
                 {userImage ? (
@@ -126,7 +149,13 @@ export function CosmeticPreview({
       <div className={`w-full h-full rounded-xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center p-3 text-center ${className}`}>
         {TitleComponent ? (
           <div className="inline-block transform scale-95">
-            {React.createElement(TitleComponent, { isStatic })}
+            <PreviewErrorBoundary fallback={
+              <span className="text-xs font-bold text-[#22c55e] px-3 py-1 rounded-md bg-black/60 border border-[#22c55e]/30 shadow-sm font-display tracking-wide uppercase">
+                {item.name}
+              </span>
+            }>
+              {React.createElement(TitleComponent, { isStatic })}
+            </PreviewErrorBoundary>
           </div>
         ) : item.thumbnail ? (
           <FirebaseImage src={item.thumbnail} alt={item.name} className="max-h-12 max-w-full object-contain" />

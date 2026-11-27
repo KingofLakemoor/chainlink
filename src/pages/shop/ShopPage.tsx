@@ -50,15 +50,36 @@ export default function ShopPage() {
         const snap = await getDocs(q);
         let fetchedItems: any[] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        if (fetchedItems.length === 0) {
-          fetchedItems = defaultItems;
-        }
-        setItems(fetchedItems);
+        // Harmonize with authoritative shop_items.json manifest so additions and forSale rotations apply seamlessly
+        const manifestMap = new Map<string, any>();
+        (shopItemsData as any[]).forEach(item => {
+          if (item?.id) manifestMap.set(item.id, item);
+        });
+
+        // Merge DB data with manifest defaults (manifest takes precedence on forSale/cost if configured)
+        const combinedMap = new Map<string, any>();
+        fetchedItems.forEach(item => {
+          if (item?.id) {
+            const manifestItem = manifestMap.get(item.id);
+            combinedMap.set(item.id, {
+              ...item,
+              ...(manifestItem ? { forSale: manifestItem.forSale, cost: manifestItem.cost ?? item.cost } : {})
+            });
+          }
+        });
+
+        // Ensure newly added items from manifest are included
+        manifestMap.forEach((manifestItem, id) => {
+          if (!combinedMap.has(id)) {
+            combinedMap.set(id, manifestItem);
+          }
+        });
+
+        const finalItems = Array.from(combinedMap.values()).filter(i => i.active !== false && i.forSale !== false);
+        setItems(finalItems.length > 0 ? finalItems : defaultItems);
       } catch (e) {
         console.error("Error fetching shop items", e);
-        if (import.meta.env.DEV) {
-          setItems((shopItemsData as any[]).filter(i => i.active !== false && i.forSale !== false));
-        }
+        setItems((shopItemsData as any[]).filter(i => i.active !== false && i.forSale !== false));
       } finally {
         setLoading(false);
       }
@@ -381,159 +402,7 @@ export default function ShopPage() {
       )}
 
       <div className="space-y-12">
-
-        <section>
-          <h2 className="text-2xl font-bold text-zinc-200 mb-4 border-b border-zinc-800 pb-2 flex items-center gap-2">
-            <Zap className="w-6 h-6 text-yellow-500" />
-            Buy Links & Premium
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Starter */}
-            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
-                <Coins className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-100 mb-2">150 Links</h3>
-              <p className="text-zinc-400 text-sm mb-6 flex-1">A quick refill to keep you in the game</p>
-              <div className="w-full">
-                <Button
-                  onClick={() => handleStripeCheckout('links', 150)}
-                  disabled={buyLoading === 'links-150' || !user}
-                  className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
-                >
-                  {buyLoading === 'links-150' ? 'Loading...' : '$5.25'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Monthly */}
-            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
-                <Coins className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-100 mb-2">350 Links</h3>
-              <p className="text-zinc-400 text-sm mb-6 flex-1">Standard boost for your Links</p>
-              <div className="w-full">
-                <Button
-                  onClick={() => handleStripeCheckout('links', 350)}
-                  disabled={buyLoading === 'links-350' || !user}
-                  className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
-                >
-                  {buyLoading === 'links-350' ? 'Loading...' : '$10.49'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Merch Tier */}
-            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 flex flex-col items-center text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
-                POPULAR
-              </div>
-              <div className="w-16 h-16 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4 mt-2">
-                <Coins className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-100 mb-2">1,050 Links</h3>
-              <p className="text-zinc-400 text-sm mb-6 flex-1">Enough for a merch redemption</p>
-              <div className="w-full">
-                <Button
-                  onClick={() => handleStripeCheckout('links', 1050)}
-                  disabled={buyLoading === 'links-1050' || !user}
-                  className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
-                >
-                  {buyLoading === 'links-1050' ? 'Loading...' : '$29.99'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Bulk Tier */}
-            <div className="bg-[#121212] border border-zinc-800 rounded-xl p-6 flex flex-col items-center text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
-                BEST VALUE
-              </div>
-              <div className="w-16 h-16 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4 mt-2">
-                <Coins className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-100 mb-2">1,800 Links</h3>
-              <p className="text-zinc-400 text-sm mb-6 flex-1">Massive boost for serious players</p>
-              <div className="w-full">
-                <Button
-                  onClick={() => handleStripeCheckout('links', 1800)}
-                  disabled={buyLoading === 'links-1800' || !user}
-                  className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
-                >
-                  {buyLoading === 'links-1800' ? 'Loading...' : '$49.99'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Premium Subscription / Pro Shop */}
-            {profile?.premium ? (
-              <div className="bg-gradient-to-b from-purple-900/40 to-[#121212] border border-purple-500/30 rounded-xl p-6 flex flex-col items-center text-center sm:col-span-2 lg:col-span-4 w-full">
-                <div className="flex flex-col md:flex-row items-center justify-between w-full mb-6">
-                  <div className="flex items-center gap-4 mb-4 md:mb-0">
-                    <div className="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                      <Crown className="w-8 h-8" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-2xl font-bold text-white">ChainLink Pro</h3>
-                      <p className="text-purple-300/70 text-sm">Thanks for being a Pro member!</p>
-                    </div>
-                  </div>
-                  <div className="bg-[#121212]/80 border border-purple-500/20 rounded-xl p-4 flex flex-col items-center w-full md:w-auto min-w-[200px]">
-                    <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Daily Bonus</span>
-                    <Button
-                      onClick={handleClaimDaily}
-                      disabled={claimLoading || profile?.lastDailyClaim === new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
-                      className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold"
-                    >
-                      {claimLoading ? 'Claiming...' : profile?.lastDailyClaim === new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' }) ? 'Claimed Today' : 'Claim 10 Links'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="w-full border-t border-purple-500/20 my-6"></div>
-
-                <h4 className="text-lg font-bold text-white mb-4 self-start">Pro Exclusive Items</h4>
-                {proItems.length === 0 ? (
-                  <div className="text-purple-300/60 p-4 border border-purple-500/20 rounded-lg w-full">
-                    New Pro cosmetics coming soon!
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full text-left">
-                    {proItems.map(item => renderCosmeticCard(item))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-gradient-to-b from-purple-900/40 to-[#121212] border border-purple-500/30 rounded-xl p-6 flex flex-col items-center text-center sm:col-span-2 lg:col-span-4 max-w-2xl mx-auto w-full">
-                <div className="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center mb-4">
-                  <Crown className="w-8 h-8" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">ChainLink Pro</h3>
-                <div className="text-purple-200/70 text-sm mb-6 flex-1 text-left space-y-1 w-full max-w-sm">
-                  <p className="mb-2 text-center">Unlock the ultimate ChainLink experience:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Claim 10 Links</strong> daily in the Shop</li>
-                    <li><strong>Queue future picks</strong> automatically</li>
-                    <li>Exclusive <strong>Advanced Metrics</strong> tracking</li>
-                    <li><strong>Track line movement</strong> directly on matchup cards</li>
-                    <li>Access to <strong>Pro-exclusive shop items</strong></li>
-                    <li>Full access to <strong><a href="https://scriptless.club602.com/premium" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-300">ScriptLess Premium</a></strong></li>
-                  </ul>
-                </div>
-                <div className="w-full">
-                  <Button
-                    onClick={() => handleStripeCheckout('premium')}
-                    disabled={buyLoading === 'premium-undefined' || !user || profile?.premium}
-                    className="w-full bg-purple-600 hover:bg-purple-500 text-white"
-                  >
-                    {profile?.premium ? 'Active' : buyLoading === 'premium-undefined' ? 'Loading...' : '$4.99 / mo'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* Buy Links & Premium section hidden for now per request */}
 
         <section>
           <h2 className="text-2xl font-bold text-zinc-200 mb-4 border-b border-zinc-800 pb-2">Banners</h2>

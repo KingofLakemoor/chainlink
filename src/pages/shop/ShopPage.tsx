@@ -402,7 +402,74 @@ export default function ShopPage() {
       )}
 
       <div className="space-y-12">
-        {/* Buy Links & Premium section hidden for now per request */}
+        {/* ChainLink Pro Section */}
+        <section>
+          {profile?.premium ? (
+            <div className="bg-gradient-to-b from-purple-900/40 to-[#121212] border border-purple-500/30 rounded-xl p-6 flex flex-col items-center text-center w-full">
+              <div className="flex flex-col md:flex-row items-center justify-between w-full mb-6">
+                <div className="flex items-center gap-4 mb-4 md:mb-0">
+                  <div className="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                    <Crown className="w-8 h-8" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-2xl font-bold text-white">ChainLink Pro</h3>
+                    <p className="text-purple-300/70 text-sm">Thanks for being a Pro member!</p>
+                  </div>
+                </div>
+                <div className="bg-[#121212]/80 border border-purple-500/20 rounded-xl p-4 flex flex-col items-center w-full md:w-auto min-w-[200px]">
+                  <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Daily Bonus</span>
+                  <Button
+                    onClick={handleClaimDaily}
+                    disabled={claimLoading || profile?.lastDailyClaim === new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' })}
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold"
+                  >
+                    {claimLoading ? 'Claiming...' : profile?.lastDailyClaim === new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' }) ? 'Claimed Today' : 'Claim 10 Links'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="w-full border-t border-purple-500/20 my-6"></div>
+
+              <h4 className="text-lg font-bold text-white mb-4 self-start">Pro Exclusive Items</h4>
+              {proItems.length === 0 ? (
+                <div className="text-purple-300/60 p-4 border border-purple-500/20 rounded-lg w-full">
+                  New Pro cosmetics coming soon!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full text-left">
+                  {proItems.map(item => renderCosmeticCard(item))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-gradient-to-b from-purple-900/40 to-[#121212] border border-purple-500/30 rounded-xl p-6 flex flex-col items-center text-center max-w-2xl mx-auto w-full">
+              <div className="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center mb-4">
+                <Crown className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">ChainLink Pro</h3>
+              <div className="text-purple-200/70 text-sm mb-6 flex-1 text-left space-y-1 w-full max-w-sm">
+                <p className="mb-2 text-center">Unlock the ultimate ChainLink experience:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Claim 10 Links</strong> daily in the Shop</li>
+                  <li><strong>Queue future picks</strong> automatically</li>
+                  <li>Exclusive <strong>Advanced Metrics</strong> tracking</li>
+                  <li><strong>Track line movement</strong> directly on matchup cards</li>
+                  <li>Access to <strong>Pro-exclusive shop items</strong></li>
+                  <li>Full access to <strong><a href="https://scriptless.club602.com/premium" target="_blank" rel="noopener noreferrer" className="underline hover:text-purple-300">ScriptLess Premium</a></strong></li>
+                </ul>
+              </div>
+              <div className="w-full">
+                <Button
+                  onClick={() => handleStripeCheckout('premium')}
+                  disabled={buyLoading === 'premium-undefined' || !user || profile?.premium}
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white"
+                >
+                  {profile?.premium ? 'Active' : buyLoading === 'premium-undefined' ? 'Loading...' : '$4.99 / mo'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
 
         <section>
           <h2 className="text-2xl font-bold text-zinc-200 mb-4 border-b border-zinc-800 pb-2">Banners</h2>

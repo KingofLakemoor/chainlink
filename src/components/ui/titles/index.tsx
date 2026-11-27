@@ -11,6 +11,8 @@ import { BadBeatTitle } from './bad-beat';
 import { BetaTesterTitle } from './beta-tester';
 import { ViceLordTitle } from './vice-lord';
 import { BlackFridayTitle } from './black-friday';
+import { ChainLinkProMemberTitle } from './chainlink-pro-member';
+import { SyndicateSyndicTitle } from './pro-syndicate';
 
 export const TitleMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerTitle": ResponsibleGamblerTitle,
@@ -30,4 +32,11 @@ export const TitleMap: Record<string, React.FC<any>> = {
   'BlackFriday': BlackFridayTitle,
   'title_black_friday': BlackFridayTitle,
   'title_black_friday_bfbs': BlackFridayTitle,
+  'ChainLinkProMemberTitle': ChainLinkProMemberTitle,
+  'title_chainlink_pro_member': ChainLinkProMemberTitle,
+  'title_pro_member': ChainLinkProMemberTitle,
+  'SyndicateSyndicTitle': SyndicateSyndicTitle,
+  'title_pro_syndicate': SyndicateSyndicTitle,
+  'ProSyndicateTitle': SyndicateSyndicTitle,
 };
+

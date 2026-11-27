@@ -18,6 +18,8 @@ import { EdgeLedgerAvatarRing } from './components/avatar-rings/edge-ledger';
 import { BadBeatAvatarRing } from './components/avatar-rings/bad-beat';
 import { ResponsibleGamblerAvatarRing } from './components/avatar-rings/responsible-gambler/ResponsibleGamblerAvatarRing';
 import { ViceNeonAvatarRing } from './components/avatar-rings/vice-neon';
+import { ChainLinkProAvatarRing } from '../ui/avatar-rings/chainlink-pro';
+import { SyndicateAvatarRing } from '../ui/avatar-rings/syndicate';
 
 // Profile Banners
 import { InfernoBanner } from './components/profile-banners/inferno';
@@ -62,6 +64,8 @@ import { GothamMachBanner } from './components/banners/GothamMachBanner';
 import { ArcSurgeBanner } from './components/banners/ArcSurgeBanner';
 import { TurkeyGobblerBanner } from './components/banners/TurkeyGobblerBanner';
 import { BlackFridayBFBSBanner } from './components/banners/BlackFridayBFBSBanner';
+import { ChainLinkProBanner } from '../banners/ChainLinkProBanner';
+import { ProSyndicateBanner } from '../banners/ProSyndicateBanner';
 
 // Custom Titles
 import { ResponsibleGamblerTitle } from './components/titles/responsible-gambler/ResponsibleGamblerTitle';
@@ -76,6 +80,9 @@ import { BadBeatTitle } from './components/titles/bad-beat';
 import { BetaTesterTitle } from './components/titles/beta-tester';
 import { ViceLordTitle } from './components/titles/vice-lord';
 import { BlackFridayTitle } from './components/titles/black-friday';
+import { ChainLinkProMemberTitle } from '../ui/titles/chainlink-pro-member';
+import { SyndicateSyndicTitle } from '../ui/titles/pro-syndicate';
+
 
 /**
  * Universal Avatar Ring Component Map (keyed by component identifier or cosmetic ID)
@@ -117,7 +124,14 @@ export const AvatarRingMap: Record<string, React.FC<any>> = {
   ViceNeonAvatarRing,
   ViceCityAvatarRing: ViceNeonAvatarRing,
   ring_vice_neon: ViceNeonAvatarRing,
-  ring_vice_city: ViceNeonAvatarRing
+  ring_vice_city: ViceNeonAvatarRing,
+  ChainLinkProAvatarRing,
+  ChainLinkProRing: ChainLinkProAvatarRing,
+  ring_chainlink_pro: ChainLinkProAvatarRing,
+  ring_chainlink_pro_member: ChainLinkProAvatarRing,
+  SyndicateAvatarRing,
+  ProSyndicateRing: SyndicateAvatarRing,
+  ring_pro_syndicate: SyndicateAvatarRing
 };
 
 /**
@@ -209,7 +223,12 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   BlackFridayBFBS: BlackFridayBFBSBanner,
   BlackFriday: BlackFridayBFBSBanner,
   banner_black_friday: BlackFridayBFBSBanner,
-  banner_black_friday_bfbs: BlackFridayBFBSBanner
+  banner_black_friday_bfbs: BlackFridayBFBSBanner,
+  ChainLinkProBanner,
+  banner_chainlink_pro: ChainLinkProBanner,
+  banner_chainlink_pro_member: ChainLinkProBanner,
+  ProSyndicateBanner,
+  banner_pro_syndicate: ProSyndicateBanner
 };
 
 /**
@@ -228,6 +247,8 @@ export const TitleMap: Record<string, React.FC<any>> = {
   BadBeatTitle,
   ViceLordTitle,
   BlackFridayTitle,
+  ChainLinkProMemberTitle,
+  SyndicateSyndicTitle,
   // Direct cosmetic ID mappings
   title_responsible_gambler: ResponsibleGamblerTitle,
   title_beta_tester: BetaTesterTitle,
@@ -244,4 +265,10 @@ export const TitleMap: Record<string, React.FC<any>> = {
   title_black_friday: BlackFridayTitle,
   title_black_friday_bfbs: BlackFridayTitle,
   BlackFriday: BlackFridayTitle,
+  title_chainlink_pro_member: ChainLinkProMemberTitle,
+  title_pro_member: ChainLinkProMemberTitle,
+  ChainLinkProMemberTitleKey: ChainLinkProMemberTitle,
+  title_pro_syndicate: SyndicateSyndicTitle,
+  ProSyndicateTitle: SyndicateSyndicTitle
 };
+

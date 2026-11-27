@@ -52,6 +52,10 @@ import { GothamMachBanner } from '../components/banners/GothamMachBanner';
 import { ArcSurgeBanner } from '../components/banners/ArcSurgeBanner';
 import { TurkeyGobblerBanner } from '../components/banners/TurkeyGobblerBanner';
 import { BlackFridayBFBSBanner } from '../components/banners/BlackFridayBFBSBanner';
+import { ChainLinkProBanner } from '../components/banners/ChainLinkProBanner';
+import { ProSyndicateBanner } from '../components/banners/ProSyndicateBanner';
+import { ChainLinkProAvatarRing } from '../components/ui/avatar-rings/chainlink-pro';
+import { SyndicateAvatarRing } from '../components/ui/avatar-rings/syndicate';
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerAvatarRing": ResponsibleGamblerAvatarRing,
@@ -73,7 +77,14 @@ export const AvatarRingMap: Record<string, React.FC<any>> = {
   'ViceNeonAvatarRing': ViceNeonAvatarRing,
   'ViceCityAvatarRing': ViceNeonAvatarRing,
   'ring_vice_neon': ViceNeonAvatarRing,
-  'ring_vice_city': ViceNeonAvatarRing
+  'ring_vice_city': ViceNeonAvatarRing,
+  'ChainLinkProAvatarRing': ChainLinkProAvatarRing,
+  'ChainLinkProRing': ChainLinkProAvatarRing,
+  'ring_chainlink_pro': ChainLinkProAvatarRing,
+  'ring_chainlink_pro_member': ChainLinkProAvatarRing,
+  'SyndicateAvatarRing': SyndicateAvatarRing,
+  'ProSyndicateRing': SyndicateAvatarRing,
+  'ring_pro_syndicate': SyndicateAvatarRing,
 };
 
 export const ProfileBannerMap: Record<string, React.FC<any>> = {
@@ -136,7 +147,12 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'BlackFridayBFBS': BlackFridayBFBSBanner,
   'BlackFriday': BlackFridayBFBSBanner,
   'banner_black_friday': BlackFridayBFBSBanner,
-  'banner_black_friday_bfbs': BlackFridayBFBSBanner
+  'banner_black_friday_bfbs': BlackFridayBFBSBanner,
+  'ChainLinkProBanner': ChainLinkProBanner,
+  'banner_chainlink_pro': ChainLinkProBanner,
+  'banner_chainlink_pro_member': ChainLinkProBanner,
+  'ProSyndicateBanner': ProSyndicateBanner,
+  'banner_pro_syndicate': ProSyndicateBanner,
 };
 
 export interface AvailableCosmetic {
@@ -150,6 +166,8 @@ export interface AvailableCosmetic {
 
 export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
   // Banners
+  { id: 'banner_chainlink_pro', name: 'ChainLink Pro', category: 'banner', key: 'ChainLinkProBanner', description: 'Exclusive iridescent royal purple and neon nebula banner for ChainLink Pro members' },
+  { id: 'banner_pro_syndicate', name: 'Pro Syndicate', category: 'banner', key: 'ProSyndicateBanner', description: 'Forged obsidian and molten gold banner for prestigious Pro Syndicate members' },
   { id: 'banner_black_friday', name: 'Black Friday: BFBS Edition', category: 'banner', key: 'BlackFridayBFBSBanner', description: 'Limited Edition BFBS Pitch-Black Thanksgiving Moneysink Banner' },
   { id: 'banner_turkey_gobbler', name: 'The Turkey Day Gobbler', category: 'banner', key: 'TurkeyGobblerBanner', description: 'Exclusive 1st Annual Gobbler Champion Banner' },
   { id: 'banner_inferno', name: 'Inferno Banner', category: 'banner', key: 'InfernoBanner' },
@@ -167,6 +185,8 @@ export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
   { id: 'banner_arc_surge', name: 'The Arc Surge', category: 'banner', key: 'ArcSurgeBanner' },
 
   // Avatar Rings
+  { id: 'ring_chainlink_pro', name: 'ChainLink Pro Ring', category: 'ring', key: 'ChainLinkProAvatarRing', description: 'Royal purple rotating laser beacon ring exclusive to ChainLink Pro members' },
+  { id: 'ring_pro_syndicate', name: 'Pro Syndicate Ring', category: 'ring', key: 'SyndicateAvatarRing', description: 'Forged imperial gold and purple tech gear ring for Pro Syndicate members' },
   { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },
   { id: 'ring_hexagons', name: 'Hexagons Ring', category: 'ring', key: 'Hexagons' },
   { id: 'ring_ocean', name: 'Ocean Ring', category: 'ring', key: 'Ocean' },
@@ -174,6 +194,8 @@ export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
   { id: 'ring_vice_neon', name: 'Vice Neon Ring', category: 'ring', key: 'ViceNeonAvatarRing' },
 
   // Titles
+  { id: 'title_chainlink_pro_member', name: 'Pro Member', category: 'title', titleText: 'PRO MEMBER', key: 'ChainLinkProMemberTitle', description: 'Signature glowing purple ChainLink Pro Member title' },
+  { id: 'title_pro_syndicate', name: 'Pro Syndicate', category: 'title', titleText: 'PRO SYNDICATE', key: 'SyndicateSyndicTitle', description: 'Exclusive high-tier gold inner-circle title for Pro members' },
   { id: 'title_black_friday', name: 'Black Friday: BFBS', category: 'title', titleText: 'BLACK FRIDAY', key: 'BlackFridayTitle', description: 'Limited Edition BFBS Black Friday Title' },
   { id: 'title_whale', name: 'High Roller', category: 'title', titleText: 'HIGH ROLLER' },
   { id: 'title_legend', name: 'Gridiron Legend', category: 'title', titleText: 'GRIDIRON LEGEND' },
@@ -181,6 +203,7 @@ export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
   { id: 'title_vip', name: 'ChainLink VIP', category: 'title', titleText: 'CHAINLINK VIP' },
   { id: 'title_vice_lord', name: 'Vice Lord', category: 'title', titleText: 'VICE LORD', key: 'ViceLordTitle' },
 ];
+
 
 export function getCosmeticById(id?: string | null): AvailableCosmetic | undefined {
   if (!id) return undefined;

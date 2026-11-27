@@ -346,7 +346,13 @@ export default function ShopPage() {
 
             <div className="flex items-center justify-between mt-auto">
                <div className="font-mono font-bold text-cyan-400 flex items-center gap-1">
-                 <Coins className="w-4 h-4" /> {item.cost.toLocaleString()}
+                 {item.cost === 0 ? (
+                   <span className="text-emerald-400 font-bold uppercase tracking-wider text-sm">Free</span>
+                 ) : (
+                   <>
+                     <Coins className="w-4 h-4" /> {item.cost.toLocaleString()}
+                   </>
+                 )}
                </div>
                {item.premiumOnly && !profile?.premium && !ownsItem ? (
                  <Button
@@ -360,9 +366,9 @@ export default function ShopPage() {
                    onClick={() => handleBuy(item.id, item.cost)}
                    disabled={ownsItem || buyLoading === item.id || !user || (profile?.links || 0) < item.cost}
                    variant={ownsItem ? "secondary" : "default"}
-                   className={ownsItem ? "" : "bg-[#22c55e] hover:bg-[#16a34a] text-white"}
+                   className={ownsItem ? "" : item.cost === 0 ? "bg-purple-600 hover:bg-purple-500 text-white font-bold" : "bg-[#22c55e] hover:bg-[#16a34a] text-white"}
                  >
-                   {buyLoading === item.id ? 'Processing...' : ownsItem ? 'Owned' : 'Buy Now'}
+                   {buyLoading === item.id ? 'Processing...' : ownsItem ? 'Owned' : item.cost === 0 ? 'Claim Free' : 'Buy Now'}
                  </Button>
                )}
             </div>

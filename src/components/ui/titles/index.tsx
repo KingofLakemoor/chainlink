@@ -10,6 +10,7 @@ import { EdgeLedgerTitle } from './edge-ledger';
 import { BadBeatTitle } from './bad-beat';
 import { BetaTesterTitle } from './beta-tester';
 import { ViceLordTitle } from './vice-lord';
+import { BlackFridayTitle } from './black-friday';
 
 export const TitleMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerTitle": ResponsibleGamblerTitle,
@@ -25,4 +26,8 @@ export const TitleMap: Record<string, React.FC<any>> = {
   'ViceLordTitle': ViceLordTitle,
   'ViceLord': ViceLordTitle,
   'title_vice_lord': ViceLordTitle,
+  'BlackFridayTitle': BlackFridayTitle,
+  'BlackFriday': BlackFridayTitle,
+  'title_black_friday': BlackFridayTitle,
+  'title_black_friday_bfbs': BlackFridayTitle,
 };

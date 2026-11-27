@@ -56,6 +56,7 @@ export const AVAILABLE_COSMETICS = [
   { id: 'banner_gotham_mach', name: 'The Gotham Mach', category: 'banner', key: 'GothamMachBanner' },
   { id: 'banner_arc_surge', name: 'The Arc Surge', category: 'banner', key: 'ArcSurgeBanner' },
   { id: 'banner_turkey_gobbler', name: 'The Turkey Day Gobbler', category: 'banner', key: 'TurkeyGobblerBanner' },
+  { id: 'banner_black_friday', name: 'Black Friday: BFBS Edition', category: 'banner', key: 'BlackFridayBFBSBanner' },
 
   // Avatar Rings
   { id: 'ring_inferno', name: 'Inferno Ring', category: 'ring', key: 'Inferno' },
@@ -65,6 +66,7 @@ export const AVAILABLE_COSMETICS = [
   { id: 'ring_vice_neon', name: 'Vice Neon Ring', category: 'ring', key: 'ViceNeonAvatarRing' },
 
   // Titles
+  { id: 'title_black_friday', name: 'Black Friday: BFBS', category: 'title', titleText: 'BLACK FRIDAY', key: 'BlackFridayTitle' },
   { id: 'title_whale', name: 'High Roller', category: 'title', titleText: 'HIGH ROLLER' },
   { id: 'title_legend', name: 'Gridiron Legend', category: 'title', titleText: 'GRIDIRON LEGEND' },
   { id: 'title_champ', name: 'Weekly Champion', category: 'title', titleText: 'WEEKLY CHAMP' },

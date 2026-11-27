@@ -61,6 +61,7 @@ import { MidwayChargeBanner } from './components/banners/MidwayChargeBanner';
 import { GothamMachBanner } from './components/banners/GothamMachBanner';
 import { ArcSurgeBanner } from './components/banners/ArcSurgeBanner';
 import { TurkeyGobblerBanner } from './components/banners/TurkeyGobblerBanner';
+import { BlackFridayBFBSBanner } from './components/banners/BlackFridayBFBSBanner';
 
 // Custom Titles
 import { ResponsibleGamblerTitle } from './components/titles/responsible-gambler/ResponsibleGamblerTitle';
@@ -74,6 +75,7 @@ import { EdgeLedgerTitle } from './components/titles/edge-ledger';
 import { BadBeatTitle } from './components/titles/bad-beat';
 import { BetaTesterTitle } from './components/titles/beta-tester';
 import { ViceLordTitle } from './components/titles/vice-lord';
+import { BlackFridayTitle } from './components/titles/black-friday';
 
 /**
  * Universal Avatar Ring Component Map (keyed by component identifier or cosmetic ID)
@@ -201,7 +203,13 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   TurkeyGobblerBanner,
   TurkeyGobbler: TurkeyGobblerBanner,
   banner_turkey_gobbler: TurkeyGobblerBanner,
-  banner_turkey_day_gobbler: TurkeyGobblerBanner
+  banner_turkey_day_gobbler: TurkeyGobblerBanner,
+  BlackFridayBFBSBanner,
+  BlackFridayBanner: BlackFridayBFBSBanner,
+  BlackFridayBFBS: BlackFridayBFBSBanner,
+  BlackFriday: BlackFridayBFBSBanner,
+  banner_black_friday: BlackFridayBFBSBanner,
+  banner_black_friday_bfbs: BlackFridayBFBSBanner
 };
 
 /**
@@ -219,6 +227,7 @@ export const TitleMap: Record<string, React.FC<any>> = {
   EdgeLedgerTitle,
   BadBeatTitle,
   ViceLordTitle,
+  BlackFridayTitle,
   // Direct cosmetic ID mappings
   title_responsible_gambler: ResponsibleGamblerTitle,
   title_beta_tester: BetaTesterTitle,
@@ -230,5 +239,9 @@ export const TitleMap: Record<string, React.FC<any>> = {
   title_signal_floor: SignalFloorTitle,
   title_edge_ledger: EdgeLedgerTitle,
   title_bad_beat: BadBeatTitle,
-  title_vice_lord: ViceLordTitle
+  title_vice_lord: ViceLordTitle,
+  ViceLord: ViceLordTitle,
+  title_black_friday: BlackFridayTitle,
+  title_black_friday_bfbs: BlackFridayTitle,
+  BlackFriday: BlackFridayTitle,
 };

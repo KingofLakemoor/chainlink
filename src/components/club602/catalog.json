@@ -3802,5 +3802,37 @@
     "renderValue": "TurkeyGobblerBanner",
     "preview": "TurkeyGobblerBanner",
     "order": 229
+  },
+  {
+    "id": "banner_black_friday",
+    "name": "Black Friday: BFBS Edition",
+    "category": "PROFILE_BANNER",
+    "originSpoke": "chainlink",
+    "description": "Ultra-sleek Black Friday blackout banner. Pure BFBS pitch obsidian, flowing carbon smoke, razor specular highlights, subtle roast-cranberry thermal sheen, and a forged blackout turkey & wishbone crest.",
+    "cost": 1500,
+    "forSale": true,
+    "active": true,
+    "featured": true,
+    "rarity": "mythic",
+    "renderType": "component",
+    "renderValue": "BlackFridayBFBSBanner",
+    "preview": "BlackFridayBFBSBanner",
+    "order": 230
+  },
+  {
+    "id": "title_black_friday",
+    "name": "Black Friday: BFBS",
+    "category": "TITLE",
+    "originSpoke": "chainlink",
+    "description": "Prestige blackout title forged for big spenders. Features BFBS matte carbon weave, platinum-to-gold typography, and a minimalist wishbone emblem.",
+    "cost": 1000,
+    "forSale": true,
+    "active": true,
+    "featured": true,
+    "rarity": "mythic",
+    "renderType": "component",
+    "renderValue": "BlackFridayTitle",
+    "preview": "BlackFridayTitle",
+    "order": 231
   }
 ]

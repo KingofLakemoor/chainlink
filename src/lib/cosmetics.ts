@@ -51,6 +51,7 @@ import { CrescentCrownBanner } from '../components/banners/CrescentCrownBanner';
 import { GothamMachBanner } from '../components/banners/GothamMachBanner';
 import { ArcSurgeBanner } from '../components/banners/ArcSurgeBanner';
 import { TurkeyGobblerBanner } from '../components/banners/TurkeyGobblerBanner';
+import { BlackFridayBFBSBanner } from '../components/banners/BlackFridayBFBSBanner';
 
 export const AvatarRingMap: Record<string, React.FC<any>> = {
   "ResponsibleGamblerAvatarRing": ResponsibleGamblerAvatarRing,
@@ -129,7 +130,13 @@ export const ProfileBannerMap: Record<string, React.FC<any>> = {
   'TurkeyGobblerBanner': TurkeyGobblerBanner,
   'TurkeyGobbler': TurkeyGobblerBanner,
   'banner_turkey_gobbler': TurkeyGobblerBanner,
-  'banner_turkey_day_gobbler': TurkeyGobblerBanner
+  'banner_turkey_day_gobbler': TurkeyGobblerBanner,
+  'BlackFridayBFBSBanner': BlackFridayBFBSBanner,
+  'BlackFridayBanner': BlackFridayBFBSBanner,
+  'BlackFridayBFBS': BlackFridayBFBSBanner,
+  'BlackFriday': BlackFridayBFBSBanner,
+  'banner_black_friday': BlackFridayBFBSBanner,
+  'banner_black_friday_bfbs': BlackFridayBFBSBanner
 };
 
 export interface AvailableCosmetic {
@@ -143,6 +150,7 @@ export interface AvailableCosmetic {
 
 export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
   // Banners
+  { id: 'banner_black_friday', name: 'Black Friday: BFBS Edition', category: 'banner', key: 'BlackFridayBFBSBanner', description: 'Limited Edition BFBS Pitch-Black Thanksgiving Moneysink Banner' },
   { id: 'banner_turkey_gobbler', name: 'The Turkey Day Gobbler', category: 'banner', key: 'TurkeyGobblerBanner', description: 'Exclusive 1st Annual Gobbler Champion Banner' },
   { id: 'banner_inferno', name: 'Inferno Banner', category: 'banner', key: 'InfernoBanner' },
   { id: 'banner_boardroom', name: 'Board Room Banner', category: 'banner', key: 'BoardRoomBanner' },
@@ -166,6 +174,7 @@ export const AVAILABLE_COSMETICS: AvailableCosmetic[] = [
   { id: 'ring_vice_neon', name: 'Vice Neon Ring', category: 'ring', key: 'ViceNeonAvatarRing' },
 
   // Titles
+  { id: 'title_black_friday', name: 'Black Friday: BFBS', category: 'title', titleText: 'BLACK FRIDAY', key: 'BlackFridayTitle', description: 'Limited Edition BFBS Black Friday Title' },
   { id: 'title_whale', name: 'High Roller', category: 'title', titleText: 'HIGH ROLLER' },
   { id: 'title_legend', name: 'Gridiron Legend', category: 'title', titleText: 'GRIDIRON LEGEND' },
   { id: 'title_champ', name: 'Weekly Champion', category: 'title', titleText: 'WEEKLY CHAMP' },

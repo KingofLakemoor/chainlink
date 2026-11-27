@@ -527,6 +527,12 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
 
                         {/* Static Image / Shader Preview */}
                         <div className="h-28 bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden relative">
+                          {item.type === 'PROFILE_BANNER' && (
+                            <div className="absolute top-2 left-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-950/90 border border-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.35)] backdrop-blur-md">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              <span className="text-[9px] font-black uppercase tracking-wider text-amber-300">Black Friday Sale</span>
+                            </div>
+                          )}
                           <CosmeticErrorBoundary fallback={
                             <div className="w-full h-full flex items-center justify-center p-3 text-center bg-zinc-900">
                               <span className="text-xs font-bold text-zinc-300">{item.name}</span>

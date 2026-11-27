@@ -261,6 +261,12 @@ export default function ShopPage() {
          {/* Preview area */}
          <div className="h-32 bg-zinc-900 flex items-center justify-center relative overflow-hidden border-b border-zinc-800">
             {item.type === 'PROFILE_BANNER' && (
+              <div className="absolute top-2 left-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-950/90 border border-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.35)] backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">Black Friday Sale</span>
+              </div>
+            )}
+            {item.type === 'PROFILE_BANNER' && (
               item.thumbnail ? (
                   <FirebaseImage src={item.thumbnail} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
               ) : ProfileBannerMap[item.image] ? (

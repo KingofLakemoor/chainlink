@@ -246,7 +246,14 @@ export const Club602LockerModal: React.FC<Club602LockerModalProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <CosmeticOriginBadge origin={item.originSpoke} />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <CosmeticOriginBadge origin={item.originSpoke} />
+                      {item.category === 'PROFILE_BANNER' && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/40">
+                          Black Friday Sale
+                        </span>
+                      )}
+                    </div>
                     {isSelected ? (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950 border border-cyan-800 px-2 py-0.5 rounded-md">
                         Equipped

@@ -24,14 +24,14 @@ describe('Black Friday BFBS Profile Banner & Moneysink Integration', () => {
       name: 'Black Friday: BFBS Edition',
       description: 'Ultra-sleek Black Friday blackout banner. Pure BFBS pitch obsidian, flowing carbon smoke, razor specular highlights, subtle roast-cranberry thermal sheen, and a forged blackout turkey & wishbone crest.',
       image: 'BlackFridayBFBSBanner',
-      cost: 1500,
+      cost: 800,
       forSale: true,
       active: true,
       featured: true,
     };
 
     expect(bannerItem.id).toBe('banner_black_friday');
-    expect(bannerItem.cost).toBe(1500);
+    expect(bannerItem.cost).toBe(800);
     expect(bannerItem.forSale).toBe(true);
     expect(ProfileBannerMap[bannerItem.image]).toBeDefined();
     expect(ProfileBannerMap[bannerItem.id]).toBeDefined();
@@ -41,7 +41,7 @@ describe('Black Friday BFBS Profile Banner & Moneysink Integration', () => {
     expect(foundInCatalog).toBeDefined();
     expect(foundInCatalog?.name).toBe('Black Friday: BFBS Edition');
     expect(foundInCatalog?.renderValue).toBe('BlackFridayBFBSBanner');
-    expect(foundInCatalog?.cost).toBe(1500);
+    expect(foundInCatalog?.cost).toBe(800);
     expect(foundInCatalog?.forSale).toBe(true);
   });
 });

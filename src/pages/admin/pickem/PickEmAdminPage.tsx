@@ -8,7 +8,7 @@ import { scrapeLeagueSchedules } from '../../../services/espnScraper';
 import {
   Layers, Plus, Search, Edit, Trash2, Archive, ArchiveRestore, Lock, Unlock,
   RefreshCw, CheckCircle2, Trophy, Users, Calendar, Shield, X, Eye, Palette,
-  Sparkles, Gift, Percent
+  Sparkles, Gift, Percent, Flag, CheckCircle
 } from 'lucide-react';
 import { AVAILABLE_COSMETICS } from '../../../lib/cosmetics';
 
@@ -237,6 +237,11 @@ export default function PickEmAdminPage() {
     }
   }, [detailCampaign, selectedWeek]);
 
+  const [finalizingCampaign, setFinalizingCampaign] = useState<any | null>(null);
+  const [retentionDaysInput, setRetentionDaysInput] = useState<number>(3);
+  const [distributePayoutsCheck, setDistributePayoutsCheck] = useState<boolean>(true);
+  const [finalizeLoading, setFinalizeLoading] = useState<boolean>(false);
+
   // Toggle Actions
   const handleToggleArchive = async (id: string, isArchived: boolean) => {
     await updateDoc(doc(db, "pickemCampaigns", id), { isArchived: !isArchived });
@@ -246,6 +251,38 @@ export default function PickEmAdminPage() {
   const handleToggleOpen = async (id: string, currentIsOpen: boolean) => {
     await updateDoc(doc(db, "pickemCampaigns", id), { isOpen: !currentIsOpen });
     fetchCampaigns();
+  };
+
+  const handleConfirmFinalize = async () => {
+    if (!finalizingCampaign) return;
+    setFinalizeLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/pickem/finalize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          campaignId: finalizingCampaign.id,
+          retentionDays: Number(retentionDaysInput) >= 0 ? Number(retentionDaysInput) : 3,
+          distributePayouts: distributePayoutsCheck
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to finalize campaign');
+      }
+      alert(`Campaign "${finalizingCampaign.name}" has been finalized! Final standings calculated and leaderboard will remain visible for ${retentionDaysInput} days.`);
+      setFinalizingCampaign(null);
+      fetchCampaigns();
+    } catch (err: any) {
+      console.error("Finalize error:", err);
+      alert("Failed to finalize campaign: " + (err.message || String(err)));
+    } finally {
+      setFinalizeLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -908,16 +945,28 @@ export default function PickEmAdminPage() {
               <tbody className="divide-y divide-zinc-800/80">
                 {filteredCampaigns.map((camp) => {
                   const isArch = camp.isArchived || camp.archived;
-                  const isOpen = camp.isOpen !== false;
+                  const isEnded = camp.isEnded || camp.status === 'ENDED';
+                  const isOpen = camp.isOpen !== false && !isEnded;
                   const isPriv = !!camp.isPrivate;
 
                   return (
                     <tr key={camp.id} className="hover:bg-zinc-800/30 transition-colors">
-                      <td className="px-4 py-3 font-bold text-zinc-100">{camp.name}</td>
+                      <td className="px-4 py-3 font-bold text-zinc-100">
+                        <div className="flex items-center gap-2">
+                          <span>{camp.name}</span>
+                          {isEnded && (
+                            <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[9px] font-bold uppercase tracking-wider border border-blue-500/20">
+                              Finalized
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {isArch ? (
                             <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 rounded text-[10px] font-bold uppercase tracking-wider border border-yellow-500/20">Archived</span>
+                          ) : isEnded ? (
+                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-500/20">Ended</span>
                           ) : isOpen ? (
                             <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">Open</span>
                           ) : (
@@ -944,6 +993,17 @@ export default function PickEmAdminPage() {
                             title="Manage Campaign Details & Week Matchups"
                           >
                             <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setFinalizingCampaign(camp);
+                              setRetentionDaysInput(camp.retentionDays || 3);
+                              setDistributePayoutsCheck(!camp.payoutComplete);
+                            }}
+                            className={`p-1.5 rounded transition-colors ${isEnded ? "text-blue-400/50 hover:text-blue-300 hover:bg-blue-500/10" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`}
+                            title={isEnded ? "Campaign Finalized (Click to re-finalize/adjust)" : "Finalize & End Campaign"}
+                          >
+                            <Flag className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleToggleOpen(camp.id, isOpen)}
@@ -976,6 +1036,81 @@ export default function PickEmAdminPage() {
           </div>
         )}
       </div>
+
+      {/* --- Modal: Finalize Campaign Confirmation --- */}
+      {finalizingCampaign && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#121212] border border-zinc-800 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4 text-amber-400">
+              <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <Flag className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-white">Finalize & End Campaign</h3>
+                <p className="text-xs text-zinc-400">{finalizingCampaign.name}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-300 mb-4 leading-relaxed">
+              Finalizing will officially mark this campaign as <strong>Ended</strong> and freeze pick submissions. The leaderboard will remain active for users to view final results.
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+                  Leaderboard Visibility Period (Days)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="90"
+                    value={retentionDaysInput}
+                    onChange={(e) => setRetentionDaysInput(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-24 bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-xs text-zinc-400">
+                    Days before moving to archived state (0 = archive immediately).
+                  </span>
+                </div>
+              </div>
+
+              <label className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-lg border border-zinc-800/80 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={distributePayoutsCheck}
+                  onChange={(e) => setDistributePayoutsCheck(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded border-zinc-700 bg-[#18181A] text-amber-500 focus:ring-amber-500"
+                />
+                <div>
+                  <span className="text-sm font-medium text-zinc-200 block">Distribute Final Payouts & Cosmetics</span>
+                  <span className="text-xs text-zinc-400">
+                    Credit 1st, 2nd, and 3rd place Link prizes and award champion cosmetics.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800/80">
+              <Button
+                variant="ghost"
+                onClick={() => setFinalizingCampaign(null)}
+                disabled={finalizeLoading}
+                className="text-zinc-400 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmFinalize}
+                disabled={finalizeLoading}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-bold"
+              >
+                {finalizeLoading ? 'Finalizing...' : 'Confirm Finalize'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- Slide-over Modal Drawer: Create Campaign --- */}
       {isCreateOpen && (

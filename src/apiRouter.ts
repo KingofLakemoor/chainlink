@@ -11,7 +11,7 @@ import { adminAuth, adminDb, adminMessaging } from './lib/firebase-admin.js';
 import { scrapeLeagueSchedules, syncLeagueSchedules } from './services/scheduleProcessor.js';
 import { gradeMatchups } from './services/grader.js';
 import { gradeLink4Matchups, payoutLink4Segment, aggregateAndPurgeLink4Segment, purgeCompletedLink4Segments } from './services/link4Grader.js';
-import { gradePickemMatchups, payoutPickemCampaign } from './services/pickemGrader.js';
+import { gradePickemMatchups, payoutPickemCampaign, finalizePickemCampaign } from './services/pickemGrader.js';
 import { getStaticPickemLeaderboard, generateAndSavePickemLeaderboard } from './services/pickemLeaderboardService.js';
 import { updateAllProps } from './services/propGrader.js';
 import { autoGenerateNFLProps } from './services/propGenerator.js';
@@ -828,17 +828,20 @@ apiRouter.post("/pickem/submit-pick", validateAuth, async (req, res) => {
       }
     }
 
-    // Check campaign pick limit
+    // Check campaign status and pick limit
     const targetWeek = Number(week) || 1;
     const docId = `${campaignId}_${targetWeek}_${matchupId}_${uid}`;
     const pickRef = adminDb.collection('pickemPicks').doc(docId);
     const existingSnap = await pickRef.get();
     const existingData = existingSnap.exists ? existingSnap.data() : {};
 
-    if (pick?.teamId && !existingData?.pick?.teamId) {
-      const campDoc = await adminDb.collection('pickemCampaigns').doc(campaignId).get();
-      if (campDoc.exists) {
-        const campaign = campDoc.data()!;
+    const campDoc = await adminDb.collection('pickemCampaigns').doc(campaignId).get();
+    if (campDoc.exists) {
+      const campaign = campDoc.data()!;
+      if (campaign.isEnded || campaign.status === 'ENDED') {
+        return res.status(400).json({ success: false, error: "This campaign has ended and is finalized. Picks are locked." });
+      }
+      if (pick?.teamId && !existingData?.pick?.teamId) {
         const pickLimit = campaign.pickLimit || 0;
         if (pickLimit > 0 && campaign.name !== 'YES Day Walk for Autism 2026') {
           const userPicksSnap = await adminDb.collection('pickemPicks')
@@ -2125,6 +2128,23 @@ apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
   }
 });
 
+apiRouter.post("/admin/pickem/finalize", validateAdmin, async (req, res) => {
+  try {
+    const { campaignId, retentionDays, distributePayouts } = req.body;
+    if (!campaignId) {
+      return res.status(400).json({ success: false, error: "Missing campaignId" });
+    }
+    const result = await finalizePickemCampaign(campaignId, {
+      retentionDays: Number(retentionDays) >= 0 ? Number(retentionDays) : 3,
+      distributePayouts: distributePayouts !== false
+    });
+    res.json(result);
+  } catch (e: any) {
+    console.error('Pickem finalize error:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
   try {
     const uid = (req as any).uid;
@@ -2183,6 +2203,9 @@ apiRouter.post("/pickem/join", validateAuth, async (req, res) => {
 
       if (!campaignDoc.exists) throw new Error("Campaign not found");
       const campaignData = campaignDoc.data();
+      if (campaignData.isEnded || campaignData.status === 'ENDED') {
+        throw new Error("This campaign has ended and is finalized.");
+      }
 
       if (campaignData.isOpen === false) {
         throw new Error("This campaign is closed to new entries.");

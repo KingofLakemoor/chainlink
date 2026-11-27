@@ -50,11 +50,8 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
   }, [toast.id, onRemove]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      className="bg-[#18181B] border border-zinc-800 shadow-xl rounded-lg p-4 w-80 relative cursor-pointer"
+    <div
+      className="bg-[#18181B] border border-zinc-800 shadow-xl rounded-lg p-4 w-80 relative cursor-pointer transition-all duration-300 animate-in fade-in slide-in-from-top-2"
       onClick={() => {
         if (toast.url) window.location.href = toast.url;
       }}
@@ -78,7 +75,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
           <p className="text-zinc-400 text-xs leading-snug">{toast.body}</p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

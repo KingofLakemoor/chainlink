@@ -1304,19 +1304,46 @@ export default function PickEmPage() {
              }
              return null;
           })()}
+          {(selectedCampaign?.isEnded || selectedCampaign?.status === 'ENDED') && (
+            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Trophy className="w-6 h-6 text-blue-400 shrink-0" />
+                <div>
+                  <h3 className="text-white font-bold text-sm">Campaign Concluded</h3>
+                  <p className="text-xs text-zinc-300">This campaign has ended and is finalized. Picks are locked. You can view the final standings on the Leaderboard tab.</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setActiveTab('leaderboard')}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shrink-0"
+              >
+                View Final Leaderboard
+              </Button>
+            </div>
+          )}
+
           {selectedCampaign && (
             <div className="mb-6 p-4 bg-[#18181A] border border-zinc-800 rounded-xl flex items-center justify-between">
                <div>
                   <div className="flex items-center gap-2">
                      <h3 className="text-white font-bold">{selectedCampaign.pickLimit > 0 ? "Weekly Pick Limit" : "Weekly Picks"}</h3>
-                     <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-500 px-2 py-0.5 rounded border border-green-500/20">
-                       <CheckCircle className="w-3 h-3" /> Auto-saved
-                     </span>
+                     {(selectedCampaign?.isEnded || selectedCampaign?.status === 'ENDED') ? (
+                       <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">
+                         <Lock className="w-3 h-3" /> Locked (Ended)
+                       </span>
+                     ) : (
+                       <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-500 px-2 py-0.5 rounded border border-green-500/20">
+                         <CheckCircle className="w-3 h-3" /> Auto-saved
+                       </span>
+                     )}
                   </div>
                   <p className="text-sm text-zinc-400">
-                     {selectedCampaign.pickLimit > 0 
-                        ? `You can make up to ${selectedCampaign.pickLimit} picks for this campaign per week.`
-                        : "Picks are saved automatically as you make them. Make sure you don't miss any games!"}
+                     {(selectedCampaign?.isEnded || selectedCampaign?.status === 'ENDED')
+                        ? "This campaign has ended and pick submissions are closed."
+                        : (selectedCampaign.pickLimit > 0 
+                            ? `You can make up to ${selectedCampaign.pickLimit} picks for this campaign per week.`
+                            : "Picks are saved automatically as you make them. Make sure you don't miss any games!")}
                   </p>
                </div>
                <div className="text-2xl font-black" style={{ color: primaryColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1)' }}>
@@ -1337,8 +1364,9 @@ export default function PickEmPage() {
               {(() => {
                 const weekTbMatchup = getWeekTiebreakerMatchup(selectedCampaign, matchups);
                 return matchups.map(m => {
+                const isCampaignEnded = !!(selectedCampaign?.isEnded || selectedCampaign?.status === 'ENDED');
+                const isLocked = isCampaignEnded || isMatchupLocked(m);
                 const pick = userPicks[m.id];
-                const isLocked = isMatchupLocked(m);
                 const isTiebreakerGame = weekTbMatchup?.id === m.id;
                 const hasSelection = !!(
                   pick?.pick?.teamId ||
@@ -1616,6 +1644,36 @@ disabled={isLocked || (selectedCampaign?.format === 'SURVIVOR' && usedTeams.has(
       {activeTab === 'leaderboard' && (
         
           <div className="bg-[#121212] border border-zinc-800 rounded-xl overflow-hidden">
+          {/* Campaign Ended / Final Results Banner */}
+          {(selectedCampaign?.isEnded || selectedCampaign?.status === 'ENDED') && (
+            <div className="p-4 md:p-6 bg-gradient-to-r from-blue-950/40 via-blue-900/20 to-purple-950/40 border-b border-blue-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-400">
+                  <Trophy className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-white">Campaign Ended & Finalized</h3>
+                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded text-[10px] font-bold uppercase tracking-wider">
+                      Official Final Results
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-300 mt-0.5">
+                    This campaign has officially concluded. Standings and rankings displayed below are final.
+                  </p>
+                </div>
+              </div>
+              {selectedCampaign.archiveAt && (
+                <div className="text-left sm:text-right text-xs text-zinc-400 bg-black/40 px-3 py-1.5 rounded-lg border border-zinc-800">
+                  <span className="text-zinc-500 block text-[10px] uppercase font-bold tracking-wider">Leaderboard Visible Until</span>
+                  <span className="text-zinc-200 font-medium font-mono">
+                    {new Date(selectedCampaign.archiveAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Prize Pool Summary Banner */}
           {(() => {
             const isYesDayPrizePool = isYesDayCampaign;

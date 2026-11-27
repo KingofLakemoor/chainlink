@@ -61,7 +61,7 @@ export default function LifetimeStats({ userStats }: LifetimeStatsProps) {
         const fetchedPicks = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) }));
 
         // Extract unique matchupIds
-        const matchupIdsToFetch = Array.from(new Set(fetchedPicks.map(p => (p as any).matchupId).filter(Boolean)));
+        const matchupIdsToFetch: string[] = Array.from(new Set(fetchedPicks.map(p => String((p as any).matchupId || '')).filter(Boolean)));
         if (matchupIdsToFetch.length === 0) {
           setPicksWithLeague([]);
           return;

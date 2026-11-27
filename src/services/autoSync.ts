@@ -210,6 +210,31 @@ export function startAutoSyncJob() {
         logServerError('AutoSync Gridiron Grading', e);
       }
 
+      // Auto-archive ended Pick'em campaigns whose retention period has expired
+      if (isFullSync) {
+        try {
+          const endedCampsSnap = await adminDb.collection('pickemCampaigns')
+            .where('isEnded', '==', true)
+            .get();
+
+          for (const cDoc of endedCampsSnap.docs) {
+            const cData = cDoc.data();
+            if (cData.isArchived || cData.archived) continue;
+            if (cData.archiveAt && cData.archiveAt <= nowMs) {
+              await cDoc.ref.update({
+                isArchived: true,
+                archived: true,
+                archivedAt: nowMs,
+                updatedAt: nowMs
+              });
+              console.log(`[AutoSync] Pick'em campaign ${cDoc.id} (${cData.name || 'unnamed'}) auto-archived after retention period.`);
+            }
+          }
+        } catch (archiveErr: any) {
+          console.warn(`[AutoSync] Error during pickem auto-archive check:`, archiveErr?.message || archiveErr);
+        }
+      }
+
       console.log("[AutoSync] Background schedule sync completed.");
     } catch (e) {
       console.error("[AutoSync] Error during background sync job:", e);

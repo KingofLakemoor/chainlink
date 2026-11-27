@@ -491,3 +491,73 @@ export async function payoutPickemCampaign(campaignId: string) {
     transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
   });
 }
+
+export async function finalizePickemCampaign(campaignId: string, options?: { retentionDays?: number; distributePayouts?: boolean }) {
+  const adminDb = getAdminDb();
+  if (!adminDb) return;
+
+  const retentionDays = (options?.retentionDays !== undefined && options.retentionDays >= 0)
+    ? options.retentionDays
+    : 3;
+  const shouldDistributePayouts = options?.distributePayouts !== false;
+
+  // 1. Grade any remaining matchups and refresh the leaderboard
+  try {
+    await generateAndSavePickemLeaderboard(campaignId);
+  } catch (err) {
+    console.warn(`[PickemGrader] Pre-finalization leaderboard generation error:`, err);
+  }
+
+  // 2. Distribute payouts if requested
+  let payoutExecuted = false;
+  let payoutError: string | null = null;
+  if (shouldDistributePayouts) {
+    try {
+      await payoutPickemCampaign(campaignId);
+      payoutExecuted = true;
+    } catch (err: any) {
+      if (err.message && err.message.includes('Payout already completed')) {
+        payoutExecuted = true; // Already paid out previously
+      } else {
+        console.error(`[PickemGrader] Payout failed during campaign finalization:`, err);
+        payoutError = err.message || 'Payout failed';
+      }
+    }
+  }
+
+  // 3. Mark campaign ended, closed, and schedule archive
+  const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
+  const now = Date.now();
+  const archiveAt = retentionDays > 0 ? now + (retentionDays * 24 * 60 * 60 * 1000) : now;
+
+  const updatePayload: any = {
+    isEnded: true,
+    endedAt: now,
+    isOpen: false, // Freeze new joins and entries
+    archiveAt,
+    retentionDays,
+    updatedAt: now
+  };
+
+  if (payoutExecuted) {
+    updatePayload.payoutComplete = true;
+  }
+
+  await campaignRef.update(updatePayload);
+
+  // 4. Regenerate leaderboard to reflect final status
+  try {
+    await generateAndSavePickemLeaderboard(campaignId);
+  } catch (err) {
+    console.warn(`[PickemGrader] Post-finalization leaderboard update error:`, err);
+  }
+
+  return {
+    success: true,
+    isEnded: true,
+    archiveAt,
+    retentionDays,
+    payoutExecuted,
+    payoutError
+  };
+}

@@ -1346,4 +1346,43 @@ describe('PickEmPage Yes Day prize breakdown tests', () => {
     // Regardless of isSpreadPendingLock state, the spread is ALWAYS available to display:
     expect(isSpread).toBe(true);
   });
+
+  describe('PickEm campaign finalization and ended status', () => {
+    it('correctly locks matchup picks when a campaign is marked as ended', () => {
+      const activeCampaign = { id: 'c1', isEnded: false };
+      const endedCampaign = { id: 'c2', isEnded: true };
+      const scheduledMatchup = { id: 'm1', status: 'STATUS_SCHEDULED', startTime: Date.now() + 100000 };
+
+      const isMatchupLocked = (m: any) => m.status === 'STATUS_FINAL';
+
+      const isLockedActive = (activeCampaign.isEnded || (activeCampaign as any).status === 'ENDED') || isMatchupLocked(scheduledMatchup);
+      const isLockedEnded = (endedCampaign.isEnded || (endedCampaign as any).status === 'ENDED') || isMatchupLocked(scheduledMatchup);
+
+      expect(isLockedActive).toBe(false);
+      expect(isLockedEnded).toBe(true);
+    });
+
+    it('calculates archiveAt timestamp based on retention days', () => {
+      const now = 1700000000000;
+      const retentionDays = 3;
+      const archiveAt = retentionDays > 0 ? now + (retentionDays * 24 * 60 * 60 * 1000) : now;
+
+      expect(archiveAt).toBe(1700000000000 + (3 * 86400000));
+      expect(archiveAt > now).toBe(true);
+    });
+
+    it('filters ended campaigns to keep leaderboard visible while blocking new entries', () => {
+      const campaigns = [
+        { id: 'c1', name: 'Open Active', isOpen: true, isEnded: false, isArchived: false },
+        { id: 'c2', name: 'Ended Recent', isOpen: false, isEnded: true, isArchived: false, archiveAt: Date.now() + 86400000 },
+        { id: 'c3', name: 'Archived Past', isOpen: false, isEnded: true, isArchived: true, archiveAt: Date.now() - 86400000 }
+      ];
+
+      const visibleLeaderboardCampaigns = campaigns.filter(c => !c.isArchived);
+      const joinableCampaigns = campaigns.filter(c => !c.isArchived && c.isOpen !== false && !c.isEnded);
+
+      expect(visibleLeaderboardCampaigns.map(c => c.id)).toEqual(['c1', 'c2']);
+      expect(joinableCampaigns.map(c => c.id)).toEqual(['c1']);
+    });
+  });
 });

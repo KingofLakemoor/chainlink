@@ -99,7 +99,8 @@ export default function PickEmCampaignsList() {
             <tbody className="divide-y divide-zinc-800/50">
               {campaigns.map((camp) => {
                 const isArch = camp.isArchived || camp.archived;
-                const isOpen = camp.isOpen !== false;
+                const isEnded = camp.isEnded || camp.status === 'ENDED';
+                const isOpen = camp.isOpen !== false && !isEnded;
                 const isPriv = !!camp.isPrivate;
 
                 return (
@@ -142,11 +143,22 @@ export default function PickEmCampaignsList() {
                         </Button>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-medium text-zinc-200">{camp.name}</td>
+                    <td className="px-4 py-3 font-medium text-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span>{camp.name}</span>
+                        {isEnded && (
+                          <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[9px] font-bold uppercase tracking-wider border border-blue-500/20">
+                            Finalized
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {isArch ? (
                           <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded text-xs font-medium border border-yellow-500/20">Archived</span>
+                        ) : isEnded ? (
+                          <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded text-xs font-medium border border-blue-500/20">Ended</span>
                         ) : isOpen ? (
                           <span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded text-xs font-medium border border-green-500/20">Open</span>
                         ) : (

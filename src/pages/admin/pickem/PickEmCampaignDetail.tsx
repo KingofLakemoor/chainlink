@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/button';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { app } from '../../../lib/firebase';
 import { scrapeLeagueSchedules } from '../../../services/espnScraper';
-import { RefreshCw, Trash2, Plus, Trophy, Sparkles } from 'lucide-react';
+import { RefreshCw, Trash2, Plus, Trophy, Sparkles, Flag, Lock, Unlock } from 'lucide-react';
 import { AVAILABLE_COSMETICS } from '../../../lib/cosmetics';
 import { getPropScoringCategory } from '../../../utils/matchupUtils';
 
@@ -57,6 +57,13 @@ export default function PickEmCampaignDetail() {
   const [weekEndDateStr, setWeekEndDateStr] = useState('');
 
 
+  const [isEnded, setIsEnded] = useState<boolean>(false);
+  const [retentionDays, setRetentionDays] = useState<number>(3);
+  const [showFinalizeModal, setShowFinalizeModal] = useState<boolean>(false);
+  const [finalizeRetentionDays, setFinalizeRetentionDays] = useState<number>(3);
+  const [finalizeDistributePayouts, setFinalizeDistributePayouts] = useState<boolean>(true);
+  const [finalizeLoading, setFinalizeLoading] = useState<boolean>(false);
+
   const fetchCampaign = async () => {
     if (!id) return;
     try {
@@ -80,6 +87,10 @@ export default function PickEmCampaignDetail() {
         setTrackFilter(data.trackFilter || '');
         setIsOpen(data.isOpen !== false);
         setIsPrivate(data.isPrivate || false);
+        setIsEnded(!!(data.isEnded || data.status === 'ENDED'));
+        setRetentionDays(data.retentionDays || 3);
+        setFinalizeRetentionDays(data.retentionDays || 3);
+        setFinalizeDistributePayouts(!data.payoutComplete);
         setJoinCode(data.joinCode || '');
         setWeekSettings(data.weekSettings || {});
 
@@ -241,6 +252,40 @@ export default function PickEmCampaignDetail() {
     } catch (err) {
       console.error(err);
       console.log('Failed to update week');
+    }
+  };
+
+  const handleConfirmFinalize = async () => {
+    if (!campaign || !id) return;
+    setFinalizeLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/pickem/finalize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          campaignId: id,
+          retentionDays: Number(finalizeRetentionDays) >= 0 ? Number(finalizeRetentionDays) : 3,
+          distributePayouts: finalizeDistributePayouts
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to finalize campaign');
+      }
+      alert(`Campaign finalized successfully! Final standings calculated and leaderboard will remain visible for ${finalizeRetentionDays} days.`);
+      setIsEnded(true);
+      setIsOpen(false);
+      setShowFinalizeModal(false);
+      fetchCampaign();
+    } catch (err: any) {
+      console.error("Finalize error:", err);
+      alert("Failed to finalize campaign: " + (err.message || String(err)));
+    } finally {
+      setFinalizeLoading(false);
     }
   };
 
@@ -773,11 +818,26 @@ export default function PickEmCampaignDetail() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
-          <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-white">{campaign.name}</h2>
+            {isEnded && (
+              <span className="px-2.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold uppercase tracking-wider">
+                Ended & Finalized
+              </span>
+            )}
+          </div>
           <p className="text-xs text-zinc-400 mt-1">Manage campaign schedule, week settings, access controls, and theme parameters.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="ghost" onClick={() => navigate('/admin/pickem')}>Back</Button>
+          <Button
+            onClick={() => setShowFinalizeModal(true)}
+            variant="outline"
+            className={`font-bold border gap-1.5 ${isEnded ? "border-blue-500/40 text-blue-400 hover:bg-blue-500/10" : "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"}`}
+          >
+            <Flag className="w-4 h-4" />
+            {isEnded ? "Re-Finalize Campaign" : "Finalize Campaign"}
+          </Button>
           <Button onClick={handleSaveCampaign} className="bg-purple-600 hover:bg-purple-500 text-white font-bold">Save All Settings</Button>
         </div>
       </div>
@@ -1427,6 +1487,81 @@ export default function PickEmCampaignDetail() {
         )}
       </div>
     </div>
+
+    {/* --- Modal: Finalize Campaign Confirmation --- */}
+    {showFinalizeModal && (
+      <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-[#121212] border border-zinc-800 rounded-xl max-w-md w-full p-6 shadow-2xl">
+          <div className="flex items-center gap-3 mb-4 text-amber-400">
+            <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <Flag className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-white">Finalize & End Campaign</h3>
+              <p className="text-xs text-zinc-400">{campaign.name}</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-zinc-300 mb-4 leading-relaxed">
+            Finalizing will officially mark this campaign as <strong>Ended</strong> and freeze pick submissions. The leaderboard will remain active for participants to view final standings.
+          </p>
+
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+                Leaderboard Visibility Period (Days)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="0"
+                  max="90"
+                  value={finalizeRetentionDays}
+                  onChange={(e) => setFinalizeRetentionDays(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-24 bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                />
+                <span className="text-xs text-zinc-400">
+                  Days before moving to archived state (0 = archive immediately).
+                </span>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-lg border border-zinc-800/80 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={finalizeDistributePayouts}
+                onChange={(e) => setFinalizeDistributePayouts(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-zinc-700 bg-[#18181A] text-amber-500 focus:ring-amber-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-zinc-200 block">Distribute Final Payouts & Cosmetics</span>
+                <span className="text-xs text-zinc-400">
+                  Credit 1st, 2nd, and 3rd place Link prizes and award champion cosmetics.
+                </span>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800/80">
+            <Button
+              variant="ghost"
+              onClick={() => setShowFinalizeModal(false)}
+              disabled={finalizeLoading}
+              className="text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmFinalize}
+              disabled={finalizeLoading}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-bold"
+            >
+              {finalizeLoading ? 'Finalizing...' : 'Confirm Finalize'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

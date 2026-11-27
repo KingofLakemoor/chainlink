@@ -742,10 +742,17 @@ export default function PickEmLandingPage() {
                         </div>
 
                         <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-yellow-500 flex items-center gap-1.5 bg-yellow-500/10 px-2.5 py-1 rounded-full border border-yellow-500/20">
-                            <Trophy className="w-3.5 h-3.5" />
-                            Standings Ready
-                          </span>
+                          {(c.isEnded || c.status === 'ENDED') ? (
+                            <span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">
+                              <Trophy className="w-3.5 h-3.5 text-blue-400" />
+                              Final Results
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-yellow-500 flex items-center gap-1.5 bg-yellow-500/10 px-2.5 py-1 rounded-full border border-yellow-500/20">
+                              <Trophy className="w-3.5 h-3.5" />
+                              Standings Ready
+                            </span>
+                          )}
                           <span className="text-sm font-bold text-white flex items-center gap-1 hover:text-[#22c55e] transition-colors">
                             View Standings <ChevronRight className="w-4 h-4" />
                           </span>
@@ -784,9 +791,16 @@ export default function PickEmLandingPage() {
                         </div>
 
                         <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between">
-                          <span className="text-xs font-medium text-zinc-400 bg-zinc-800/60 px-2.5 py-1 rounded-full border border-zinc-700/50">
-                            Public Contest
-                          </span>
+                          {(c.isEnded || c.status === 'ENDED') ? (
+                            <span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">
+                              <Trophy className="w-3.5 h-3.5 text-blue-400" />
+                              Final Results
+                            </span>
+                          ) : (
+                            <span className="text-xs font-medium text-zinc-400 bg-zinc-800/60 px-2.5 py-1 rounded-full border border-zinc-700/50">
+                              Public Contest
+                            </span>
+                          )}
                           <span className="text-sm font-bold text-zinc-300 flex items-center gap-1 hover:text-white transition-colors">
                             View Leaderboard <ChevronRight className="w-4 h-4" />
                           </span>

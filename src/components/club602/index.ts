@@ -51,11 +51,54 @@ export function getAchievementCosmetics(): CosmeticItem[] {
 }
 
 /**
+ * Checks whether a cosmetic item ID or item requires an active ChainLink Pro membership.
+ */
+export function isProCosmeticItem(itemOrId?: CosmeticItem | string | null): boolean {
+  if (!itemOrId) return false;
+  if (typeof itemOrId === 'string') {
+    const item = COSMETICS_CATALOG.find(c => c.id === itemOrId);
+    if (item?.premiumOnly) return true;
+    return itemOrId.includes('chainlink_pro') ||
+      itemOrId.includes('pro_syndicate') ||
+      itemOrId.includes('signal_floor') ||
+      itemOrId.includes('edge_ledger') ||
+      itemOrId === 'ChainLinkProBanner' ||
+      itemOrId === 'ProSyndicateBanner' ||
+      itemOrId === 'ChainLinkProAvatarRing' ||
+      itemOrId === 'ChainLinkProRing' ||
+      itemOrId === 'SyndicateAvatarRing' ||
+      itemOrId === 'ProSyndicateRing' ||
+      itemOrId === 'ChainLinkProMemberTitle' ||
+      itemOrId === 'SyndicateSyndicTitle';
+  }
+  return Boolean(itemOrId.premiumOnly);
+}
+
+/**
+ * Checks whether user has an active Pro membership.
+ */
+export function isProMember(user?: any | null): boolean {
+  if (!user) return false;
+  return Boolean(
+    user.isPremium ||
+    user.premium ||
+    user.chainlinkPremium ||
+    user.scriptlessPremium ||
+    user.membershipTier === 'PRO' ||
+    user.membershipTier === 'VIP_FOUNDER' ||
+    user.membershipTier === 'FOUNDER'
+  );
+}
+
+/**
  * Resolves equipped cosmetics for a given spoke context.
  * Precedence order:
  * 1. user.spokeCosmetics[spokeId][slot] (Spoke-specific override)
  * 2. user.equippedCosmetics[slot] (Global Network Look)
  * 3. Legacy flat profile fields (e.g. title, badge, avatarFrame, profileBanner, nameGradient)
+ *
+ * Enforces active Pro membership: If user is not an active Pro member, any equipped Pro-exclusive
+ * cosmetics are suppressed / stripped so they are only displayed while membership is active.
  */
 export function resolveSpokeCosmetics(
   user: any | null | undefined,
@@ -65,21 +108,31 @@ export function resolveSpokeCosmetics(
 
   const globalEquipped = user.equippedCosmetics || {};
   const spokeOverrides = (spokeId && user.spokeCosmetics?.[spokeId]) || {};
+  const hasActivePro = isProMember(user);
+
+  const rawTitle = spokeOverrides.TITLE ?? globalEquipped.TITLE ?? user.title;
+  const rawGradient = spokeOverrides.NAME_GRADIENT ?? globalEquipped.NAME_GRADIENT ?? user.nameGradient;
+  const rawBadge = spokeOverrides.BADGE ?? globalEquipped.BADGE ?? user.badge;
+  const rawRing = spokeOverrides.AVATAR_RING ?? globalEquipped.AVATAR_RING ?? user.avatarFrame;
+  const rawProfileBanner = spokeOverrides.PROFILE_BANNER ?? globalEquipped.PROFILE_BANNER ?? user.profileBanner;
+  const rawRosterBanner = spokeOverrides.ROSTER_BANNER ?? globalEquipped.ROSTER_BANNER ?? user.rosterBanner;
+  const rawBannerVariant = spokeOverrides.BANNER_VARIANT ?? globalEquipped.BANNER_VARIANT;
 
   return {
-    TITLE: spokeOverrides.TITLE ?? globalEquipped.TITLE ?? user.title,
-    NAME_GRADIENT: spokeOverrides.NAME_GRADIENT ?? globalEquipped.NAME_GRADIENT ?? user.nameGradient,
-    BADGE: spokeOverrides.BADGE ?? globalEquipped.BADGE ?? user.badge,
-    AVATAR_RING: spokeOverrides.AVATAR_RING ?? globalEquipped.AVATAR_RING ?? user.avatarFrame,
-    PROFILE_BANNER: spokeOverrides.PROFILE_BANNER ?? globalEquipped.PROFILE_BANNER ?? user.profileBanner,
-    ROSTER_BANNER: spokeOverrides.ROSTER_BANNER ?? globalEquipped.ROSTER_BANNER ?? user.rosterBanner,
-    BANNER_VARIANT: spokeOverrides.BANNER_VARIANT ?? globalEquipped.BANNER_VARIANT,
+    TITLE: !hasActivePro && isProCosmeticItem(rawTitle) ? undefined : rawTitle,
+    NAME_GRADIENT: !hasActivePro && isProCosmeticItem(rawGradient) ? undefined : rawGradient,
+    BADGE: !hasActivePro && isProCosmeticItem(rawBadge) ? undefined : rawBadge,
+    AVATAR_RING: !hasActivePro && isProCosmeticItem(rawRing) ? undefined : rawRing,
+    PROFILE_BANNER: !hasActivePro && isProCosmeticItem(rawProfileBanner) ? undefined : rawProfileBanner,
+    ROSTER_BANNER: !hasActivePro && isProCosmeticItem(rawRosterBanner) ? undefined : rawRosterBanner,
+    BANNER_VARIANT: rawBannerVariant,
   };
 }
 
 /**
  * Returns all cosmetic IDs unlocked by a given user across all spokes.
  * Normalizes between user.unlockedCosmetics, user.inventory, and auto-unlocked default items.
+ * If user does not have an active Pro membership, Pro-exclusive cosmetics are excluded.
  */
 export function getUserUnlockedCosmetics(user: any | null | undefined): Set<string> {
   const unlocked = new Set<string>();
@@ -93,36 +146,36 @@ export function getUserUnlockedCosmetics(user: any | null | undefined): Set<stri
 
   if (!user) return unlocked;
 
+  const hasActivePro = isProMember(user);
+
   // Unlocked cosmetics array (Scriptless / canonical format)
   if (Array.isArray(user.unlockedCosmetics)) {
-    user.unlockedCosmetics.forEach((id: string) => unlocked.add(id));
+    user.unlockedCosmetics.forEach((id: string) => {
+      if (hasActivePro || !isProCosmeticItem(id)) unlocked.add(id);
+    });
   }
 
   // Inventory array (ChainLink format)
   if (Array.isArray(user.inventory)) {
-    user.inventory.forEach((id: string) => unlocked.add(id));
+    user.inventory.forEach((id: string) => {
+      if (hasActivePro || !isProCosmeticItem(id)) unlocked.add(id);
+    });
   }
 
   // Additional purchased/unlocked arrays across spokes
   if (Array.isArray(user.purchasedItems)) {
-    user.purchasedItems.forEach((id: string) => unlocked.add(id));
+    user.purchasedItems.forEach((id: string) => {
+      if (hasActivePro || !isProCosmeticItem(id)) unlocked.add(id);
+    });
   }
   if (Array.isArray(user.titles)) {
-    user.titles.forEach((id: string) => unlocked.add(id));
+    user.titles.forEach((id: string) => {
+      if (hasActivePro || !isProCosmeticItem(id)) unlocked.add(id);
+    });
   }
 
   // Cross-spoke paid premium status unlocks all non-milestone / premium catalog items
-  const isPremiumMember = Boolean(
-    user.isPremium ||
-    user.premium ||
-    user.chainlinkPremium ||
-    user.scriptlessPremium ||
-    user.membershipTier === 'PRO' ||
-    user.membershipTier === 'VIP_FOUNDER' ||
-    user.membershipTier === 'FOUNDER'
-  );
-
-  if (isPremiumMember) {
+  if (hasActivePro) {
     COSMETICS_CATALOG.forEach((item) => {
       // Grant cosmetics to premium members (excluding specific achievement-only milestone locks)
       if (!item.metadata?.unlockedByMilestone) {
@@ -131,27 +184,31 @@ export function getUserUnlockedCosmetics(user: any | null | undefined): Set<stri
     });
   }
 
-  // Currently equipped items are implicitly owned
+  // Currently equipped items are implicitly owned (unless Pro-exclusive without active Pro)
   if (user.equippedCosmetics && typeof user.equippedCosmetics === 'object') {
     Object.values(user.equippedCosmetics).forEach((id: any) => {
-      if (typeof id === 'string' && id) unlocked.add(id);
+      if (typeof id === 'string' && id && (hasActivePro || !isProCosmeticItem(id))) {
+        unlocked.add(id);
+      }
     });
   }
 
   // Legacy flat fields
-  if (user.title) unlocked.add(user.title);
-  if (user.badge) unlocked.add(user.badge);
-  if (user.nameGradient) unlocked.add(user.nameGradient);
-  if (user.avatarFrame) unlocked.add(user.avatarFrame);
-  if (user.profileBanner) unlocked.add(user.profileBanner);
-  if (user.rosterBanner) unlocked.add(user.rosterBanner);
+  if (user.title && (hasActivePro || !isProCosmeticItem(user.title))) unlocked.add(user.title);
+  if (user.badge && (hasActivePro || !isProCosmeticItem(user.badge))) unlocked.add(user.badge);
+  if (user.nameGradient && (hasActivePro || !isProCosmeticItem(user.nameGradient))) unlocked.add(user.nameGradient);
+  if (user.avatarFrame && (hasActivePro || !isProCosmeticItem(user.avatarFrame))) unlocked.add(user.avatarFrame);
+  if (user.profileBanner && (hasActivePro || !isProCosmeticItem(user.profileBanner))) unlocked.add(user.profileBanner);
+  if (user.rosterBanner && (hasActivePro || !isProCosmeticItem(user.rosterBanner))) unlocked.add(user.rosterBanner);
 
   // Spoke specific overrides
   if (user.spokeCosmetics && typeof user.spokeCosmetics === 'object') {
     Object.values(user.spokeCosmetics).forEach((spokeMap: any) => {
       if (spokeMap && typeof spokeMap === 'object') {
         Object.values(spokeMap).forEach((id: any) => {
-          if (typeof id === 'string' && id) unlocked.add(id);
+          if (typeof id === 'string' && id && (hasActivePro || !isProCosmeticItem(id))) {
+            unlocked.add(id);
+          }
         });
       }
     });
@@ -162,29 +219,26 @@ export function getUserUnlockedCosmetics(user: any | null | undefined): Set<stri
 
 /**
  * Checks whether a specific cosmetic item is unlocked for a user.
- * VIP/Founders or Premium members across any paid spoke have items unlocked.
+ * Pro-exclusive cosmetics strictly require an active Pro membership.
  */
 export function isCosmeticUnlocked(
   itemOrId: CosmeticItem | string,
   user: any | null | undefined,
   bypassForVip = false
 ): boolean {
-  const isPremium = Boolean(
-    user?.isPremium ||
-    user?.premium ||
-    user?.chainlinkPremium ||
-    user?.scriptlessPremium ||
-    user?.membershipTier === 'PRO' ||
-    user?.membershipTier === 'VIP_FOUNDER' ||
-    user?.membershipTier === 'FOUNDER'
-  );
+  const hasActivePro = isProMember(user);
 
-  if (bypassForVip && isPremium) {
+  if (bypassForVip && hasActivePro) {
     return true;
   }
 
   const itemId = typeof itemOrId === 'string' ? itemOrId : itemOrId.id;
   const item = typeof itemOrId === 'string' ? COSMETICS_CATALOG.find(c => c.id === itemOrId) : itemOrId;
+
+  // Pro-exclusive items strictly require active Pro membership
+  if (isProCosmeticItem(item || itemId)) {
+    return hasActivePro;
+  }
 
   // Base free items are unlocked for all
   if (item && item.cost === 0 && !item.metadata?.unlockedByMilestone && item.rarity === 'common') {
@@ -192,7 +246,7 @@ export function isCosmeticUnlocked(
   }
 
   // Premium subscribers unlock catalog items across all spokes
-  if (isPremium && (!item || !item.metadata?.unlockedByMilestone)) {
+  if (hasActivePro && (!item || !item.metadata?.unlockedByMilestone)) {
     return true;
   }
 

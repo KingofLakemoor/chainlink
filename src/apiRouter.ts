@@ -557,10 +557,43 @@ apiRouter.post("/admin/users/update-premium", validateAdmin, async (req, res) =>
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    await userRef.update({
+    const userData = userDoc.data() || {};
+    const updatePayload: any = {
       premium: premium,
       updatedAt: Date.now()
-    });
+    };
+
+    // If revoking premium, unequip any Pro-exclusive cosmetics
+    if (!premium && userData.equippedCosmetics) {
+      const isProItem = (id: string) => (
+        id.includes('chainlink_pro') ||
+        id.includes('pro_syndicate') ||
+        id.includes('signal_floor') ||
+        id.includes('edge_ledger') ||
+        id === 'ChainLinkProBanner' ||
+        id === 'ProSyndicateBanner' ||
+        id === 'ChainLinkProAvatarRing' ||
+        id === 'ChainLinkProRing' ||
+        id === 'SyndicateAvatarRing' ||
+        id === 'ProSyndicateRing' ||
+        id === 'ChainLinkProMemberTitle' ||
+        id === 'SyndicateSyndicTitle'
+      );
+
+      const cleanedCosmetics = { ...userData.equippedCosmetics };
+      let changed = false;
+      for (const [slot, id] of Object.entries(cleanedCosmetics)) {
+        if (typeof id === 'string' && isProItem(id)) {
+          delete cleanedCosmetics[slot];
+          changed = true;
+        }
+      }
+      if (changed) {
+        updatePayload.equippedCosmetics = cleanedCosmetics;
+      }
+    }
+
+    await userRef.update(updatePayload);
 
     res.json({ success: true, premium });
   } catch (e: any) {
@@ -2643,7 +2676,39 @@ apiRouter.post('/stripe/webhook', express.raw({type: 'application/json'}), async
           if (!userDoc.exists) return;
           
           if (subscription.status !== 'active' && subscription.status !== 'trialing') {
-            transaction.update(userRef, { premium: false, updatedAt: Date.now() });
+            const userData = userDoc.data() || {};
+            const updatePayload: any = { premium: false, updatedAt: Date.now() };
+
+            if (userData.equippedCosmetics) {
+              const isProItem = (id: string) => (
+                id.includes('chainlink_pro') ||
+                id.includes('pro_syndicate') ||
+                id.includes('signal_floor') ||
+                id.includes('edge_ledger') ||
+                id === 'ChainLinkProBanner' ||
+                id === 'ProSyndicateBanner' ||
+                id === 'ChainLinkProAvatarRing' ||
+                id === 'ChainLinkProRing' ||
+                id === 'SyndicateAvatarRing' ||
+                id === 'ProSyndicateRing' ||
+                id === 'ChainLinkProMemberTitle' ||
+                id === 'SyndicateSyndicTitle'
+              );
+
+              const cleanedCosmetics = { ...userData.equippedCosmetics };
+              let changed = false;
+              for (const [slot, id] of Object.entries(cleanedCosmetics)) {
+                if (typeof id === 'string' && isProItem(id)) {
+                  delete cleanedCosmetics[slot];
+                  changed = true;
+                }
+              }
+              if (changed) {
+                updatePayload.equippedCosmetics = cleanedCosmetics;
+              }
+            }
+
+            transaction.update(userRef, updatePayload);
           } else if (subscription.status === 'active' || subscription.status === 'trialing') {
              transaction.update(userRef, { premium: true, updatedAt: Date.now() });
           }
@@ -3642,8 +3707,30 @@ apiRouter.post("/user/equip" , async (req, res) => {
       ]);
 
       // If itemId is null, it means unequip
-      if (itemId !== null && !isPremium && !ownedItems.has(itemId)) {
-        throw new Error("You do not own this item!");
+      if (itemId !== null) {
+        // Enforce active ChainLink Pro membership for Pro-exclusive cosmetics
+        const isProItem = (
+          itemId.includes('chainlink_pro') ||
+          itemId.includes('pro_syndicate') ||
+          itemId.includes('signal_floor') ||
+          itemId.includes('edge_ledger') ||
+          itemId === 'ChainLinkProBanner' ||
+          itemId === 'ProSyndicateBanner' ||
+          itemId === 'ChainLinkProAvatarRing' ||
+          itemId === 'ChainLinkProRing' ||
+          itemId === 'SyndicateAvatarRing' ||
+          itemId === 'ProSyndicateRing' ||
+          itemId === 'ChainLinkProMemberTitle' ||
+          itemId === 'SyndicateSyndicTitle'
+        );
+
+        if (isProItem && !isPremium) {
+          throw new Error("This cosmetic requires an active ChainLink Pro membership.");
+        }
+
+        if (!isPremium && !ownedItems.has(itemId)) {
+          throw new Error("You do not own this item!");
+        }
       }
 
       const equippedCosmetics = { ...(profile.equippedCosmetics || {}) };

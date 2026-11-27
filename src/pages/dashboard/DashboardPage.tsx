@@ -11,7 +11,7 @@ import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { DashboardPick, DashboardPickSkeleton } from '../../components/dashboard/dashboard-pick';
 import { getShopItemsCached, getSponsorsCached, getAnnouncementsCached } from '../../lib/firestore-cache';
 
-import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
+import { AvatarRingMap, ProfileBannerMap, isProCosmetic, isUserPro } from '../../lib/cosmetics';
 import { TitleMap } from '../../components/ui/titles';
 import { ProfileSettingsModal } from '../../components/profile/ProfileSettingsModal';
 export default function DashboardPage() {
@@ -114,18 +114,27 @@ export default function DashboardPage() {
 
   
 
-  const equippedBannerItem = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.PROFILE_BANNER);
-  const equippedBannerImage = equippedBannerItem?.image || profile?.equippedCosmetics?.PROFILE_BANNER;
-  let BannerComponent = ProfileBannerMap[equippedBannerImage || ''] || ProfileBannerMap[profile?.equippedCosmetics?.PROFILE_BANNER || ''];
+  const isPro = isUserPro(profile);
+  const rawBannerId = profile?.equippedCosmetics?.PROFILE_BANNER;
+  const rawRingId = profile?.equippedCosmetics?.AVATAR_RING;
+  const rawTitleId = profile?.equippedCosmetics?.TITLE;
+
+  const equippedBannerId = (!isPro && isProCosmetic(rawBannerId)) ? undefined : rawBannerId;
+  const equippedRingId = (!isPro && isProCosmetic(rawRingId)) ? undefined : rawRingId;
+  const equippedTitleId = (!isPro && isProCosmetic(rawTitleId)) ? undefined : rawTitleId;
+
+  const equippedBannerItem = inventoryItems.find(i => i.id === equippedBannerId);
+  const equippedBannerImage = equippedBannerItem?.image || equippedBannerId;
+  let BannerComponent = ProfileBannerMap[equippedBannerImage || ''] || ProfileBannerMap[equippedBannerId || ''];
   if (equippedBannerItem?.id === 'banner_responsible_gambler' && profile?.equippedCosmetics?.BANNER_VARIANT) {
     BannerComponent = ProfileBannerMap[profile.equippedCosmetics.BANNER_VARIANT] || BannerComponent;
   }
 
-  const equippedRingItem = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.AVATAR_RING);
-  const equippedRingImage = equippedRingItem?.image || profile?.equippedCosmetics?.AVATAR_RING;
-  const RingComponent = AvatarRingMap[equippedRingImage || ''] || AvatarRingMap[profile?.equippedCosmetics?.AVATAR_RING || ''];
-  const titleImage = inventoryItems.find(i => i.id === profile?.equippedCosmetics?.TITLE)?.image || profile?.equippedCosmetics?.TITLE;
-  const TitleComponent = titleImage ? TitleMap[titleImage] || TitleMap[profile?.equippedCosmetics?.TITLE || ''] : null;
+  const equippedRingItem = inventoryItems.find(i => i.id === equippedRingId);
+  const equippedRingImage = equippedRingItem?.image || equippedRingId;
+  const RingComponent = AvatarRingMap[equippedRingImage || ''] || AvatarRingMap[equippedRingId || ''];
+  const titleImage = inventoryItems.find(i => i.id === equippedTitleId)?.image || equippedTitleId;
+  const TitleComponent = titleImage ? TitleMap[titleImage] || TitleMap[equippedTitleId || ''] : null;
 
   const activePick = picks.find(p => p.status === 'PENDING');
   
@@ -168,7 +177,7 @@ export default function DashboardPage() {
          {!BannerComponent && (equippedBannerImage?.startsWith('/') || equippedBannerImage?.startsWith('http') || equippedBannerImage?.startsWith('gs://')) && (
             <FirebaseImage src={equippedBannerImage} fallback={`https://placehold.co/600x200/18181b/ffffff?text=${encodeURIComponent(equippedBannerItem?.name || "Profile Banner")}`} alt="Profile Banner" className="absolute inset-0 w-full h-full object-cover z-0" />
          )}
-         {!profile?.equippedCosmetics?.PROFILE_BANNER && (
+         {!equippedBannerId && (
             <div className="absolute inset-0 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_10%,transparent_80%)] opacity-5 pointer-events-none"></div>
          )}
 
@@ -201,10 +210,10 @@ export default function DashboardPage() {
                <div className="mb-3 inline-block">
                   <TitleComponent isStatic={false} />
                </div>
-            ) : profile?.equippedCosmetics?.TITLE ? (
+            ) : equippedTitleId ? (
                <div className="mb-3 inline-block">
                   <span className="text-sm font-bold text-[#22c55e] px-2 py-0.5 rounded bg-black/40 border border-[#22c55e]/30 shadow-sm backdrop-blur-sm">
-                     {inventoryItems.find(i => i.id === profile.equippedCosmetics.TITLE)?.name || 'Title'}
+                     {inventoryItems.find(i => i.id === equippedTitleId)?.name || 'Title'}
                   </span>
                </div>
             ) : null}

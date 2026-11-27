@@ -1594,7 +1594,8 @@
     "renderValue": "SignalFloorBanner",
     "preview": "SignalFloorBanner",
     "order": 14,
-    "collectionId": "signal_floor"
+    "collectionId": "signal_floor",
+    "premiumOnly": true
   },
   {
     "id": "ring_signal_floor",
@@ -1611,7 +1612,8 @@
     "renderValue": "SignalFloorAvatarRing",
     "preview": "SignalFloorAvatarRing",
     "order": 15,
-    "collectionId": "signal_floor"
+    "collectionId": "signal_floor",
+    "premiumOnly": true
   },
   {
     "id": "ring_bull_bear",
@@ -1645,7 +1647,8 @@
     "renderValue": "Signal Floor",
     "preview": "SignalFloorTitle",
     "order": 80,
-    "collectionId": "signal_floor"
+    "collectionId": "signal_floor",
+    "premiumOnly": true
   },
   {
     "id": "banner_edge_ledger",
@@ -1662,7 +1665,8 @@
     "renderValue": "EdgeLedgerBanner",
     "preview": "EdgeLedgerBanner",
     "order": 15,
-    "collectionId": "edge_ledger"
+    "collectionId": "edge_ledger",
+    "premiumOnly": true
   },
   {
     "id": "ring_edge_ledger",
@@ -1679,7 +1683,8 @@
     "renderValue": "EdgeLedgerAvatarRing",
     "preview": "EdgeLedgerAvatarRing",
     "order": 16,
-    "collectionId": "edge_ledger"
+    "collectionId": "edge_ledger",
+    "premiumOnly": true
   },
   {
     "id": "title_edge_ledger",
@@ -1696,7 +1701,8 @@
     "renderValue": "Edge Ledger",
     "preview": "EdgeLedgerTitle",
     "order": 81,
-    "collectionId": "edge_ledger"
+    "collectionId": "edge_ledger",
+    "premiumOnly": true
   },
   {
     "id": "ring_bad_beat",
@@ -3849,7 +3855,8 @@
     "renderType": "component",
     "renderValue": "ChainLinkProBanner",
     "preview": "ChainLinkProBanner",
-    "order": 232
+    "order": 232,
+    "premiumOnly": true
   },
   {
     "id": "banner_pro_syndicate",
@@ -3865,7 +3872,8 @@
     "renderType": "component",
     "renderValue": "ProSyndicateBanner",
     "preview": "ProSyndicateBanner",
-    "order": 233
+    "order": 233,
+    "premiumOnly": true
   },
   {
     "id": "ring_chainlink_pro",
@@ -3881,7 +3889,8 @@
     "renderType": "component",
     "renderValue": "ChainLinkProAvatarRing",
     "preview": "ChainLinkProAvatarRing",
-    "order": 234
+    "order": 234,
+    "premiumOnly": true
   },
   {
     "id": "ring_pro_syndicate",
@@ -3897,7 +3906,8 @@
     "renderType": "component",
     "renderValue": "SyndicateAvatarRing",
     "preview": "SyndicateAvatarRing",
-    "order": 235
+    "order": 235,
+    "premiumOnly": true
   },
   {
     "id": "title_chainlink_pro_member",
@@ -3913,7 +3923,8 @@
     "renderType": "component",
     "renderValue": "ChainLinkProMemberTitle",
     "preview": "ChainLinkProMemberTitle",
-    "order": 236
+    "order": 236,
+    "premiumOnly": true
   },
   {
     "id": "title_pro_syndicate",
@@ -3929,6 +3940,7 @@
     "renderType": "component",
     "renderValue": "SyndicateSyndicTitle",
     "preview": "SyndicateSyndicTitle",
-    "order": 237
+    "order": 237,
+    "premiumOnly": true
   }
 ]

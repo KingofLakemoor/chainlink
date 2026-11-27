@@ -91,6 +91,9 @@ export interface CosmeticItem {
     unlockedByMilestone?: string;
     [key: string]: any;
   };
+
+  /** Whether this cosmetic requires an active Pro membership to equip and display */
+  premiumOnly?: boolean;
 }
 
 /**

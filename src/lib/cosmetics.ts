@@ -209,3 +209,70 @@ export function getCosmeticById(id?: string | null): AvailableCosmetic | undefin
   if (!id) return undefined;
   return AVAILABLE_COSMETICS.find(c => c.id === id || c.key === id);
 }
+
+/**
+ * Authoritative set of ChainLink Pro exclusive cosmetic item IDs and component keys.
+ * Users must maintain an active Pro membership to equip and display these cosmetics.
+ */
+export const PRO_COSMETIC_IDS = new Set<string>([
+  // Signal Floor collection
+  'banner_signal_floor',
+  'ring_signal_floor',
+  'title_signal_floor',
+  'SignalFloorBanner',
+  'SignalFloorAvatarRing',
+  'SignalFloorTitle',
+
+  // Edge Ledger collection
+  'banner_edge_ledger',
+  'ring_edge_ledger',
+  'title_edge_ledger',
+  'EdgeLedgerBanner',
+  'EdgeLedgerAvatarRing',
+  'EdgeLedgerTitle',
+
+  // ChainLink Pro Member items (Free Pro Exclusive)
+  'banner_chainlink_pro',
+  'banner_chainlink_pro_member',
+  'ChainLinkProBanner',
+  'ring_chainlink_pro',
+  'ring_chainlink_pro_member',
+  'ChainLinkProAvatarRing',
+  'ChainLinkProRing',
+  'title_chainlink_pro_member',
+  'ChainLinkProMemberTitle',
+
+  // Pro Syndicate items (300 Links Pro Exclusive)
+  'banner_pro_syndicate',
+  'ProSyndicateBanner',
+  'ring_pro_syndicate',
+  'SyndicateAvatarRing',
+  'ProSyndicateRing',
+  'title_pro_syndicate',
+  'SyndicateSyndicTitle',
+]);
+
+/**
+ * Checks whether an item ID or key is an active Pro exclusive cosmetic.
+ */
+export function isProCosmetic(itemId?: string | null): boolean {
+  if (!itemId) return false;
+  return PRO_COSMETIC_IDS.has(itemId);
+}
+
+/**
+ * Verifies if a user profile currently holds an active Pro / VIP Founder membership.
+ */
+export function isUserPro(user?: any | null): boolean {
+  if (!user) return false;
+  return Boolean(
+    user.premium ||
+    user.isPremium ||
+    user.chainlinkPremium ||
+    user.scriptlessPremium ||
+    user.membershipTier === 'PRO' ||
+    user.membershipTier === 'VIP_FOUNDER' ||
+    user.membershipTier === 'FOUNDER'
+  );
+}
+

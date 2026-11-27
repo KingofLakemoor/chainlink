@@ -12,7 +12,7 @@ import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { requestNotificationPermission } from '../../hooks/useNotifications';
 import { Link } from 'react-router-dom';
 import { CosmeticPreview } from './CosmeticPreview';
-import { AvatarRingMap, ProfileBannerMap } from '../../lib/cosmetics';
+import { AvatarRingMap, ProfileBannerMap, isProCosmetic, isUserPro } from '../../lib/cosmetics';
 import { TitleMap } from '../ui/titles';
 import { FirebaseImage } from '../ui/FirebaseImage';
 import { getUserUnlockedCosmetics, COSMETICS_CATALOG, Club602Avatar } from '../club602';
@@ -144,6 +144,14 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     if (!user || !profile) return;
     setEquipLoading(type);
     try {
+      if (itemId !== null && (isProCosmetic(itemId) || catalogItems.find(i => i.id === itemId)?.premiumOnly)) {
+        if (!isUserPro(profile)) {
+          alert("This cosmetic requires an active ChainLink Pro membership.");
+          setEquipLoading(null);
+          return;
+        }
+      }
+
       if (auth.currentUser && user.uid !== 'mock-user-123') {
         const token = await auth.currentUser.getIdToken();
         const res = await fetch('/api/user/equip', {
@@ -239,10 +247,15 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
     return matchesCategory && matchesSearch;
   });
 
-  // Equipped cosmetic item lookups
-  const equippedBannerId = profile?.equippedCosmetics?.PROFILE_BANNER;
-  const equippedRingId = profile?.equippedCosmetics?.AVATAR_RING;
-  const equippedTitleId = profile?.equippedCosmetics?.TITLE;
+  // Equipped cosmetic item lookups (suppressed if item requires Pro and user lacks active Pro membership)
+  const isPro = isUserPro(profile);
+  const rawEquippedBannerId = profile?.equippedCosmetics?.PROFILE_BANNER;
+  const rawEquippedRingId = profile?.equippedCosmetics?.AVATAR_RING;
+  const rawEquippedTitleId = profile?.equippedCosmetics?.TITLE;
+
+  const equippedBannerId = (!isPro && isProCosmetic(rawEquippedBannerId)) ? undefined : rawEquippedBannerId;
+  const equippedRingId = (!isPro && isProCosmetic(rawEquippedRingId)) ? undefined : rawEquippedRingId;
+  const equippedTitleId = (!isPro && isProCosmetic(rawEquippedTitleId)) ? undefined : rawEquippedTitleId;
 
   const equippedBannerItem = userInventoryItems.find(i => i.id === equippedBannerId) || (equippedBannerId ? { id: equippedBannerId, type: 'PROFILE_BANNER', image: equippedBannerId, name: 'Banner' } : null);
   const equippedRingItem = userInventoryItems.find(i => i.id === equippedRingId) || (equippedRingId ? { id: equippedRingId, type: 'AVATAR_RING', image: equippedRingId, name: 'Ring' } : null);
@@ -504,6 +517,8 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredInventory.map(item => {
                   if (!item) return null;
+                  const itemIsPro = isProCosmetic(item.id) || (item as any)?.premiumOnly;
+                  const canEquip = !itemIsPro || isPro;
                   const isEquipped = profile?.equippedCosmetics?.[item.type] === item.id;
                   const isUpdating = equipLoading === item.type;
 
@@ -520,9 +535,16 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
                         {/* Header badge & title */}
                         <div className="flex justify-between items-start gap-2">
                           <h4 className="font-bold text-white text-base leading-snug">{item.name}</h4>
-                          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
-                            {item.type?.replace('_', ' ')}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {itemIsPro && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-500/50">
+                                PRO
+                              </span>
+                            )}
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
+                              {item.type?.replace('_', ' ')}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Static Image / Shader Preview */}
@@ -559,22 +581,37 @@ export function ProfileSettingsModal({ isOpen, onClose }: { isOpen: boolean, onC
                           <span className="text-xs font-bold text-cyan-400 flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-cyan-400" /> Equipped
                           </span>
+                        ) : !canEquip ? (
+                          <span className="text-xs text-amber-400/90 font-medium flex items-center gap-1">
+                            Requires Active Pro
+                          </span>
                         ) : (
                           <span className="text-xs text-zinc-500">Available</span>
                         )}
 
-                        <Button
-                          onClick={() => handleEquip(isEquipped ? null : item.id, item.type)}
-                          disabled={isUpdating}
-                          variant={isEquipped ? "destructive" : "default"}
-                          size="sm"
-                          className={isEquipped
-                            ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold'
-                            : 'bg-zinc-800 hover:bg-cyan-600 text-zinc-200 hover:text-white border border-zinc-700 text-xs font-bold'
-                          }
-                        >
-                          {isUpdating ? 'Updating...' : isEquipped ? 'Unequip' : 'Equip Item'}
-                        </Button>
+                        {!canEquip ? (
+                          <Link to="/shop" onClick={onClose}>
+                            <Button
+                              size="sm"
+                              className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-500/40 text-xs font-bold"
+                            >
+                              Get Pro
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Button
+                            onClick={() => handleEquip(isEquipped ? null : item.id, item.type)}
+                            disabled={isUpdating}
+                            variant={isEquipped ? "destructive" : "default"}
+                            size="sm"
+                            className={isEquipped
+                              ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold'
+                              : 'bg-zinc-800 hover:bg-cyan-600 text-zinc-200 hover:text-white border border-zinc-700 text-xs font-bold'
+                            }
+                          >
+                            {isUpdating ? 'Updating...' : isEquipped ? 'Unequip' : 'Equip Item'}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );

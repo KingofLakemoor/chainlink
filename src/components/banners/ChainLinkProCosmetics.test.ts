@@ -98,4 +98,93 @@ describe('ChainLink Pro Exclusive Cosmetics Integration', () => {
       });
     });
   });
+
+  describe('Pro Membership Access & Expiration Gating', () => {
+    it('isProCosmetic identifies all Pro items', async () => {
+      const { isProCosmetic } = await import('../../lib/cosmetics');
+      expect(isProCosmetic('banner_chainlink_pro')).toBe(true);
+      expect(isProCosmetic('banner_pro_syndicate')).toBe(true);
+      expect(isProCosmetic('ring_chainlink_pro')).toBe(true);
+      expect(isProCosmetic('ring_pro_syndicate')).toBe(true);
+      expect(isProCosmetic('title_chainlink_pro_member')).toBe(true);
+      expect(isProCosmetic('title_pro_syndicate')).toBe(true);
+      expect(isProCosmetic('banner_signal_floor')).toBe(true);
+      expect(isProCosmetic('banner_edge_ledger')).toBe(true);
+      expect(isProCosmetic('banner_inferno')).toBe(false);
+      expect(isProCosmetic('ring_hexagons')).toBe(false);
+    });
+
+    it('isCosmeticUnlocked grants Pro cosmetics to active Pro members but denies to expired/non-Pro users', async () => {
+      const { isCosmeticUnlocked } = await import('../club602');
+
+      const activeProUser = {
+        id: 'user_pro',
+        premium: true,
+        inventory: ['banner_chainlink_pro', 'title_pro_syndicate']
+      };
+
+      const expiredProUser = {
+        id: 'user_expired',
+        premium: false,
+        inventory: ['banner_chainlink_pro', 'title_pro_syndicate']
+      };
+
+      expect(isCosmeticUnlocked('banner_chainlink_pro', activeProUser)).toBe(true);
+      expect(isCosmeticUnlocked('title_pro_syndicate', activeProUser)).toBe(true);
+
+      // Once claimed, pro members should only have access for as long as their membership is active
+      expect(isCosmeticUnlocked('banner_chainlink_pro', expiredProUser)).toBe(false);
+      expect(isCosmeticUnlocked('title_pro_syndicate', expiredProUser)).toBe(false);
+    });
+
+    it('resolveSpokeCosmetics suppresses equipped Pro cosmetics if user has lapsed Pro status', async () => {
+      const { resolveSpokeCosmetics } = await import('../club602');
+
+      const activeUser = {
+        id: 'user_active',
+        premium: true,
+        equippedCosmetics: {
+          PROFILE_BANNER: 'banner_chainlink_pro',
+          AVATAR_RING: 'ring_pro_syndicate',
+          TITLE: 'title_chainlink_pro_member'
+        }
+      };
+
+      const lapsedUser = {
+        id: 'user_lapsed',
+        premium: false,
+        equippedCosmetics: {
+          PROFILE_BANNER: 'banner_chainlink_pro',
+          AVATAR_RING: 'ring_pro_syndicate',
+          TITLE: 'title_chainlink_pro_member'
+        }
+      };
+
+      const resolvedActive = resolveSpokeCosmetics(activeUser);
+      expect(resolvedActive.PROFILE_BANNER).toBe('banner_chainlink_pro');
+      expect(resolvedActive.AVATAR_RING).toBe('ring_pro_syndicate');
+      expect(resolvedActive.TITLE).toBe('title_chainlink_pro_member');
+
+      const resolvedLapsed = resolveSpokeCosmetics(lapsedUser);
+      expect(resolvedLapsed.PROFILE_BANNER).toBeUndefined();
+      expect(resolvedLapsed.AVATAR_RING).toBeUndefined();
+      expect(resolvedLapsed.TITLE).toBeUndefined();
+    });
+
+    it('getUserUnlockedCosmetics excludes Pro cosmetics for non-Pro users even if in user.inventory', async () => {
+      const { getUserUnlockedCosmetics } = await import('../club602');
+
+      const lapsedUser = {
+        id: 'user_lapsed',
+        premium: false,
+        inventory: ['banner_chainlink_pro', 'banner_inferno', 'title_pro_syndicate']
+      };
+
+      const unlocked = getUserUnlockedCosmetics(lapsedUser);
+      expect(unlocked.has('banner_inferno')).toBe(true);
+      expect(unlocked.has('banner_chainlink_pro')).toBe(false);
+      expect(unlocked.has('title_pro_syndicate')).toBe(false);
+    });
+  });
 });
+

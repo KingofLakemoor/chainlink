@@ -1983,7 +1983,7 @@
     "originSpoke": "chainlink",
     "description": "A deep crimson backdrop with a pulsing golden chevron arrowhead motif and rising stadium embers inspired by Kansas City.",
     "cost": 250,
-    "forSale": true,
+    "forSale": false,
     "active": true,
     "featured": true,
     "rarity": "rare",

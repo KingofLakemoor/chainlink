@@ -1992,15 +1992,26 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
       const filterBegin = effectiveBeginDate ? effectiveBeginDate : undefined;
       const filterEnd = effectiveEndDate ? effectiveEndDate : undefined;
 
-      // 1. Scrape live ESPN schedules
+      // 1. Scrape live schedules (Equibase for HORSE_RACING, ESPN for other sports)
       const matchupsToProcess: any[] = [];
-      try {
-        const resScrape = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
-        if (resScrape.data && resScrape.data.length > 0) {
-          matchupsToProcess.push(...resScrape.data);
+      if (['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(lg).toUpperCase())) {
+        try {
+          const horseResult = await runDailyHorseRacingScheduleSync(adminDb, {
+            dataMode: 'entries'
+          });
+          console.log(`[Link4Sync] Horse racing sync returned ${horseResult.created} created, ${horseResult.updated} updated`);
+        } catch (e) {
+          console.warn(`[Link4Sync] Horse racing schedule sync failed:`, e);
         }
-      } catch (e) {
-        console.warn(`Scrape schedules failed for league ${lg}:`, e);
+      } else {
+        try {
+          const resScrape = await scrapeLeagueSchedules(lg, false, undefined, specificDates);
+          if (resScrape.data && resScrape.data.length > 0) {
+            matchupsToProcess.push(...resScrape.data);
+          }
+        } catch (e) {
+          console.warn(`Scrape schedules failed for league ${lg}:`, e);
+        }
       }
 
       // 2. Also check existing main 'matchups' collection for this league

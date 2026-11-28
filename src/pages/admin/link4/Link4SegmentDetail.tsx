@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { db, auth } from '../../../lib/firebase';
 import { Button } from '../../../components/ui/button';
 import { Loader2, ArrowLeft, RefreshCw, Trash2, Plus, Check } from 'lucide-react';
+import { GiHorseHead } from 'react-icons/gi';
 
 export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: string, onBack: () => void }) {
   const [segment, setSegment] = useState<any>(null);
@@ -288,15 +289,26 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
     );
   }
 
+  const isHorseSegment = segment?.allowedSports?.includes('HORSE_RACING') || 
+    (segment?.name || '').toLowerCase().includes('turf');
+
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" onClick={onBack} className="gap-2">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-        <h3 className="text-2xl text-zinc-100 font-bold">
-          {segment.name} Matchups
-        </h3>
+        <div className="flex items-center gap-2">
+          {isHorseSegment && <GiHorseHead className="w-6 h-6 text-amber-400" />}
+          <h3 className="text-2xl text-zinc-100 font-bold">
+            {segment.name} Matchups
+          </h3>
+          {isHorseSegment && (
+            <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              Turf Pick {segment.legsCount || 5}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-lg p-6 flex flex-col min-h-[500px]">
@@ -305,11 +317,20 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
           <div className="flex items-center gap-2">
             <Button onClick={handleOpenPool} variant="outline" size="sm" className="gap-2 border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200">
                <Plus className="w-4 h-4 text-green-400" />
-               {showPool ? 'Hide Available Pool' : 'Slot Available Games'}
+               {showPool ? 'Hide Available Pool' : isHorseSegment ? 'Slot Available Races' : 'Slot Available Games'}
             </Button>
-            <Button onClick={handleSyncMatchups} size="sm" className="gap-2" disabled={matchupsLoading}>
-               <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
-               {matchupsLoading ? 'Syncing...' : 'Sync Matchups (ESPN)'}
+            <Button
+              onClick={handleSyncMatchups}
+              size="sm"
+              className={`gap-2 ${isHorseSegment ? 'bg-amber-600 hover:bg-amber-500 text-white' : ''}`}
+              disabled={matchupsLoading}
+            >
+               {isHorseSegment ? (
+                 <GiHorseHead className={`w-4 h-4 ${matchupsLoading ? 'animate-bounce' : ''}`} />
+               ) : (
+                 <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
+               )}
+               {matchupsLoading ? 'Syncing...' : isHorseSegment ? 'Sync Races (Equibase)' : 'Sync Matchups (ESPN)'}
             </Button>
           </div>
         </div>
@@ -319,8 +340,14 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
           <div className="mb-6 p-4 bg-[#1a1a1a] border border-zinc-700 rounded-xl space-y-4">
             <div className="flex justify-between items-center">
               <div>
-                <h4 className="font-bold text-white text-md">Slot Games from Main Matchups Pool</h4>
-                <p className="text-xs text-zinc-400">Select scheduled games from main database to include in this Link4 segment.</p>
+                <h4 className="font-bold text-white text-md">
+                  {isHorseSegment ? 'Slot Races from Main Database' : 'Slot Games from Main Matchups Pool'}
+                </h4>
+                <p className="text-xs text-zinc-400">
+                  {isHorseSegment
+                    ? 'Select Equibase track race cards to include in this Turf segment.'
+                    : 'Select scheduled games from main database to include in this Link4 segment.'}
+                </p>
               </div>
               {selectedPoolIds.length > 0 && (
                 <Button onClick={handleSlotSelected} size="sm" disabled={slottingLoading} className="gap-2 bg-green-600 hover:bg-green-500">
@@ -336,13 +363,19 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
               </div>
             ) : poolMatchups.length === 0 ? (
               <div className="p-6 text-center text-zinc-500 text-sm">
-                No un-slotted matchups found in database for segment sports.
+                {isHorseSegment
+                  ? 'No un-slotted horse races found in database. Click "Sync Races (Equibase)" to ingest today\'s cards.'
+                  : 'No un-slotted matchups found in database for segment sports.'}
               </div>
             ) : (
               <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
                 {poolMatchups.map(m => {
                   const gameIdStr = String(m.gameId || m.id);
                   const isSelected = selectedPoolIds.includes(gameIdStr);
+                  const isHorse = m.league === 'HORSE_RACING';
+                  const titleDisplay = isHorse && m.metadata?.trackName
+                    ? `${m.metadata.trackName} R${m.metadata.raceNumber || '1'}: ${m.homeTeam?.name || 'Horse 1'} vs ${m.awayTeam?.name || 'Horse 2'}`
+                    : (m.title || `${m.awayTeam?.name || 'Away'} @ ${m.homeTeam?.name || 'Home'}`);
 
                   return (
                     <div
@@ -361,7 +394,7 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
                           {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                         </div>
                         <div>
-                          <span className="font-bold text-sm text-white">{m.awayTeam?.name || 'Away'} @ {m.homeTeam?.name || 'Home'}</span>
+                          <span className="font-bold text-sm text-white">{titleDisplay}</span>
                           <span className="ml-2 text-xs text-zinc-400">({m.league})</span>
                         </div>
                       </div>
@@ -385,7 +418,11 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
         {matchupsLoading ? (
           <div className="p-12 text-center text-zinc-500 font-medium">Loading matchups...</div>
         ) : matchups.length === 0 ? (
-          <div className="p-12 text-center text-zinc-500 font-medium">No matchups found for this segment.</div>
+          <div className="p-12 text-center text-zinc-500 font-medium">
+            {isHorseSegment
+              ? 'No race matchups found for this segment yet. Use "Sync Races (Equibase)" or "Slot Available Races".'
+              : 'No matchups found for this segment.'}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-zinc-400">
@@ -393,9 +430,9 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
                 <tr>
                   <th className="px-4 py-3 font-medium rounded-tl-lg">Start Time</th>
                   <th className="px-4 py-3 font-medium">League</th>
-                  <th className="px-4 py-3 font-medium">Matchup</th>
-                  <th className="px-4 py-3 font-medium">Away ML</th>
-                  <th className="px-4 py-3 font-medium">Home ML</th>
+                  <th className="px-4 py-3 font-medium">{isHorseSegment ? 'Race / Runners' : 'Matchup'}</th>
+                  <th className="px-4 py-3 font-medium">{isHorseSegment ? 'Runner 1 ML' : 'Away ML'}</th>
+                  <th className="px-4 py-3 font-medium">{isHorseSegment ? 'Runner 2 ML' : 'Home ML'}</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium rounded-tr-lg">Actions</th>
                 </tr>
@@ -407,15 +444,29 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
                   return timeA - timeB;
                 }).map(m => {
                   const validTime = typeof m.startTime === 'number' ? m.startTime : (m.startTime ? new Date(m.startTime).getTime() : 0);
+                  const isHorse = m.league === 'HORSE_RACING';
+                  const titleDisplay = isHorse && m.metadata?.trackName
+                    ? `${m.metadata.trackName} R${m.metadata.raceNumber || '1'}: ${m.homeTeam?.name || 'Runner 1'} vs ${m.awayTeam?.name || 'Runner 2'}`
+                    : (m.title || `${m.awayTeam?.name || 'Away'} @ ${m.homeTeam?.name || 'Home'}`);
+
                   return (
                   <tr key={m.id} className="hover:bg-zinc-800/30 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       {validTime ? new Date(validTime).toLocaleString() : '-'}
                     </td>
-                    <td className="px-4 py-3 font-medium">{m.league}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {isHorse ? (
+                        <span className="inline-flex items-center gap-1 text-amber-400 font-semibold text-xs">
+                          <GiHorseHead className="w-3.5 h-3.5" /> TURF
+                        </span>
+                      ) : m.league}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col">
-                        <span className="font-bold text-white">{m.awayTeam.name} @ {m.homeTeam.name}</span>
+                        <span className="font-bold text-white">{titleDisplay}</span>
+                        {isHorse && m.metadata?.distance && (
+                          <span className="text-xs text-zinc-500">{m.metadata.surface || 'Dirt'} • {m.metadata.distance}</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">

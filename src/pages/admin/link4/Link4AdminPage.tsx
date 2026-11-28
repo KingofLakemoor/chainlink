@@ -1,4 +1,5 @@
 import { Save, Loader2, Calendar, Plus, Edit2, Trash2, Clock, PlayCircle, Link as LinkIcon, Palette, Image as ImageIcon, RefreshCw, Coins } from 'lucide-react';
+import { GiHorseHead } from 'react-icons/gi';
 import React, { useState, useEffect } from 'react';
 import { collection, doc, getDocs, setDoc, deleteDoc, query, orderBy, writeBatch, where , limit } from "firebase/firestore";
 import { db, auth } from '../../../lib/firebase';
@@ -337,13 +338,70 @@ export default function Link4AdminPage() {
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Quick Setup Presets */}
+              <div className="bg-zinc-900/80 border border-zinc-800 rounded-lg p-3">
+                <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Quick Setup Presets</span>
+                  <span className="text-[10px] text-zinc-500 font-normal">Click to auto-fill</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      setName(`Turf Pick 5 - ${today}`);
+                      setLegsCount(5);
+                      setCost(10);
+                      setAllowedSports(['HORSE_RACING']);
+                      setPrimaryColor('#f59e0b');
+                    }}
+                    className="p-2 text-xs font-medium rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 transition-colors flex flex-col items-center gap-1 text-center"
+                  >
+                    <GiHorseHead className="w-4 h-4 text-amber-400" />
+                    <span>Turf Pick 5</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      setName(`Turf Pick 6 - ${today}`);
+                      setLegsCount(6);
+                      setCost(10);
+                      setAllowedSports(['HORSE_RACING']);
+                      setPrimaryColor('#f59e0b');
+                    }}
+                    className="p-2 text-xs font-medium rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 transition-colors flex flex-col items-center gap-1 text-center"
+                  >
+                    <GiHorseHead className="w-4 h-4 text-amber-400" />
+                    <span>Turf Pick 6</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      setName(`Link4 - ${today}`);
+                      setLegsCount(4);
+                      setCost(10);
+                      setAllowedSports(['NFL', 'CFB', 'NBA', 'MLB', 'NHL']);
+                      setPrimaryColor('#22c55e');
+                    }}
+                    className="p-2 text-xs font-medium rounded-lg border border-green-500/30 bg-green-500/10 text-green-300 hover:bg-green-500/20 hover:border-green-500/60 transition-colors flex flex-col items-center gap-1 text-center"
+                  >
+                    <LinkIcon className="w-4 h-4 text-green-400" />
+                    <span>Standard Link4</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-1">Segment Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. NFL Week 12 Link4"
+                  placeholder="e.g. NFL Week 12 Link4 or Turf Pick 5"
                   className="w-full bg-[#27272a] border border-zinc-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500"
                 />
               </div>
@@ -402,8 +460,44 @@ export default function Link4AdminPage() {
 
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">Allowed Sports</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {SPORTS.map(sport => (
+                {/* Featured / Highlighted Horse Racing Card */}
+                <div className="mb-3">
+                  <label
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                      allowedSports.includes('HORSE_RACING')
+                        ? 'bg-amber-500/15 border-amber-500/60 text-amber-300 shadow-sm'
+                        : 'bg-zinc-900/60 border-zinc-700 text-zinc-300 hover:border-amber-500/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <GiHorseHead className={`w-5 h-5 ${allowedSports.includes('HORSE_RACING') ? 'text-amber-400' : 'text-zinc-400'}`} />
+                      <div>
+                        <div className="font-bold text-xs flex items-center gap-1.5">
+                          <span>HORSE RACING</span>
+                          <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded font-semibold border border-amber-500/30">
+                            Turf / Equibase
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-400">Picks on daily track race cards</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={allowedSports.includes('HORSE_RACING')}
+                      onChange={() => toggleSport('HORSE_RACING')}
+                      className="hidden"
+                    />
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                      allowedSports.includes('HORSE_RACING') ? 'border-amber-500 bg-amber-500 text-black' : 'border-zinc-500'
+                    }`}>
+                      {allowedSports.includes('HORSE_RACING') && <div className="w-2 h-2 bg-black rounded-full" />}
+                    </div>
+                  </label>
+                </div>
+
+                <div className="text-xs text-zinc-500 mb-1.5 font-medium">Other Sports Leagues:</div>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {SPORTS.filter(s => s.id !== 'HORSE_RACING').map(sport => (
                     <label
                       key={sport.id}
                       className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
@@ -562,7 +656,15 @@ export default function Link4AdminPage() {
                   <div key={segment.id} className="bg-[#1a1a1a] border border-[#27272a] rounded-xl p-5 hover:border-zinc-700 transition-colors">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h5 className="text-white font-bold text-lg mb-1">{segment.name}</h5>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h5 className="text-white font-bold text-lg">{segment.name}</h5>
+                          {(segment.allowedSports?.includes('HORSE_RACING') || (segment.legsCount && segment.legsCount > 4)) && (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                              <GiHorseHead className="w-3 h-3" />
+                              {segment.legsCount ? `Turf ${segment.legsCount}` : 'Turf'}
+                            </span>
+                          )}
+                        </div>
                         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${status.color}`}>
                           {status.label}
                         </span>

@@ -236,7 +236,13 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
       }
 
       await fetchMatchups();
-      alert(`Synced ${data.count ?? 0} matchups successfully for Link4!`);
+      if (data.count === 0 && data.warning) {
+        alert(`Synced 0 matchups.\n\nNotice: ${data.warning}\n\nTip: If APIFY_API_TOKEN is unconfigured, you can add it in your environment variables or ingest cards using the raw JSON / Dataset ID tool in Admin > Odds & Scraper.`);
+      } else if (data.count === 0 && isHorseSegment) {
+        alert('Synced 0 horse races for this segment date.\n\nTip: Check if races exist for today\'s date or verify your Apify Scraper status in Admin > Odds & Scraper.');
+      } else {
+        alert(`Synced ${data.count ?? 0} matchups successfully for Link4!`);
+      }
     } catch (err: any) {
       console.error(err);
       alert('Failed to sync matchups: ' + (err.message || String(err)));

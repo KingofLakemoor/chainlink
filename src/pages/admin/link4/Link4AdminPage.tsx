@@ -348,12 +348,20 @@ export default function Link4AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                      setName(`Turf Pick 5 - ${today}`);
+                      const now = new Date();
+                      const todayFormatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      setName(`Turf Pick 5 - ${todayFormatted}`);
                       setLegsCount(5);
                       setCost(10);
                       setAllowedSports(['HORSE_RACING']);
                       setPrimaryColor('#f59e0b');
+                      
+                      // Auto-fill startTime to today 12:00 PM and endTime to today 23:59
+                      const yyyy = now.getFullYear();
+                      const mm = String(now.getMonth() + 1).padStart(2, '0');
+                      const dd = String(now.getDate()).padStart(2, '0');
+                      setStartTime(`${yyyy}-${mm}-${dd}T12:00`);
+                      setEndTime(`${yyyy}-${mm}-${dd}T23:59`);
                     }}
                     className="p-2 text-xs font-medium rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 transition-colors flex flex-col items-center gap-1 text-center"
                   >
@@ -364,12 +372,20 @@ export default function Link4AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                      setName(`Turf Pick 6 - ${today}`);
+                      const now = new Date();
+                      const todayFormatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      setName(`Turf Pick 6 - ${todayFormatted}`);
                       setLegsCount(6);
                       setCost(10);
                       setAllowedSports(['HORSE_RACING']);
                       setPrimaryColor('#f59e0b');
+
+                      // Auto-fill startTime to today 12:00 PM and endTime to today 23:59
+                      const yyyy = now.getFullYear();
+                      const mm = String(now.getMonth() + 1).padStart(2, '0');
+                      const dd = String(now.getDate()).padStart(2, '0');
+                      setStartTime(`${yyyy}-${mm}-${dd}T12:00`);
+                      setEndTime(`${yyyy}-${mm}-${dd}T23:59`);
                     }}
                     className="p-2 text-xs font-medium rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 transition-colors flex flex-col items-center gap-1 text-center"
                   >
@@ -380,12 +396,20 @@ export default function Link4AdminPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                      setName(`Link4 - ${today}`);
+                      const now = new Date();
+                      const todayFormatted = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      setName(`Link4 - ${todayFormatted}`);
                       setLegsCount(4);
                       setCost(10);
                       setAllowedSports(['NFL', 'CFB', 'NBA', 'MLB', 'NHL']);
                       setPrimaryColor('#22c55e');
+
+                      // Auto-fill startTime to today 12:00 PM and endTime to today 23:59
+                      const yyyy = now.getFullYear();
+                      const mm = String(now.getMonth() + 1).padStart(2, '0');
+                      const dd = String(now.getDate()).padStart(2, '0');
+                      setStartTime(`${yyyy}-${mm}-${dd}T12:00`);
+                      setEndTime(`${yyyy}-${mm}-${dd}T23:59`);
                     }}
                     className="p-2 text-xs font-medium rounded-lg border border-green-500/30 bg-green-500/10 text-green-300 hover:bg-green-500/20 hover:border-green-500/60 transition-colors flex flex-col items-center gap-1 text-center"
                   >

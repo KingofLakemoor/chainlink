@@ -1960,6 +1960,8 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
     let batch = adminDb.batch();
     let batchCount = 0;
 
+    let horseSyncError: string | null = null;
+
     for (const lg of leaguesToSync) {
       let effectiveBeginDate = segment.startTime ? new Date(segment.startTime).getTime() : undefined;
       let effectiveEndDate = segment.endTime ? new Date(segment.endTime).getTime() : undefined;
@@ -1988,20 +1990,41 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         specificDates = Array.from(dateSet);
       }
 
-      // Buffer start/end filter by 7 days so games occurring during the segment week are not cut off
+      // Buffer start/end filter so games occurring during the segment window are pulled
       const filterBegin = effectiveBeginDate ? effectiveBeginDate : undefined;
       const filterEnd = effectiveEndDate ? effectiveEndDate : undefined;
 
+      // Determine segment target date string (YYYY-MM-DD) if available
+      let targetDateStr = '';
+      if (segment.startTime) {
+        try {
+          targetDateStr = new Date(segment.startTime).toISOString().slice(0, 10);
+        } catch {
+          targetDateStr = '';
+        }
+      }
+      if (!targetDateStr) {
+        targetDateStr = new Date().toISOString().slice(0, 10);
+      }
+
       // 1. Scrape live schedules (Equibase for HORSE_RACING, ESPN for other sports)
       const matchupsToProcess: any[] = [];
-      if (['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(lg).toUpperCase())) {
+      const isHorseLeague = ['HORSE_RACING', 'HORSE', 'EQUIBASE'].includes(String(lg).toUpperCase());
+
+      if (isHorseLeague) {
         try {
           const horseResult = await runDailyHorseRacingScheduleSync(adminDb, {
+            date: targetDateStr,
             dataMode: 'entries'
           });
-          console.log(`[Link4Sync] Horse racing sync returned ${horseResult.created} created, ${horseResult.updated} updated`);
-        } catch (e) {
-          console.warn(`[Link4Sync] Horse racing schedule sync failed:`, e);
+          console.log(`[Link4Sync] Horse racing sync for ${targetDateStr}: syncedCount=${horseResult.syncedCount}, success=${horseResult.success}`);
+          if (!horseResult.success && horseResult.error) {
+            horseSyncError = horseResult.error;
+            console.warn(`[Link4Sync] Horse racing sync warning: ${horseResult.error}`);
+          }
+        } catch (e: any) {
+          horseSyncError = e?.message || String(e);
+          console.warn(`[Link4Sync] Horse racing schedule sync failed:`, e?.message || e);
         }
       } else {
         try {
@@ -2016,7 +2039,8 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
 
       // 2. Also check existing main 'matchups' collection for this league
       try {
-        const existingSnap = await adminDb.collection('matchups').where('league', '==', lg).get();
+        const queryLeague = isHorseLeague ? 'HORSE_RACING' : lg;
+        const existingSnap = await adminDb.collection('matchups').where('league', '==', queryLeague).get();
         existingSnap.docs.forEach(doc => {
           const data = doc.data();
           if (data && data.gameId) {
@@ -2053,8 +2077,15 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         const validStartTime = typeof rawStart === 'number' ? rawStart : (rawStart ? new Date(rawStart).getTime() : Date.now());
         const finalStartTime = isNaN(validStartTime) ? Date.now() : validStartTime;
 
-        if (filterBegin && finalStartTime < filterBegin) continue;
-        if (filterEnd && finalStartTime > filterEnd) continue;
+        if (isHorseLeague) {
+          // For horse racing, match if the race is on the target date or within the segment time window
+          const raceDateMatches = m.metadata?.raceDate === targetDateStr;
+          const timeMatches = (!filterBegin || finalStartTime >= filterBegin - 86400000) && (!filterEnd || finalStartTime <= filterEnd + 86400000);
+          if (!raceDateMatches && !timeMatches) continue;
+        } else {
+          if (filterBegin && finalStartTime < filterBegin) continue;
+          if (filterEnd && finalStartTime > filterEnd) continue;
+        }
 
         const link4MatchupId = `${segmentId}_${gameIdStr}`;
         const docRef = adminDb.collection('link4Matchups').doc(link4MatchupId);
@@ -2104,7 +2135,11 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
     }
     invalidateMatchupCaches();
 
-    res.json({ success: true, count });
+    res.json({
+      success: true,
+      count,
+      warning: count === 0 && horseSyncError ? horseSyncError : undefined
+    });
   } catch (e: any) {
     console.error('Link4 sync matchups error:', e);
     res.status(500).json({ success: false, error: e.message });

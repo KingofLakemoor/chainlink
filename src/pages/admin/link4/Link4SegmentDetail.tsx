@@ -215,7 +215,7 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
     }
   };
 
-  const handleSyncMatchups = async () => {
+  const handleSyncMatchups = async (forceRunNew = false) => {
     if (!segment || !segmentId) return;
 
     setMatchupsLoading(true);
@@ -227,7 +227,10 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ segmentId })
+        body: JSON.stringify({
+          segmentId,
+          forceRun: forceRunNew
+        })
       });
 
       const data = await res.json();
@@ -237,9 +240,9 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
 
       await fetchMatchups();
       if (data.count === 0 && data.warning) {
-        alert(`Synced 0 matchups.\n\nNotice: ${data.warning}\n\nTip: If APIFY_API_TOKEN is unconfigured, you can add it in your environment variables or ingest cards using the raw JSON / Dataset ID tool in Admin > Odds & Scraper.`);
+        alert(`Synced 0 matchups.\n\nNotice: ${data.warning}\n\nTip: You can click "Run Live Scraper" or ingest cards in Admin > Odds & Scraper.`);
       } else if (data.count === 0 && isHorseSegment) {
-        alert('Synced 0 horse races for this segment date.\n\nTip: Check if races exist for today\'s date or verify your Apify Scraper status in Admin > Odds & Scraper.');
+        alert('Synced 0 horse races for this segment date.\n\nTip: If you haven\'t run today\'s scraper yet, use the "Run Live Scraper" option or ingest cards in Admin > Odds & Scraper.');
       } else {
         alert(`Synced ${data.count ?? 0} matchups successfully for Link4!`);
       }
@@ -325,19 +328,45 @@ export default function Link4SegmentDetail({ segmentId, onBack }: { segmentId: s
                <Plus className="w-4 h-4 text-green-400" />
                {showPool ? 'Hide Available Pool' : isHorseSegment ? 'Slot Available Races' : 'Slot Available Games'}
             </Button>
-            <Button
-              onClick={handleSyncMatchups}
-              size="sm"
-              className={`gap-2 ${isHorseSegment ? 'bg-amber-600 hover:bg-amber-500 text-white' : ''}`}
-              disabled={matchupsLoading}
-            >
-               {isHorseSegment ? (
-                 <GiHorseHead className={`w-4 h-4 ${matchupsLoading ? 'animate-bounce' : ''}`} />
-               ) : (
-                 <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
-               )}
-               {matchupsLoading ? 'Syncing...' : isHorseSegment ? 'Sync Races (Equibase)' : 'Sync Matchups (ESPN)'}
-            </Button>
+            {isHorseSegment ? (
+              <>
+                <Button
+                  onClick={() => handleSyncMatchups(false)}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 border-amber-600/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300"
+                  disabled={matchupsLoading}
+                  title="Check existing database & Apify last run for today's races without triggering a new paid run"
+                >
+                  <GiHorseHead className={`w-4 h-4 ${matchupsLoading ? 'animate-bounce' : ''}`} />
+                  {matchupsLoading ? 'Syncing...' : 'Sync Races (Cached)'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (confirm(`Run live Equibase scraper for segment date ${segment?.startTime ? new Date(segment.startTime).toISOString().slice(0, 10) : 'today'}? (Est. cost ~$0.27)`)) {
+                      handleSyncMatchups(true);
+                    }
+                  }}
+                  size="sm"
+                  className="gap-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold"
+                  disabled={matchupsLoading}
+                  title="Trigger live Equibase actor run on Apify to scrape fresh entries & morning line odds"
+                >
+                  <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
+                  {matchupsLoading ? 'Running...' : 'Run Live Scraper ($0.27)'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => handleSyncMatchups(false)}
+                size="sm"
+                className="gap-2"
+                disabled={matchupsLoading}
+              >
+                <RefreshCw className={`w-4 h-4 ${matchupsLoading ? 'animate-spin' : ''}`} />
+                {matchupsLoading ? 'Syncing...' : 'Sync Matchups (ESPN)'}
+              </Button>
+            )}
           </div>
         </div>
 

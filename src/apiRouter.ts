@@ -1923,7 +1923,7 @@ apiRouter.post("/admin/link4/add-matchups", validateAdmin, async (req, res) => {
 
 apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => {
   try {
-    const { segmentId } = req.body;
+    const { segmentId, forceRun, datasetId } = req.body;
     if (!segmentId) {
       return res.status(400).json({ success: false, error: "Missing segmentId" });
     }
@@ -2015,7 +2015,9 @@ apiRouter.post("/admin/link4/sync-matchups", validateAdmin, async (req, res) => 
         try {
           const horseResult = await runDailyHorseRacingScheduleSync(adminDb, {
             date: targetDateStr,
-            dataMode: 'entries'
+            dataMode: 'entries',
+            forceRun: Boolean(forceRun),
+            datasetId: datasetId ? String(datasetId).trim() : undefined
           });
           console.log(`[Link4Sync] Horse racing sync for ${targetDateStr}: syncedCount=${horseResult.syncedCount}, success=${horseResult.success}`);
           if (!horseResult.success && horseResult.error) {

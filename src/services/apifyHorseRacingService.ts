@@ -743,6 +743,7 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
 
     // 2. Fetch dataset items from last actor run ($0.00) unless forceRun is true
     const shouldTryLastRun = options.useLastRun || (!options.forceRun && options.useLastRun !== false);
+    const requestedDate = options.date || options.raceDate;
 
     if (shouldTryLastRun) {
       try {
@@ -754,7 +755,10 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
           const rawItems = extractItemsFromResponse(parsed);
           const cards = parseEquibaseItems(rawItems);
 
-          if (cards.length > 0) {
+          // If a specific date was requested, ensure the last run cards match that date
+          const dateMatches = !requestedDate || cards.some(c => c.raceDate === requestedDate);
+
+          if (cards.length > 0 && dateMatches) {
             return {
               success: true,
               cards,
@@ -767,12 +771,14 @@ export async function fetchEquibaseScraperData(options: ApifyRunOptions = {}): P
       }
     }
 
-    // If options.useLastRun was explicitly true and forceRun is false, don't trigger new paid run if last run failed
+    // If options.useLastRun was explicitly true and forceRun is false, don't trigger new paid run if last run failed or date didn't match
     if (options.useLastRun && !options.forceRun) {
       return {
         success: false,
         cards: [],
-        error: 'No dataset items found in last actor run.'
+        error: requestedDate 
+          ? `No dataset items found for date ${requestedDate} in last actor run.` 
+          : 'No dataset items found in last actor run.'
       };
     }
 
@@ -1052,7 +1058,13 @@ export async function runDailyHorseRacingScheduleSync(db: any, options: ApifyRun
     date: targetDate,
     tracks: targetTracks,
     maxItems: options.maxItems || 200,
-    dataMode: options.dataMode
+    dataMode: options.dataMode,
+    forceRun: options.forceRun,
+    useLastRun: options.useLastRun,
+    datasetId: options.datasetId,
+    spIntendedUsage: options.spIntendedUsage,
+    spImprovementSuggestions: options.spImprovementSuggestions,
+    spContact: options.spContact
   });
 
   if (!fetchResult.success) {

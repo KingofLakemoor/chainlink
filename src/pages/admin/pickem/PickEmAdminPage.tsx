@@ -240,6 +240,7 @@ export default function PickEmAdminPage() {
   const [finalizingCampaign, setFinalizingCampaign] = useState<any | null>(null);
   const [retentionDaysInput, setRetentionDaysInput] = useState<number>(3);
   const [distributePayoutsCheck, setDistributePayoutsCheck] = useState<boolean>(true);
+  const [forcePayoutCheck, setForcePayoutCheck] = useState<boolean>(false);
   const [finalizeLoading, setFinalizeLoading] = useState<boolean>(false);
 
   // Toggle Actions
@@ -267,7 +268,8 @@ export default function PickEmAdminPage() {
         body: JSON.stringify({
           campaignId: finalizingCampaign.id,
           retentionDays: Number(retentionDaysInput) >= 0 ? Number(retentionDaysInput) : 3,
-          distributePayouts: distributePayoutsCheck
+          distributePayouts: distributePayoutsCheck,
+          forcePayout: forcePayoutCheck
         })
       });
       const data = await res.json();
@@ -998,7 +1000,8 @@ export default function PickEmAdminPage() {
                             onClick={() => {
                               setFinalizingCampaign(camp);
                               setRetentionDaysInput(camp.retentionDays || 3);
-                              setDistributePayoutsCheck(!camp.payoutComplete);
+                              setDistributePayoutsCheck(true);
+                              setForcePayoutCheck(!!camp.payoutComplete);
                             }}
                             className={`p-1.5 rounded transition-colors ${isEnded ? "text-blue-400/50 hover:text-blue-300 hover:bg-blue-500/10" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`}
                             title={isEnded ? "Campaign Finalized (Click to re-finalize/adjust)" : "Finalize & End Campaign"}
@@ -1089,6 +1092,23 @@ export default function PickEmAdminPage() {
                   </span>
                 </div>
               </label>
+
+              {finalizingCampaign.payoutComplete && distributePayoutsCheck && (
+                <label className="flex items-start gap-3 p-3 bg-amber-950/20 rounded-lg border border-amber-800/40 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={forcePayoutCheck}
+                    onChange={(e) => setForcePayoutCheck(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded border-zinc-700 bg-[#18181A] text-amber-500 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-amber-300 block">Re-calculate & Force Payout</span>
+                    <span className="text-xs text-zinc-400">
+                      Payout was previously recorded as complete. Check this box to re-evaluate standings, correct link dispersal, and disburse prizes now.
+                    </span>
+                  </div>
+                </label>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800/80">

@@ -2119,8 +2119,8 @@ apiRouter.post("/admin/link4/delete-matchup", validateAdmin, async (req, res) =>
 
 apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
   try {
-    const { campaignId } = req.body;
-    await payoutPickemCampaign(campaignId);
+    const { campaignId, force } = req.body;
+    await payoutPickemCampaign(campaignId, { force: force === true });
     res.json({ success: true });
   } catch (e: any) {
     console.error('Pickem payout error:', e);
@@ -2130,13 +2130,14 @@ apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
 
 apiRouter.post("/admin/pickem/finalize", validateAdmin, async (req, res) => {
   try {
-    const { campaignId, retentionDays, distributePayouts } = req.body;
+    const { campaignId, retentionDays, distributePayouts, forcePayout } = req.body;
     if (!campaignId) {
       return res.status(400).json({ success: false, error: "Missing campaignId" });
     }
     const result = await finalizePickemCampaign(campaignId, {
       retentionDays: Number(retentionDays) >= 0 ? Number(retentionDays) : 3,
-      distributePayouts: distributePayouts !== false
+      distributePayouts: distributePayouts !== false,
+      forcePayout: forcePayout === true
     });
     res.json(result);
   } catch (e: any) {

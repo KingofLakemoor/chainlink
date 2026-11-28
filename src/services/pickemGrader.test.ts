@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { gradeSinglePickemMatchup, setAdminDbMock } from './pickemGrader';
+import { gradeSinglePickemMatchup, payoutPickemCampaign, finalizePickemCampaign, setAdminDbMock } from './pickemGrader';
 
 function createMockDb(options: {
   campaignDocs?: Record<string, any>;
@@ -507,5 +507,296 @@ describe('pickemGrader - YES Day Moneyline Enforcement', () => {
     expect(overPick?.data.pointsEarned).toBe(0);
   });
 });
+
+describe('pickemGrader - payoutPickemCampaign & finalizePickemCampaign', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function createPayoutMockDb(options: {
+    campaignDocs?: Record<string, any>;
+    leaderboardDocs?: Record<string, any>;
+    users?: Record<string, any>;
+    participants?: Array<{ id: string; data: any }>;
+    picks?: Array<{ id: string; data: any }>;
+  }) {
+    const campaignDocs = options.campaignDocs || {};
+    const leaderboardDocs = options.leaderboardDocs || {};
+    const users = options.users || {};
+    const participants = options.participants || [];
+    const picks = options.picks || [];
+
+    const linkTransactions: any[] = [];
+    const notifications: any[] = [];
+    const userUpdates: Record<string, any> = {};
+    const campaignUpdates: Record<string, any> = {};
+
+    const mockDb: any = {
+      collection: (name: string) => {
+        if (name === 'pickemCampaigns') {
+          return {
+            doc: (id: string) => ({
+              get: async () => ({
+                exists: Boolean(campaignDocs[id]),
+                id,
+                data: () => campaignDocs[id],
+              }),
+              update: async (data: any) => {
+                campaignUpdates[id] = { ...campaignDocs[id], ...data };
+                campaignDocs[id] = campaignUpdates[id];
+              },
+            }),
+            get: async () => ({
+              docs: Object.keys(campaignDocs).map((id) => ({
+                id,
+                data: () => campaignDocs[id],
+              })),
+            }),
+          };
+        }
+
+        if (name === 'pickemLeaderboards') {
+          return {
+            doc: (id: string) => ({
+              get: async () => ({
+                exists: Boolean(leaderboardDocs[id]),
+                id,
+                data: () => leaderboardDocs[id],
+              }),
+              set: async (data: any) => {
+                leaderboardDocs[id] = data;
+              },
+            }),
+          };
+        }
+
+        if (name === 'users') {
+          return {
+            doc: (id: string) => ({
+              get: async () => ({
+                exists: Boolean(users[id]),
+                id,
+                data: () => users[id],
+              }),
+              update: async (data: any) => {
+                userUpdates[id] = { ...users[id], ...data };
+                users[id] = userUpdates[id];
+              },
+            }),
+          };
+        }
+
+        if (name === 'pickemParticipants') {
+          return {
+            where: (field: string, op: string, val: any) => ({
+              get: async () => ({
+                docs: participants
+                  .filter((p) => (op === 'in' ? val.includes(p.data[field]) : p.data[field] === val))
+                  .map((p) => ({ id: p.id, data: () => p.data })),
+              }),
+            }),
+          };
+        }
+
+        if (name === 'pickemPicks') {
+          return {
+            where: (field: string, op: string, val: any) => ({
+              get: async () => ({
+                docs: picks
+                  .filter((p) => (op === 'in' ? val.includes(p.data[field]) : p.data[field] === val))
+                  .map((p) => ({ id: p.id, data: () => p.data })),
+              }),
+            }),
+          };
+        }
+
+        if (name === 'linkTransactions') {
+          return {
+            doc: () => ({
+              set: async (data: any) => {
+                linkTransactions.push(data);
+              },
+            }),
+          };
+        }
+
+        if (name === 'notifications') {
+          return {
+            doc: () => ({
+              set: async (data: any) => {
+                notifications.push(data);
+              },
+            }),
+          };
+        }
+
+        return {
+          doc: () => ({ get: async () => ({ exists: false }), set: async () => {}, update: async () => {} }),
+          where: () => ({ get: async () => ({ docs: [] }) }),
+        };
+      },
+      runTransaction: async (cb: any) => {
+        const tx = {
+          get: async (ref: any) => ref.get(),
+          update: async (ref: any, data: any) => ref.update(data),
+          set: async (ref: any, data: any) => ref.set(data),
+        };
+        return cb(tx);
+      },
+    };
+
+    return {
+      mockDb,
+      campaignDocs,
+      users,
+      userUpdates,
+      campaignUpdates,
+      linkTransactions,
+      notifications,
+    };
+  }
+
+  it('correctly calculates Turkey Day Gobbler payout from prizePot, splits ties, awards Links and exclusive banner', async () => {
+    const { mockDb, users, userUpdates, linkTransactions, campaignUpdates } = createPayoutMockDb({
+      campaignDocs: {
+        turkey_gobbler_2026: {
+          name: '1st Annual Turkey Day Gobbler',
+          entryFee: 0,
+          prizePot: 1000,
+          payoutSplit: { first: 70, second: 20, third: 10 },
+          awardBannerId: 'banner_turkey_gobbler',
+          payoutComplete: false,
+        },
+      },
+      leaderboardDocs: {
+        turkey_gobbler_2026: {
+          campaignId: 'turkey_gobbler_2026',
+          season: [
+            { uid: 'user_turkey_champ', points: 10, rank: 1 },
+            { uid: 'user_runner_up', points: 8, rank: 2 },
+            { uid: 'user_third', points: 7, rank: 3 },
+          ],
+        },
+      },
+      users: {
+        user_turkey_champ: { username: 'PilgrimKing', links: 50, inventory: [] },
+        user_runner_up: { username: 'CranberrySauce', links: 20, inventory: [] },
+        user_third: { username: 'StuffingLover', links: 10, inventory: [] },
+      },
+    });
+
+    setAdminDbMock(mockDb);
+
+    await payoutPickemCampaign('turkey_gobbler_2026');
+
+    // 1st gets 70% of 1000 = 700 links
+    expect(users['user_turkey_champ'].links).toBe(50 + 700);
+    // 1st gets banner_turkey_gobbler in inventory
+    expect(users['user_turkey_champ'].inventory).toContain('banner_turkey_gobbler');
+
+    // 2nd gets 20% of 1000 = 200 links
+    expect(users['user_runner_up'].links).toBe(20 + 200);
+
+    // 3rd gets 10% of 1000 = 100 links
+    expect(users['user_third'].links).toBe(10 + 100);
+
+    // Campaign marked payoutComplete
+    expect(campaignUpdates['turkey_gobbler_2026'].payoutComplete).toBe(true);
+
+    // Link transactions recorded
+    expect(linkTransactions).toHaveLength(3);
+    const champTx = linkTransactions.find((tx) => tx.userId === 'user_turkey_champ');
+    expect(champTx?.amount).toBe(700);
+    expect(champTx?.type).toBe('PICKEM_WIN');
+  });
+
+  it('allows re-running payout with force: true if previous payout completed prematurely with 0 links', async () => {
+    const { mockDb, users, campaignUpdates, linkTransactions } = createPayoutMockDb({
+      campaignDocs: {
+        turkey_day_campaign: {
+          name: 'Turkey Day Pick Em',
+          entryFee: 0,
+          fixedPrizePot: 500,
+          payoutComplete: true, // Marked complete before fix
+        },
+      },
+      leaderboardDocs: {
+        turkey_day_campaign: {
+          campaignId: 'turkey_day_campaign',
+          season: [
+            { uid: 'winner_1', points: 9, rank: 1 },
+          ],
+        },
+      },
+      users: {
+        winner_1: { username: 'WinnerOne', links: 100, inventory: [] },
+      },
+    });
+
+    setAdminDbMock(mockDb);
+
+    // Calling without force throws
+    await expect(payoutPickemCampaign('turkey_day_campaign')).rejects.toThrow('Payout already completed');
+
+    // Calling with force: true succeeds and distributes correct links and banner
+    await payoutPickemCampaign('turkey_day_campaign', { force: true });
+
+    // 70% of 500 = 350 Links
+    expect(users['winner_1'].links).toBe(100 + 350);
+    expect(users['winner_1'].inventory).toContain('banner_turkey_gobbler');
+    expect(linkTransactions).toHaveLength(1);
+    expect(linkTransactions[0].amount).toBe(350);
+  });
+
+  it('correctly splits pot evenly between two tied 1st place winners and awards 3rd to next tier', async () => {
+    const { mockDb, users, linkTransactions } = createPayoutMockDb({
+      campaignDocs: {
+        turkey_pot_split: {
+          name: 'Turkey Day Gobbler Championship',
+          entryFee: 0,
+          prizePot: 900,
+          payoutSplit: { first: 70, second: 20, third: 10 },
+          awardBannerId: 'banner_turkey_gobbler',
+          payoutComplete: false,
+        },
+      },
+      leaderboardDocs: {
+        turkey_pot_split: {
+          campaignId: 'turkey_pot_split',
+          season: [
+            { uid: 'tie_user_1', points: 15, rank: 1 },
+            { uid: 'tie_user_2', points: 15, rank: 1 },
+            { uid: 'third_user', points: 12, rank: 3 },
+          ],
+        },
+      },
+      users: {
+        tie_user_1: { username: 'TomTurkey', links: 0, inventory: [] },
+        tie_user_2: { username: 'GravyBoat', links: 0, inventory: [] },
+        third_user: { username: 'PumpkinPie', links: 0, inventory: [] },
+      },
+    });
+
+    setAdminDbMock(mockDb);
+    await payoutPickemCampaign('turkey_pot_split');
+
+    // Total pot = 900
+    // 1st pot = 70% (630), 2nd pot = 20% (180), 3rd pot = 10% (90)
+    // 2-way tie for 1st pools 1st + 2nd pot = 630 + 180 = 810. Each gets floor(810 / 2) = 405 Links.
+    expect(users['tie_user_1'].links).toBe(405);
+    expect(users['tie_user_2'].links).toBe(405);
+    // Both 1st place winners receive the champion banner!
+    expect(users['tie_user_1'].inventory).toContain('banner_turkey_gobbler');
+    expect(users['tie_user_2'].inventory).toContain('banner_turkey_gobbler');
+
+    // 3rd place gets 3rd pot (90 links)
+    expect(users['third_user'].links).toBe(90);
+    expect(users['third_user'].inventory).not.toContain('banner_turkey_gobbler');
+
+    expect(linkTransactions).toHaveLength(3);
+  });
+});
+
+
 
 

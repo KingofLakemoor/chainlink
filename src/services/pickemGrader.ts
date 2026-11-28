@@ -1,11 +1,14 @@
 import * as firebaseAdmin from '../lib/firebase-admin.js';
 import { isTeamMatch } from '../lib/teamUtils.js';
-import { generateAndSavePickemLeaderboard } from './pickemLeaderboardService.js';
+import { generateAndSavePickemLeaderboard, getCampaignAliases, getStaticPickemLeaderboard, setAdminDbMock as setLeaderboardAdminDbMock } from './pickemLeaderboardService.js';
 import { extractOverUnderLine } from '../utils/matchupUtils.js';
 
 let getAdminDb = () => firebaseAdmin.adminDb;
 
-export function setAdminDbMock(mock: any) { getAdminDb = () => mock; }
+export function setAdminDbMock(mock: any) {
+  getAdminDb = () => mock;
+  setLeaderboardAdminDbMock(mock);
+}
 
 export async function gradePickemMatchups(pickemMatchups: any[]) {
   if (!getAdminDb()) {
@@ -345,52 +348,80 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   }
 }
 
-export async function payoutPickemCampaign(campaignId: string) {
+export async function payoutPickemCampaign(campaignId: string, options?: { force?: boolean }) {
   const adminDb = getAdminDb();
   if (!adminDb) return;
 
-  await adminDb.runTransaction(async (transaction: any) => {
-    const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
-    const campaignDoc = await transaction.get(campaignRef);
+  // 1. Resolve canonical ID, aliases, and campaign document
+  const { canonicalId, aliases, campaignData: initialCampData } = await getCampaignAliases(campaignId);
 
-    if (!campaignDoc.exists) throw new Error("Campaign not found");
-    if (campaignDoc.data().payoutComplete) throw new Error("Payout already completed for this campaign");
+  // 2. Fetch campaign metadata
+  const campaignRef = adminDb.collection('pickemCampaigns').doc(canonicalId);
+  const campaignSnap = await campaignRef.get();
+  if (!campaignSnap.exists) throw new Error("Campaign not found");
 
-    const campaignData = campaignDoc.data();
-    const entryFee = campaignData.entryFee || 0;
+  const campaignData = campaignSnap.data() || initialCampData || {};
+  const force = options?.force === true;
 
-    const isYesDay = campaignData.isCharity ||
-      campaignData.name === 'YES Day Walk for Autism 2026' ||
-      campaignId === 'charity' ||
-      campaignId === 'yes_day_2026' ||
-      campaignId === 'aUqhDhT3vKWfkPgSAVzf' ||
-      (typeof campaignData.name === 'string' && campaignData.name.toLowerCase().includes('yes day'));
-    const targetCampaignIds = new Set<string>([campaignId]);
-    if (isYesDay) {
-      targetCampaignIds.add('yes_day_2026');
-      targetCampaignIds.add('charity');
-      targetCampaignIds.add('aUqhDhT3vKWfkPgSAVzf');
-      targetCampaignIds.add('YES Day Walk for Autism 2026');
-      if (campaignData.name) targetCampaignIds.add(campaignData.name);
+  if (campaignData.payoutComplete && !force) {
+    throw new Error("Payout already completed for this campaign");
+  }
+
+  // 3. Resolve all aliases
+  const targetCampaignIds = new Set<string>(aliases);
+  targetCampaignIds.add(canonicalId);
+  targetCampaignIds.add(campaignId);
+  if (campaignData.name) targetCampaignIds.add(campaignData.name);
+
+  const isYesDay = !!(
+    campaignData.isCharity ||
+    campaignData.name === 'YES Day Walk for Autism 2026' ||
+    canonicalId === 'charity' ||
+    canonicalId === 'yes_day_2026' ||
+    canonicalId === 'aUqhDhT3vKWfkPgSAVzf' ||
+    (typeof campaignData.name === 'string' && campaignData.name.toLowerCase().includes('yes day'))
+  );
+
+  if (isYesDay) {
+    targetCampaignIds.add('yes_day_2026');
+    targetCampaignIds.add('charity');
+    targetCampaignIds.add('aUqhDhT3vKWfkPgSAVzf');
+    targetCampaignIds.add('YES Day Walk for Autism 2026');
+  }
+
+  // 4. Gather participant scores from static leaderboard first (with tiebreakers & verified scores),
+  // with fallback to raw pickemPicks queries across all aliases.
+  let sortedParticipants: Array<{ uid: string; points: number; rank?: number }> = [];
+
+  try {
+    const leaderboardDoc = await getStaticPickemLeaderboard(canonicalId);
+    if (leaderboardDoc && Array.isArray(leaderboardDoc.season) && leaderboardDoc.season.length > 0) {
+      sortedParticipants = leaderboardDoc.season.map((p: any) => ({
+        uid: p.uid || p.id,
+        points: Number(p.points || 0),
+        rank: p.rank
+      }));
     }
+  } catch (err) {
+    console.warn(`[PickemGrader] Could not read static leaderboard for payout of ${canonicalId}, falling back to raw picks query:`, err);
+  }
 
-    const participantPoints: Record<string, { uid: string, points: number }> = {};
+  if (sortedParticipants.length === 0) {
+    const participantPoints: Record<string, { uid: string; points: number }> = {};
 
     for (const cid of targetCampaignIds) {
-      const participantsSnap = await transaction.get(adminDb.collection('pickemParticipants').where('campaignId', '==', cid));
+      const participantsSnap = await adminDb.collection('pickemParticipants').where('campaignId', '==', cid).get().catch(() => ({ docs: [] }));
       participantsSnap.docs.forEach((d: any) => {
         const uid = d.data().participantId || d.data().userId || d.id.split('_')[1];
-        if (uid) {
-          if (!participantPoints[uid]) {
-            participantPoints[uid] = { uid, points: 0 };
-          }
+        if (uid && !participantPoints[uid]) {
+          participantPoints[uid] = { uid, points: 0 };
         }
       });
     }
 
     const processedPickIds = new Set<string>();
     for (const cid of targetCampaignIds) {
-      const picksSnap = await transaction.get(adminDb.collection('pickemPicks').where('campaignId', '==', cid));
+      const picksSnap = await adminDb.collection('pickemPicks').where('campaignId', '==', cid).get().catch(() => ({ docs: [] }));
       picksSnap.docs.forEach((d: any) => {
         if (processedPickIds.has(d.id)) return;
         processedPickIds.add(d.id);
@@ -408,91 +439,149 @@ export async function payoutPickemCampaign(campaignId: string) {
       });
     }
 
-    const totalEntries = Object.keys(participantPoints).length;
-    if (totalEntries === 0) {
-      transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
-      return;
+    sortedParticipants = Object.values(participantPoints).sort((a, b) => b.points - a.points);
+  }
+
+  const totalEntries = sortedParticipants.length;
+  if (totalEntries === 0) {
+    await campaignRef.update({ payoutComplete: true, updatedAt: Date.now() });
+    return;
+  }
+
+  // 5. Calculate total pot & prize pool
+  // Check entryFee * totalEntries, or explicit custom pot fields configured on campaign
+  const entryFee = Number(campaignData.entryFee) || 0;
+  const explicitPot = Number(campaignData.prizePot ?? campaignData.prizePool ?? campaignData.fixedPrizePot ?? campaignData.guaranteedPot ?? 0);
+  const entryPot = totalEntries * entryFee;
+  const totalPot = explicitPot > 0 ? explicitPot : entryPot;
+
+  const prizePotPercent = campaignData.prizePotPercent !== undefined ? Number(campaignData.prizePotPercent) : 65;
+  const distributablePot = explicitPot > 0 ? explicitPot : Math.floor(totalPot * (prizePotPercent / 100));
+
+  // Determine if exclusive champion cosmetic / banner should be awarded
+  const isTurkeyCampaign = (typeof campaignData.name === 'string' && (campaignData.name.toLowerCase().includes('turkey') || campaignData.name.toLowerCase().includes('gobbler'))) ||
+                           canonicalId.toLowerCase().includes('turkey') ||
+                           canonicalId.toLowerCase().includes('gobbler') ||
+                           campaignData.awardBannerId === 'banner_turkey_gobbler';
+
+  const bannerToAward = campaignData.awardCosmeticId || campaignData.awardBannerId || (isTurkeyCampaign ? 'banner_turkey_gobbler' : null);
+  const cosmeticTitle = campaignData.awardCosmeticName || (isTurkeyCampaign ? 'The Turkey Day Gobbler' : 'Exclusive Champion Cosmetic');
+
+  // If no pot is distributable and no cosmetic to award, mark complete
+  if (distributablePot <= 0 && !bannerToAward && !isYesDay) {
+    await campaignRef.update({ payoutComplete: true, updatedAt: Date.now() });
+    return;
+  }
+
+  // 6. Calculate tier distributions handling ties
+  const split = campaignData.payoutSplit || { first: 70, second: 20, third: 10 };
+  const firstPot = Math.floor(distributablePot * ((split.first ?? 70) / 100));
+  const secondPot = Math.floor(distributablePot * ((split.second ?? 20) / 100));
+  const thirdPot = Math.floor(distributablePot * ((split.third ?? 10) / 100));
+
+  const uniqueScores = Array.from(new Set(sortedParticipants.map(s => s.points))).sort((a, b) => b - a);
+  const tier1 = sortedParticipants.filter(s => s.points === uniqueScores[0]);
+  const tier2 = uniqueScores.length > 1 ? sortedParticipants.filter(s => s.points === uniqueScores[1]) : [];
+  const tier3 = uniqueScores.length > 2 ? sortedParticipants.filter(s => s.points === uniqueScores[2]) : [];
+
+  const payoutsToDistribute: Array<{ uid: string; amount: number; rank: '1st' | '2nd' | '3rd'; placeName: string }> = [];
+
+  if (tier1.length >= 3) {
+    const potForTier1 = firstPot + secondPot + thirdPot;
+    const share = Math.floor(potForTier1 / tier1.length);
+    tier1.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share, rank: '1st', placeName: '1st Place (Tied)' }));
+  } else if (tier1.length === 2) {
+    const potForTier1 = firstPot + secondPot;
+    const share = Math.floor(potForTier1 / 2);
+    tier1.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share, rank: '1st', placeName: '1st Place (Tied)' }));
+    if (tier2.length > 0 && thirdPot > 0) {
+      const share3 = Math.floor(thirdPot / tier2.length);
+      tier2.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share3, rank: '3rd', placeName: tier2.length > 1 ? '3rd Place (Tied)' : '3rd Place' }));
     }
-
-    const totalPot = totalEntries * entryFee;
-
-    if (totalPot <= 0 && !isYesDay) {
-      transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
-      return;
-    }
-
-    // Payout percentages: defaults to 65% total entries pot (1st: 70%, 2nd: 20%, 3rd: 10% of prize pool, or 45%/15%/5% of total pot)
-    const split = campaignData.payoutSplit || { first: 70, second: 20, third: 10 };
-    const prizePotPercent = campaignData.prizePotPercent !== undefined ? campaignData.prizePotPercent : 65;
-    const distributablePot = Math.floor(totalPot * (prizePotPercent / 100));
-
-    const firstPayout = Math.floor(distributablePot * ((split.first ?? 70) / 100));
-    const secondPayout = Math.floor(distributablePot * ((split.second ?? 20) / 100));
-    const thirdPayout = Math.floor(distributablePot * ((split.third ?? 10) / 100));
-
-    const leaderboard = Object.values(participantPoints).sort((a, b) => b.points - a.points);
-
-    const winners = [
-      { rank: '1st', placeName: '1st Place', uid: leaderboard[0]?.uid, amount: firstPayout },
-      { rank: '2nd', placeName: '2nd Place', uid: leaderboard[1]?.uid, amount: secondPayout },
-      { rank: '3rd', placeName: '3rd Place', uid: leaderboard[2]?.uid, amount: thirdPayout },
-    ];
-
-    for (const w of winners) {
-      if (w.uid && w.amount > 0) {
-        const userRef = adminDb.collection('users').doc(w.uid);
-        const userDoc = await transaction.get(userRef);
-        if (userDoc.exists) {
-          const userData = userDoc.data();
-          const updatePayload: any = { links: (userData.links || 0) + w.amount };
-
-          // Award exclusive cosmetic / banner for 1st place winner
-          const isTurkeyGobblerCampaign = (campaignData.name && typeof campaignData.name === 'string' && campaignData.name.toLowerCase().includes('gobbler')) ||
-                                          campaignId.toLowerCase().includes('gobbler') ||
-                                          campaignData.awardBannerId === 'banner_turkey_gobbler';
-
-          const bannerToAward = campaignData.awardCosmeticId || campaignData.awardBannerId || (isTurkeyGobblerCampaign ? 'banner_turkey_gobbler' : null);
-          const cosmeticTitle = campaignData.awardCosmeticName || (isTurkeyGobblerCampaign ? 'The Turkey Day Gobbler' : 'Exclusive Champion Cosmetic');
-
-          if (w.rank === '1st' && bannerToAward) {
-            const currentInventory = userData.inventory || [];
-            if (!currentInventory.includes(bannerToAward)) {
-              updatePayload.inventory = [...currentInventory, bannerToAward];
-            }
-          }
-
-          transaction.update(userRef, updatePayload);
-
-          const logRef = adminDb.collection('linkTransactions').doc();
-          transaction.set(logRef, {
-            userId: w.uid,
-            username: userData.username || userData.name || 'Unknown User',
-            type: 'PICKEM_WIN',
-            amount: w.amount,
-            description: `Won ${w.placeName} in Pick 'Em Campaign: ${campaignData.name || campaignId}`,
-            createdAt: Date.now()
-          });
-
-          const notificationsRef = adminDb.collection('notifications').doc();
-          const bannerAwardMsg = (w.rank === '1st' && bannerToAward) ? ` You have also been awarded the exclusive "${cosmeticTitle}" cosmetic!` : '';
-          transaction.set(notificationsRef, {
-            title: `Pick 'Em Winner! 🎉`,
-            body: `You finished ${w.placeName} in ${campaignData.name || 'Pick Em'}! ${w.amount} links have been added to your account.${bannerAwardMsg}`,
-            audience: 'USER',
-            targetUserId: w.uid,
-            status: 'PENDING',
-            scheduledTime: Date.now(),
-            createdAt: Date.now()
-          });
-        }
+  } else if (tier1.length === 1) {
+    payoutsToDistribute.push({ uid: tier1[0].uid, amount: firstPot, rank: '1st', placeName: '1st Place' });
+    if (tier2.length >= 2) {
+      const potForTier2 = secondPot + thirdPot;
+      const share2 = Math.floor(potForTier2 / tier2.length);
+      tier2.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share2, rank: '2nd', placeName: '2nd Place (Tied)' }));
+    } else if (tier2.length === 1) {
+      payoutsToDistribute.push({ uid: tier2[0].uid, amount: secondPot, rank: '2nd', placeName: '2nd Place' });
+      if (tier3.length > 0 && thirdPot > 0) {
+        const share3 = Math.floor(thirdPot / tier3.length);
+        tier3.forEach(s => payoutsToDistribute.push({ uid: s.uid, amount: share3, rank: '3rd', placeName: tier3.length > 1 ? '3rd Place (Tied)' : '3rd Place' }));
       }
     }
+  }
 
-    transaction.update(campaignRef, { payoutComplete: true, updatedAt: Date.now() });
+  // 7. Atomic transaction with READS FIRST then WRITES
+  await adminDb.runTransaction(async (transaction: any) => {
+    const freshCampDoc = await transaction.get(campaignRef);
+    if (!freshCampDoc.exists) throw new Error("Campaign not found");
+    if (freshCampDoc.data().payoutComplete && !force) {
+      throw new Error("Payout already completed for this campaign");
+    }
+
+    // 1. ALL READS FIRST
+    const userReadDocs = await Promise.all(
+      payoutsToDistribute.map(async (item) => {
+        const uRef = adminDb.collection('users').doc(item.uid);
+        const uDoc = await transaction.get(uRef);
+        return { ref: uRef, doc: uDoc, item };
+      })
+    );
+
+    // 2. ALL WRITES AFTER READS
+    const now = Date.now();
+    for (const { ref: userRef, doc: userDoc, item } of userReadDocs) {
+      if (!userDoc.exists) continue;
+      const userData = userDoc.data();
+      const currentLinks = userData.links || 0;
+      const updatePayload: any = { links: currentLinks + item.amount };
+
+      // Award exclusive champion cosmetic / banner for 1st place winners
+      if (item.rank === '1st' && bannerToAward) {
+        const currentInventory = userData.inventory || [];
+        if (!currentInventory.includes(bannerToAward)) {
+          updatePayload.inventory = [...currentInventory, bannerToAward];
+        }
+      }
+
+      transaction.update(userRef, updatePayload);
+
+      if (item.amount > 0) {
+        const logRef = adminDb.collection('linkTransactions').doc();
+        transaction.set(logRef, {
+          userId: item.uid,
+          username: userData.username || userData.name || 'Unknown User',
+          type: 'PICKEM_WIN',
+          amount: item.amount,
+          description: `Won ${item.placeName} in Pick 'Em Campaign: ${campaignData.name || canonicalId}`,
+          createdAt: now
+        });
+      }
+
+      const bannerAwardMsg = (item.rank === '1st' && bannerToAward)
+        ? ` You have also been awarded the exclusive "${cosmeticTitle}" cosmetic!`
+        : '';
+      const amountMsg = item.amount > 0 ? ` ${item.amount} links have been added to your account.` : '';
+
+      const notificationsRef = adminDb.collection('notifications').doc();
+      transaction.set(notificationsRef, {
+        title: `Pick 'Em Winner! 🎉`,
+        body: `You finished ${item.placeName} in ${campaignData.name || 'Pick Em'}!${amountMsg}${bannerAwardMsg}`,
+        audience: 'USER',
+        targetUserId: item.uid,
+        status: 'PENDING',
+        scheduledTime: now,
+        createdAt: now
+      });
+    }
+
+    transaction.update(campaignRef, { payoutComplete: true, updatedAt: now });
   });
 }
 
-export async function finalizePickemCampaign(campaignId: string, options?: { retentionDays?: number; distributePayouts?: boolean }) {
+export async function finalizePickemCampaign(campaignId: string, options?: { retentionDays?: number; distributePayouts?: boolean; forcePayout?: boolean }) {
   const adminDb = getAdminDb();
   if (!adminDb) return;
 
@@ -500,6 +589,7 @@ export async function finalizePickemCampaign(campaignId: string, options?: { ret
     ? options.retentionDays
     : 3;
   const shouldDistributePayouts = options?.distributePayouts !== false;
+  const forcePayout = options?.forcePayout === true;
 
   // 1. Grade any remaining matchups and refresh the leaderboard
   try {
@@ -513,7 +603,7 @@ export async function finalizePickemCampaign(campaignId: string, options?: { ret
   let payoutError: string | null = null;
   if (shouldDistributePayouts) {
     try {
-      await payoutPickemCampaign(campaignId);
+      await payoutPickemCampaign(campaignId, { force: forcePayout });
       payoutExecuted = true;
     } catch (err: any) {
       if (err.message && err.message.includes('Payout already completed')) {

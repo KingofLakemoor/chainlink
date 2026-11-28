@@ -651,9 +651,10 @@ export default function Link4AdminPage() {
                  onClick={handleSyncEligible}
                  disabled={isSyncing || isPurging}
                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                 title="Syncs general major sports (NFL, NBA, MLB) into the platform matchups database"
                >
                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                 Sync Eligible Games
+                 Sync Major Sports (ESPN)
                </button>
                <button
                  onClick={handlePurgeCompleted}
@@ -693,7 +694,7 @@ export default function Link4AdminPage() {
                           {status.label}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleEdit(segment)}
                           className="p-1.5 text-zinc-400 hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
@@ -710,10 +711,11 @@ export default function Link4AdminPage() {
                         </button>
                         <button
                           onClick={() => setSelectedSegmentId(segment.id)}
-                          className="p-1.5 text-zinc-400 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/60 rounded-lg transition-colors"
                           title="Manage Matchups"
                         >
-                          <Calendar className="w-4 h-4" />
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Matchups</span>
                         </button>
                       </div>
                     </div>

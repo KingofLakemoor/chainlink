@@ -2165,9 +2165,12 @@ apiRouter.post("/admin/link4/delete-matchup", validateAdmin, async (req, res) =>
 
 apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
   try {
-    const { campaignId, force } = req.body;
-    await payoutPickemCampaign(campaignId, { force: force === true });
-    res.json({ success: true });
+    const { campaignId, force, customPrizePot } = req.body;
+    const result = await payoutPickemCampaign(campaignId, {
+      force: force === true,
+      customPrizePot: Number(customPrizePot) > 0 ? Number(customPrizePot) : undefined
+    });
+    res.json(result || { success: true });
   } catch (e: any) {
     console.error('Pickem payout error:', e);
     res.status(500).json({ success: false, error: e.message });
@@ -2176,14 +2179,15 @@ apiRouter.post("/admin/pickem/payout", validateAdmin, async (req, res) => {
 
 apiRouter.post("/admin/pickem/finalize", validateAdmin, async (req, res) => {
   try {
-    const { campaignId, retentionDays, distributePayouts, forcePayout } = req.body;
+    const { campaignId, retentionDays, distributePayouts, forcePayout, customPrizePot } = req.body;
     if (!campaignId) {
       return res.status(400).json({ success: false, error: "Missing campaignId" });
     }
     const result = await finalizePickemCampaign(campaignId, {
       retentionDays: Number(retentionDays) >= 0 ? Number(retentionDays) : 3,
       distributePayouts: distributePayouts !== false,
-      forcePayout: forcePayout === true
+      forcePayout: forcePayout === true,
+      customPrizePot: Number(customPrizePot) > 0 ? Number(customPrizePot) : undefined
     });
     res.json(result);
   } catch (e: any) {

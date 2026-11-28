@@ -241,6 +241,7 @@ export default function PickEmAdminPage() {
   const [retentionDaysInput, setRetentionDaysInput] = useState<number>(3);
   const [distributePayoutsCheck, setDistributePayoutsCheck] = useState<boolean>(true);
   const [forcePayoutCheck, setForcePayoutCheck] = useState<boolean>(false);
+  const [customPrizePotInput, setCustomPrizePotInput] = useState<number | ''>('');
   const [finalizeLoading, setFinalizeLoading] = useState<boolean>(false);
 
   // Toggle Actions
@@ -269,14 +270,28 @@ export default function PickEmAdminPage() {
           campaignId: finalizingCampaign.id,
           retentionDays: Number(retentionDaysInput) >= 0 ? Number(retentionDaysInput) : 3,
           distributePayouts: distributePayoutsCheck,
-          forcePayout: forcePayoutCheck
+          forcePayout: forcePayoutCheck,
+          customPrizePot: typeof customPrizePotInput === 'number' && customPrizePotInput > 0 ? customPrizePotInput : undefined
         })
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to finalize campaign');
       }
-      alert(`Campaign "${finalizingCampaign.name}" has been finalized! Final standings calculated and leaderboard will remain visible for ${retentionDaysInput} days.`);
+
+      let payoutMsg = "";
+      if (data.payoutError) {
+        payoutMsg = `\n\n⚠️ Warning: Finalization succeeded, but payout failed: ${data.payoutError}`;
+      } else if (data.payoutResult && Array.isArray(data.payoutResult.winners) && data.payoutResult.winners.length > 0) {
+        const lines = data.payoutResult.winners.map((w: any) =>
+          `• ${w.placeName}: ${w.username} (${w.amount} Links${w.bannerAwarded ? ' + Cosmetic' : ''})`
+        );
+        payoutMsg = `\n\n🏆 Payout Breakdown (${data.payoutResult.distributablePot} Links total):\n${lines.join('\n')}`;
+      } else if (distributePayoutsCheck) {
+        payoutMsg = `\n\n✅ Payout recorded as complete.`;
+      }
+
+      alert(`Campaign "${finalizingCampaign.name}" has been finalized! Final standings calculated and leaderboard will remain visible for ${retentionDaysInput} days.${payoutMsg}`);
       setFinalizingCampaign(null);
       fetchCampaigns();
     } catch (err: any) {
@@ -1002,6 +1017,10 @@ export default function PickEmAdminPage() {
                               setRetentionDaysInput(camp.retentionDays || 3);
                               setDistributePayoutsCheck(true);
                               setForcePayoutCheck(!!camp.payoutComplete);
+                              const existingPot = Number(camp.prizePot ?? camp.customPrizePot ?? camp.prizePool ?? camp.fixedPrizePot ?? camp.guaranteedPot ?? 0);
+                              const isTurkey = (camp.name && typeof camp.name === 'string' && (camp.name.toLowerCase().includes('turkey') || camp.name.toLowerCase().includes('gobbler'))) ||
+                                               (camp.id && typeof camp.id === 'string' && (camp.id.toLowerCase().includes('turkey') || camp.id.toLowerCase().includes('gobbler')));
+                              setCustomPrizePotInput(existingPot > 0 ? existingPot : (isTurkey ? 1000 : ''));
                             }}
                             className={`p-1.5 rounded transition-colors ${isEnded ? "text-blue-400/50 hover:text-blue-300 hover:bg-blue-500/10" : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"}`}
                             title={isEnded ? "Campaign Finalized (Click to re-finalize/adjust)" : "Finalize & End Campaign"}
@@ -1092,6 +1111,28 @@ export default function PickEmAdminPage() {
                   </span>
                 </div>
               </label>
+
+              {distributePayoutsCheck && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+                    Total Prize Pot (Links)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      placeholder={finalizingCampaign.entryFee ? "Auto (Calculated from entry fees)" : "e.g. 1000"}
+                      value={customPrizePotInput}
+                      onChange={(e) => setCustomPrizePotInput(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-36 bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="text-xs text-zinc-400">
+                      Total Links to distribute to top finishers (70% / 20% / 10%).
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {finalizingCampaign.payoutComplete && distributePayoutsCheck && (
                 <label className="flex items-start gap-3 p-3 bg-amber-950/20 rounded-lg border border-amber-800/40 cursor-pointer">

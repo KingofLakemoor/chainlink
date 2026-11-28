@@ -268,12 +268,21 @@ export async function generateAndSavePickemLeaderboard(campaignId: string): Prom
     const chunk = uids.slice(i, i + 50);
     const refs = chunk.map(uid => adminDb.collection('users').doc(uid));
     try {
-      const snaps = await adminDb.getAll(...refs);
-      snaps.forEach((d: any) => {
-        if (d.exists) {
-          usersMap[d.id] = d.data();
-        }
-      });
+      if (typeof adminDb.getAll === 'function') {
+        const snaps = await adminDb.getAll(...refs);
+        snaps.forEach((d: any) => {
+          if (d.exists) {
+            usersMap[d.id] = d.data();
+          }
+        });
+      } else {
+        const snaps = await Promise.all(refs.map(r => r.get()));
+        snaps.forEach((d: any) => {
+          if (d.exists) {
+            usersMap[d.id] = d.data();
+          }
+        });
+      }
     } catch (e) {
       console.warn('[LeaderboardService] Error batch fetching user profiles:', e);
     }

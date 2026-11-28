@@ -63,6 +63,7 @@ export default function PickEmCampaignDetail() {
   const [finalizeRetentionDays, setFinalizeRetentionDays] = useState<number>(3);
   const [finalizeDistributePayouts, setFinalizeDistributePayouts] = useState<boolean>(true);
   const [finalizeForcePayout, setFinalizeForcePayout] = useState<boolean>(false);
+  const [finalizeCustomPrizePot, setFinalizeCustomPrizePot] = useState<number | ''>('');
   const [finalizeLoading, setFinalizeLoading] = useState<boolean>(false);
 
   const fetchCampaign = async () => {
@@ -92,6 +93,13 @@ export default function PickEmCampaignDetail() {
         setRetentionDays(data.retentionDays || 3);
         setFinalizeRetentionDays(data.retentionDays || 3);
         setFinalizeDistributePayouts(!data.payoutComplete);
+        setFinalizeForcePayout(!!data.payoutComplete);
+
+        const existingPot = Number(data.prizePot ?? data.customPrizePot ?? data.prizePool ?? data.fixedPrizePot ?? data.guaranteedPot ?? 0);
+        const isTurkey = (data.name && typeof data.name === 'string' && (data.name.toLowerCase().includes('turkey') || data.name.toLowerCase().includes('gobbler'))) ||
+                         (id && typeof id === 'string' && (id.toLowerCase().includes('turkey') || id.toLowerCase().includes('gobbler')));
+        setFinalizeCustomPrizePot(existingPot > 0 ? existingPot : (isTurkey ? 1000 : ''));
+
         setJoinCode(data.joinCode || '');
         setWeekSettings(data.weekSettings || {});
 
@@ -271,14 +279,28 @@ export default function PickEmCampaignDetail() {
           campaignId: id,
           retentionDays: Number(finalizeRetentionDays) >= 0 ? Number(finalizeRetentionDays) : 3,
           distributePayouts: finalizeDistributePayouts,
-          forcePayout: finalizeForcePayout
+          forcePayout: finalizeForcePayout,
+          customPrizePot: typeof finalizeCustomPrizePot === 'number' && finalizeCustomPrizePot > 0 ? finalizeCustomPrizePot : undefined
         })
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to finalize campaign');
       }
-      alert(`Campaign finalized successfully! Final standings calculated and leaderboard will remain visible for ${finalizeRetentionDays} days.`);
+
+      let payoutMsg = "";
+      if (data.payoutError) {
+        payoutMsg = `\n\n⚠️ Warning: Finalization succeeded, but payout failed: ${data.payoutError}`;
+      } else if (data.payoutResult && Array.isArray(data.payoutResult.winners) && data.payoutResult.winners.length > 0) {
+        const lines = data.payoutResult.winners.map((w: any) =>
+          `• ${w.placeName}: ${w.username} (${w.amount} Links${w.bannerAwarded ? ' + Cosmetic' : ''})`
+        );
+        payoutMsg = `\n\n🏆 Payout Breakdown (${data.payoutResult.distributablePot} Links total):\n${lines.join('\n')}`;
+      } else if (finalizeDistributePayouts) {
+        payoutMsg = `\n\n✅ Payout recorded as complete.`;
+      }
+
+      alert(`Campaign finalized successfully! Final standings calculated and leaderboard will remain visible for ${finalizeRetentionDays} days.${payoutMsg}`);
       setIsEnded(true);
       setIsOpen(false);
       setShowFinalizeModal(false);
@@ -1547,6 +1569,28 @@ export default function PickEmCampaignDetail() {
                 </span>
               </div>
             </label>
+
+            {finalizeDistributePayouts && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+                  Total Prize Pot (Links)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    placeholder={campaign?.entryFee ? "Auto (Calculated from entry fees)" : "e.g. 1000"}
+                    value={finalizeCustomPrizePot}
+                    onChange={(e) => setFinalizeCustomPrizePot(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-36 bg-[#18181A] border border-zinc-800 rounded-lg px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-xs text-zinc-400">
+                    Total Links to distribute to top finishers (70% / 20% / 10%).
+                  </span>
+                </div>
+              </div>
+            )}
 
             {campaign?.payoutComplete && finalizeDistributePayouts && (
               <label className="flex items-start gap-3 p-3 bg-amber-950/20 rounded-lg border border-amber-800/40 cursor-pointer">

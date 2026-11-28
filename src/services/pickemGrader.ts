@@ -348,9 +348,9 @@ export async function gradeSinglePickemMatchup(matchup: any) {
   }
 }
 
-export async function payoutPickemCampaign(campaignId: string, options?: { force?: boolean }) {
+export async function payoutPickemCampaign(campaignId: string, options?: { force?: boolean; customPrizePot?: number }) {
   const adminDb = getAdminDb();
-  if (!adminDb) return;
+  if (!adminDb) return { success: false, error: 'Database not initialized', winners: [], distributablePot: 0 };
 
   // 1. Resolve canonical ID, aliases, and campaign document
   const { canonicalId, aliases, campaignData: initialCampData } = await getCampaignAliases(campaignId);
@@ -394,7 +394,7 @@ export async function payoutPickemCampaign(campaignId: string, options?: { force
   let sortedParticipants: Array<{ uid: string; points: number; rank?: number }> = [];
 
   try {
-    const leaderboardDoc = await getStaticPickemLeaderboard(canonicalId);
+    const leaderboardDoc = await getStaticPickemLeaderboard(canonicalId, false);
     if (leaderboardDoc && Array.isArray(leaderboardDoc.season) && leaderboardDoc.season.length > 0) {
       sortedParticipants = leaderboardDoc.season.map((p: any) => ({
         uid: p.uid || p.id,
@@ -445,32 +445,46 @@ export async function payoutPickemCampaign(campaignId: string, options?: { force
   const totalEntries = sortedParticipants.length;
   if (totalEntries === 0) {
     await campaignRef.update({ payoutComplete: true, updatedAt: Date.now() });
-    return;
+    return { success: true, totalEntries: 0, distributablePot: 0, winners: [] };
   }
 
   // 5. Calculate total pot & prize pool
-  // Check entryFee * totalEntries, or explicit custom pot fields configured on campaign
+  // Check options.customPrizePot, explicit custom pot fields on campaign, or entryFee * totalEntries
   const entryFee = Number(campaignData.entryFee) || 0;
-  const explicitPot = Number(campaignData.prizePot ?? campaignData.prizePool ?? campaignData.fixedPrizePot ?? campaignData.guaranteedPot ?? 0);
+  const customPotOption = options?.customPrizePot !== undefined && Number(options.customPrizePot) > 0 ? Number(options.customPrizePot) : 0;
+  const explicitPot = customPotOption > 0 ? customPotOption : Number(
+    campaignData.prizePot ??
+    campaignData.customPrizePot ??
+    campaignData.prizePool ??
+    campaignData.fixedPrizePot ??
+    campaignData.guaranteedPot ??
+    campaignData.prizeLinks ??
+    campaignData.linkPrize ??
+    0
+  );
   const entryPot = totalEntries * entryFee;
-  const totalPot = explicitPot > 0 ? explicitPot : entryPot;
 
-  const prizePotPercent = campaignData.prizePotPercent !== undefined ? Number(campaignData.prizePotPercent) : 65;
-  const distributablePot = explicitPot > 0 ? explicitPot : Math.floor(totalPot * (prizePotPercent / 100));
-
-  // Determine if exclusive champion cosmetic / banner should be awarded
+  // For special event campaigns like Turkey Day Gobbler, if free entry (entryFee=0) and explicit pot not set,
+  // provide a 1000 Links default prize pool so contestants receive their celebratory winnings!
   const isTurkeyCampaign = (typeof campaignData.name === 'string' && (campaignData.name.toLowerCase().includes('turkey') || campaignData.name.toLowerCase().includes('gobbler'))) ||
                            canonicalId.toLowerCase().includes('turkey') ||
                            canonicalId.toLowerCase().includes('gobbler') ||
                            campaignData.awardBannerId === 'banner_turkey_gobbler';
 
+  const defaultSpecialPot = (isTurkeyCampaign && explicitPot <= 0 && entryPot <= 0) ? 1000 : 0;
+  const totalPot = explicitPot > 0 ? explicitPot : (entryPot > 0 ? entryPot : defaultSpecialPot);
+
+  const prizePotPercent = campaignData.prizePotPercent !== undefined ? Number(campaignData.prizePotPercent) : 65;
+  const distributablePot = (explicitPot > 0 || defaultSpecialPot > 0) ? totalPot : Math.floor(totalPot * (prizePotPercent / 100));
+
+  // Determine if exclusive champion cosmetic / banner should be awarded
   const bannerToAward = campaignData.awardCosmeticId || campaignData.awardBannerId || (isTurkeyCampaign ? 'banner_turkey_gobbler' : null);
   const cosmeticTitle = campaignData.awardCosmeticName || (isTurkeyCampaign ? 'The Turkey Day Gobbler' : 'Exclusive Champion Cosmetic');
 
   // If no pot is distributable and no cosmetic to award, mark complete
   if (distributablePot <= 0 && !bannerToAward && !isYesDay) {
     await campaignRef.update({ payoutComplete: true, updatedAt: Date.now() });
-    return;
+    return { success: true, totalEntries, distributablePot: 0, winners: [] };
   }
 
   // 6. Calculate tier distributions handling ties
@@ -513,6 +527,8 @@ export async function payoutPickemCampaign(campaignId: string, options?: { force
     }
   }
 
+  const winnersSummary: Array<{ uid: string; username: string; placeName: string; amount: number; bannerAwarded?: string }> = [];
+
   // 7. Atomic transaction with READS FIRST then WRITES
   await adminDb.runTransaction(async (transaction: any) => {
     const freshCampDoc = await transaction.get(campaignRef);
@@ -537,22 +553,32 @@ export async function payoutPickemCampaign(campaignId: string, options?: { force
       const userData = userDoc.data();
       const currentLinks = userData.links || 0;
       const updatePayload: any = { links: currentLinks + item.amount };
+      const awardedBanner = (item.rank === '1st' && bannerToAward) ? bannerToAward : undefined;
 
       // Award exclusive champion cosmetic / banner for 1st place winners
-      if (item.rank === '1st' && bannerToAward) {
+      if (awardedBanner) {
         const currentInventory = userData.inventory || [];
-        if (!currentInventory.includes(bannerToAward)) {
-          updatePayload.inventory = [...currentInventory, bannerToAward];
+        if (!currentInventory.includes(awardedBanner)) {
+          updatePayload.inventory = [...currentInventory, awardedBanner];
         }
       }
 
       transaction.update(userRef, updatePayload);
 
+      const username = userData.username || userData.name || 'Unknown User';
+      winnersSummary.push({
+        uid: item.uid,
+        username,
+        placeName: item.placeName,
+        amount: item.amount,
+        bannerAwarded: awardedBanner
+      });
+
       if (item.amount > 0) {
         const logRef = adminDb.collection('linkTransactions').doc();
         transaction.set(logRef, {
           userId: item.uid,
-          username: userData.username || userData.name || 'Unknown User',
+          username,
           type: 'PICKEM_WIN',
           amount: item.amount,
           description: `Won ${item.placeName} in Pick 'Em Campaign: ${campaignData.name || canonicalId}`,
@@ -560,7 +586,7 @@ export async function payoutPickemCampaign(campaignId: string, options?: { force
         });
       }
 
-      const bannerAwardMsg = (item.rank === '1st' && bannerToAward)
+      const bannerAwardMsg = awardedBanner
         ? ` You have also been awarded the exclusive "${cosmeticTitle}" cosmetic!`
         : '';
       const amountMsg = item.amount > 0 ? ` ${item.amount} links have been added to your account.` : '';
@@ -579,21 +605,32 @@ export async function payoutPickemCampaign(campaignId: string, options?: { force
 
     transaction.update(campaignRef, { payoutComplete: true, updatedAt: now });
   });
+
+  return {
+    success: true,
+    totalEntries,
+    distributablePot,
+    winners: winnersSummary
+  };
 }
 
-export async function finalizePickemCampaign(campaignId: string, options?: { retentionDays?: number; distributePayouts?: boolean; forcePayout?: boolean }) {
+export async function finalizePickemCampaign(campaignId: string, options?: { retentionDays?: number; distributePayouts?: boolean; forcePayout?: boolean; customPrizePot?: number }) {
   const adminDb = getAdminDb();
-  if (!adminDb) return;
+  if (!adminDb) return { success: false, error: 'Database not initialized' };
+
+  // Resolve canonical campaign document ID to guarantee accurate doc updates even if alias/slug passed
+  const { canonicalId, campaignData } = await getCampaignAliases(campaignId);
 
   const retentionDays = (options?.retentionDays !== undefined && options.retentionDays >= 0)
     ? options.retentionDays
     : 3;
   const shouldDistributePayouts = options?.distributePayouts !== false;
   const forcePayout = options?.forcePayout === true;
+  const customPrizePot = options?.customPrizePot;
 
   // 1. Grade any remaining matchups and refresh the leaderboard
   try {
-    await generateAndSavePickemLeaderboard(campaignId);
+    await generateAndSavePickemLeaderboard(canonicalId);
   } catch (err) {
     console.warn(`[PickemGrader] Pre-finalization leaderboard generation error:`, err);
   }
@@ -601,9 +638,11 @@ export async function finalizePickemCampaign(campaignId: string, options?: { ret
   // 2. Distribute payouts if requested
   let payoutExecuted = false;
   let payoutError: string | null = null;
+  let payoutResult: any = null;
+
   if (shouldDistributePayouts) {
     try {
-      await payoutPickemCampaign(campaignId, { force: forcePayout });
+      payoutResult = await payoutPickemCampaign(canonicalId, { force: forcePayout, customPrizePot });
       payoutExecuted = true;
     } catch (err: any) {
       if (err.message && err.message.includes('Payout already completed')) {
@@ -615,8 +654,8 @@ export async function finalizePickemCampaign(campaignId: string, options?: { ret
     }
   }
 
-  // 3. Mark campaign ended, closed, and schedule archive
-  const campaignRef = adminDb.collection('pickemCampaigns').doc(campaignId);
+  // 3. Mark campaign ended, closed, and schedule archive using canonical doc ID
+  const campaignRef = adminDb.collection('pickemCampaigns').doc(canonicalId);
   const now = Date.now();
   const archiveAt = retentionDays > 0 ? now + (retentionDays * 24 * 60 * 60 * 1000) : now;
 
@@ -637,17 +676,20 @@ export async function finalizePickemCampaign(campaignId: string, options?: { ret
 
   // 4. Regenerate leaderboard to reflect final status
   try {
-    await generateAndSavePickemLeaderboard(campaignId);
+    await generateAndSavePickemLeaderboard(canonicalId);
   } catch (err) {
     console.warn(`[PickemGrader] Post-finalization leaderboard update error:`, err);
   }
 
   return {
     success: true,
+    canonicalId,
+    campaignName: campaignData?.name || canonicalId,
     isEnded: true,
     archiveAt,
     retentionDays,
     payoutExecuted,
-    payoutError
+    payoutError,
+    payoutResult
   };
 }

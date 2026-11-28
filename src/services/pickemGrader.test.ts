@@ -635,6 +635,9 @@ describe('pickemGrader - payoutPickemCampaign & finalizePickemCampaign', () => {
           where: () => ({ get: async () => ({ docs: [] }) }),
         };
       },
+      getAll: async (...refs: any[]) => {
+        return Promise.all(refs.map(r => r.get()));
+      },
       runTransaction: async (cb: any) => {
         const tx = {
           get: async (ref: any) => ref.get(),
@@ -794,6 +797,77 @@ describe('pickemGrader - payoutPickemCampaign & finalizePickemCampaign', () => {
     expect(users['third_user'].inventory).not.toContain('banner_turkey_gobbler');
 
     expect(linkTransactions).toHaveLength(3);
+  });
+
+  it('uses default 1000 Links pot for free Turkey Day campaign when pot not explicitly set', async () => {
+    const { mockDb, users, linkTransactions } = createPayoutMockDb({
+      campaignDocs: {
+        turkey_day_free: {
+          name: 'Turkey Day Special Pick Em',
+          entryFee: 0,
+          payoutComplete: false,
+        },
+      },
+      leaderboardDocs: {
+        turkey_day_free: {
+          campaignId: 'turkey_day_free',
+          season: [
+            { uid: 'turkey_champ', points: 18, rank: 1 },
+            { uid: 'turkey_runner_up', points: 15, rank: 2 },
+            { uid: 'turkey_bronze', points: 12, rank: 3 },
+          ],
+        },
+      },
+      users: {
+        turkey_champ: { username: 'GobbleGobble', links: 0, inventory: [] },
+        turkey_runner_up: { username: 'StuffingFan', links: 0, inventory: [] },
+        turkey_bronze: { username: 'CranberrySauce', links: 0, inventory: [] },
+      },
+    });
+
+    setAdminDbMock(mockDb);
+    const result = await payoutPickemCampaign('turkey_day_free');
+
+    expect(result?.distributablePot).toBe(1000);
+    // 70% of 1000 = 700 Links
+    expect(users['turkey_champ'].links).toBe(700);
+    // 20% of 1000 = 200 Links
+    expect(users['turkey_runner_up'].links).toBe(200);
+    // 10% of 1000 = 100 Links
+    expect(users['turkey_bronze'].links).toBe(100);
+    expect(users['turkey_champ'].inventory).toContain('banner_turkey_gobbler');
+    expect(linkTransactions).toHaveLength(3);
+  });
+
+  it('allows overriding prize pot using customPrizePot option in finalizePickemCampaign', async () => {
+    const { mockDb, users, linkTransactions } = createPayoutMockDb({
+      campaignDocs: {
+        custom_pot_camp: {
+          name: 'Weekend Showdown',
+          entryFee: 0,
+          payoutComplete: false,
+        },
+      },
+      participants: [
+        { id: 'part_1', data: { campaignId: 'custom_pot_camp', participantId: 'player_one', points: 10 } },
+      ],
+      users: {
+        player_one: { username: 'PlayerOne', links: 50, inventory: [] },
+      },
+    });
+
+    setAdminDbMock(mockDb);
+    const result = await finalizePickemCampaign('custom_pot_camp', {
+      forcePayout: true,
+      customPrizePot: 2000,
+    });
+
+    expect(result?.payoutExecuted).toBe(true);
+    expect(result?.payoutResult?.distributablePot).toBe(2000);
+    // 70% of 2000 = 1400 Links
+    expect(users['player_one'].links).toBe(50 + 1400);
+    expect(linkTransactions).toHaveLength(1);
+    expect(linkTransactions[0].amount).toBe(1400);
   });
 });
 
